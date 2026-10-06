@@ -92,3 +92,8 @@
 /* 칩은 보이는 36 · 누르는 영역 44 */
 #page-home .chip,#page-campaigns .chip{position:relative}
 #page-home .chip::after,#page-campaigns .chip::after{content:'';position:absolute;inset:-4px 0}
+/* 조각 4 — 응모이력 + 마이페이지 폼 6종 + 창 셋. 🔴 #page-mypage 로 걸지 않는다 — 탈퇴 화면(조각 5)이 같은 화면 안에 있다 */
+#mypage-sub-applications,#mypage-sub-profile-basic,#mypage-sub-profile-sns,#mypage-sub-profile-address,#mypage-sub-paypal,#mypage-sub-password,#mypage-sub-email-settings,#cautionCompareModal,#applyActionModal,#cancelDetailModal{font-size:var(--fs-body)}
+#mypage-sub-applications .btn,#mypage-sub-profile-basic .btn,#mypage-sub-profile-sns .btn,#mypage-sub-profile-address .btn,#mypage-sub-paypal .btn,#mypage-sub-password .btn,#mypage-sub-email-settings .btn,#cautionCompareModal .btn,#applyActionModal .btn,#cancelDetailModal .btn{min-height:var(--tap-min)}
+#mypage-sub-applications .mypage-sub-title,#mypage-sub-profile-basic .mypage-sub-title,#mypage-sub-profile-sns .mypage-sub-title,#mypage-sub-profile-address .mypage-sub-title,#mypage-sub-paypal .mypage-sub-title,#mypage-sub-password .mypage-sub-title,#mypage-sub-email-settings .mypage-sub-title{font-size:var(--fs-subtitle)}
+#mypage-sub-applications .badge{font-size:var(--fs-caption)}

@@ -1113,24 +1113,24 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
 .apply-thumb img{width:100%;height:100%;object-fit:cover}
 .apply-item-info{flex:1;min-width:0}
-.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px}
-.apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
+.apply-item-name{font-size:var(--fs-body);font-weight:700;margin-bottom:2px}
+.apply-item-meta{font-size:var(--fs-caption);color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 
 /* メール受信設定 — 토글 카드 + 업무 알림 안내 박스 */
-.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r8);padding:16px;margin-bottom:16px}
+.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:16px;margin-bottom:16px}
 .email-setting-info{flex:1;min-width:0}
-.email-setting-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
-.email-setting-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-setting-title{font-size:var(--fs-body);font-weight:700;color:var(--ink);margin-bottom:4px}
+.email-setting-desc{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.6}
 .email-switch{position:relative;display:inline-block;width:48px;height:28px;flex-shrink:0}
 .email-switch input{opacity:0;width:0;height:0}
 .email-switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--outline);border-radius:28px;transition:.2s}
 .email-switch .slider::before{content:"";position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
 .email-switch input:checked + .slider{background:var(--primary)}
 .email-switch input:checked + .slider::before{transform:translateX(20px)}
-.email-tx-box{background:var(--surface-dim);border-radius:var(--r8);padding:14px}
-.email-tx-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
-.email-tx-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-tx-box{background:var(--surface-dim);border-radius:var(--r12);padding:14px}
+.email-tx-title{font-size:var(--fs-desc);font-weight:700;color:var(--ink);margin-bottom:6px}
+.email-tx-desc{font-size:var(--fs-desc);color:var(--on-surface-variant);line-height:1.6}
 
 /* 언어 토글 */
 .lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
@@ -1140,9 +1140,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 /* ── 응모이력 메시지 버튼/배지 ── */
 .apply-item-actions{display:flex;align-items:center;gap:2px}
-.apply-msg-btn{position:relative;min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
+.apply-msg-btn{position:relative;min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
 .apply-msg-btn:hover{background:var(--surface-dim)}
-.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
+.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:var(--fs-caption);font-weight:700;line-height:16px;text-align:center;border-radius:8px}
 
 /* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
 /* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
@@ -1340,6 +1340,64 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   응모이력 + 마이페이지 폼 — 회원 앱 스타일 통일 조각 4
+   ══════════════════════════════════════════════════════════════════ */
+.mp-filter-row{display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap}
+.mp-filter-row .form-input{padding:8px 32px 8px 10px;border-radius:var(--r8);width:auto;flex:1;min-width:110px}
+.mp-status-select{padding:8px 30px 8px 12px;font-weight:600;border-radius:var(--r8);width:auto;max-width:55%}
+.mp-hint{font-size:var(--fs-desc);color:var(--muted);line-height:1.6;margin-bottom:18px}
+.mp-caption{font-size:var(--fs-caption);color:var(--muted);line-height:1.5}
+.mp-note{background:var(--light-pink);border-radius:var(--r8);padding:10px 14px;font-size:var(--fs-desc);color:var(--dark-pink);margin-bottom:14px;line-height:1.6}
+.mp-note .material-icons-round{font-size:16px;vertical-align:-3px}
+.mp-at{position:relative}
+.mp-at > span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:var(--fs-body)}
+.mp-at .form-input{padding-left:28px}
+.mp-zip-row{display:flex;gap:8px}
+.mp-zip-row .form-input{flex:1}
+.mp-zip-row .btn{white-space:nowrap}
+/* 응모이력 카드 안 */
+.apply-card-menu-btn{min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:50%;cursor:pointer;color:var(--muted)}
+.apply-card-menu-btn .material-icons-round{font-size:24px}
+.apply-msg-btn .material-icons-round{font-size:22px}
+.apply-item-kicker{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:2px}
+.apply-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.apply-item-sub{font-size:var(--fs-caption);color:var(--muted);margin-top:2px}
+.apply-item-caution{font-size:var(--fs-caption);color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap}
+.apply-item-caution .material-icons-round{font-size:14px}
+.apply-item-badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.mp-dbadge{display:inline-block;font-size:var(--fs-caption);font-weight:700;padding:2px 8px;border-radius:4px;background:#FFF4E4;color:#B8741A}
+.mp-dbadge.ok{background:var(--green-l);color:var(--green)}
+.mp-dbadge.ng{background:var(--red-l);color:var(--red-d)}
+/* 미제출 — 검수중(옅은 주황)과 나란히 놓여도 갈리게 진하게 + 테두리. 반려(빨강)와도 다르다 */
+.mp-dbadge.draft{background:#FFE0B2;color:#8A3B00;border:1px solid #E8912D}
+.mp-compare-btn{position:relative;background:var(--red-l);color:var(--red-d);border:1px solid #FECACA;border-radius:var(--r-full);font-size:var(--fs-caption);font-weight:600;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:inherit}
+.mp-compare-btn::after{content:'';position:absolute;inset:-12px -2px}
+.mp-compare-btn .material-icons-round{font-size:13px}
+.mp-empty-action{text-align:center;margin-top:-24px;padding-bottom:24px}
+/* 주의사항 비교 창 안 */
+.mp-compare{display:flex;flex-direction:column;gap:14px}
+.mp-compare-box{border:1px solid;border-radius:var(--r8);padding:12px 14px}
+.mp-compare-box.agreed{border-color:#BBF7D0;background:var(--green-l)}
+.mp-compare-box.now{border-color:#FECACA;background:var(--red-l)}
+.mp-compare-head{font-size:var(--fs-caption);font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.mp-compare-box.agreed .mp-compare-head{color:var(--green)}
+.mp-compare-box.now .mp-compare-head{color:var(--red-d)}
+.mp-compare-head .material-icons-round{font-size:14px}
+.mp-compare-box ul{margin:0;padding-left:18px;font-size:var(--fs-desc);line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.mp-compare-note{font-size:var(--fs-caption);color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:var(--r8);padding:10px 12px}
+/* 응모이력 ⋮ 동작 선택 창 */
+.mp-action-row{width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left;font-family:inherit}
+.mp-action-row .material-icons-round{font-size:26px;flex-shrink:0;color:var(--pink)}
+.mp-action-row.danger .material-icons-round{color:var(--red)}
+.mp-action-text{flex:1;min-width:0}
+.mp-action-title{display:block;font-size:var(--fs-body);font-weight:700;color:var(--ink)}
+.mp-action-hint{display:block;font-size:var(--fs-caption);color:var(--muted);margin-top:3px;line-height:1.5}
+/* 취소 상세 창 */
+.mp-dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start;font-size:var(--fs-desc);color:var(--ink);line-height:1.8}
+.mp-dl dt,.mp-dl .k{color:var(--muted);font-weight:600}
+
+
+/* ══════════════════════════════════════════════════════════════════
    회원 앱 공용 부품 — 회원 앱 전용 (사양서 docs/specs/2026-09-29-member-app-style-unification.md)
    🔴 이 파일은 회원 빌드(CLIENT_CSS_FILES)의 **맨 끝**에만 붙는다. 관리자 빌드에는 없다.
       base.css·components.css 는 관리자와 공유라 거기 값을 고치면 관리자 화면이 같이 바뀐다 —
@@ -1433,6 +1491,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* 칩은 보이는 36 · 누르는 영역 44 */
 #page-home .chip,#page-campaigns .chip{position:relative}
 #page-home .chip::after,#page-campaigns .chip::after{content:'';position:absolute;inset:-4px 0}
+/* 조각 4 — 응모이력 + 마이페이지 폼 6종 + 창 셋. 🔴 #page-mypage 로 걸지 않는다 — 탈퇴 화면(조각 5)이 같은 화면 안에 있다 */
+#mypage-sub-applications,#mypage-sub-profile-basic,#mypage-sub-profile-sns,#mypage-sub-profile-address,#mypage-sub-paypal,#mypage-sub-password,#mypage-sub-email-settings,#cautionCompareModal,#applyActionModal,#cancelDetailModal{font-size:var(--fs-body)}
+#mypage-sub-applications .btn,#mypage-sub-profile-basic .btn,#mypage-sub-profile-sns .btn,#mypage-sub-profile-address .btn,#mypage-sub-paypal .btn,#mypage-sub-password .btn,#mypage-sub-email-settings .btn,#cautionCompareModal .btn,#applyActionModal .btn,#cancelDetailModal .btn{min-height:var(--tap-min)}
+#mypage-sub-applications .mypage-sub-title,#mypage-sub-profile-basic .mypage-sub-title,#mypage-sub-profile-sns .mypage-sub-title,#mypage-sub-profile-address .mypage-sub-title,#mypage-sub-paypal .mypage-sub-title,#mypage-sub-password .mypage-sub-title,#mypage-sub-email-settings .mypage-sub-title{font-size:var(--fs-subtitle)}
+#mypage-sub-applications .badge{font-size:var(--fs-caption)}
 
 </style>
 </head>
@@ -1556,40 +1619,37 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <!-- 주의사항 비교 모달 (Phase 2 — 인플루언서 응모이력) — 동의 시점 vs 현재 캠페인 문구 비교 -->
 <div class="modal-overlay" id="cautionCompareModal" style="z-index:610">
-  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:85vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
-      <button onclick="closeModal('cautionCompareModal')" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cautionCompareTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cautionCompareTitle" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
+      <button type="button" class="popup-close" onclick="closeModal('cautionCompareModal')" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" id="cautionCompareModalBody" style="padding:18px 20px;overflow-y:auto;flex:1"></div>
+    <div class="popup-body" id="cautionCompareModalBody"></div>
   </div>
 </div>
 
 <!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
 <div class="modal-overlay" id="applyActionModal" style="z-index:613">
-  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
-      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="applyActionTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="applyActionTitle" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button type="button" class="popup-close" onclick="closeApplyActionModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
-      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
-          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+    <div class="popup-body">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row mp-action-row">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">upload_file</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" class="mp-action-hint"></span>
         </span>
       </button>
-      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
-          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row mp-action-row danger">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">cancel</span>
+        <span class="mp-action-text">
+          <span class="mp-action-title" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" class="mp-action-hint" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
         </span>
       </button>
-      <div style="text-align:center;margin-top:4px">
-        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
-      </div>
     </div>
   </div>
 </div>
@@ -1598,27 +1658,25 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
 <!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
 <div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
-  <div class="modal" style="max-width:400px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
-      <button onclick="closeCancelDetailModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cancelDetailTitle">
+    <div class="popup-head">
+      <div class="popup-title" id="cancelDetailTitle" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
+      <button type="button" class="popup-close" onclick="closeCancelDetailModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span></button>
     </div>
-    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink);line-height:1.8">
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start">
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
+    <div class="popup-body">
+      <div class="mp-dl">
+        <div class="k" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
         <div id="cancelDetailDatetime"></div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
         <div id="cancelDetailCategory"></div>
         <div id="cancelDetailNoteRow" style="display:contents">
-          <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.note">補足</div>
+          <div class="k" data-i18n="appHistory.cancelDetail.note">補足</div>
           <div id="cancelDetailNote" style="white-space:pre-wrap"></div>
         </div>
-        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
+        <div class="k" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
         <div id="cancelDetailPhase"></div>
       </div>
-      <div style="margin-top:16px;text-align:center">
-        <button class="btn btn-ghost" onclick="closeCancelDetailModal()" data-i18n="appHistory.cancelDetail.closeBtn">閉じる</button>
-      </div>
+
     </div>
   </div>
 </div>
@@ -2432,20 +2490,20 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header" style="justify-content:space-between">
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
-      <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
+      <select id="myApplyStatusSelect" class="form-input mp-status-select" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
-        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
+      <div class="mp-filter-row">
+        <select id="myApplyCampStatus" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
           <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
           <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
-        <select id="myApplyChannel" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplyChannel" class="form-input" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.allChannels">全チャンネル</option>
         </select>
-        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+        <select id="myApplySort" class="form-input" onchange="renderMyApplyList()">
           <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
           <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
@@ -2473,7 +2531,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
             <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
+        <div class="mp-caption" style="margin-top:-6px;margin-bottom:10px" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="" data-i18n="common.select">選択してください</option>
@@ -2507,26 +2565,26 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
           </select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
+          <div class="mp-caption" style="margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
         </div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileIg" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">Instagram Followers</label><input type="number" id="profileIgFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">X(Twitter) ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileX" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">X Followers</label><input type="number" id="profileXFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">TikTok ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileTiktok" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">TikTok Followers</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">YouTube ID</label>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
-          <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
+          <div class="mp-at"><span aria-hidden="true">@</span>
+          <input type="text" id="profileYoutube" class="form-input"></div>
         </div>
         <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px" data-i18n="common.save">保存する</button>
@@ -2542,9 +2600,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.zip">郵便番号</label>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
-            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:12px" data-i18n="profile.zipSearch">住所検索</button>
+          <div class="mp-zip-row">
+            <input type="text" id="profileZip" class="form-input" placeholder="123-4567">
+            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" data-i18n="profile.zipSearch">住所検索</button>
           </div>
         </div>
         <div class="form-group"><label class="form-label" data-i18n="profile.prefecture">都道府県</label>
@@ -2568,12 +2626,12 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div class="mp-hint" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalEmail">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" data-i18n-attr="placeholder:profile.paypalConfirmPlaceholder" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
+        <div class="mp-note">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span> <span data-i18n-html="profile.paypalBusinessRequired">報酬の受け取りには、PayPalの「ビジネスアカウント」が必要です。<br>1. 個人アカウントの方も、作り直す必要はありません。PayPalの「設定」から切り替えられます。切り替えのときに、お仕事の内容などを入力する画面が出ることがあります。<br>2. 切り替えたあと、本人確認（ほんにんかくにん）をすませてください。</span>
         </div>
         <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
@@ -2587,7 +2645,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
+        <div class="mp-hint" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.currentPw">現在のパスワード</label>
           <div class="pw-wrap">
             <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード" data-i18n-attr="placeholder:profile.currentPw">
@@ -2609,7 +2667,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
             </div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
+        <div class="pw-policy mp-caption" style="margin-top:-8px;margin-bottom:12px" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
@@ -21617,17 +21675,19 @@ async function renderMyApplyList() {
     //   all      = 응모 자체 없음 → 홈으로 유도
     //   active2  = 진행중인 응모만 없음(과거 응모는 있을 수 있음) → 「전체 보기」로 유도
     //   그 외 단일 상태 = 해당 상태 응모 없음
-    let emptyText, emptyExtra = '';
+    let emptyText, emptySub = '', emptyBtn = '';
     if (_myAppsTab === 'all') {
       emptyText = t('appHistory.emptyAll');
-      emptyExtra = `<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`;
+      emptySub = t('appHistory.emptySub');
+      emptyBtn = `<button type="button" class="btn btn-primary" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`;
     } else if (_myAppsTab === 'active2') {
       emptyText = t('appHistory.emptyInProgress');
-      emptyExtra = `<button class="btn btn-primary" style="margin-top:16px" onclick="_myAppsTab='all';renderMyApplyTabs();renderMyApplyList()">${t('appHistory.showAll')}</button>`;
+      emptyBtn = `<button type="button" class="btn btn-primary" onclick="_myAppsTab='all';renderMyApplyTabs();renderMyApplyList()">${t('appHistory.showAll')}</button>`;
     } else {
       emptyText = t('appHistory.emptyFiltered');
     }
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${emptyText}</div>${emptyExtra}</div>`;
+    container.innerHTML = stateEmptyHtml('assignment', emptyText, emptySub)
+      + (emptyBtn ? `<div class="mp-empty-action">${emptyBtn}</div>` : '');
     return;
   }
   container.innerHTML = filtered.map(a => {
@@ -21635,7 +21695,7 @@ async function renderMyApplyList() {
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
       ? `<img src="${esc(storageThumbUrl(imgs[0]))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
-      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
+      : `<span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="color:var(--muted)">inventory_2</span>`;
     // 카드 클릭 동선:
     //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
     //   - approved: 활동관리 페이지 (단, cancelled 였다가 재진입이라면 사양 §4-8에 따라 차단)
@@ -21653,11 +21713,11 @@ async function renderMyApplyList() {
     //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">more_vert</span></button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
-      ? `<div class="apply-item-cancelled-at" style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
+      ? `<div class="apply-item-cancelled-at apply-item-sub">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
       : '';
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
@@ -21685,22 +21745,22 @@ async function renderMyApplyList() {
         //   이제 응모이력에서도 보이게 한다. 거르는 줄을 다시 넣으면 그 사람은 또 못 본다.
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
-        let bg = '#FFF4E4', color = '#B8741A', extra = '';
+        let cls = '';
         // 미제출은 눈에 띄되 반려(빨강)와는 구분되는 색 — 잘못한 게 아니라 아직 안 낸 것이다
         // ⚠️ 검수중(#FFF4E4/#B8741A)과 나란히 놓이는 자리다. 옅은 주황끼리는
         //   구분이 안 돼(2026-08-25 브라우저 확인) 테두리를 넣고 색을 진하게 한다.
         //   반려(빨강)와도 갈려야 한다 — 잘못한 게 아니라 아직 안 낸 것이다.
-        if (d.status === 'draft') { bg = '#FFE0B2'; color = '#8A3B00'; extra = 'border:1px solid #E8912D;'; }
-        else if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
-        else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
-        items.push(`<span style="display:inline-block;${extra}background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+        if (d.status === 'draft') cls = ' draft';
+        else if (d.status === 'approved') cls = ' ok';
+        else if (d.status === 'rejected') cls = ' ng';
+        items.push(`<span class="mp-dbadge${cls}">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       delivItemsHtml = items.join('');
     }
     // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
-    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
+    const badgeRow = `<div class="apply-item-badges">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
-      ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
+      ? `<div class="apply-item-caution"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
@@ -21708,20 +21768,20 @@ async function renderMyApplyList() {
     //   티켓 id 는 응모 이력에 없으므로 캠페인만 넘기고, 티켓 화면이 내 예약 중에서 찾는다.
     const ticketBtn = (typeof isEventCampaign === 'function' && isEventCampaign(camp)
                        && a.status !== 'cancelled')
-      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">confirmation_number</span></button>`
+      ? `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openTicketForCampaign('${a.campaign_id}')" aria-label="${esc(t('event.ticketMenu'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">confirmation_number</span></button>`
       : '';
-    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
-        ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
+        ${camp.recruit_type ? `<div class="apply-item-kicker">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span class="apply-item-title">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(brandLabelInflu(camp))} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
         ${cancelledLine}
         ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${ticketBtn}${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions">${ticketBtn}${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }
@@ -21771,7 +21831,7 @@ function cautionCompareButton(app, camp) {
   if (JSON.stringify(snapItems) === JSON.stringify(currItems)) return '';  // 동일 → 토글 미노출
   _cautionCompareCache[app.id] = { snap: snapItems, curr: currItems, agreedAt: app.caution_agreed_at };
   // event.stopPropagation 으로 카드 onclick 차단
-  return ` <button type="button" onclick="event.stopPropagation();openCautionCompareModal('${esc(app.id)}')" style="background:#FFEFEF;color:#B3261E;border:1px solid #f5b1b1;border-radius:10px;font-size:10px;font-weight:600;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:12px">compare_arrows</span>${t('mypage.caution.compareToggle')}</button>`;
+  return ` <button type="button" class="mp-compare-btn" onclick="event.stopPropagation();openCautionCompareModal('${esc(app.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">compare_arrows</span>${t('mypage.caution.compareToggle')}</button>`;
 }
 
 function openCautionCompareModal(appId) {
@@ -21780,7 +21840,7 @@ function openCautionCompareModal(appId) {
   if (!body) return;
   const safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
   if (!cached) {
-    body.innerHTML = `<div style="padding:24px 0;color:var(--muted);font-size:13px;text-align:center">${t('mypage.caution.empty')}</div>`;
+    body.innerHTML = stateEmptyHtml('', '', t('mypage.caution.empty'));
     openModal('cautionCompareModal');
     return;
   }
@@ -21792,16 +21852,16 @@ function openCautionCompareModal(appId) {
     return arr.map(it => `<li>${safe(pickHtml(it))}</li>`).join('');
   };
   body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="border:1px solid #d1e7d3;border-radius:10px;background:#f3faf4;padding:12px 14px">
-        <div style="font-size:11px;font-weight:700;color:#1f7a1f;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('mypage.caution.agreedAt')} ${esc(agreedLabel)}</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.snap)}</ul>
+    <div class="mp-compare">
+      <div class="mp-compare-box agreed">
+        <div class="mp-compare-head"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_circle</span>${t('mypage.caution.agreedAt')} ${esc(agreedLabel)}</div>
+        <ul>${renderList(cached.snap)}</ul>
       </div>
-      <div style="border:1px solid #f5b1b1;border-radius:10px;background:#fff5f5;padding:12px 14px">
-        <div style="font-size:11px;font-weight:700;color:#B3261E;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">campaign</span>${t('mypage.caution.currentNow')}</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.curr)}</ul>
+      <div class="mp-compare-box now">
+        <div class="mp-compare-head"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">campaign</span>${t('mypage.caution.currentNow')}</div>
+        <ul>${renderList(cached.curr)}</ul>
       </div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:8px;padding:10px 12px">${t('mypage.caution.diffNote')}</div>
+      <div class="mp-compare-note">${t('mypage.caution.diffNote')}</div>
     </div>
   `;
   openModal('cautionCompareModal');
