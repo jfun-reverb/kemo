@@ -5348,6 +5348,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
   //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화
   /new_message_since_view|open_thread_exists|no_open_thread|thread_closed|thread_not_found/,
+  // 같은 기능의 개정(마이그레이션 508) — 새 문의 제목 없음 · 제목 40자 초과 · 열린 문의 상한 · 운영팀 발신에 대화 지정 필요
+  /title_required|title_too_long|too_many_open_threads|thread_required/,
   /모집 정원|slots_full|under_age|age_policy/,
   // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
   /uidx_applications_user_campaign|applications_user_camp_active_uidx/,
@@ -12751,17 +12753,25 @@ async function fetchGeneralInquiryMessages(influencerId = null, threadId = null)
 
 // 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
 //   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
-//   threadId: 회원은 참고값(서버가 열린 대화·24시간 안 닫힌 대화·새 대화를 정한다), 운영팀은 그 대화로.
-//   반환 `{ message_id, thread_id }` — 첫 글이면 새 대화 id 가 여기로 온다(505).
-async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null, threadId = null) {
+//   threadId: 그 대화로(508 — 회원도 따른다. 닫힌 지 24시간 안이면 다시 열고, 지났으면 thread_closed).
+//   새 문의는 threadId 없이 title + clientToken(화면이 만든 난수 — 같은 값으로 다시 보내면 같은 대화).
+//   거부 코드: title_required · title_too_long · too_many_open_threads · thread_closed · thread_not_found ·
+//             (운영팀) no_open_thread · thread_required — 화면이 문구로 바꾼다.
+//   반환 `{ message_id, thread_id }` — 새 문의면 새 대화 id 가 여기로 온다.
+//   ⚠️ 인자 순서를 바꾸지 않는다 — 옛 호출이 위치로 넘긴다. 제목·토큰은 값이 있을 때만 보낸다
+//      (508 전 서버의 4인자 함수에도 그대로 맞도록).
+async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null, threadId = null, title = null, clientToken = null) {
   if (!db) throw new Error('DB 미연결');
+  const params = {
+    p_influencer_id: influencerId,
+    p_body: body || '',
+    p_attachments: attachments,
+    p_thread_id: threadId,
+  };
+  if (title != null) params.p_title = title;
+  if (clientToken != null) params.p_client_token = clientToken;
   return await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('send_general_inquiry_message', {
-      p_influencer_id: influencerId,
-      p_body: body || '',
-      p_attachments: attachments,
-      p_thread_id: threadId,
-    });
+    const {data, error} = await db.rpc('send_general_inquiry_message', params);
     if (error) throw error;
     return Array.isArray(data) ? (data[0] || null) : (data || null);
   });
@@ -13054,11 +13064,21 @@ async function closeGeneralInquiryThread(threadId, seenLastMessageId = null) {
   });
 }
 
-// 대화 다시 열기. 실패는 예외 — 거부 코드 open_thread_exists · thread_not_found.
+// 대화 다시 열기(운영팀). 실패는 예외 — 거부 코드 thread_not_found(508 부터 다른 열린 대화가 있어도 열린다).
 async function reopenGeneralInquiryThread(threadId) {
   if (!db) throw new Error('DB 미연결');
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('reopen_general_inquiry_thread', { p_thread_id: threadId });
+    if (error) throw error;
+  });
+}
+
+// 대화 제목 고치기(운영팀만, 508). 앞뒤 공백은 서버가 뗀다 · 빈 값이면 제목·번역을 비운다 ·
+//   바뀌면 번역 대기로 돌아가 번역 함수가 다시 번역한다. 실패는 예외 — title_too_long · thread_not_found.
+async function updateGeneralInquiryThreadTitle(threadId, title) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_general_inquiry_thread_title', { p_thread_id: threadId, p_title: title ?? '' });
     if (error) throw error;
   });
 }

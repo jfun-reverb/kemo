@@ -2399,6 +2399,8 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
   //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화
   /new_message_since_view|open_thread_exists|no_open_thread|thread_closed|thread_not_found/,
+  // 같은 기능의 개정(마이그레이션 508) — 새 문의 제목 없음 · 제목 40자 초과 · 열린 문의 상한 · 운영팀 발신에 대화 지정 필요
+  /title_required|title_too_long|too_many_open_threads|thread_required/,
   /모집 정원|slots_full|under_age|age_policy/,
   // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
   /uidx_applications_user_campaign|applications_user_camp_active_uidx/,
