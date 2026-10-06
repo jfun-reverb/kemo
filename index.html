@@ -8945,7 +8945,7 @@ async function fetchStalledDraftDetails() {
     const rows = [];
     for (let from = 0; ; from += 1000) {
       const {data, error} = await db.from('deliverables')
-        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand)')
+        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, applications:application_id (id, status, campaign_id, user_id), campaigns:campaign_id (id, campaign_no, title, brand)')
         .eq('status', 'draft').order('updated_at', {ascending: false}).order('id').range(from, from + 999);
       if (error) throw error;
       rows.push(...(data || []));
