@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791248772';
+  var CURRENT_BUILD = 'v1791249454';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -221,7 +221,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
 .pw-toggle:hover{color:var(--on-surface)}
 .form-error{font-size:12px;color:#B3261E;margin-top:4px}
-/* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 마이페이지는 반쪽 폭이라 줄바꿈 허용 */
+/* 흔한 비밀번호 경고 줄 — 막지 않는 안내라 노란 톤(오류 빨강과 구분). 긴 문구가 칸 폭에서 줄바꿈되게 */
 .pw-common-warn{font-size:12px;line-height:1.5;color:#7A5200;background:#FFF6D6;border-radius:8px;padding:6px 10px;margin-top:6px;word-break:break-word}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
 /* 마이페이지는 줄 안의 칸이 위아래로 쌓이고 칸마다 아래 여백이 있어, 줄 간격까지 더하면 그 사이만 넓어진다 */
@@ -3292,7 +3292,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-06 10:06 · 6317f49</span>
+          <span class="admin-build-text">2026-10-06 10:17 · 5d8d3ca</span>
         </div>
       </div>
     </aside>
@@ -9911,8 +9911,8 @@ const META_PIXEL_REG_STATUS = {
 const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '지금은 보내지 않음 (확인 링크로 이메일 확인을 끝내도 보내지 않음 — 가입 1명당 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했지만 이메일 확인 전일 때 (인증번호 없이 지나간 옛 흐름 가입)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 (확인 링크로 이메일 확인을 끝낼 때는 보내지 않음 — 1인 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
@@ -14757,6 +14757,44 @@ async function isEmailWithdrawalBlocked(email) {
     console.error('[isEmailWithdrawalBlocked]', e); logAppError('isEmailWithdrawalBlocked', e);
     return null;   // 못 물어봤다 — 부르는 쪽이 막지 않는다
   }
+}
+
+// 가입 이메일 인증번호 — 서버 함수 두 개(signup-code-send · signup-code-verify, 마이그레이션 495)를 부른다.
+//   사양서 docs/specs/2026-10-01-signup-email-code-verification.md 설계 ①·③.
+//   🔴 **통신 실패는 null**, 서버가 답한 거부는 객체 — 화면이 둘을 다른 문구로 그린다.
+//   ⚠️ 서버 함수는 오류 응답(500 등)도 JSON 본문을 준다 → invoke 가 error 로 돌려도 본문을 먼저 읽는다.
+//   ⚠️ 시각(만료·재발송 가능)은 **서버가 준 값만** 쓴다 — 화면에 유효 시간 숫자를 두지 않는다(완료 기준 4-2).
+async function _invokeSignupCodeFn(name, body) {
+  if (!db?.functions) return null;
+  try {
+    const {data, error} = await db.functions.invoke(name, { body });
+    if (!error) return data && typeof data === 'object' ? data : null;
+    try {
+      const j = await error.context?.json?.();
+      if (j && typeof j === 'object') return j;
+    } catch(_) { /* 본문이 JSON 이 아니면 통신 실패로 본다 */ }
+    logAppError(name, error);
+    return null;
+  } catch(e) {
+    logAppError(name, e);
+    return null;
+  }
+}
+// → { status:'sent'|'rate_limited', codeExpiresAt, resendAvailableAt } · { error:'invalid_email'|'send_failed'|'server_error' } · null
+async function requestSignupCode(email) {
+  const r = await _invokeSignupCodeFn('signup-code-send', { email });
+  if (!r) return null;
+  if (r.ok === false) return { error: r.error || 'server_error' };
+  // dev_mail — 개발서버 전용(서버·화면 두 겹 잠금). 운영 화면에서는 받아도 쓰지 않는다
+  const devMail = (typeof IS_STAGING !== 'undefined' && IS_STAGING && r.dev_mail && typeof r.dev_mail.html === 'string') ? r.dev_mail : null;
+  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null, devMail };
+}
+// → { ok:true, ticket, ticketExpiresAt } · { ok:false, reason, attemptsLeft } · null
+async function verifySignupCode(email, code) {
+  const r = await _invokeSignupCodeFn('signup-code-verify', { email, code });
+  if (!r) return null;
+  if (r.ok === true) return { ok: true, ticket: r.ticket, ticketExpiresAt: r.ticket_expires_at };
+  return { ok: false, reason: r.reason || 'server_error', attemptsLeft: (typeof r.attempts_left === 'number') ? r.attempts_left : null };
 }
 
 // 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).

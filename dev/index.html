@@ -982,7 +982,31 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-group">
           <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span style="color:var(--red)">*</span></label>
-          <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
+          <!-- 가입 인증번호(사양서 2026-10-01 설계 ③) — 번호를 확인해야 「登録する」가 켜진다 -->
+          <div class="signup-email-row">
+            <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required autocomplete="email" oninput="onSignupEmailInput()">
+            <button type="button" class="btn btn-outline signup-email-btn" id="signupEmailVerifyBtn" onclick="requestSignupCodeFromForm()" data-i18n="auth.signup.code.verifyBtn">認証する</button>
+            <button type="button" class="btn btn-ghost signup-email-btn" id="signupEmailChangeBtn" onclick="resetSignupEmailVerification(true)" style="display:none" data-i18n="auth.signup.code.changeBtn">変更</button>
+          </div>
+          <div id="signupEmailVerified" class="signup-email-verified" style="display:none">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_circle</span>
+            <span data-i18n="auth.signup.code.verified">認証済み</span>
+          </div>
+          <div id="signupCodeArea" class="signup-code-area" style="display:none">
+            <div class="signup-code-row">
+              <input type="text" id="signupCodeInput" class="form-input signup-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="6けたの数字" data-i18n-attr="placeholder:auth.signup.code.placeholder" oninput="onSignupCodeInput()">
+              <button type="button" class="btn btn-primary signup-email-btn" id="signupCodeConfirmBtn" onclick="verifySignupCodeFromForm()" disabled data-i18n="auth.signup.code.confirmBtn">確認</button>
+            </div>
+            <div class="signup-code-sub">
+              <span id="signupCodeTimer" class="signup-code-timer" aria-live="polite"></span>
+              <button type="button" class="btn btn-ghost signup-code-resend" id="signupCodeResendBtn" onclick="requestSignupCodeFromForm(true)" disabled data-i18n="auth.signup.code.resendBtn">再送信</button>
+            </div>
+            <!-- 출구 안내(사양서 설계 ③·완료 기준 17) — 새 주소·가입된 주소 모두에게 **늘 똑같이** 보인다(가입 여부를 드러내지 않는다) -->
+            <div class="signup-code-exit">
+              <span data-i18n="auth.signup.code.exitText">数字のかわりに「すでに登録されています」というメールがとどいた方は、</span><a href="#login" onclick="goLoginFromSignupCode();return false" data-i18n="auth.signup.code.exitLink">こちらからログイン</a>
+            </div>
+          </div>
+          <div id="signupCodeMsg" class="signup-code-msg" role="status" aria-live="polite" style="display:none"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -1024,7 +1048,8 @@ window._supabaseLoaded = false;
             <span class="agree-text" data-i18n="auth.signup.agreeMarketing">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
           </label>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" data-i18n="auth.signup.btn">登録する</button>
+        <div id="signupNeedVerify" class="signup-need-verify" data-i18n="auth.signup.code.needVerify">メールアドレスの「認証する」を押して、とどいた数字を入力してください</div>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" disabled data-i18n="auth.signup.btn">登録する</button>
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
       <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">ログイン</a></div>
