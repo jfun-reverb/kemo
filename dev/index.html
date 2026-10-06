@@ -95,7 +95,7 @@ window._supabaseLoaded = false;
     <div class="popup-body">
     <div class="popup-desc center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
     <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span class="req-mark">*</span></label>
       <div class="birthdate-selects">
         <select id="gateBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
         <select id="gateBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
@@ -103,7 +103,7 @@ window._supabaseLoaded = false;
       </div>
     </div>
     <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
       <select id="gateGender" class="form-input" required>
         <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
         <option value="male" data-i18n="auth.signup.genderMale">男性</option>
@@ -588,42 +588,42 @@ window._supabaseLoaded = false;
   <!-- padding-bottom 을 크게 잡아 모바일 키보드가 올라와도 input/textarea
        가 .page.active 자연 스크롤로 키보드 위로 올라올 여유 확보 -->
   <div class="container" style="padding:16px 16px 50vh">
-    <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
-    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromCancelApp()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span data-i18n="appHistory.cancel.cancelBtn">戻る</span></button>
+    <h1 class="ac-title" style="margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</h1>
+    <div class="ac-sub" style="margin-bottom:18px">
       <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelPageCampaign" style="color:var(--ink)"></strong>
     </div>
     <input type="hidden" id="cancelPagePhase" value="recruit">
     <input type="hidden" id="cancelPageAppId" value="">
 
     <!-- 단순형 본문 (cancel_phase = 'recruit') -->
-    <div id="cancelPageSimpleBody" style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:18px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
+    <div id="cancelPageSimpleBody" class="ac-body" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
 
     <!-- 사유 입력형 (cancel_phase != 'recruit') -->
-    <div id="cancelPageWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:12px 14px;font-size:13px;color:#9B1C1C;line-height:1.7;margin-bottom:16px">
-      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
+    <div id="cancelPageWarning" class="ac-warn-box" style="display:none">
+      <div class="ac-warn-box-title"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">warning</span><span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
       <div id="cancelPageWarningText"></div>
     </div>
     <div id="cancelPageReason" style="display:none;margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
-      <select id="cancelPageReasonSelect" class="form-input" style="font-size:16px"></select>
+      <label class="form-label" for="cancelPageReasonSelect" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
+      <select id="cancelPageReasonSelect" class="form-input"></select>
     </div>
     <div id="cancelPageNoteWrap" style="display:none;margin-bottom:16px">
-      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
-      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="font-size:16px;resize:vertical;line-height:1.5;width:100%"></textarea>
+      <label class="form-label" for="cancelPageNote" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
+      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="line-height:1.5"></textarea>
     </div>
     <div id="cancelPageAckWrap" style="display:none;margin-bottom:24px">
-      <label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--ink);cursor:pointer">
-        <input type="checkbox" id="cancelPageAck" style="margin-top:4px;width:18px;height:18px">
+      <label class="apply-check">
+        <input type="checkbox" id="cancelPageAck">
         <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
       </label>
     </div>
 
     <div id="cancelPageError" class="form-error" style="display:none;margin-bottom:12px"></div>
 
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <button class="btn btn-ghost" onclick="navigateBackFromCancelApp()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
-      <button class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
+    <div class="ac-actions">
+      <button type="button" class="btn btn-ghost" onclick="navigateBackFromCancelApp()" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
+      <button type="button" class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
     </div>
   </div>
 </div>
@@ -655,85 +655,85 @@ window._supabaseLoaded = false;
 ══════════════════════════════════ -->
 <div id="page-activity" class="page">
   <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
-    <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="common.back">戻る</span></div>
-    <div id="activityRecruitLabel" style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px;display:none"></div>
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
-      <div id="activityCampTitle" style="font-size:18px;font-weight:800;flex:1;min-width:0"></div>
-      <button type="button" id="activityCancelBtn" onclick="onActivityCancelClick()" style="display:none;flex-shrink:0;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer" data-i18n="appHistory.cancelMenu">取消</button>
+    <button type="button" class="back-link detail-back" onclick="navigateBackFromActivity()"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span><span data-i18n="common.back">戻る</span></button>
+    <div id="activityRecruitLabel" class="ac-kicker" style="display:none"></div>
+    <div class="ac-head">
+      <h1 id="activityCampTitle" class="ac-title"></h1>
+      <button type="button" id="activityCancelBtn" class="btn btn-ghost btn-xs" onclick="onActivityCancelClick()" style="display:none" data-i18n="appHistory.cancelMenu">取消</button>
     </div>
-    <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
+    <div id="activityCampBrand" class="ac-sub"></div>
 
     <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
-    <div id="activityRejectBanner" style="display:none;background:#FFF5F5;border-left:4px solid #C33;border-radius:8px;padding:12px 14px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:#C33;margin-bottom:6px;display:flex;align-items:center;gap:6px">
-        <span class="material-icons-round notranslate" translate="no" style="font-size:18px">error_outline</span>
+    <div id="activityRejectBanner" class="ac-reject" style="display:none">
+      <div class="ac-reject-title">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">error_outline</span>
         <span data-i18n="activity.rejectedTitle">差し戻しされました</span>
       </div>
-      <div id="activityRejectReason" style="font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.5"></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px" data-i18n="activity.rejectedHint">修正後、再度ご提出ください。</div>
+      <div id="activityRejectReason" class="ac-reject-text"></div>
+      <div class="ac-caption" style="margin-top:6px" data-i18n="activity.rejectedHint">修正後、再度ご提出ください。</div>
     </div>
 
     <!-- 제출 마감 안내 -->
-    <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+    <div id="activitySubmissionDeadline" class="ac-hint" style="display:none"></div>
 
     <!-- 이미지 섹션 (monitor=영수증 / visit=현장 사진) -->
     <div id="activityReceiptSection">
       <!-- monitor 전용 STEP 1 라벨 (visit 캠페인에선 숨김) -->
-      <div id="receiptStepLabel" style="display:none;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.receiptStepLabel">STEP 1: 購入レシート</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.imageSection">画像の提出</div>
+      <div id="receiptStepLabel" class="ac-step" style="display:none" data-i18n="activity.receiptStepLabel">STEP 1: 購入レシート</div>
+      <h2 class="ac-sec-title" data-i18n="activity.imageSection">画像の提出</h2>
       <div id="receiptList" style="margin-bottom:20px"></div>
-      <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
+      <div id="receiptForm" class="ac-form-card">
         <div class="form-group">
-          <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span class="req-mark">*</span></label>
           <div id="receiptPreview" style="margin-bottom:8px"></div>
-          <label id="receiptFileLabel" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
-            <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+          <label id="receiptFileLabel" class="ac-file-btn">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
+            <input type="file" id="receiptFile" accept="image/*" onchange="previewReceipt(this)">
           </label>
         </div>
         <!-- monitor(리뷰어) 전용: 주문번호·구매일·구매금액 3종 필수 (마이그레이션 128) -->
         <div id="monitorReceiptFields" style="display:none">
           <!-- 영수증 글자 자동입력 (기기 안 처리, 빈 칸만 채움) -->
-          <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px;font-size:13px">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">qr_code_scanner</span>
+          <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true" style="font-size:20px">qr_code_scanner</span>
             <span data-i18n="activity.ocrBtn">画像から自動入力</span>
           </button>
-          <div id="receiptOcrStatus" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5"></div>
+          <div id="receiptOcrStatus" class="ac-caption" style="display:none;margin-bottom:10px"></div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span class="req-mark">*</span></label>
             <input type="text" id="receiptOrderNumber" class="form-input" maxlength="200" placeholder="例: A1234567890">
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span class="req-mark">*</span></label>
             <input type="date" id="receiptDate" class="form-input">
-            <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.purchaseDateHint">例: 2026/05/22</div>
+            <div class="ac-caption" style="margin-top:4px" data-i18n="activity.purchaseDateHint">例: 2026/05/22</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span class="req-mark">*</span></label>
             <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
             <!-- 이 금액이 곧 송금액이 된다는 안내(리뷰어형 한정) — renderReceiptPayoutNote 가
                  모집 형식을 보고 표시 여부와 상한 금액을 채운다. 방문형도 이 폼을 쓰지만
                  방문형 정산은 현금 리워드라 이 안내가 뜨면 틀린 말이 된다. -->
-            <div id="receiptPayoutNote" style="display:none;margin-top:8px;font-size:12px;line-height:1.6;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px"></div>
+            <div id="receiptPayoutNote" class="ac-note" style="display:none;margin-top:8px"></div>
           </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
-      <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
+      <div id="receiptMaxNote" class="ac-caption" style="display:none;text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <div id="draftBarReceipt" class="draft-pending-bar" style="display:none"></div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
     </div>
 
     <!-- 리뷰 캡쳐 섹션 (monitor STEP 2 — 영수증 승인 후 노출) -->
     <div id="reviewImageSection" style="display:none;margin-top:24px">
-      <div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.reviewImageStepLabel">STEP 2: 投稿スクリーンショット</div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:6px;color:var(--ink)" data-i18n="activity.reviewImageSection">投稿スクリーンショットの提出</div>
+      <div class="ac-step" data-i18n="activity.reviewImageStepLabel">STEP 2: 投稿スクリーンショット</div>
+      <h2 class="ac-sec-title" style="margin-bottom:6px" data-i18n="activity.reviewImageSection">投稿スクリーンショットの提出</h2>
       <!-- 영수증 승인 전 안내 (gated) -->
-      <div id="reviewImageGatedNote" style="display:none;background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--ink);line-height:1.5;margin-bottom:12px" data-i18n="activity.reviewImageGated">STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。</div>
+      <div id="reviewImageGatedNote" class="ac-note left" style="display:none" data-i18n="activity.reviewImageGated">STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。</div>
       <!-- 영수증 승인 후 본문 — 채널별 카드는 renderActivityReviewImageList(application.js) 가 동적 렌더 -->
       <div id="reviewImageBody" style="display:none">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
+        <div class="ac-hint" data-i18n="activity.reviewImageHint">投稿したレビューページのスクリーンショットを、チャンネルごとに1枚ずつご提出ください。</div>
         <div id="reviewImageList" style="margin-bottom:20px"></div>
         <div id="draftBarReviewImage" class="draft-pending-bar" style="display:none"></div>
         <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">提出する</button>
@@ -742,16 +742,16 @@ window._supabaseLoaded = false;
 
     <!-- URL 섹션 (gifting/visit) -->
     <div id="activityPostSection" style="display:none;margin-top:20px">
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.postSection">投稿URLの提出</div>
+      <h2 class="ac-sec-title" data-i18n="activity.postSection">投稿URLの提出</h2>
       <div id="postSubmissionList" style="margin-bottom:20px"></div>
-      <div id="postSubmissionForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
+      <div id="postSubmissionForm" class="ac-form-card">
         <div class="form-group">
-          <label class="form-label"><span data-i18n="activity.postUrlLabel">投稿URL</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postUrlLabel">投稿URL</span> <span class="req-mark">*</span></label>
           <input type="url" id="postUrlInput" class="form-input" placeholder="https://www.instagram.com/p/... など" oninput="onPostUrlInputChange()">
-          <div id="postChannelDetected" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+          <div id="postChannelDetected" class="ac-caption" style="margin-top:6px"></div>
         </div>
         <div class="form-group" id="postChannelManualWrap" style="display:none">
-          <label class="form-label"><span data-i18n="activity.postChannelLabel">チャンネルを選択</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postChannelLabel">チャンネルを選択</span> <span class="req-mark">*</span></label>
           <select id="postChannelManual" class="form-input">
             <option value="" data-i18n="common.select">— 選択してください —</option>
             <option value="instagram">Instagram</option>
@@ -762,7 +762,7 @@ window._supabaseLoaded = false;
             <option value="lips">LIPS</option>
             <option value="cosme">@cosme</option>
           </select>
-          <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
+          <div class="form-hint" style="margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
         </div>
         <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
@@ -940,18 +940,18 @@ window._supabaseLoaded = false;
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">氏名（漢字）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">氏名（漢字）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（フリガナ）</span> <span class="req-mark">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="ヤマダ ハナコ" required>
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、フリガナ（カタカナ）を入力してください</div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span class="req-mark">*</span></label>
             <div class="birthdate-selects">
               <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
               <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
@@ -960,7 +960,7 @@ window._supabaseLoaded = false;
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span class="req-mark">*</span></label>
             <select id="signupGender" class="form-input" required>
               <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
               <option value="male" data-i18n="auth.signup.genderMale">男性</option>
@@ -971,7 +971,7 @@ window._supabaseLoaded = false;
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span class="req-mark">*</span></label>
           <!-- 가입 인증번호(사양서 2026-10-01 설계 ③) — 번호를 확인해야 「登録する」가 켜진다 -->
           <div class="signup-email-row">
             <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required autocomplete="email" oninput="onSignupEmailInput()">
@@ -1000,7 +1000,7 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span class="req-mark">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -1008,7 +1008,7 @@ window._supabaseLoaded = false;
             <div id="signupPwCommonWarn" class="pw-common-warn" role="status" style="display:none" data-i18n="auth.pwCommonWarn">このパスワードは多くの人に使われていて、推測されやすいパスワードです。別のパスワードをおすすめします。</div>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span class="req-mark">*</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" data-i18n-attr="placeholder:auth.signup.pwConfirmPlaceholder" required>
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
