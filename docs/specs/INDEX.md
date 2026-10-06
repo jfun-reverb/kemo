@@ -24,6 +24,7 @@
 | [2026-05-19-campaign-promo-email.md](2026-05-19-campaign-promo-email.md) §17-5 창 정의 | [2026-09-28-promo-mail-new-and-deadline-window.md](2026-09-28-promo-mail-new-and-deadline-window.md) | 홍보 메일 「신규」·「마감 임박」 범위 |
 | [2026-06-15-admin-permission-matrix.md](2026-06-15-admin-permission-matrix.md) | [2026-06-15-admin-permission-management.md](2026-06-15-admin-permission-management.md) | 감사 결과가 구현 사양서의 「현재 상태」·기본값이 됨 |
 | [2026-08-12-reward-promise-by-recruit-type.md](2026-08-12-reward-promise-by-recruit-type.md) | [2026-09-02-unpaid-campaign-reward-mail.md](2026-09-02-unpaid-campaign-reward-mail.md) | 검수 결과 메일의 「보수 지급」 문구 — 뒤 문서가 다시 설계해 구현 |
+| [2026-05-21-general-inquiry-desk.md](2026-05-21-general-inquiry-desk.md) §2 스레드 단위 | [2026-10-06-service-inquiry-threads.md](2026-10-06-service-inquiry-threads.md) | 서비스 문의 「회원당 대화 하나」 → 여러 대화(운영팀이 닫으면 새 대화) |
 | 관리자 머티리얼 3 디자인 사양(파일 없음) | 흑백 재설계 + 보라 강조색 | 관리자 화면 기준이 바뀌었다 — 옛 문서를 기준으로 삼지 말 것(`planning.md`) |
 
 ## 종류 안내
@@ -306,5 +307,6 @@
 | 2026-10-01 | [작업표 — 회원가입 이메일 인증번호](2026-10-01-signup-email-code-verification-breakdown.md) | 작업표 | [2026-10-01-signup-email-code-verification.md](2026-10-01-signup-email-code-verification.md) |
 | 2026-10-02 | [인수인계 — 사양서 상태 점검 뒤 남은 일](2026-10-02-spec-status-audit-handoff.md) | 인수인계 |  |
 | 2026-10-06 | [인수인계 — 문의하기 「서비스 문의」 탭에 새 답장 표시](2026-10-06-inquiry-service-tab-badge-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [서비스 문의 — 회원 한 명이 여러 대화를 갖는 구조](2026-10-06-service-inquiry-threads.md) | 사양서 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
