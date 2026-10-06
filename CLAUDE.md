@@ -417,6 +417,7 @@
 
 ## Mobile Layout Rules
 - `#appShell` 은 `position:fixed` + `top:0`/`bottom:0`
+  - 🔴 **회원 빌드는 `overflow:clip`**(`member-ui.css`) — `hidden` 은 코드 스크롤을 못 막아, 닫힌 햄버거·알림 창 안에 초점이 들어가거나 `scrollIntoView` 가 불리면 **껍데기 자체가 밀려** 닫힌 창이 반쯤 보이고 클릭을 가린다(2026-10-06, 운영에도 있던 결함). `hidden` 으로 되돌리지 말 것. 닫힌 두 창은 미끄러져 나간 뒤 `visibility:hidden`
 - html, body 에 `height:100%` + `overflow:hidden` 유지
 - 페이지 콘텐츠 스크롤은 `.page.active` 내부에서만 (`flex:1` + `overflow-y:auto`)
 - GNB 는 `flex-shrink:0` 고정 (바텀탭 없음 — 햄버거 메뉴)
