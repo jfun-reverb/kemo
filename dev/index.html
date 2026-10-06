@@ -282,10 +282,10 @@ window._supabaseLoaded = false;
   <div class="notif-modal-body">
     <div class="notif-modal-header">
       <div class="notif-modal-title" data-i18n="menu.notifications">お知らせ</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
-        <button class="notif-close-btn" onclick="closeNotifModal()" aria-label="Close">
-          <span class="material-icons-round notranslate" translate="no">close</span>
+      <div class="notif-head-actions">
+        <button type="button" id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
+        <button type="button" class="notif-close-btn" onclick="closeNotifModal()" data-i18n-attr="aria-label:common.close" aria-label="閉じる">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
         </button>
       </div>
     </div>

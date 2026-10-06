@@ -273,7 +273,7 @@ async function openNotifModal() {
   if (!m) return;
   m.setAttribute('aria-hidden', 'false');
   const body = $('notifModalBody');
-  if (body) body.innerHTML = '<div class="notif-empty">' + t('common.loading') + '</div>';
+  if (body) body.innerHTML = stateLoadingHtml();
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
@@ -281,7 +281,7 @@ async function openNotifModal() {
     renderNotifModal(items);
   } catch(e) {
     logAppError('openNotifModal', e);
-    if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
+    if (body) body.innerHTML = stateErrorHtml(t('authError.serverError'), 'openNotifModal');
   }
 }
 
@@ -295,7 +295,7 @@ function renderNotifModal(items) {
   const markBtn = $('notifMarkAllBtn');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="notif-empty">' + t('notif.emptyUnread') + '</div>';
+    body.innerHTML = stateEmptyHtml('notifications_none', '', t('notif.emptyUnread'));
     if (markBtn) markBtn.disabled = true;
     return;
   }
@@ -308,7 +308,7 @@ function renderNotifModal(items) {
     const rt = _notifRecruitTypeMap[n.ref_id];
     const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
     const rtBadge = rtLabel
-      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      ? `<div class="apply-item-kicker">${esc(rtLabel)}</div>`
       : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
