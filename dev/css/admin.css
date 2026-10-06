@@ -1511,6 +1511,21 @@ input.admin-filter{padding-right:8px}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
 .inbox-thread-chip.withdraw{background:#FFF4E5;color:#B45309;border:1px solid #F5C98A}  /* 탈퇴 D-N·대기 중 — 미응대(빨강)와 구분 */
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
+/* 서비스 문의 여러 대화(개정 R2) — 상태 칩 · 대화 제목 · 목록 머리 · 대화 머리 · 닫힌 대화 다시 열기 */
+.inbox-thread-chip.waiting{background:var(--surface-dim);color:var(--muted)}
+.inbox-thread-chip.closed{background:#EEE;color:#777}
+.adm-gen-title{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-gen-title-empty{color:var(--muted);font-weight:600}
+.adm-gen-title-orig{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-gen-link{border:0;background:none;padding:0;color:var(--pink);font-size:12px;cursor:pointer;text-decoration:underline}
+.adm-gen-member{align-self:flex-start;margin-top:2px}
+.adm-gen-listhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.adm-gen-listhead label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.adm-gen-head{flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.adm-gen-headrow{display:flex;align-items:center;gap:8px}
+.adm-gen-headtitle{flex:1;min-width:0;display:flex;flex-direction:column}
+.adm-gen-others{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.adm-gen-reopen{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted)}
 
 /* 대화 내용 영역 (받은편지함 우측 + 모달 본문 공용) */
 .adm-msg-actionbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--surface-container-low)}

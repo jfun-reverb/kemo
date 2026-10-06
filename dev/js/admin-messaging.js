@@ -42,15 +42,21 @@ let _inboxInflMap = {};
 // 받은편지함 최근 메시지 미리보기 맵 (application_id → {body, sender_kind, created_at})
 let _inboxPreviewMap = new Map();
 // ── 서비스 문의(일반 문의, 응모 없음 — 마이그레이션 475~482) ──
-//   받은편지함 안 탭 「캠페인 문의 / 서비스 문의」. 서비스 문의는 왼쪽 캠페인 열 없이 회원별 2단.
-//   🔴 대화 열쇠가 둘이다 — 응모건은 _admMsgAppId, 서비스 문의는 _admMsgGeneralId(회원 id). 동시에 둘 다 차지 않는다.
+//   받은편지함 안 탭 「캠페인 문의 / 서비스 문의」. 서비스 문의는 왼쪽 캠페인 열 없이 **대화 한 줄씩** 2단
+//   (여러 대화 — 마이그레이션 504~508, 사양서 docs/specs/2026-10-06-service-inquiry-threads.md 「설계 개정」).
+//   🔴 대화 열쇠: 응모건은 _admMsgAppId, 서비스 문의는 _admMsgGeneralThreadId(대화 id) + _admMsgGeneralId(그 대화의
+//      회원 id — 첨부 경로 `general/{회원id}/`·숨김 이력·조회 인자용, R-5). 둘은 늘 함께 차고 함께 빈다.
 let _inboxKind = 'app';                  // 'app'(캠페인 문의) | 'general'(서비스 문의)
-let _genThreads = [];                    // fetchAdminGeneralInquiryThreads 결과
+let _genThreads = [];                    // fetchAdminGeneralInquiryThreadRows 결과(대화 한 줄씩)
 let _genLoadFailed = false;              // 실패(null)와 0건을 가른다 — 실패면 그 탭에 「불러오지 못했습니다」
-let _genUnreadMap = new Map();           // influencer_id → 본인 미열람 수
-let _genPreviewMap = new Map();          // influencer_id → 최근 살아 있는 메시지
-let _genSentAtMap = new Map();           // 'sent' 정렬용 — influencer_id → 본인 최신 발신 시각
+let _genUnreadMap = new Map();           // thread_id → 본인 미열람 수
+let _genSentAtMap = new Map();           // 'sent' 정렬용 — thread_id → 본인 최신 발신 시각
+let _genNeedsReply = null;               // 미응대 대화 수(기간 창 없이 열린 대화 중 needs_reply) — 세 자리 공용. 실패 null
+let _genIncludeClosed = false;           // 「닫힘 포함」 — 기본은 열린 대화만
+let _genMemberFilter = null;             // 「이 회원 대화 N」 — 그 회원 대화 전부(닫힌 것 포함·기간 무관). null = 전체
 let _admMsgGeneralId = null;             // 열린 서비스 문의 대화의 회원 id
+let _admMsgGeneralThreadId = null;       // 열린 서비스 문의 대화 id
+let _admGenSeenLastId = null;            // 화면이 본 마지막 글(숨김·회수 뺀) id — 닫기 때 서버에 넘긴다
 let _inboxWithdrawMap = null;            // 탈퇴 신청 상태(fetchWithdrawalStatesByInfluencer) — 실패 null 이면 표시 안 함
 
 // 현재 super_admin 여부 (admin.js 의 currentAdminInfo 기준)
@@ -72,7 +78,8 @@ async function loadMessagesInbox() {
   _inboxSearch = '';  // 페인 재진입 시 검색어 초기화 (정렬은 사용자 선택 유지)
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
-  _admMsgGeneralId = null;
+  _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
+  _genMemberFilter = null;          // 「이 회원 대화」 거름은 페인에 다시 들어오면 푼다
   switchInboxTab(_inboxKind);       // 페인 진입 시 받은편지함(보던 종류) — 이력 탭에 있었어도 받은편지함으로
   // 미응대만 체크박스를 현재 필터 상태와 동기화(배지 클릭 진입 시 시각 반영)
   const _ucb = document.getElementById('inboxUnresolvedCheckbox');
@@ -87,7 +94,7 @@ async function loadMessagesInbox() {
 //   (사용자: '캠페인 제목 영역 클릭하면 캠페인 영역이 넓어지게')
 function setInboxStageCampaigns() {
   _inboxSelectedCampaign = null;
-  _admMsgAppId = null; _admMsgGeneralId = null;
+  _admMsgAppId = null; _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxCampaignList();
@@ -97,7 +104,7 @@ function setInboxStageCampaigns() {
 
 // 대화 목록 영역 확장 — 대화 선택만 해제하고 캠페인 선택은 유지 → stage-threads (캠페인 선택 상태일 때만 의미).
 function setInboxStageThreads() {
-  _admMsgAppId = null; _admMsgGeneralId = null;
+  _admMsgAppId = null; _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '';
   renderInboxThreadList();
@@ -113,7 +120,7 @@ function updateInboxStage() {
   const sentMode = _inboxSort === 'sent';
   const flat = sentMode || _inboxKind === 'general';   // 서비스 문의는 캠페인이 없어 항상 평면
   pane.classList.toggle('inbox-flat', flat);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
-  const threadOpen = _admMsgContext === 'inbox' && (_inboxKind === 'general' ? _admMsgGeneralId : _admMsgAppId);
+  const threadOpen = _admMsgContext === 'inbox' && (_inboxKind === 'general' ? _admMsgGeneralThreadId : _admMsgAppId);
   if (flat) {
     // 「내가 보낸 순」: 좌측 숨김 → 대화 목록(중)을 넓게, 대화 열면 내용(우)
     pane.classList.add(threadOpen ? 'stage-view' : 'stage-threads');
@@ -126,14 +133,17 @@ function updateInboxStage() {
 async function refreshInboxData() {
   try {
     const range = { sinceMonths: _inboxFilters.sinceMonths, fromIso: _inboxFilters.fromIso, toIso: _inboxFilters.toIso };
-    const [threads, unreadMap, sentMap, gThreads, gUnread, gSent, wMap] = await Promise.all([
+    // 서비스 문의 목록 조건 — 「이 회원 대화 N」이면 그 회원 전부, 아니면 기간 + 열린 대화(「닫힘 포함」이면 닫힌 것도)
+    const genOpts = _genMemberFilter ? { influencerId: _genMemberFilter } : { ...range, includeClosed: _genIncludeClosed };
+    const [threads, unreadMap, sentMap, gThreads, gUnread, gSent, wMap, gNeeds] = await Promise.all([
       fetchAdminMessageThreads(range),
       fetchAdminMessageUnreadCounts(),
       (_inboxSort === 'sent') ? fetchAdminSentAtMap() : Promise.resolve(_inboxSentAtMap),
-      fetchAdminGeneralInquiryThreads(range),
-      fetchGeneralInquiryAdminUnreadCounts(),
-      (_inboxSort === 'sent') ? fetchAdminGeneralSentAtMap() : Promise.resolve(_genSentAtMap),
+      fetchAdminGeneralInquiryThreadRows(genOpts),
+      fetchGeneralInquiryAdminUnreadByThread(),
+      (_inboxSort === 'sent') ? fetchAdminGeneralThreadSentAtMap() : Promise.resolve(_genSentAtMap),
       fetchWithdrawalStatesByInfluencer(),
+      fetchGeneralInquiryNeedsReplyCount(),
     ]);
     _inboxThreads = threads || [];
     _inboxUnreadMap = unreadMap || new Map();
@@ -143,17 +153,17 @@ async function refreshInboxData() {
     _genThreads = gThreads || [];
     _genUnreadMap = gUnread || new Map();
     _genSentAtMap = gSent || new Map();
+    if (gNeeds !== null) _genNeedsReply = gNeeds;   // 실패면 지난 값 유지
     _inboxWithdrawMap = wMap;   // null 이면 탈퇴 표시를 안 한다(목록은 막지 않는다)
     // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬) — 두 탭의 회원을 함께
     const inflIds = [...new Set([..._inboxThreads, ..._genThreads].map(t => t.influencer_id).filter(Boolean))];
     const appIds = [...new Set(_inboxThreads.map(t => t.application_id).filter(Boolean))];
-    const genIds = [...new Set(_genThreads.map(t => t.influencer_id).filter(Boolean))];
-    const [inflMap, prevMap, gPrevMap] = await Promise.all([
+    // 서비스 문의 미리보기는 대화 뷰가 마지막 글을 같이 준다(별도 조회 없음)
+    const [inflMap, prevMap] = await Promise.all([
       inflIds.length ? fetchInfluencersByIds(inflIds) : Promise.resolve({}),
       appIds.length ? fetchMessagePreviews(appIds) : Promise.resolve(new Map()),
-      genIds.length ? fetchGeneralInquiryPreviews(genIds) : Promise.resolve(new Map()),
     ]);
-    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap; _genPreviewMap = gPrevMap || new Map();
+    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap;
     // 캠페인 캐시 보강 — 메시지 탭 단독 진입·새로고침 시 전역 allCampaigns 가 비어
     // 캠페인명이 '(캠페인)'으로 떨어지는 문제 방지. 스레드의 campaign_id 중 캐시에
     // 없는 게 하나라도 있으면(빈 캐시·신규 캠페인 누락) 1회 재로드.
@@ -171,10 +181,11 @@ async function refreshInboxData() {
 }
 
 // 사이드바 「메시지」 미응대 배지 = 우리 팀 미응대 응모건 수 (그룹 공통)
-//   캠페인 문의 + 서비스 문의 합산. ⚠️ 30초 경로(refreshMsgBadgesLight)도 같은 합산이어야 한다 — 한쪽만 더하면 30초 뒤 되돌아간다
+//   캠페인 문의 + 서비스 문의 합산. 🔴 서비스 문의 몫은 **세 자리**(여기 · 30초 refreshMsgBadgesLight · 탭 괄호
+//   renderInboxKindTabs)가 모두 _genNeedsReply(= fetchGeneralInquiryNeedsReplyCount, 기간 창 없음)를 쓴다 —
+//   기간·「닫힘 포함」 거름이 걸린 _genThreads 로 세면 30초 뒤 숫자가 되돌아간다(R-4). 사람 수가 아니라 대화 수다
 function updateInboxSidebarBadge() {
-  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length
-    + _genThreads.filter(t => t.unresolved_for_admin_team).length;
+  const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length + (_genNeedsReply || 0);
   applyMsgBadgeCount(n);
   renderInboxKindTabs();
 }
@@ -246,8 +257,9 @@ function drawFaviconWithDot(baseHref, favEl) {
 async function refreshMsgBadgesLight() {
   try {
     if (!db) return;
-    const [n, g] = await Promise.all([fetchUnresolvedMessageCount(), fetchGeneralInquiryUnresolvedCount()]);
-    applyMsgBadgeCount((n || 0) + (g || 0));   // 서비스 문의 조회 실패(null)면 캠페인 문의 숫자만
+    const [n, g] = await Promise.all([fetchUnresolvedMessageCount(), fetchGeneralInquiryNeedsReplyCount()]);
+    if (g !== null) _genNeedsReply = g;   // 실패(null)면 지난 값 — 탭 괄호 숫자와 같은 값을 쓴다
+    applyMsgBadgeCount((n || 0) + (_genNeedsReply || 0));
   } catch (e) { /* 무시 */ }
 }
 let _msgBadgePollingTimer = null;
@@ -412,20 +424,20 @@ function renderInboxKindTabs() {
   const bar = document.getElementById('inboxKindTabBar');
   if (!bar) return;
   const nApp = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
-  const nGen = _genThreads.filter(t => t.unresolved_for_admin_team).length;
+  const nGen = _genNeedsReply || 0;   // 세 자리 공용 값(updateInboxSidebarBadge 주석)
   const tab = (key, label, cnt) => {
     const on = _inboxTab === key ? ' on' : '';
     return `<button type="button" class="status-tab-btn${on}" onclick="switchInboxTab('${key}')">${esc(label)}${cnt}</button>`;
   };
   const cnt = (n, failed) => failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
   bar.innerHTML = tab('app', '캠페인 문의', cnt(nApp, false))
-    + tab('general', '서비스 문의', cnt(nGen, _genLoadFailed))
+    + tab('general', '서비스 문의', cnt(nGen, _genNeedsReply === null))
     + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '');
 }
 // 받은편지함 종류 전환(캠페인 문의 ↔ 서비스 문의) — switchInboxTab 이 부른다
 function switchInboxKind(kind) {
   _inboxKind = kind === 'general' ? 'general' : 'app';
-  _admMsgAppId = null; _admMsgGeneralId = null;
+  _admMsgAppId = null; _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
   const v = document.getElementById('inboxThreadView');
   if (v) v.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   renderInboxKindTabs();
@@ -435,98 +447,219 @@ function switchInboxKind(kind) {
 }
 function filteredGeneralThreads() {
   let list = _genThreads;
-  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.unresolved_for_admin_team);
+  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.needs_reply);
   if (_inboxSearch) {
     list = list.filter(t => {
       const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
-      return [inf.name, inf.name_kana, inf.email].filter(Boolean).join(' ').toLowerCase().includes(_inboxSearch);
+      return [inf.name, inf.name_kana, inf.email, t.title, t.title_translated]
+        .filter(Boolean).join(' ').toLowerCase().includes(_inboxSearch);
     });
   }
   return list;
 }
+
+// 대화 제목 — 한국어 번역 우선 + 원문 작게. 없으면 「(제목 없음)」(옮겨 온 대화·옛 화면이 만든 대화)
+function _admGenTitleHtml(t, cls) {
+  const ko = (t.title_translated || '').trim();
+  const orig = (t.title || '').trim();
+  if (!orig) return `<span class="${cls} adm-gen-title-empty">(제목 없음)</span>`;
+  const main = ko || orig;
+  const sub = (ko && ko !== orig) ? `<span class="adm-gen-title-orig">${esc(orig)}</span>` : '';
+  return `<span class="${cls}">${esc(main)}</span>${sub}`;
+}
+
+// 상태 칩 — 「미응대」(운영팀이 답할 차례) / 「회원 답 대기」(열림이고 미응대 아님) / 「닫힘」
+function _admGenStatusChip(t) {
+  if (t.status !== 'open') return '<span class="inbox-thread-chip closed">닫힘</span>';
+  return t.needs_reply ? '<span class="inbox-thread-chip unresolved">미응대</span>'
+    : '<span class="inbox-thread-chip waiting">회원 답 대기</span>';
+}
+
+// 「닫힘 포함」 토글 · 「이 회원 대화」 거름 해제 — 목록이 바뀌므로 다시 조회한다
+function toggleGenIncludeClosed(checked) { _genIncludeClosed = !!checked; refreshInboxData(); }
+function filterGenByMember(influencerId) { _genMemberFilter = influencerId || null; refreshInboxData(); }
+
 function renderGeneralThreadList(el) {
-  if (_genLoadFailed) { el.innerHTML = '<div class="inbox-empty">서비스 문의를 불러오지 못했습니다.</div>'; return; }
-  let list = filteredGeneralThreads();
-  if (_inboxSort === 'sent') {
-    list = list.filter(t => _genSentAtMap.has(t.influencer_id));
-    list.sort((a, b) => (_genSentAtMap.get(b.influencer_id) || '').localeCompare(_genSentAtMap.get(a.influencer_id) || ''));
-  } else if (_inboxSort === 'unresolved') {
-    list = list.slice().sort((a, b) => (Number(b.unresolved_for_admin_team) - Number(a.unresolved_for_admin_team))
-      || (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  // 머리 줄 — 회원 거름 중이면 그 안내 + 해제, 아니면 「닫힘 포함」
+  let head;
+  if (_genMemberFilter) {
+    const inf = (_inboxInflMap && _inboxInflMap[_genMemberFilter]) || {};
+    head = `<div class="adm-gen-listhead"><span>${esc(inf.name || '회원')}님의 대화 전체(닫힌 대화 포함)</span>
+      <button type="button" class="adm-gen-link" onclick="filterGenByMember(null)">전체 목록으로</button></div>`;
   } else {
-    list = list.slice().sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+    head = `<div class="adm-gen-listhead"><label><input type="checkbox" ${_genIncludeClosed ? 'checked' : ''}
+      onchange="toggleGenIncludeClosed(this.checked)"> 닫힌 대화 포함</label></div>`;
   }
-  if (!list.length) { el.innerHTML = '<div class="inbox-empty">서비스 문의가 없습니다.</div>'; return; }
-  el.innerHTML = list.map(t => {
+  if (_genLoadFailed) { el.innerHTML = head + '<div class="inbox-empty">서비스 문의를 불러오지 못했습니다.</div>'; return; }
+  let list = filteredGeneralThreads();
+  const byLast = (a, b) => (b.last_message_at || b.opened_at || '').localeCompare(a.last_message_at || a.opened_at || '');
+  if (_inboxSort === 'sent') {
+    list = list.filter(t => _genSentAtMap.has(t.thread_id));
+    list.sort((a, b) => (_genSentAtMap.get(b.thread_id) || '').localeCompare(_genSentAtMap.get(a.thread_id) || ''));
+  } else if (_inboxSort === 'unresolved') {
+    list = list.slice().sort((a, b) => (Number(!!b.needs_reply) - Number(!!a.needs_reply)) || byLast(a, b));
+  } else {
+    list = list.slice().sort(byLast);
+  }
+  if (!list.length) { el.innerHTML = head + '<div class="inbox-empty">서비스 문의가 없습니다.</div>'; return; }
+  el.innerHTML = head + list.map(t => {
     const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
     const kanji = esc(inf.name || '(이름 없음)');
-    const kana = inf.name_kana ? esc(inf.name_kana) : '';
-    const email = inf.email ? esc(inf.email) : '';
-    const unread = _genUnreadMap.get(t.influencer_id) || 0;
-    const active = t.influencer_id === _admMsgGeneralId ? 'active' : '';
-    const unresolved = t.unresolved_for_admin_team ? '<span class="inbox-thread-chip unresolved">미응대</span>' : '';
+    const unread = _genUnreadMap.get(t.thread_id) || 0;
+    const active = t.thread_id === _admMsgGeneralThreadId ? 'active' : '';
     const unreadChip = unread > 0 ? `<span class="inbox-thread-chip unread">${unread > 99 ? '99+' : unread}</span>` : '';
-    const prev = _genPreviewMap.get(t.influencer_id);
-    let previewHtml = '';
-    if (prev) {
-      const who = prev.sender_kind === 'admin' ? '운영팀: ' : '';
-      const prevSrc = (prev.sender_kind !== 'admin' && prev.translate_status === 'done' && prev.body_translated)
-        ? prev.body_translated : prev.body;
-      const body = (prevSrc || '').replace(/\s+/g, ' ').trim();
-      previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
-    }
-    const timeVal = (_inboxSort === 'sent' && _genSentAtMap.get(t.influencer_id)) || t.last_message_at;
-    return `<button type="button" class="inbox-thread-item ${active}" onclick="openGeneralInboxThread(${jsStr(t.influencer_id)})">
+    // 마지막 글 미리보기 — 회원 글은 한국어 번역 우선(번역이 끝났을 때만)
+    const lastSrc = (t.last_sender_kind !== 'admin' && t.last_translate_status === 'done' && t.last_message_preview_translated)
+      ? t.last_message_preview_translated : t.last_message_preview;
+    const who = t.last_sender_kind === 'admin' ? '운영팀: ' : '';
+    const previewHtml = t.last_message_at
+      ? `<span class="inbox-thread-preview">${esc(who + ((lastSrc || '').trim() || '(이미지)'))}</span>`
+      : '<span class="inbox-thread-preview">(표시할 메시지 없음)</span>';
+    // 제목이 없으면 첫 글 미리보기를 제목 자리 아래에
+    const firstHtml = (!t.title && t.first_message_preview)
+      ? `<span class="inbox-thread-preview">${esc(t.first_message_preview)}</span>` : '';
+    const nAll = Number(t.influencer_thread_count) || 0;
+    const nOpen = Number(t.influencer_open_thread_count) || 0;
+    // 「이 회원 대화 N · 열림 M」 — 누르면 그 회원 대화 전부. 줄 열기와 겹치지 않게 전파를 끊는다
+    const memberLink = _genMemberFilter ? '' : `<span class="adm-gen-link adm-gen-member" role="button" tabindex="0"
+      onclick="event.stopPropagation();filterGenByMember(${jsStr(t.influencer_id)})"
+      onkeydown="if(event.key==='Enter'){event.stopPropagation();filterGenByMember(${jsStr(t.influencer_id)})}">이 회원 대화 ${nAll} · 열림 ${nOpen}</span>`;
+    const timeVal = (_inboxSort === 'sent' && _genSentAtMap.get(t.thread_id)) || t.last_message_at || t.opened_at;
+    return `<button type="button" class="inbox-thread-item ${active}" onclick="openGeneralInboxThread(${jsStr(t.thread_id)})">
       <span class="inbox-thread-main">
-        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
-        ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
+        ${_admGenTitleHtml(t, 'adm-gen-title')}
+        ${firstHtml}
+        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}</span>
         ${previewHtml}
+        ${memberLink}
       </span>
       <span class="inbox-thread-right">
         <span class="inbox-thread-time">${esc(formatDateTime(timeVal))}</span>
-        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${unresolved}${unreadChip}</span>
+        <span class="inbox-thread-chips">${inboxWithdrawChip(t.influencer_id)}${_admGenStatusChip(t)}${unreadChip}</span>
       </span>
     </button>`;
   }).join('');
 }
 
-// 서비스 문의 대화 열기 — 응모 상태 한 줄·FAQ 열람 이력은 없다(특정 응모가 아니므로)
-async function openGeneralInboxThread(influencerId) {
+// 서비스 문의 대화 열기(대화 id) — 응모 상태 한 줄·FAQ 열람 이력은 없다(특정 응모가 아니므로).
+//   대화 줄은 그 회원의 대화 전부를 다시 받아 찾는다 — 목록 거름(열린 대화만·기간)에 없는 대화(닫은 직후·
+//   다른 열린 문의 줄에서 옮겨 감)도 열리고, 「다른 열린 문의」 줄도 같은 조회로 그린다
+async function openGeneralInboxThread(threadId) {
+  const listRow = _genThreads.find(t => t.thread_id === threadId);
   _admMsgAppId = null;
-  _admMsgGeneralId = influencerId;
+  _admMsgGeneralThreadId = threadId;
+  // 목록에 없는 대화(닫은 직후·「다른 열린 문의」 줄)는 같은 회원에서만 온다 — 회원 id 를 그대로 쓴다.
+  //   다른 회원의 대화를 목록 밖에서 열 길을 만들면 회원 id 를 인자로 넘길 것
+  _admMsgGeneralId = listRow ? listRow.influencer_id : _admMsgGeneralId;
   _admMsgContext = 'inbox';
   _admMsgPendingFiles = [];
+  _admGenSeenLastId = null;
   updateInboxStage();
   renderInboxThreadList();
   const view = document.getElementById('inboxThreadView');
   if (view) view.innerHTML = '<div class="inbox-empty">불러오는 중…</div>';
+  const stillHere = () => _admMsgGeneralThreadId === threadId;
   try {
+    if (!_admMsgGeneralId) throw new Error('general_inquiry_owner_unknown');
+    const memberRows = await fetchAdminGeneralInquiryThreadRows({ influencerId: _admMsgGeneralId });
+    if (!stillHere()) return;
+    if (memberRows === null) throw new Error('general_inquiry_threads_load_failed');
+    const row = memberRows.find(t => t.thread_id === threadId);
+    if (!row) { if (view) view.innerHTML = '<div class="inbox-empty">이 문의를 찾을 수 없습니다.</div>'; return; }
     const msgs = await _admFetchCurrent();
-    if (_admMsgGeneralId !== influencerId) return;   // 기다리는 사이 다른 대화를 열었다
-    const thread = _genThreads.find(t => t.influencer_id === influencerId);
-    const isResolved = !!thread && !thread.unresolved_for_admin_team;
-    if (view) view.innerHTML = adminThreadViewHtml('inbox', isResolved, { general: true });
+    if (!stillHere()) return;
+    const closed = row.status !== 'open';
+    if (view) view.innerHTML = adminThreadViewHtml('inbox', false, { general: true, closed });
+    _admRenderGenHead(row, memberRows);
     renderAdminMsgThread('inboxMsgThread', msgs);
     // 읽음 처리 실패는 대화를 덮지 않는다(이미 그린 대화는 그대로 두고 기록만)
     try {
-      await markGeneralInquiryMessagesRead(influencerId);
-      const m = await fetchGeneralInquiryAdminUnreadCounts();
+      await markGeneralInquiryMessagesRead(_admMsgGeneralId, threadId);
+      const m = await fetchGeneralInquiryAdminUnreadByThread();
       if (m) _genUnreadMap = m;
       renderInboxThreadList();
     } catch (e2) { console.warn('[openGeneralInboxThread] read', e2); if (typeof logAppError === 'function') logAppError('openGeneralInboxThread.read', e2); }
   } catch (e) {
     console.error('[openGeneralInboxThread]', e);
     if (typeof logAppError === 'function') logAppError('openGeneralInboxThread', e);
-    if (view) view.innerHTML = '<div class="inbox-empty">메시지를 불러오지 못했습니다.</div>';
+    if (view && stillHere()) view.innerHTML = '<div class="inbox-empty">메시지를 불러오지 못했습니다.</div>';
+  }
+}
+
+// 대화 머리 — 제목(번역 + 원문) · 「제목 수정」 · 같은 회원의 **다른 열린** 문의 줄(같은 질문에 두 번 답하지 않게)
+function _admRenderGenHead(row, memberRows) {
+  const el = document.getElementById('inboxGenHead');
+  if (!el) return;
+  const others = (memberRows || []).filter(t => t.status === 'open' && t.thread_id !== row.thread_id);
+  const otherHtml = others.length
+    ? `<div class="adm-gen-others">이 회원의 다른 열린 문의 ${others.length}건: ${others.map(t =>
+        `<button type="button" class="adm-gen-link" onclick="openGeneralInboxThread(${jsStr(t.thread_id)})">${esc((t.title_translated || t.title || t.first_message_preview || '(제목 없음)').trim())}</button>`
+      ).join(' ')}</div>` : '';
+  el.innerHTML = `<div class="adm-gen-headrow">
+      <span class="adm-gen-headtitle">${_admGenTitleHtml(row, 'adm-gen-title')}</span>
+      ${_admGenStatusChip(row)}
+      <button type="button" class="adm-msg-bar-btn" onclick="editGeneralThreadTitle()">제목 수정</button>
+    </div>${otherHtml}`;
+  el.style.display = '';
+  el.dataset.title = row.title || '';
+}
+
+// 서비스 문의 거부 코드(508·505) → 관리자 화면 문구. 모르는 코드면 서버 문구(P0001) 또는 fallback
+function _admGenErrorText(e, fallback) {
+  const code = String(e?.message || '');
+  if (e?.code === 'P0001') {
+    if (/new_message_since_view/.test(code)) return '확인한 뒤 회원의 새 글이 도착했습니다. 대화를 다시 불러왔으니 확인 후 다시 눌러 주세요.';
+    if (/thread_closed/.test(code)) return '이미 닫힌 문의입니다. 「다시 열기」를 누른 뒤 답장하세요.';
+    if (/thread_not_found/.test(code)) return '이 문의를 찾을 수 없습니다.';
+    if (/thread_required|no_open_thread/.test(code)) return '답장할 문의를 다시 골라 주세요.';
+    if (/title_too_long/.test(code)) return '제목은 40자 이내로 입력하세요.';
+    if (e?.message) return e.message;
+  }
+  return fallback;
+}
+
+// 제목 수정(운영팀만, 508) — 빈 값이면 제목·번역을 비운다. 한국어로 고치면 회원 화면에도 한국어로 보인다
+async function editGeneralThreadTitle() {
+  if (!_admMsgGeneralThreadId) return;
+  const threadId = _admMsgGeneralThreadId;
+  const cur = document.getElementById('inboxGenHead')?.dataset.title || '';
+  const next = prompt('문의 제목(40자 이내, 비우면 제목 없음). 회원 화면에도 이 제목이 그대로 보입니다 — 일본어로 쓰세요.', cur);
+  if (next === null) return;
+  try {
+    await updateGeneralInquiryThreadTitle(threadId, next);
+    toast('제목을 저장했습니다. 한국어 번역은 잠시 뒤 채워집니다.');
+    await refreshInboxData();
+    if (_admMsgGeneralThreadId === threadId) await openGeneralInboxThread(threadId);
+  } catch (e) {
+    console.error('[editGeneralThreadTitle]', e);
+    toast(_admGenErrorText(e, '제목 저장에 실패했습니다.'));
+  }
+}
+
+// 닫힌 대화 다시 열기(Q-1) — 다른 열린 대화가 있어도 된다(508)
+async function reopenCurrentGeneralThread() {
+  if (!_admMsgGeneralThreadId) return;
+  const threadId = _admMsgGeneralThreadId;
+  try {
+    await reopenGeneralInquiryThread(threadId);
+    toast('문의를 다시 열었습니다.');
+    await refreshInboxData();
+    if (_admMsgGeneralThreadId === threadId) await openGeneralInboxThread(threadId);
+  } catch (e) {
+    console.error('[reopenCurrentGeneralThread]', e);
+    toast(_admGenErrorText(e, '다시 열기에 실패했습니다.'));
   }
 }
 
 // 현재 열린 대화 — 두 종류를 한 자리에서 가른다(답장·회수·숨김·복구·응대완료 공용)
-function _admHasThread() { return !!(_admMsgAppId || _admMsgGeneralId); }
+function _admHasThread() { return !!(_admMsgAppId || _admMsgGeneralThreadId); }
 async function _admFetchCurrent() {
-  if (_admMsgGeneralId) {
-    const rows = await fetchGeneralInquiryMessages(_admMsgGeneralId);
+  if (_admMsgGeneralThreadId) {
+    const rows = await fetchGeneralInquiryMessages(_admMsgGeneralId, _admMsgGeneralThreadId);
     if (rows === null) throw new Error('general_inquiry_load_failed');
+    // 닫기 때 넘길 「화면이 본 마지막 글」 — 숨김·회수 뺀 것(서버 비교 기준과 같다). 다시 그릴 때마다 갱신
+    const visible = rows.filter(m => m.mask_state === 'visible');
+    _admGenSeenLastId = visible.length ? visible[visible.length - 1].id : null;
     return rows;
   }
   return await fetchApplicationMessages(_admMsgAppId);
@@ -535,7 +668,7 @@ function _admThreadElId() { return _admMsgContext === 'inbox' ? 'inboxMsgThread'
 
 // 우: 선택 응모건 대화 내용 (인라인 패널)
 async function openInboxThread(applicationId) {
-  _admMsgGeneralId = null;
+  _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'inbox';
   _admMsgPendingFiles = [];
@@ -622,7 +755,7 @@ function changeInboxSort(v) {
   // 「내가 보낸 순」 진입 시 본인 발신 시각 맵을 로드해야 하므로 재조회. 그 외는 재렌더만.
   if (_inboxSort === 'sent') {
     _inboxSelectedCampaign = null;          // 평면 모드 — 캠페인 선택 해제
-    if (_admMsgContext === 'inbox') { _admMsgAppId = null; _admMsgGeneralId = null; }
+    if (_admMsgContext === 'inbox') { _admMsgAppId = null; _admMsgGeneralId = null; _admMsgGeneralThreadId = null; }
     const view = document.getElementById('inboxThreadView');
     if (view) view.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
     updateInboxStage();
@@ -662,7 +795,7 @@ function filteredInboxThreads() {
 // ════════════════════════════════════════════════════════════════════
 async function openAdminMessageModal(applicationId, campaignId) {
   if (!applicationId) return;
-  _admMsgGeneralId = null;
+  _admMsgGeneralId = null; _admMsgGeneralThreadId = null;
   _admMsgAppId = applicationId;
   _admMsgContext = 'modal';
   _admMsgPendingFiles = [];
@@ -699,8 +832,11 @@ function closeAdminMessageModal() {
 
 // 대화 내용 컨테이너 HTML (받은편지함 우측 / 모달 본문 공용)
 //   ctx: 'inbox' | 'modal' — thread/composer DOM id 접두사 결정
+//   opts.general: 서비스 문의(받은편지함만) — 머리(제목·다른 열린 문의)는 _admRenderGenHead 가 채운다.
+//   opts.closed: 닫힌 서비스 문의 — 「응대 완료」 대신 아무것도, 입력란 대신 「다시 열기」(Q-1)
 function adminThreadViewHtml(ctx, isResolved = false, opts) {
   const isGeneral = !!(opts && opts.general);
+  const isClosed = isGeneral && !!(opts && opts.closed);
   const threadId = ctx === 'inbox' ? 'inboxMsgThread' : 'admMsgThread';
   const composerId = ctx === 'inbox' ? 'inboxComposer' : 'admComposer';
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
@@ -711,10 +847,30 @@ function adminThreadViewHtml(ctx, isResolved = false, opts) {
   // FAQ 열람 이력은 응모 번호로 조회한다 — 서비스 문의에서는 그리지 않는다(작업표 stale 9)
   const faqBtn = isGeneral ? '' : `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
   // 응대 완료 상태면 버튼을 「완료됨」 비활성으로 렌더 (진입 시 + 클릭 후 즉시 반영 공용)
-  const resolveBtn = isResolved
+  //   서비스 문의는 「응대 완료」 = 대화 닫기(확인 창 없음 — 회원이 24시간 안에 쓰면 다시 열린다). 닫힌 대화엔 없다
+  const resolveBtn = isClosed ? ''
+    : (isResolved && !isGeneral)
     ? `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn done" disabled>응대 완료됨</button>`
     : `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn primary" onclick="markCurrentResolved()">응대 완료</button>`;
+  const genHead = isGeneral ? `<div class="adm-gen-head" id="${ctx}GenHead" style="display:none"></div>` : '';
+  const composer = isClosed
+    ? `<div class="adm-msg-composer adm-gen-reopen" id="${composerId}">
+        <span>닫힌 문의입니다. 답장하려면 다시 여세요.</span>
+        <button type="button" class="btn btn-primary" onclick="reopenCurrentGeneralThread()">다시 열기</button>
+      </div>`
+    : `<div class="adm-msg-composer" id="${composerId}">
+      <div class="adm-msg-attach-preview" id="${composerId}Preview"></div>
+      <div class="adm-msg-composer-row">
+        <label class="adm-msg-attach-btn" title="이미지 첨부">
+          <span class="material-icons-round notranslate" translate="no">image</span>
+          <input type="file" accept="image/*" multiple style="display:none" onchange="onAdmMsgAttachSelected(this)">
+        </label>
+        <textarea class="adm-msg-input" id="${composerId}Input" rows="2" placeholder="답장 입력…"></textarea>
+        <button type="button" class="btn btn-primary adm-msg-send" onclick="sendAdminMessage()">전송</button>
+      </div>
+    </div>`;
   return `
+    ${genHead}
     <div class="adm-msg-statusline" id="${statusId}" style="display:none"></div>
     <div class="adm-msg-faq-history" id="${faqHistId}" style="display:none"></div>
     <div class="adm-msg-actionbar">
@@ -726,17 +882,7 @@ function adminThreadViewHtml(ctx, isResolved = false, opts) {
     </div>
     <div class="adm-msg-thread" id="${threadId}"></div>
     <div class="adm-msg-hide-history" id="${histId}" style="display:none"></div>
-    <div class="adm-msg-composer" id="${composerId}">
-      <div class="adm-msg-attach-preview" id="${composerId}Preview"></div>
-      <div class="adm-msg-composer-row">
-        <label class="adm-msg-attach-btn" title="이미지 첨부">
-          <span class="material-icons-round notranslate" translate="no">image</span>
-          <input type="file" accept="image/*" multiple style="display:none" onchange="onAdmMsgAttachSelected(this)">
-        </label>
-        <textarea class="adm-msg-input" id="${composerId}Input" rows="2" placeholder="답장 입력…"></textarea>
-        <button type="button" class="btn btn-primary adm-msg-send" onclick="sendAdminMessage()">전송</button>
-      </div>
-    </div>`;
+    ${composer}`;
 }
 
 // 숨김 이력 패널 토글 (super_admin) — 응모건 단위 audit
@@ -1134,7 +1280,8 @@ async function sendAdminMessage() {
         _admMsgSending = false; return;
       }
     }
-    if (_admMsgGeneralId) await sendGeneralInquiryMessage(body, attachments, _admMsgGeneralId);
+    // 서비스 문의 답장은 **항상 대화 id** 를 넘긴다(508 — 없으면 열린 대화가 둘 이상인 회원에서 thread_required)
+    if (_admMsgGeneralThreadId) await sendGeneralInquiryMessage(body, attachments, _admMsgGeneralId, _admMsgGeneralThreadId);
     else await sendApplicationMessage(_admMsgAppId, body, attachments);
     if (inputEl) inputEl.value = '';
     _admMsgPendingFiles = [];
@@ -1146,7 +1293,8 @@ async function sendAdminMessage() {
     else updateInboxSidebarBadge();
   } catch (e) {
     console.error('[sendAdminMessage]', e);
-    toast(e?.code === 'P0001' && e?.message ? e.message : '전송에 실패했습니다.');
+    toast(_admMsgGeneralThreadId ? _admGenErrorText(e, '전송에 실패했습니다.')
+      : (e?.code === 'P0001' && e?.message ? e.message : '전송에 실패했습니다.'));
   } finally {
     _admMsgSending = false;
   }
@@ -1228,9 +1376,9 @@ function _setResolveBtnDone(ctx) {
 // ── 수동 응대 완료 ──
 async function markCurrentResolved() {
   if (!_admHasThread()) return;
+  if (_admMsgGeneralThreadId) { await closeCurrentGeneralThread(); return; }
   try {
-    if (_admMsgGeneralId) await markGeneralInquiryResolved(_admMsgGeneralId);
-    else await markApplicationResolved(_admMsgAppId);
+    await markApplicationResolved(_admMsgAppId);
     toast('응대 완료로 표시했습니다.');
     _setResolveBtnDone(_admMsgContext); // 현재 대화창 버튼 즉시 「완료됨」 비활성
     if (_admMsgContext === 'inbox') await refreshInboxData();
@@ -1239,6 +1387,22 @@ async function markCurrentResolved() {
     console.error('[markCurrentResolved]', e);
     toast(e?.code === 'P0001' && e?.message ? e.message : '처리에 실패했습니다.');
   }
+}
+
+// 서비스 문의 「응대 완료」 = 대화 닫기(505). 화면이 본 마지막 글 id 를 넘겨, 그 뒤 회원 글이 왔으면 서버가 거부한다
+//   (new_message_since_view → 대화를 다시 불러와 보여 준다). 닫힌 뒤에는 입력란 대신 「다시 열기」로 다시 그린다
+async function closeCurrentGeneralThread() {
+  const threadId = _admMsgGeneralThreadId;
+  try {
+    await closeGeneralInquiryThread(threadId, _admGenSeenLastId);
+    toast('응대 완료(문의 닫힘)로 표시했습니다.');
+  } catch (e) {
+    console.error('[closeCurrentGeneralThread]', e);
+    toast(_admGenErrorText(e, '처리에 실패했습니다.'));
+  }
+  // 성공·거부 모두 목록과 대화를 다시 그린다(거부면 새 글을 보여 주고, 이미 닫혔으면 닫힌 화면으로)
+  await refreshInboxData();
+  if (_admMsgGeneralThreadId === threadId) await openGeneralInboxThread(threadId);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1346,7 +1510,7 @@ function switchInboxTab(tab) {
   const custom = document.getElementById('inboxCustomRange');
   if (custom) custom.style.display = (document.getElementById('inboxSinceSelect')?.value === 'custom') ? '' : 'none';
   const search = document.getElementById('inboxSearchInput');
-  if (search) search.placeholder = _inboxTab === 'general' ? '인플루언서명 검색' : '인플루언서명 · 캠페인명 검색';
+  if (search) search.placeholder = _inboxTab === 'general' ? '인플루언서명 · 문의 제목 검색' : '인플루언서명 · 캠페인명 검색';
   applyBulkMsgButtonVisibility();
   if (isList) switchInboxKind(_inboxTab);
   else { renderInboxKindTabs(); loadBroadcasts(); }
