@@ -122,3 +122,13 @@ body{font-size:var(--fs-body)}
 /* 바닥글 */
 .footer-brand{font-size:var(--fs-body)}
 .footer-info,.footer-links a,.footer-copy{font-size:var(--fs-caption)}
+/* 🔴 껍데기(#appShell)가 밀리지 않게 — 운영에도 있던 결함(2026-10-06 발견)
+   #appShell 은 transform 이 있어 안의 position:fixed 창(햄버거 패널·알림 창)이 껍데기 기준으로 그려지고,
+   닫힌 창은 껍데기 밖(오른쪽·아래)에 걸쳐 있다. overflow:hidden 은 코드 스크롤을 막지 못해서
+   그 창 안에 초점이 들어가거나 scrollIntoView(마이페이지 입력칸·가입 오류·응모 선택)가 불리면
+   껍데기 자체가 가로 320·세로 수백 픽셀 밀려 닫힌 창이 반쯤 보이고 클릭을 가린다.
+   ① clip 은 스크롤 자체가 없는 잘라내기라 어떤 경로로도 밀리지 않는다(지원 안 되는 옛 브라우저는 base.css 의 hidden 그대로)
+   ② 닫힌 창은 미끄러져 나간 뒤 감춰 키보드 Tab 이 들어가지 못하게 한다(열 때는 바로 보인다) */
+#appShell{overflow:clip}
+.nav-panel[aria-hidden="true"] .nav-panel-body{visibility:hidden;transition:transform .25s cubic-bezier(.2,0,0,1),visibility 0s linear .25s}
+.notif-modal[aria-hidden="true"] .notif-modal-body{visibility:hidden;transition:transform .3s cubic-bezier(.2,0,0,1),visibility 0s linear .3s}
