@@ -43,6 +43,7 @@ window._supabaseLoaded = false;
 <link rel="stylesheet" href="css/campaign.css">
 <link rel="stylesheet" href="css/auth.css">
 <link rel="stylesheet" href="css/mypage.css">
+<link rel="stylesheet" href="css/member-ui.css">
 <!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -119,23 +120,6 @@ window._supabaseLoaded = false;
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
       <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── 이미지 크롭 모달 ── -->
-<div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
-    <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)">
-      <div style="font-size:16px;font-weight:700">1:1 이미지 크롭</div>
-      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
-    </div>
-    <div style="padding:16px;background:#000">
-      <img id="cropImage" style="max-width:100%;display:block">
-    </div>
-    <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeCropModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="applyCrop()">適用</button>
     </div>
   </div>
 </div>
@@ -381,7 +365,7 @@ window._supabaseLoaded = false;
   </div>
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">K-Brand × Japan Only</div>
       <h1 class="hero-h1"><span data-i18n="home.hero.titleLine1">韓国の人気Kブランドを</span><span data-i18n="home.hero.titleLine2">あなたのSNSで</span><span data-i18n="home.hero.titleLine3">体験しよう</span><span class="hero-jp" data-i18n="home.hero.titleJp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub" data-i18n="home.hero.sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -851,7 +835,7 @@ window._supabaseLoaded = false;
       <!-- 검증 중 (새 형식 링크로 들어왔을 때만 표시) -->
       <div id="resetPwVerifying" style="display:none;text-align:center;padding:32px 0">
         <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています...</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="auth.reset.verifying">確認しています…</div>
       </div>
       <!-- 만료·무효 링크 안내 -->
       <div id="resetPwExpired" style="display:none">
@@ -859,7 +843,7 @@ window._supabaseLoaded = false;
           <div class="auth-logo-mark">R</div>
           <div class="auth-title" data-i18n="auth.reset.expiredTitle">このリンクは使えません</div>
         </div>
-        <ol style="font-size:14px;line-height:1.9;color:var(--text);padding-left:20px;margin:0 0 20px">
+        <ol style="font-size:14px;line-height:1.9;color:var(--ink);padding-left:20px;margin:0 0 20px">
           <li data-i18n="auth.reset.expiredStep1">リンクは受け取ってから しばらくすると 使えなくなります</li>
           <li data-i18n="auth.reset.expiredStep2">何回か送った場合は いちばん新しいメールのリンクだけ 使えます</li>
           <li data-i18n="auth.reset.expiredStep3">下のボタンから もう一度 送ってください</li>
@@ -907,7 +891,7 @@ window._supabaseLoaded = false;
       <!-- 처리 중 -->
       <div id="unsubLoading" style="text-align:center;padding:32px 0">
         <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
-        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています...</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています…</div>
       </div>
       <!-- 성공 -->
       <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
@@ -1218,7 +1202,7 @@ window._supabaseLoaded = false;
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" class="pw-policy" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="auth.reset.btn">パスワードを変更</button>
+        <button class="btn btn-primary btn-block" onclick="changePassword()" data-i18n="profile.changePwBtn">パスワードを変更</button>
       </div>
     </div>
   </div>

@@ -1,0 +1,66 @@
+/* ══════════════════════════════════════════════════════════════════
+   회원 앱 공용 부품 — 회원 앱 전용 (사양서 docs/specs/2026-09-29-member-app-style-unification.md)
+   🔴 이 파일은 회원 빌드(CLIENT_CSS_FILES)의 **맨 끝**에만 붙는다. 관리자 빌드에는 없다.
+      base.css·components.css 는 관리자와 공유라 거기 값을 고치면 관리자 화면이 같이 바뀐다 —
+      회원 앱용 값은 전부 여기서 덮어쓴다(§3-0).
+   🔴 덮어쓰기(.btn 높이·본문 글자 등)는 **전역으로 걸지 않는다** — 화면 조각이 자기 화면 선택자를
+      아래 「화면별 덮어쓰기」 묶음에 더한다(#page-detail .btn{…}). 전역으로 걸면 아직 인라인을
+      안 걷어낸 화면에 옛 단추와 새 단추가 섞인다. 마지막 조각 뒤 전역 한 줄로 합친다.
+   ⚠️ 부품 클래스는 여기에만 있다 — 관리자 코드에서 쓰면 스타일 없이 그려진다.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* 글자 크기 5단계(입력칸은 이 밖 — 16px 고정, 모바일 확대 방지) */
+  --fs-caption:11px;--fs-desc:13px;--fs-body:15px;--fs-subtitle:17px;--fs-title:20px;
+  /* 누르는 영역 최소값 · 팝업 모서리 */
+  --tap-min:44px;--r-popup:20px;
+}
+
+/* ── 상태 안내 셋 — 조회 실패(null)·0건([])·불러오는 중을 서로 다른 모양으로 ── */
+.state-empty,.state-loading,.state-error{text-align:center;padding:40px 24px;color:var(--muted)}
+.state-empty .state-icon{font-size:48px;color:var(--faint);margin-bottom:12px}
+.state-empty .state-title{font-size:var(--fs-subtitle);font-weight:600;color:var(--ink);margin-bottom:6px}
+.state-empty .state-sub{font-size:var(--fs-desc);line-height:1.5}
+.state-loading{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:var(--fs-desc)}
+.state-loading .state-spin{width:24px;height:24px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:stateSpin .8s linear infinite}
+@keyframes stateSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.state-loading .state-spin{animation-duration:2.4s}}
+.state-error .state-icon{font-size:32px;color:var(--red);margin-bottom:8px}
+.state-error .state-text{font-size:var(--fs-body);line-height:1.6;color:var(--ink);margin-bottom:16px}
+.state-error .btn{min-height:var(--tap-min)}
+
+/* ── 팝업 안쪽 상자 둘 — 바깥은 기존 .modal-overlay(배경·z-index) 그대로 ── */
+/* 아래에서 올라오는 창: 내용이 긴 것(응모·약관·정책 통지·알림) */
+.sheet{background:var(--surface);border-radius:var(--r-popup) var(--r-popup) 0 0;width:100%;max-width:var(--shell-max);max-height:90vh;overflow-y:auto;box-shadow:var(--elevation-4);padding-bottom:env(safe-area-inset-bottom)}
+/* 가운데 창: 짧은 확인·경고. 바깥(.modal-overlay)이 아래 붙임이라 자기만 가운데로 */
+.dialog{background:var(--surface);border-radius:var(--r-popup);width:calc(100% - 32px);max-width:400px;max-height:85vh;overflow-y:auto;align-self:center;margin:auto;box-shadow:var(--elevation-4)}
+.popup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 12px 8px 20px}
+.popup-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);line-height:1.4}
+/* 닫기 = 아이콘 하나(24) · 누르는 영역 44 · aria-label 필수(t('common.close')). 확인창은 닫기 대신 「キャンセル」 단추 */
+.popup-close{flex-shrink:0;width:var(--tap-min);height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:50%;color:var(--muted);cursor:pointer}
+.popup-close .material-icons-round{font-size:24px}
+.popup-close:hover{background:var(--surface-dim);color:var(--ink)}
+.popup-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.popup-body{padding:8px 20px 20px;font-size:var(--fs-body);line-height:1.6;color:var(--ink)}
+.popup-actions{display:flex;gap:10px;padding:0 20px 20px}
+.popup-actions .btn{flex:1;min-height:var(--tap-min)}
+/* 넓은 화면 — 시트는 기존 .modal 과 같이 가운데 카드로(components.css 넓은 화면 규칙과 같은 모양) */
+@media(min-width:600px){
+  .sheet{border-radius:var(--r-popup);align-self:center;margin:auto;max-height:85vh}
+}
+
+/* ── 누르는 영역 도우미 ── */
+/* 아이콘만 있는 작은 단추(닫기·넘김 화살표·뒤로): 보이는 크기는 그대로, 누르는 영역만 44 */
+.tap-44{position:relative}
+.tap-44::after{content:'';position:absolute;left:50%;top:50%;width:var(--tap-min);height:var(--tap-min);transform:translate(-50%,-50%)}
+/* 깊은 화면(캠페인 상세·활동관리·응모 취소·문의 응모 고르기)의 「← 되돌아가기」 */
+.back-link{display:inline-flex;align-items:center;gap:2px;min-height:var(--tap-min);padding:0 8px 0 0;border:none;background:none;color:var(--muted);font-size:var(--fs-desc);font-weight:600;cursor:pointer;font-family:inherit}
+.back-link .material-icons-round{font-size:24px}
+.back-link:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:var(--r8)}
+
+/* ===== 화면별 덮어쓰기 — 조각이 자기 선택자를 더한다 =====
+   예) #page-detail .btn{min-height:var(--tap-min)}
+       #page-detail .btn-xs{min-height:32px;position:relative}
+       #page-detail .btn-xs::after{content:'';position:absolute;inset:-6px 0}
+       #page-detail{font-size:var(--fs-body)}
+   (조각 0 — 아직 비어 있다) */

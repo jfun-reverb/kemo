@@ -390,7 +390,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 @media(min-width:600px){
   /* 시트 — 아래 붙는 모양에서 가운데 카드로. 등장도 올라오기 대신 페이드.
      ⚠️ 이미 가운데형인 대화창 7종(#alertModal·#cautionCompareModal·#applyActionModal·
-        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay·#cropModal)과
+        #cancelDetailModal·#profileAlertOverlay·#ageGateOverlay, 관리자 화면의 #cropModal)과
         .notif-modal-body(top:15%)는 손대지 않는다.
      ⚠️ 선택자를 묶지 않고 하나씩 적는다 — 자리 수를 세어 빠뜨린 곳을 찾는 검사가
         작업표의 완료 조건이라, 묶으면 그 검사가 무의미해진다. */
