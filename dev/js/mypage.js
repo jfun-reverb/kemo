@@ -507,6 +507,14 @@ function restoreMypageHash() {
   const sub = active.id.replace('mypage-sub-', '');
   if (location.hash !== '#mypage-' + sub) history.replaceState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
+// 닫기 — 이동을 그만두고 고치던 폼에 머문다(주소는 막을 때 이미 되돌려 뒀다)
+function cancelMypageLeave() {
+  // 저장 중에는 무시한다 — 저장이 끝나면 그대로 이동하므로 「머문다」와 어긋난다
+  if ($('mypageLeaveSaveBtn')?.disabled) return;
+  const ov = $('mypageLeaveOverlay');
+  if (ov) ov.style.display = 'none';
+  _mypageLeavePending = null;
+}
 async function resolveMypageLeave(choice) {
   const p = _mypageLeavePending;
   if (!p) return;
