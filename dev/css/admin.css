@@ -528,7 +528,7 @@ input.admin-filter{padding-right:8px}
 .lookup-toggle input{opacity:0;width:0;height:0}
 .lookup-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;transition:.2s}
 .lookup-toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--accent-ink)}
+.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--accent-ink,#625EBD)}   /* 색 변수는 #page-admin 안에만 있다 — 그 밖에 뜨는 편집 창(모달)에서 비지 않게 같은 값으로 대신 */
 .lookup-toggle input:checked + .lookup-toggle-slider::before{transform:translateX(16px)}
 .lookup-toggle input:disabled + .lookup-toggle-slider{opacity:.5;cursor:not-allowed}
 
@@ -1646,17 +1646,34 @@ input.admin-filter{padding-right:8px}
 .faq-item-label{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4}
 .faq-item-count{font-size:11px;font-weight:400;color:var(--muted);margin-left:4px}
 .faq-item-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+/* 카테고리 노출 위치 — 제목 아래 별도 줄(2026-10-07) */
+.faq-scope-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.faq-scope-row .badge{margin-left:0!important}
 .faq-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .faq-item-actions .btn-xs{padding:2px 6px;font-size:11px}
 /* 측정 배지 */
 .faq-stats{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .faq-stat{font-size:10px;color:var(--muted);background:var(--surface-dim);border-radius:6px;padding:1px 6px}
 .faq-stat-warn{color:var(--red-d);background:#FDECEA;font-weight:700}
+/* 질문 목록 표(2026-10-07) — 꼬리표를 열로. 공용 표(.data-table)를 쓰고 이 페인 안에서만 여백·줄바꿈 */
+.faq-table-wrap{overflow-x:auto}
+.faq-table{width:100%;min-width:860px}
+.faq-table td{vertical-align:middle;padding:10px 10px;font-size:12px}
+.faq-table th{white-space:nowrap;font-size:11px;padding:8px 10px}
+.faq-table .faq-td-q{min-width:240px}
+.faq-table .faq-stats{margin-top:0}
+.faq-table .faq-td-actions{white-space:nowrap}
+.faq-table td .badge{white-space:nowrap}
+.faq-table tr.faq-row-off td{opacity:.5}
 /* 편집 모달 — 한·일 2열 */
 .faq-bilingual{display:flex;gap:14px}
 .faq-bilingual > .form-group{flex:1;min-width:0}
 .faq-stage-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500}
 .faq-stage-chip input{accent-color:var(--pink)}
+/* 편집 창 구역 — 「질문·답변」(내용) / 「설정」을 구분(2026-10-07) */
+.faq-section-title{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 10px}
+.faq-settings-box{margin-top:18px;padding:16px 16px 4px;border:1px solid var(--line,#E5E7EB);border-radius:12px;background:#FAFAFB}
+.faq-settings-box .form-group:last-child{margin-bottom:12px}
 /* 미리보기 박스 — 인플루언서 일본어 화면 흉내 */
 .faq-preview{margin-top:10px;padding:14px;border:1px dashed var(--pink);border-radius:12px;background:var(--light-pink)}
 .faq-pv-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px}

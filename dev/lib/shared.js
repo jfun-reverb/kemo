@@ -1301,6 +1301,39 @@ function faqComputeCancelPhase(camp) {
   return 'other';
 }
 
+// 자주 묻는 질문 노출 위치 — 「캠페인 문의」 / 「서비스 문의」(마이그레이션 510, 2026-10-07 사용자 결정).
+//   보이는 조건 = 자기 칸이 켜져 있고 **위쪽 카테고리 칸도 전부** 켜져 있음(활성 상속 faqNodeChainActive 와 같은 모양).
+//   🔴 회원 화면(대화 「＋」 서랍·질문 페이지)과 관리자 화면(「회원 화면 보기」 거름)이 **이 함수 하나**를 쓴다 — 사본 금지.
+//   510 이 아직 없는 데이터베이스(칸이 undefined)에서는 옛 규칙으로 돌아간다 — 캠페인 = 전부,
+//   서비스 = 아래 카테고리 셋 안의 단계 없는 질문(배포 순서가 어긋나도 서비스 질문이 0건이 되지 않게)
+const FAQ_GENERAL_CATEGORY_IDS = [
+  '00000001-0000-0000-0000-000000000005',
+  '00000001-0000-0000-0000-000000000006',
+  '00000001-0000-0000-0000-000000000007',
+];
+function faqNodeVisibleIn(node, byId, scope) {
+  if (!node) return false;
+  const col = scope === 'service' ? 'show_in_service' : 'show_in_campaign';
+  if (node[col] === undefined) {
+    if (scope !== 'service') return true;
+    let root = node, guard = 0;
+    while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
+    if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
+    if (node.kind === 'category') return true;
+    const st = node.relevant_stages;
+    return !Array.isArray(st) || st.length === 0;
+  }
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur[col]) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];
+  }
+  return true;
+}
+
 // 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
 //   status: applications.status (pending/approved/rejected/cancelled)
 //   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
