@@ -35,6 +35,25 @@ let _faqNodes = [];          // 전체 노드 캐시 (active 무관)
 let _faqStats = {};          // 노드별 측정 집계
 let _faqSelectedCatId = null;// 선택된 카테고리 id
 let _faqReorder = { category: false, item: false };
+let _faqScopeView = 'all';   // 「회원 화면 보기」 — all | campaign | service (510)
+
+// 노출 위치 판정은 shared.js faqNodeVisibleIn 하나(회원 화면과 같은 함수) — 그 표를 만든다
+function _faqById() { const m = {}; _faqNodes.forEach(n => { m[n.id] = n; }); return m; }
+// 「회원 화면 보기」 거름 — 전체가 아니면 그 문의에서 보이는 노드만
+function _faqInView(n) { return _faqScopeView === 'all' || faqNodeVisibleIn(n, _faqById(), _faqScopeView); }
+function changeFaqScopeView(v) {
+  _faqScopeView = (v === 'campaign' || v === 'service') ? v : 'all';
+  renderFaqCategories();
+  renderFaqItems(_faqSelectedCatId);
+}
+// 노출 위치 꼬리표 — 자기 칸 기준(캠페인·서비스), 둘 다 꺼짐이면 「노출 안 됨」
+function faqScopeBadges(n) {
+  const camp = n.show_in_campaign !== false, svc = !!n.show_in_service;
+  const tag = (txt, cls) => `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px;margin-left:4px">${txt}</span>`;
+  if (n.show_in_campaign === undefined) return '';   // 510 전 데이터베이스
+  if (!camp && !svc) return tag('노출 안 됨', 'badge-red');
+  return (camp ? tag('캠페인', 'badge-gray') : '') + (svc ? tag('서비스', 'badge-gray') : '');
+}
 
 // 페인 로드 — 노드 + 측정 조회 후 좌우 렌더
 async function loadFaqPane() {
@@ -67,14 +86,14 @@ function _faqItemsOf(categoryId) {
 function renderFaqCategories() {
   const wrap = $('faqCatList');
   if (!wrap) return;
-  const cats = _faqCategories();
+  const cats = _faqCategories().filter(_faqInView);   // 「회원 화면 보기」 거름은 그리는 곳에서만
   if (!cats.length) {
-    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">등록된 카테고리가 없습니다</div>';
+    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">' + (_faqScopeView === 'all' ? '등록된 카테고리가 없습니다' : '이 문의에 보이는 카테고리가 없습니다') + '</div>';
     return;
   }
   const reorder = _faqReorder.category;
   wrap.innerHTML = cats.map((c, i) => {
-    const cnt = _faqItemsOf(c.id).length;
+    const cnt = _faqItemsOf(c.id).filter(_faqInView).length;
     const sel = c.id === _faqSelectedCatId ? ' faq-item-sel' : '';
     const upId = i === 0 ? '' : cats[i-1].id;
     const downId = i === cats.length-1 ? '' : cats[i+1].id;
@@ -82,6 +101,7 @@ function renderFaqCategories() {
       <div class="faq-item-main">
         <div class="faq-item-label">${esc(c.label_ko)} <span class="faq-item-count">질문 ${cnt}개</span></div>
         <div class="faq-item-sub">${esc(c.label_ja)}</div>
+        ${faqScopeBadges(c) ? `<div class="faq-scope-row">${faqScopeBadges(c)}</div>` : ''}
       </div>
       <div class="faq-item-actions" onclick="event.stopPropagation()">
         ${reorder
@@ -113,44 +133,45 @@ function renderFaqItems(categoryId) {
   if (title) title.textContent = '「' + cat.label_ko + '」 질문';
   if (footer) footer.style.display = '';
   if (reorderBtn) reorderBtn.style.display = '';
-  const items = _faqItemsOf(categoryId);
+  const items = _faqItemsOf(categoryId).filter(_faqInView);
   if (!items.length) {
-    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px">등록된 질문이 없습니다</div>';
+    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px">' + (_faqScopeView === 'all' ? '등록된 질문이 없습니다' : '이 문의에 보이는 질문이 없습니다') + '</div>';
     return;
   }
   const reorder = _faqReorder.item;
-  wrap.innerHTML = items.map((q, i) => {
+  // 표 — 질문 · 노출 위치 · 화면 이동 · 맞춤 단계 · 직접 문의 · 통계 · 활성 · 관리(2026-10-07 사용자 지시 — 꼬리표를 열로)
+  const dash = '<span style="color:var(--faint)">—</span>';
+  const chip = (txt, cls) => `<span class="badge ${cls}" style="font-size:10px;padding:1px 6px">${txt}</span>`;
+  const rows = items.map((q, i) => {
     const upId = i === 0 ? '' : items[i-1].id;
     const downId = i === items.length-1 ? '' : items[i+1].id;
-    return `<div class="faq-item${q.active?'':' faq-item-off'}">
-      <div class="faq-item-main">
-        <div class="faq-item-label">${esc(q.label_ko)}${faqItemBadges(q)}</div>
-        <div class="faq-item-sub">${esc(q.label_ja)}</div>
-        ${faqStatBadges(q.id)}
-      </div>
-      <div class="faq-item-actions">
-        ${reorder
-          ? `<button class="btn btn-ghost btn-xs" ${upId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(upId)}')">↑</button>
-             <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(downId)}')">↓</button>`
-          : `<label class="lookup-toggle" title="${q.active?'활성':'비활성'}"><input type="checkbox" ${q.active?'checked':''} onchange="toggleFaqNodeActive('${esc(q.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label>
-             <button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(q.id)}','${esc(categoryId)}','item')">편집</button>
-             <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`}
-      </div>
-    </div>`;
+    const scope = faqScopeBadges(q) || dash;
+    const nav = (q.action_type === 'navigate' && q.action_target)
+      ? chip('→ ' + esc(FAQ_ACTION_LABEL_KO[q.action_target] || q.action_target), 'badge-blue') : dash;
+    const stages = (q.relevant_stages || []).length
+      ? (q.relevant_stages || []).map(st => chip(esc(FAQ_STAGE_LABEL_KO[st] || st), 'badge-gray')).join(' ')
+      : '<span style="color:var(--muted);font-size:11px">모든 단계</span>';
+    const handoff = q.is_human_handoff ? chip('직접문의', 'badge-gold') : dash;
+    const stat = faqStatBadges(q.id) || dash;   // 조회·직접문의 수(+ 전환율 경고)
+    const actions = reorder
+      ? `<button class="btn btn-ghost btn-xs" ${upId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(upId)}')">↑</button>
+         <button class="btn btn-ghost btn-xs" ${downId?'':'disabled'} onclick="moveFaqNode('${esc(q.id)}','${esc(downId)}')">↓</button>`
+      : `<button class="btn btn-ghost btn-xs" onclick="openFaqEditModal('${esc(q.id)}','${esc(categoryId)}','item')">편집</button>
+         <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick="deleteFaqItem('${esc(q.id)}')">삭제</button>`;
+    return `<tr class="${q.active ? '' : 'faq-row-off'}">
+      <td class="faq-td-q"><div class="faq-item-label">${esc(q.label_ko)}</div><div class="faq-item-sub">${esc(q.label_ja)}</div></td>
+      <td>${scope}</td>
+      <td>${nav}</td>
+      <td>${stages}</td>
+      <td>${handoff}</td>
+      <td>${stat}</td>
+      <td><label class="lookup-toggle" title="${q.active?'활성':'비활성'}"><input type="checkbox" ${q.active?'checked':''} ${reorder?'disabled':''} onchange="toggleFaqNodeActive('${esc(q.id)}',this.checked)"><span class="lookup-toggle-slider"></span></label></td>
+      <td class="faq-td-actions">${actions}</td>
+    </tr>`;
   }).join('');
-}
-
-// 질문 속성 배지 (handoff / 화면이동 / 단계 태그)
-function faqItemBadges(q) {
-  const out = [];
-  if (q.is_human_handoff) out.push('<span class="badge badge-gold" style="font-size:9px;padding:1px 6px;margin-left:4px">직접문의</span>');
-  if (q.action_type === 'navigate' && q.action_target) {
-    out.push(`<span class="badge badge-blue" style="font-size:9px;padding:1px 6px;margin-left:4px">→ ${esc(FAQ_ACTION_LABEL_KO[q.action_target] || q.action_target)}</span>`);
-  }
-  (q.relevant_stages || []).forEach(s => {
-    out.push(`<span class="badge badge-gray" style="font-size:9px;padding:1px 6px;margin-left:4px">${esc(FAQ_STAGE_LABEL_KO[s] || s)}</span>`);
-  });
-  return out.join('');
+  wrap.innerHTML = `<div class="faq-table-wrap"><table class="data-table faq-table">
+    <thead><tr><th>질문</th><th>노출 위치</th><th>화면 이동</th><th>맞춤 단계</th><th>직접 문의</th><th>통계</th><th>활성</th><th>관리</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 
 // 측정 배지 (조회수 · 직접문의 전환수 + 전환율 높으면 경고)
@@ -268,17 +289,22 @@ function openFaqEditModal(nodeId, parentId, kind) {
   // 카테고리는 답변·화면이동·단계·미리보기 숨김
   $('faqBodyGroup').style.display = isCategory ? 'none' : '';
   $('faqPreviewWrap').style.display = isCategory ? 'none' : '';
+  $('faqItemSettings').style.display = isCategory ? 'none' : '';   // 설정 구역의 질문 전용 칸(화면 이동·직접 문의·단계)
   $('faqBodyKo').value = node ? node.body_ko || '' : '';
   $('faqBodyJa').value = node ? node.body_ja || '' : '';
   $('faqActionTarget').value = node && node.action_type === 'navigate' ? (node.action_target || '') : '';
   $('faqActionLabelKo').value = node ? node.action_label_ko || '' : '';
   $('faqActionLabelJa').value = node ? node.action_label_ja || '' : '';
   $('faqHandoff').checked = node ? !!node.is_human_handoff : false;
-  $('faqActive').checked = node ? !!node.active : true;
+  // 노출 위치 — 새 질문은 부모 카테고리 값을 이어받는다(서비스 카테고리에 추가하면 서비스도 켜짐)
+  const parentNode = (parentId || (node && node.parent_id)) ? _faqNodes.find(n => n.id === (parentId || node.parent_id)) : null;
+  $('faqShowCampaign').checked = node ? node.show_in_campaign !== false : (parentNode ? parentNode.show_in_campaign !== false : true);
+  $('faqShowService').checked = node ? !!node.show_in_service : (parentNode ? !!parentNode.show_in_service : false);
   const stages = (node && node.relevant_stages) || [];
   document.querySelectorAll('input[name="faqStage"]').forEach(cb => { cb.checked = stages.includes(cb.value); });
   onFaqActionTargetChange();
   onFaqHandoffChange();
+  renderFaqScopeHint();
   // 미리보기 초기화 (접힘)
   const pb = $('faqPreviewBox');
   if (pb) pb.style.display = 'none';
@@ -286,6 +312,26 @@ function openFaqEditModal(nodeId, parentId, kind) {
   const err = $('faqEditError');
   if (err) err.style.display = 'none';
   openModal('faqEditModal');
+}
+
+// 노출 위치 안내 — ①위쪽 카테고리가 그 문의에 꺼져 있으면 「켰는데 안 보임」 ②단계가 붙은 질문을 서비스에 켜면 정렬 안내
+//   ③둘 다 끄면 어디에도 안 보임
+function renderFaqScopeHint() {
+  const el = $('faqScopeHint');
+  if (!el) return;
+  const msgs = [];
+  const camp = $('faqShowCampaign').checked, svc = $('faqShowService').checked;
+  if (!camp && !svc) msgs.push('두 곳 모두 꺼져 있어 회원에게 어디에도 보이지 않습니다.');
+  const parentId = $('faqEditParentId').value;
+  const parent = parentId ? _faqNodes.find(n => n.id === parentId) : null;
+  if (parent) {
+    if (camp && parent.show_in_campaign === false) msgs.push(`카테고리 「${parent.label_ko}」가 캠페인 문의에 꺼져 있어 이 질문도 캠페인 문의에 보이지 않습니다.`);
+    if (svc && parent.show_in_service === false) msgs.push(`카테고리 「${parent.label_ko}」가 서비스 문의에 꺼져 있어 이 질문도 서비스 문의에 보이지 않습니다.`);
+  }
+  const hasStages = document.querySelectorAll('input[name="faqStage"]:checked').length > 0;
+  if (svc && hasStages && $('faqEditKind').value === 'item') msgs.push('서비스 문의에는 응모 단계가 없어 「맞춤 노출 단계」 정렬이 적용되지 않습니다.');
+  el.textContent = msgs.join(' ');
+  el.style.display = msgs.length ? '' : 'none';
 }
 
 // 화면이동 선택 시 버튼 라벨 입력 노출
@@ -307,7 +353,9 @@ async function saveFaqNode() {
   const labelJa = $('faqLabelJa').value.trim();
   if (!labelKo || !labelJa) { setErr('한국어·일본어 제목을 모두 입력하세요.'); return; }
   const uid = currentUser?.id || null;
-  const row = { label_ko: labelKo, label_ja: labelJa, active: $('faqActive').checked, updated_by: uid };
+  // 활성은 목록 토글이 정한다 — 편집 저장은 건드리지 않고, 새로 만들 때만 활성으로
+  const row = { label_ko: labelKo, label_ja: labelJa, updated_by: uid,
+    show_in_campaign: $('faqShowCampaign').checked, show_in_service: $('faqShowService').checked };
   if (kind === 'category') {
     row.kind = 'category'; row.parent_id = null;
   } else {
@@ -331,6 +379,7 @@ async function saveFaqNode() {
     const maxSort = siblings.reduce((m, s) => Math.max(m, s.sort_order || 0), 0);
     row.sort_order = maxSort + 10;
     row.created_by = uid;
+    row.active = true;
   }
   const r = id ? await updateFaqNode(id, row) : await insertFaqNode(row);
   if (!r.ok) { setErr('저장 실패: ' + (r.error || '')); return; }
