@@ -234,6 +234,9 @@
 - `outbound_influencers`(⚠️ 정책은 `is_admin()` 금지 — `has_permission('outbound.view')`) — 상세 `.claude/rules/outbound.md`
 
 ### 응모건 메시지 (인플루언서 ↔ 관리자, 마이그레이션 144·145)
+**현재 원본 번호**
+- `send_application_message` — **509**(베이스 323. `CREATE OR REPLACE` 로만) · 「응모 끝나고 90일이면 회원은 못 씀」 판정은 **`_application_message_writable`(509) 한 곳**(종료 시각은 `_application_message_ended_at`) — 회원 화면은 `get_my_application_message_status()`(509, 본인 응모 전부 jsonb)로 「지난 문의」를 가른다. 🔴 90일을 화면에서 계산하지 않는다. 배포는 509 먼저
+
 > 응모건 단위 양방향 메시지 — 받은편지함 3단 페인 `#adminPane-messages`·강제 숨김/복구·응대 완료·알림 `message_received`. **캠페인 단위 일괄 발송도 운영 가동 중** — 대상 필터 + 발송 이력·일괄 회수. 관리자 로직 `dev/js/admin-messaging.js`. 사양서 `docs/specs/2026-05-15-application-messaging.md`·`docs/specs/2026-06-02-bulk-message-target-redesign.md`
 > 🔴 **약관 게이트가 언제·무엇을 근거로 풀렸는지 어디에도 없다** — 개인정보처리방침은 **「문의하기」(인플루언서 → 운영팀) 기준으로** 갱신됐고, **관리자 → 인플루언서 일괄 발송까지 덮는지는 확인되지 않았다.** 판단이 필요하면 `/약관확인`
 > ⚠️ 첨부·임의 다중선택(3페인 체크박스)·메일 지연 큐(PR 4)는 **미구현**
@@ -260,6 +263,7 @@
 - 알림은 종류가 `message_received` 그대로이고 **`ref_table='general_inquiry'` 로만 갈린다** — 그 분기가 응모건 분기보다 **앞에** 있어야 한다(`notifications.js`, 뒤에 두면 응모건 화면으로 간다). 탈퇴 화면의 연락 안내는 이 창구로 간다. **로그인할 수 없는 자리**(로그아웃된 확정 회원 안내·가입 실패 안내)는 LINE 유지
 
 ### 자동응답(FAQ 가이드형, 마이그레이션 146)
+> 🔄 **2026-10-07 회원 화면 진입로가 바뀌었다**: 대화 맨 위 봇 카드는 없앴고, 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 서비스 쪽 질문은 여전히 `FAQ_GENERAL_CATEGORY_IDS`(카테고리 셋 고정 — 관리자가 고르는 장치 없음, 후속 과제)
 > 응모건 메시지의 「문의 게이트」형 FAQ. 사양서 `docs/specs/2026-05-21-message-faq.md`. 빈 구멍 분석 `docs/specs/2026-05-29-message-faq-improvement.md`.
 - `faq_nodes` — 자기참조 트리. `parent_id`/`kind`(category|item), `label_ko/ja`, `body_ko/ja`, `action_type`/`action_target`(앱 해시 경로 8종), `is_human_handoff`, `relevant_stages text[]`, `sort_order`, `active`. RLS SELECT authenticated / CUD `is_campaign_admin()`. 시드 31노드
 - `faq_interactions` — `action`(viewed|resolved|handoff), `view_count`. `viewed` 부분 유니크. RLS INSERT 본인행 / SELECT `is_admin()`

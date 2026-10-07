@@ -130,6 +130,8 @@ function updateNavMsgBadge() {
     if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
     else b.classList.add('hidden');
   });
+  // 햄버거 「お問い合わせ」 숫자는 서비스 + 캠페인 합계 — 캠페인 값이 바뀌었으니 다시 그린다(messaging.js)
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();
 }
 
 function navItemHtml(it) {

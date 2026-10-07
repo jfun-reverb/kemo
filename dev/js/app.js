@@ -87,6 +87,10 @@ function navigate(page, pushHistory) {
   if (isInquiryGeneralHash(page)) {
     pageName = 'messages';
   }
+  // faq-campaign / faq-service — 따로 떨어진 「よくある質問」 페이지(2026-10-07)
+  if (page.startsWith('faq-')) {
+    pageName = 'faq';
+  }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
   //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
   if (page === 'ticket' || page.startsWith('ticket-')) {
@@ -120,6 +124,11 @@ function navigate(page, pushHistory) {
   if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
+  }
+  // 질문 페이지를 떠나면 그릴 자리를 대화 화면 오버레이로 되돌린다 — 안 하면 대화 화면의 질문이 빈 페이지에 그려진다
+  if (_prevActivePage && _prevActivePage.id === 'page-faq' && pageName !== 'faq'
+      && typeof cleanupFaqPage === 'function') {
+    cleanupFaqPage();
   }
   // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
   // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
@@ -319,6 +328,9 @@ window.addEventListener('popstate', function(e) {
   } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
     if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(page));
     else navigate('home', false);
+  } else if (page.startsWith('faq-')) {
+    if (typeof openFaqPage === 'function') openFaqPage(page.replace('faq-', ''), false);
+    else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
@@ -349,6 +361,12 @@ window.addEventListener('langchange', function() {
   }
   // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
   else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
+  // 질문 페이지 — 제목·목록을 새 언어로(목록은 처음 단계로)
+  else if (page.startsWith('faq-')) {
+    const _ft = document.getElementById('faqPageTitle');
+    if (_ft) _ft.textContent = t(page === 'faq-service' ? 'inquiry.faqPageTitleService' : 'inquiry.faqPageTitleCampaign');
+    if (typeof renderFaqCategories === 'function' && typeof _faqOnPage === 'function' && _faqOnPage()) renderFaqCategories();
+  }
   else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
     const _tt = document.getElementById('msgModalTitle');
     if (_tt) _tt.textContent = t('inquiry.generalTitle');
@@ -359,7 +377,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry', faq:'inquiry'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -702,6 +720,10 @@ async function init() {
     // 서비스 문의 새 문의·대화 새로고침 복원 — 뒤로가기 목적지는 서비스 탭 목록
     if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(hash));
     else navigate('home', false);
+  } else if (hash && hash.startsWith('faq-')) {
+    // 질문 페이지 새로고침 복원
+    if (typeof openFaqPage === 'function') openFaqPage(hash.replace('faq-', ''), false);
+    else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
     const tid = hash.replace('ticket-', '').replace('ticket', '');
@@ -760,6 +782,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
     : isInquiryGeneralHash(initHash) ? 'messages'
+    : initHash.startsWith('faq-') ? 'faq'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
