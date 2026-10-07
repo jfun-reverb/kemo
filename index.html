@@ -859,9 +859,9 @@ html.preview-mode #page-detail .detail-back{display:none}
 .cd-sec{background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)}
 .cd-sec.last{margin-bottom:0;border-bottom:none}
 .cd-sec.tight{padding:4px 0}
-.cd-sec-title{font-size:var(--fs-subtitle);font-weight:700;color:var(--ink);margin:0 0 10px}
+.cd-sec-title{font-size:16px;font-weight:700;color:var(--ink);margin:0 0 10px}
 .cd-sec-hint{font-size:var(--fs-desc);color:var(--muted);margin:-6px 0 12px}
-.cd-body{font-size:var(--fs-body);color:var(--ink);line-height:1.7}
+.cd-body{font-size:var(--fs-desc);color:var(--ink);line-height:1.7}
 .cd-box{font-size:var(--fs-desc);color:var(--ink);line-height:1.7;background:var(--surface-dim);padding:12px;border-radius:var(--r8);border:1px solid var(--outline)}
 .cd-box.ng{background:#FFF8F8;border-color:#FDD}
 .cd-sublabel{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
@@ -872,8 +872,12 @@ html.preview-mode #page-detail .detail-back{display:none}
 .cd-steps{display:flex;flex-direction:column;gap:14px}
 .cd-step{display:flex;gap:12px;align-items:flex-start}
 .cd-step-no{min-width:54px;height:22px;background:var(--light-pink);border-radius:var(--r-full);display:flex;align-items:center;justify-content:center;font-size:var(--fs-caption);font-weight:700;color:var(--pink);flex-shrink:0}
-.cd-step-title{font-size:var(--fs-body);font-weight:700;margin-bottom:2px;color:var(--ink)}
+.cd-step-title{font-size:14px;font-weight:700;margin-bottom:2px;color:var(--ink)}
 .cd-step-desc{font-size:var(--fs-desc);color:var(--muted);line-height:1.6}
+/* 캠페인 상세 본문 글자 크기 정리(2026-10-07 사용자 지시) — 본문 13 · 본문 안 제목 14 · 섹션 제목 16.
+   관리자 편집기가 넣은 글자 크기(em 단위 제목·인라인 크기)를 무시하고 단계에 맞춘다(관리자 미리보기의 inherit 규칙과 같은 생각) */
+#page-detail .rich-content *{font-size:inherit!important}
+#page-detail .rich-content :is(h1,h2,h3,h4,h5,h6){font-size:14px!important;font-weight:700}
 .cd-link{display:flex;align-items:center;gap:8px;min-height:var(--tap-min);color:var(--pink);font-size:var(--fs-body);font-weight:600;text-decoration:none}
 .cd-link .material-icons-round{font-size:20px}
 .cd-state{font-size:var(--fs-desc);color:var(--muted);padding:12px 0}
