@@ -4921,6 +4921,17 @@ async function fetchMyApplicationThreads() {
   } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
 }
 
+// 응모건 메시지 「쓸 수 있는가」 — 본인 응모건 전부(509). 종료 후 90일 지나면 writable=false(읽기만).
+//   반환 Map<application_id, {writable, ended_at}> / 실패·미로그인 `null`(화면은 입력칸을 막지 말고 서버 거부에 맡긴다).
+async function fetchMyApplicationMessageStatus() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const { data, error } = await db.rpc('get_my_application_message_status');
+    if (error) throw error;
+    return new Map(Object.entries(data || {}));
+  } catch (e) { console.warn('[fetchMyApplicationMessageStatus]', e); logAppError('fetchMyApplicationMessageStatus', e); return null; }
+}
+
 // 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
 //   대화 뷰(506)의 여러 행을 **합산**한다 — 대화가 여럿이라 한 줄로 받으면(`maybeSingle`) 오류가 난다.
 async function fetchMyGeneralInquiryUnread() {

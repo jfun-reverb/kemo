@@ -28,6 +28,7 @@ const FAQ_GENERAL_CATEGORY_IDS = [
 //      전부 읽음 처리해, 지난 대화가 다 보이고 배지가 통째로 꺼진다(코드 대조 R-2).
 let _msgGeneralThreadId = null;
 let _msgGeneralPast = false;   // 지난 문의(닫히고 24시간 지난 대화) — 읽기만
+let _msgAppPast = false;       // 캠페인 지난 문의(응모 끝나고 90일 지남 — 서버 판정 509) — 읽기만
 // 새 문의 중복 방지값(508) — 새 문의 화면에 들어올 때 하나 만들어 보낼 때마다 같은 값을 쓰고, 떠나면 버린다.
 //   예외 하나: thread_closed 를 받으면 새로 만든다(같은 값이 24시간 지난 대화를 가리키게 됐다는 뜻)
 let _msgGeneralToken = null;
@@ -203,6 +204,8 @@ function _msgPrepareCompose(_msgReadOnly, past) {
     // 제목 칸·열린 문의 안내는 새 문의 화면만 — 그 진입이 다시 켠다
     _msgShowSubject(false);
     _msgRenderOpenNote(null);
+    closeMsgPlusMenu();
+    closeMsgFaqSheet();
   }
 
   renderMsgAttachPreview();
@@ -214,6 +217,8 @@ function _msgPrepareCompose(_msgReadOnly, past) {
       // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
       // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
       //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
+      // 입력란에 초점이 가면 아래 서랍을 닫는다 — 키보드와 서랍이 함께 화면을 덮지 않게
+      inputEl.addEventListener('focus', closeMsgFaqSheet);
       inputEl.addEventListener('input', () => {
         inputEl.style.height = 'auto';
         inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
@@ -253,6 +258,7 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   //   → 들어가서 읽을 수는 있게 하고(배지도 지워진다), **새로 쓰지는 못하게** 한다.
   //   차단 의도(취소된 건으로 새 문의를 시작하지 않는다)는 그대로 지켜진다.
   const _msgReadOnly = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  _msgAppPast = false;   // 아래에서 서버 판정으로 정한다(화면을 먼저 옮긴 뒤)
   _msgMode = 'app';
   _msgCurrentAppId = applicationId;
   _msgFrom = from || 'mypage';
@@ -275,10 +281,17 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
-  _msgPrepareCompose(_msgReadOnly);
-
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = stateLoadingHtml(t('messaging.loading'));
+  // 응모 끝나고 90일 지난 대화도 읽기만(서버 509 판정 — 응모이력 말풍선·알림·새로고침 어디로 들어와도 같게).
+  //   화면을 먼저 옮기고 기다린다(눌러도 반응 없는 구간 방지). 기다리는 사이 다른 대화로 옮겼으면 멈춘다.
+  //   조회 실패면 쓸 수 있게 둔다 — 서버 발신 함수가 마지막 방어선(같은 판정)이고 그때 안내 문구가 뜬다
+  if (!_msgReadOnly) {
+    const st = await fetchMyApplicationMessageStatus();
+    if (_msgMode !== 'app' || _msgCurrentAppId !== applicationId) return;
+    _msgAppPast = !!(st && st.get(applicationId) && st.get(applicationId).writable === false);
+  }
+  _msgPrepareCompose(_msgReadOnly, _msgAppPast);
 
   // 개인화 상태 한 줄 — 0건/1건+ 모두 상단 표시 (§3)
   renderAppStatusLine(app, camp);
@@ -316,6 +329,8 @@ function navigateBackFromMessages() {
   if (_msgMode === 'general') {
     // 서비스 문의 대화 → 서비스 탭 목록(사양서 2026-10-06). 탈퇴 지름길로 왔으면 탈퇴 화면
     if (_msgFrom === 'withdraw' && typeof handleWithdraw === 'function') { handleWithdraw(); return; }
+    // 질문 페이지의 「直接お問い合わせ」로 왔으면 그 페이지로
+    if (_msgFrom === 'faq') { openFaqPage('service'); return; }
     backToInquiryList();
     return;
   }
@@ -332,11 +347,72 @@ let _inqTab = 'app';        // 문의 화면 탭 — 'app'(캠페인 문의) / '
 let _inqAllApps = null;     // 본인 응모 전체(취소 포함) — 「새 문의」 고르기 재료
 let _inqPicking = false;    // 「새 문의」 응모 고르기 보기(문의하기 화면 안의 하위 보기)
 let _inqThreads = null;     // 서비스 문의 대화 목록(506 뷰) — null=조회 실패, []=0건
+let _inqAppStatus = null;   // 캠페인 문의 쓸 수 있나(서버 509) — Map<응모id,{writable}>, null=조회 실패
 let _inqNoApps = false;     // 응모 0건 회원 — 캠페인 문의 탭을 감추고 서비스 문의만(코드 대조 R-3)
 const INQ_PAST_PAGE = 20;   // 지난 문의 한 번에 보이는 수 — 나머지는 「もっと見る」(경우의 수 #9)
 let _inqPastShown = INQ_PAST_PAGE;
 // 닫힌 대화가 「対応中」(진행 중) 목록에 남는 시간 — 서버(505)가 같은 대화를 다시 여는 기준과 같다
 const INQ_REOPEN_WINDOW_MS = 24 * 60 * 60 * 1000;
+// ── 대화 화면 「＋」 메뉴(画像を添付 / よくある質問)·아래 서랍 (2026-10-07 사용자 지시) ──
+//   메뉴는 바깥을 누르거나 Esc·항목 선택으로 닫는다. 서랍은 X·입력란에 초점·보내기·전체 목록 열기·화면 떠남에 닫는다
+function toggleMsgPlusMenu() {
+  const m = $('msgPlusMenu');
+  if (!m) return;
+  if (m.style.display === 'none') {
+    // 키보드가 열린 채면 먼저 내린다(메뉴·서랍이 키보드에 가리지 않게)
+    try { $('msgModalInput')?.blur(); } catch (_e) {}
+    m.style.display = '';
+    $('msgPlusBtn')?.setAttribute('aria-expanded', 'true');
+    setTimeout(() => document.addEventListener('click', _msgPlusOutside, true), 0);
+    document.addEventListener('keydown', _msgPlusEsc);
+  } else closeMsgPlusMenu();
+}
+function closeMsgPlusMenu() {
+  const m = $('msgPlusMenu');
+  if (m) m.style.display = 'none';
+  $('msgPlusBtn')?.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', _msgPlusOutside, true);
+  document.removeEventListener('keydown', _msgPlusEsc);
+}
+function _msgPlusOutside(e) { if (!e.target.closest || !e.target.closest('.msg-plus-wrap')) closeMsgPlusMenu(); }
+function _msgPlusEsc(e) { if (e.key === 'Escape') { closeMsgPlusMenu(); $('msgPlusBtn')?.focus(); } }
+
+function openMsgFaqSheet() {
+  closeMsgPlusMenu();
+  const sh = $('msgFaqSheet');
+  if (!sh) return;
+  sh.innerHTML = _faqLoaded ? _faqBotCardHtml() : stateLoadingHtml(t('messaging.loading'));
+  sh.style.display = '';
+  // 아직 질문을 못 받았으면(서비스 대화가 막 열린 참 등) 받는 대로 다시 그린다
+  if (!_faqLoaded) {
+    const tick = setInterval(() => {
+      if (sh.style.display === 'none') { clearInterval(tick); return; }
+      if (_faqLoaded) { clearInterval(tick); sh.innerHTML = _faqBotCardHtml(); }
+    }, 300);
+    setTimeout(() => clearInterval(tick), 10000);
+  }
+}
+function closeMsgFaqSheet() {
+  const sh = $('msgFaqSheet');
+  if (sh) { sh.style.display = 'none'; sh.innerHTML = ''; }
+}
+
+// 「対応中のお問い合わせ」 칸 머리 — 제목 + 오른쪽 「よくある質問」 단추(2026-10-07). 진행 중이 비면 제목 없이 단추만
+//   kind: 'campaign' | 'service' — 질문 페이지가 그 탭의 질문만 보인다
+function _inqSectionHeadHtml(kind, hasActive) {
+  const title = hasActive ? `<div class="inq-section-title">${esc(t('inquiry.currentTitle'))}</div>` : '';
+  return `<div class="inq-section-head">${title}
+    <button type="button" class="inq-faq-btn" onclick="openFaqPage('${kind}')">
+      <span class="material-icons-round notranslate" translate="no" aria-hidden="true">help_outline</span>${esc(t('inquiry.faqBtn'))}
+    </button>
+  </div>`;
+}
+
+// 「新しくお問い合わせ」 단추 아이콘 — 응모이력 메시지 단추와 같은 빈 말풍선(Material chat_bubble_outline 모양) 안에 +.
+//   불러오는 아이콘 글꼴(Material Icons Round)에 이 모양이 없어 같은 도형을 그림으로 넣는다(2026-10-07 사용자 지시)
+const INQ_NEW_ICON = '<svg class="inq-new-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">'
+  + '<path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>'
+  + '<path fill="currentColor" d="M11 6h2v3h3v2h-3v3h-2v-3H8V9h3z"/></svg>';
 // 문의 제목 최대 글자 수 — 서버 검사 제약(507)·입력란 maxlength 와 같은 값
 const INQ_TITLE_MAX = 40;
 
@@ -346,7 +422,12 @@ async function openInquiryPage(from, pushHistory) {
   if (!currentUser) { navigate('login'); return; }
   // 서비스 문의 새 답장 수·대화 목록을 응모 목록과 함께 새로 받는다(2026-10-06 인수인계) — 대화를 읽고 돌아왔을 때
   //   옛 숫자로 탭이 열리지 않게. 줄 세우면 체감이 느려져 함께 받는다. 실패면 지난 값 유지(refreshNavInquiryBadge 규칙)
-  const [apps, genThreads] = await Promise.all([fetchMyApplicationsForInquiry(), fetchMyGeneralInquiryThreads(), refreshNavInquiryBadge()]);
+  //   캠페인 문의 안 읽은 수(_myMsgUnreadByApp)도 함께 — 캠페인 탭 점·목록 줄 숫자(2026-10-07)
+  //   캠페인 지난 문의 판정(응모 끝나고 90일 — 서버 509)도 함께. 🔴 화면은 규칙을 계산하지 않고 서버 값만 쓴다
+  const [apps, genThreads, , , appStatus] = await Promise.all([fetchMyApplicationsForInquiry(), fetchMyGeneralInquiryThreads(), refreshNavInquiryBadge(),
+    (typeof refreshMyMsgUnread === 'function') ? refreshMyMsgUnread({ skipRerender: true }) : null,
+    fetchMyApplicationMessageStatus()]);
+  _inqAppStatus = appStatus;
   _inqThreads = genThreads;
   _inqPastShown = INQ_PAST_PAGE;
   _inqNoApps = Array.isArray(apps) && apps.length === 0;
@@ -375,43 +456,68 @@ async function openInquiryPage(from, pushHistory) {
 function renderInquiryBranch() {
   const box = $('inquiryBranchBody');
   if (!box) return;
-  if (_inqPicking) { renderInquiryPick(box); return; }
+  const tabSlot = $('inquiryTabSlot');   // 머리 오른쪽 탭 자리 — 고르기 보기·응모 0건이면 비운다
+  if (_inqPicking) { if (tabSlot) tabSlot.innerHTML = ''; renderInquiryPick(box); return; }
   // 모양은 햄버거 메뉴 언어 전환 토글(.lang-toggle)과 같게 — 2026-09-29 사용자 지시.
   //   🔴 클래스를 같이 쓰지 않는다 — updateLangToggleUI(mypage.js)가 `.lang-toggle .lang-btn` 을
   //      전역으로 잡아 data-lang 으로 on 을 다시 매겨, 언어를 바꾸면 이 탭의 선택 표시가 사라진다.
   // 서비스 문의 새 답장 수 — 햄버거 배지와 같은 값(_navInquiryUnread)을 쓴다. 따로 세면 두 숫자가 어긋난다.
   //   ⚠️ 햄버거용 data-role 을 재사용하지 않는다(그쪽 위치 스타일이 딸려 온다) — 탭 전용 클래스
-  const unread = _navInquiryUnread > 0 ? (_navInquiryUnread > 9 ? '9+' : String(_navInquiryUnread)) : '';
-  const badge = unread ? `<span class="inq-tab-badge">${esc(unread)}</span>` : '';
+  //   탭에는 숫자 대신 **빨간 점**(2026-10-07 사용자 지시) — 점은 탭 모서리에 떠 있어 탭 너비가 바뀌지 않는다(.inq-tab-dot)
+  //   캠페인 탭도 같은 점 — 응모건 메시지 안 읽은 수(_myMsgUnreadByApp, 응모이력 카드 배지와 같은 값)
+  const dot = `<span class="inq-tab-dot" role="img" aria-label="${esc(t('inquiry.hasNewReply'))}"></span>`;
+  const badge = _navInquiryUnread > 0 ? dot : '';
+  const appBadge = _inqCampaignUnreadTotal() > 0 ? dot : '';
   const tab = (key, label, extra) => `<button type="button" role="tab" class="inq-tab${_inqTab === key ? ' on' : ''}"
       aria-selected="${_inqTab === key}" onclick="switchInquiryTab('${key}')">${esc(label)}${extra || ''}</button>`;
   let body = '';
   if (_inqTab === 'other') {
-    body = _inqServiceHtml(unread);
-  } else if (_inqApps === null) {
+    body = _inqServiceHtml();
+  } else if (_inqApps === null || (_inqApps.length && _inqAppStatus === null)) {
+    // 판정 조회 실패면 전부 「진행 중」으로 그리지 않는다 — 쓰는 칸이 보였다가 서버에 거부당한다
     body = stateErrorHtml(t('inquiry.loadError'), 'retryInquiryApps');
   } else if (!_inqApps.length) {
     // 대화가 아직 없다 — 새 캠페인 문의는 응모이력 카드의 말풍선 버튼에서 시작하므로 그 화면으로 보낸다
-    body = `<div class="inq-other">
+    body = _inqSectionHeadHtml('campaign', false) + `<div class="inq-other">
       <p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>
       ${_inqNewThreadBtnHtml()}
     </div>`;
   } else {
-    body = `<div class="inq-app-list">${_inqApps.map(a => {
+    // 서비스 탭처럼 「対応中」 / 「過去」 두 칸(2026-10-07 사용자 결정). 지난 칸 = 취소 응모 + 서버가 「쓸 수 없음」이라 한 응모
+    const row = a => {
       const camp = (allCampaigns || []).find(c => c.id === a.campaign_id) || {};
       const title = camp.title || t('inquiry.unknownCampaign');
-      const ro = a.status === 'cancelled'
-        ? `<span class="inq-app-readonly">${esc(t('inquiry.readOnly'))}</span>` : '';
+      // 안 읽은 운영팀 답장 수 — 서비스 문의 줄과 같은 숫자 배지(지난 칸에도 — 운영팀은 계속 쓸 수 있다)
+      const n = Number((typeof _myMsgUnreadByApp === 'object' && _myMsgUnreadByApp) ? _myMsgUnreadByApp[a.id] : 0) || 0;
+      const unreadBadge = n > 0 ? `<span class="inq-tab-badge inq-row-badge">${esc(n > 9 ? '9+' : String(n))}</span>` : '';
       return `<button type="button" class="inq-app-item" onclick="openMessagesPage(${jsStr(a.id)},'inquiry')">
-        <span class="inq-app-title">${esc(title)}</span>${ro}
+        <span class="inq-app-title">${esc(title)}</span>${unreadBadge}
         <span class="material-icons-round notranslate" translate="no">chevron_right</span>
       </button>`;
-    }).join('')}</div>`;
-    body += _inqNewThreadBtnHtml();
+    };
+    const active = _inqApps.filter(a => !_inqAppIsPast(a));
+    const past = _inqApps.filter(_inqAppIsPast);
+    body = _inqSectionHeadHtml('campaign', active.length > 0) + (active.length
+      ? `<div class="inq-app-list">${active.map(row).join('')}</div>${_inqNewThreadBtnHtml()}`
+      : `<div class="inq-other"><p class="inq-other-lead">${esc(t('inquiry.appEmpty'))}</p>${_inqNewThreadBtnHtml()}</div>`);
+    if (past.length) {
+      body += `<div class="inq-section-title inq-past-title">${esc(t('inquiry.pastTitle'))}</div>
+        <div class="inq-app-list">${past.map(row).join('')}</div>`;
+    }
   }
   // 응모 0건 회원은 탭 없이 서비스 문의만(R-3)
-  const tabs = _inqNoApps ? '' : `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'))}${tab('other', t('inquiry.branchOther'), badge)}</div>`;
-  box.innerHTML = tabs + body;
+  const tabs = _inqNoApps ? '' : `<div class="inq-tabs" role="tablist">${tab('app', t('inquiry.branchApp'), appBadge)}${tab('other', t('inquiry.branchOther'), badge)}</div>`;
+  if (tabSlot) tabSlot.innerHTML = tabs;
+  box.innerHTML = body;
+}
+
+// 캠페인 문의가 「過去」(읽기만)인가 — 취소 응모(지금처럼 바로) 또는 서버가 「쓸 수 없음」(509 — 응모 끝나고 90일).
+//   🔴 90일 규칙을 화면에서 계산하지 않는다 — 서버 값(_inqAppStatus)만 본다. 값이 없으면(새 응모 등) 쓸 수 있음
+function _inqAppIsPast(app) {
+  if (!app) return false;
+  if (app.status === 'cancelled') return true;
+  const st = _inqAppStatus && _inqAppStatus.get(app.id);
+  return !!(st && st.writable === false);
 }
 
 // 「対応中」(진행 중) 목록에 들어가나 — 열린 대화 전부 + 닫힌 지 24시간 안인 대화(개정 R2-5).
@@ -443,19 +549,18 @@ function _inqByRecent(a, b) {
 function _inqServiceNewBtnHtml(atLimit) {
   if (atLimit) {
     return `<button type="button" class="inq-start-btn" disabled aria-disabled="true">
-        <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+        ${INQ_NEW_ICON}${esc(t('inquiry.newThread'))}
       </button>
       <p class="inq-limit-note">${esc(t('inquiry.openLimit'))}</p>`;
   }
   return `<button type="button" class="inq-start-btn" onclick="openGeneralInquiryNew('branch')">
-      <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+      ${INQ_NEW_ICON}${esc(t('inquiry.newThread'))}
     </button>`;
 }
 
 // 서비스 문의 탭 본문 — 새로 문의하기 버튼 + 「対応中」 목록 + 지난 문의 목록
-function _inqServiceHtml(unread) {
-  const newReply = unread
-    ? `<p class="inq-new-reply"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">mark_chat_unread</span>${esc(t('inquiry.newReply'))}</p>` : '';
+//   「新しい返信があります」 줄은 뺐다(2026-10-07 사용자 지시) — 새 답장은 탭 배지·줄마다 배지로 보인다
+function _inqServiceHtml() {
   if (_inqThreads === null) {
     return `<div class="inq-other"><p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>${stateErrorHtml(t('inquiry.threadsLoadError'), 'retryInquiryApps')}</div>`;
   }
@@ -465,15 +570,15 @@ function _inqServiceHtml(unread) {
     .filter(th => th.status === 'closed' && !_inqIsActiveThread(th))
     .sort((a, b) => new Date(b.closed_at || 0) - new Date(a.closed_at || 0));
   // 「対応中」이 비면 칸 제목도 숨긴다
-  const activeHtml = active.length
-    ? `<div class="inq-section-title">${esc(t('inquiry.currentTitle'))}</div>
-       <div class="inq-app-list">${active.map(th => _inqThreadRowHtml(th, true)).join('')}</div>` : '';
-  let html = `<div class="inq-other">
-    <p class="inq-other-lead">${esc(t('inquiry.otherLead'))}</p>
-    ${newReply}
-    ${_inqServiceNewBtnHtml(_inqOpenInfo(_inqThreads).atLimit)}
-    ${activeHtml}
-  </div>`;
+  const activeHtml = _inqSectionHeadHtml('service', active.length > 0) + (active.length
+    ? `<div class="inq-app-list">${active.map(th => _inqThreadRowHtml(th, true)).join('')}</div>` : '');
+  // 상자(테두리·배경) 없이 — 「対応中」도 「過去」처럼 칸 제목 + 목록만(2026-10-07 사용자 지시)
+  //   새로 문의하기 단추(+상한 안내)는 「対応中」 목록 아래(2026-10-07 사용자 지시) — 목록이 비면 안내 바로 아래
+  let html = `<div class="inq-service">
+    <p class="inq-other-lead inq-lead-center">${esc(t('inquiry.otherLead'))}</p>
+  </div>
+  ${activeHtml}
+  <div class="inq-service">${_inqServiceNewBtnHtml(_inqOpenInfo(_inqThreads).atLimit)}</div>`;
   if (past.length) {
     const more = past.length > _inqPastShown
       ? `<button type="button" class="inq-more-btn" onclick="showMorePastInquiries()">${esc(t('inquiry.more'))}</button>` : '';
@@ -500,7 +605,7 @@ function _inqThreadRowHtml(th, isCurrent) {
 function showMorePastInquiries() { _inqPastShown += INQ_PAST_PAGE; renderInquiryBranch(); }
 
 // 서비스 문의 대화 → 서비스 탭 목록(뒤로가기 · 지난 문의의 「お問い合わせ一覧に戻る」 공용)
-function backToInquiryList() { _inqTab = 'other'; if (typeof openInquiryPage === 'function') openInquiryPage('back'); }
+function backToInquiryList() { _inqTab = _msgMode === 'app' ? 'app' : 'other'; if (typeof openInquiryPage === 'function') openInquiryPage('back'); }
 
 // 새 문의 화면으로(목록 버튼 · 탈퇴 지름길). presetTitle 은 제목 칸에 미리 채울 값(회원이 고칠 수 있다).
 function openGeneralInquiryNew(from, presetTitle) {
@@ -519,7 +624,7 @@ function _inqNewToken() {
 // 「새 문의」 — 캠페인 문의 탭 맨 아래(빈 상태에도). 누르면 응모 고르기 보기(조각 5-B)
 function _inqNewThreadBtnHtml() {
   return `<button type="button" class="inq-start-btn" onclick="openInquiryPick()">
-    <span class="material-icons-round notranslate" translate="no">add_comment</span>${esc(t('inquiry.newThread'))}
+    ${INQ_NEW_ICON}${esc(t('inquiry.newThread'))}
   </button>`;
 }
 function openInquiryPick() { _inqPicking = true; renderInquiryBranch(); const pg = $('page-inquiry'); if (pg) pg.scrollTop = 0; }
@@ -634,6 +739,8 @@ async function openGeneralInquiryPage(from, pushHistory, threadId = null, opts =
     _msgGeneralPast = !_inqIsActiveThread(th);
     _msgSetGeneralHeader(th.title || '');
     _msgPrepareCompose(false, _msgGeneralPast);
+    // 「＋」 → 「よくある質問」 서랍용 질문 목록(서비스 갈래) — 기다리지 않고 함께 받는다(지난 문의는 입력줄이 없어 안 받는다)
+    if (!_msgGeneralPast) setupFaqGate(null, {}, { general: true });
     const msgs = await _msgLoad();
     if (!stillHere()) return;
     renderMessageThread(msgs);
@@ -659,9 +766,18 @@ async function refreshNavInquiryBadge() {
   if (n !== null) _navInquiryUnread = n;
   applyNavInquiryBadge();
 }
+// 캠페인 문의(응모건 메시지) 안 읽은 수 합계 — 응모이력 카드 배지와 같은 값(_myMsgUnreadByApp, mypage.js)
+function _inqCampaignUnreadTotal() {
+  const map = (typeof _myMsgUnreadByApp === 'object' && _myMsgUnreadByApp) ? _myMsgUnreadByApp : {};
+  return Object.values(map).reduce((s, n) => s + (Number(n) || 0), 0);
+}
+// 햄버거 「お問い合わせ」 숫자 = 서비스 문의 + 캠페인 문의 안 읽은 답장(2026-10-07 사용자 결정).
+//   🔴 두 값이 따로 갱신된다 — 서비스는 refreshNavInquiryBadge, 캠페인은 refreshMyMsgUnread → updateNavMsgBadge.
+//      둘 다 이 함수를 부른다(한쪽만 부르면 다른 쪽 갱신 때 숫자가 되돌아간다)
 function applyNavInquiryBadge() {
+  const total = (_navInquiryUnread || 0) + _inqCampaignUnreadTotal();
   document.querySelectorAll('[data-role="nav-inquiry-badge"]').forEach(b => {
-    if (_navInquiryUnread > 0) { b.textContent = _navInquiryUnread > 9 ? '9+' : String(_navInquiryUnread); b.classList.remove('hidden'); }
+    if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
     else b.classList.add('hidden');
   });
 }
@@ -675,6 +791,9 @@ function cleanupMessagesPage() {
   _msgMode = 'app';   // 일반 문의로 바꿔 둔 것을 되돌린다 — 다음 응모건 진입이 옛 모드를 물려받지 않게
   _msgGeneralThreadId = null;
   _msgGeneralPast = false;
+  _msgAppPast = false;
+  closeMsgPlusMenu();
+  closeMsgFaqSheet();
   _msgGeneralToken = null;   // 떠나면 버린다 — 다시 들어오면 새 문의는 새 값
   _msgShowSubject(false, '');
   _msgRenderOpenNote(null);
@@ -691,10 +810,15 @@ function cleanupMessagesPage() {
 function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
-  // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
-  const botCard = _faqBotCardHtml();
+  // 대화 맨 위 봇 안내 카드는 뺐다(2026-10-07) — 「＋」 → 「よくある質問」 아래 서랍(openMsgFaqSheet)에서 연다
+  const botCard = '';
   if (!messages || !messages.length) {
-    thread.innerHTML = botCard + stateEmptyHtml('chat_bubble_outline', '', t('messaging.emptyThread'));
+    // 빈 대화의 기본 안내는 「아래 입력란에서…」다 — 입력란이 없는 대화(90일 지난 · 취소)에는 맞지 않아 그 사정을 쓴다
+    const emptyKey = (_msgMode === 'app' && _msgAppPast) ? 'inquiry.campaignPastReadOnly'
+      : (_msgMode === 'app' && typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) ? 'messaging.cancelledReadOnly'
+      : 'messaging.emptyThread';
+    const plusHint = emptyKey === 'messaging.emptyThread' ? ' ' + t('messaging.emptyThreadPlusHint') : '';
+    thread.innerHTML = botCard + stateEmptyHtml('chat_bubble_outline', '', t(emptyKey) + plusHint);
     return;
   }
   const now = Date.now();
@@ -775,6 +899,8 @@ function renderMessageThread(messages) {
   //   지난 문의(서비스 문의, 닫히고 24시간 지남)는 답장이 오지 않으니 그 자리에 「끝난 문의」 안내를 둔다(2026-10-06 사용자 지시)
   const pendingHtml = (_msgMode === 'general' && _msgGeneralPast)
     ? `<div class="msg-pending-inline">${esc(t('inquiry.pastReadOnly'))}</div>`
+    : (_msgMode === 'app' && _msgAppPast)
+    ? `<div class="msg-pending-inline">${esc(t('inquiry.campaignPastReadOnly'))}</div>`
     : (lastVisible && lastVisible.sender_kind === 'influencer')
       ? `<div class="msg-pending-inline">${esc(t('messaging.pendingNotice'))}</div>` : '';
   thread.innerHTML = botCard + cardsHtml + pendingHtml;
@@ -867,6 +993,7 @@ function renderMsgAttachPreview() {
 // ── 전송 ──
 async function sendMessageFromModal() {
   if (!_msgActive()) return;
+  closeMsgFaqSheet();
   // 취소된 응모는 읽기만 가능하다(F-11). 작성 줄은 감춰 두지만, 화면 상태가 어긋난 채로
   //   이 함수에 닿는 경로(캐시가 늦게 채워져 취소 판정이 나중에 바뀌는 등)가 있어 여기서도 막는다.
   if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(_msgCurrentAppId)) {
@@ -876,6 +1003,10 @@ async function sendMessageFromModal() {
   // 지난 문의도 읽기만 — 작성 줄은 감춰 두지만 같은 이유로 여기서도 막는다
   if (_msgMode === 'general' && _msgGeneralPast) {
     if (typeof toast === 'function') toast(t('inquiry.pastReadOnly'));
+    return;
+  }
+  if (_msgMode === 'app' && _msgAppPast) {
+    if (typeof toast === 'function') toast(t('inquiry.campaignPastReadOnly'));
     return;
   }
   const inputEl = $('msgModalInput');
@@ -1157,11 +1288,15 @@ function faqNodeChainActive(node, byId) {
 }
 
 //   opts.general — 일반 문의 「그 외」 갈래(사양서 §7): 카테고리 셋 안의 단계 무관 항목만.
+let _faqLoadSeq = 0;   // 불러오기 차례 — 늦게 끝난 옛 불러오기가 새 화면의 질문 목록을 덮지 않게(질문 페이지 ↔ 대화 화면)
 async function setupFaqGate(app, camp, opts) {
+  const mySeq = ++_faqLoadSeq;
   _faqApp = app; _faqCamp = camp;
-  _faqCtx = _buildFaqCtx(camp);
+  // 가리킬 캠페인이 없는 자리(질문 페이지·서비스 문의)는 「이 캠페인에는 조건이 없다」가 틀린 말이라 일반 문구로
+  _faqCtx = (camp && camp.id) ? _buildFaqCtx(camp) : { intro: t('messaging.faqFollowerIntroGeneric') };
   try {
     const all = await fetchFaqNodes();
+    if (mySeq !== _faqLoadSeq) return;   // 그사이 다른 화면이 새로 불렀다
     // 자기 자신뿐 아니라 **위쪽(카테고리)이 살아 있는지도** 본다.
     //   예전에는 `n.active` 만 봐서, 관리자가 카테고리를 비활성해도 그 안의 질문이
     //   추천 카드에 계속 떴다 — 「안 보이게 했다」고 생각한 내용이 인플루언서에게 그대로 갔다.
@@ -1172,6 +1307,7 @@ async function setupFaqGate(app, camp, opts) {
     if (opts && opts.general) _faqNodes = _faqNodes.filter(n => _faqNodeInGeneral(n, _byId));
     _faqLoaded = true;
   } catch (e) {
+    if (mySeq !== _faqLoadSeq) return;
     console.error('[setupFaqGate]', e);
     // ⚠️ 실패하면 자주 묻는 질문이 통째로 사라진 채 문의 창구가 열린다(사용자는 이유를 모름).
     logAppError('setupFaqGate', e);
@@ -1214,7 +1350,11 @@ function _faqBotCardHtml() {
     </button>`
   ).join('');
   return `<div class="msg-card msg-card-bot">
-    <div class="msg-card-bot-head"><span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('messaging.faq.suggestHead'))}</div>
+    <div class="msg-card-bot-head"><span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('messaging.faq.suggestHead'))}
+      <button type="button" class="msg-faq-sheet-close" onclick="closeMsgFaqSheet()" data-i18n-attr="aria-label:common.close" aria-label="${esc(t('common.close'))}">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
+      </button>
+    </div>
     ${cards ? `<div class="msg-faq-botcard-list">${cards}</div>` : ''}
     <button type="button" class="msg-faq-botcard-all" onclick="toggleFaqOverlay()">
       <span class="material-icons-round notranslate" translate="no">quiz</span>
@@ -1230,10 +1370,18 @@ function openFaqItemById(itemId) {
   openFaqItem(itemId);
 }
 
+// 질문 목록을 그릴 자리 — 대화 화면 오버레이(#msgFaqTree) 또는 따로 떨어진 질문 페이지(#faqPageBody, 2026-10-07).
+//   🔴 그리는 함수(renderFaqCategories·openFaqCategory·openFaqItem)는 이 자리에만 쓴다 — 사본을 만들지 않는다.
+//      페이지에 들어갈 때 'faqPageBody' 로 바꾸고, 떠날 때(cleanupFaqPage) 반드시 되돌린다
+let _faqHostId = 'msgFaqTree';
+function _faqHostEl() { return $(_faqHostId); }
+function _faqOnPage() { return _faqHostId === 'faqPageBody'; }
+
 // ── 「よくある質問」 전체 보기 오버레이 (대화 중 상시 진입, §2 결정 4) ──
 function openFaqOverlay(skipRender) {
   const ov = $('msgFaqTree');
   if (!ov) return;
+  closeMsgFaqSheet();
   _faqOverlayOpen = true;
   ov.style.display = '';
   if (!skipRender) renderFaqCategories();
@@ -1251,7 +1399,7 @@ function closeFaqOverlay() {
 function faqBack() {
   _faqNav.pop(); // 현재 화면 제거
   const prev = _faqNav[_faqNav.length - 1];
-  if (!prev) { closeFaqOverlay(); return; }
+  if (!prev) { if (_faqOnPage()) { leaveFaqPage(); return; } closeFaqOverlay(); return; }
   if (prev.view === 'cats') renderFaqCategories({ noPush: true });
   else if (prev.view === 'category') openFaqCategory(prev.id, { noPush: true });
   else if (prev.view === 'item') openFaqItem(prev.id, { noPush: true });
@@ -1280,7 +1428,7 @@ function _faqSortNodes(arr) {
 
 // 카테고리 칩 목록 렌더 (1단)
 function renderFaqCategories(opts) {
-  const tree = $('msgFaqTree');
+  const tree = _faqHostEl();
   if (!tree) return;
   if (!opts || !opts.noPush) _faqNav = [{ view: 'cats' }];
   const cats = _faqSortNodes(_faqNodes.filter(n => n.kind === 'category' && !n.parent_id));
@@ -1292,7 +1440,7 @@ function renderFaqCategories(opts) {
     `<button type="button" class="msg-faq-chip" onclick="openFaqCategory('${esc(c.id)}')">${esc(_faqPick(c, 'label'))}</button>`
   ).join('');
   tree.innerHTML = `
-    ${_faqOverlayHeaderHtml(t('messaging.faq.allTitle'))}
+    ${_faqOnPage() ? '' : _faqOverlayHeaderHtml(t('messaging.faq.allTitle'))}
     <div class="msg-faq-intro">${esc(t('messaging.faq.intro'))}</div>
     <div class="msg-faq-chips">${chips}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
@@ -1310,9 +1458,19 @@ function _faqOverlayHeaderHtml(title) {
   </div>`;
 }
 
+// 하위 단계 머리 — 제목 왼쪽에 아이콘만 있는 뒤로 단추(2026-10-07 사용자 지시 — 「目録へ」 글자 단추 대신)
+function _faqSubHeadHtml(title) {
+  return `<div class="msg-faq-subhead">
+    <button type="button" class="msg-faq-back-icon" onclick="faqBack()" aria-label="${esc(t('messaging.faq.back'))}">
+      <span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span>
+    </button>
+    <div class="msg-faq-cat-title">${esc(title || '')}</div>
+  </div>`;
+}
+
 // 카테고리 선택 → 질문 목록 (2단)
 function openFaqCategory(catId, opts) {
-  const tree = $('msgFaqTree');
+  const tree = _faqHostEl();
   const cat = _faqNodes.find(n => n.id === catId);
   if (!tree || !cat) return;
   if (!opts || !opts.noPush) _faqNav.push({ view: 'category', id: catId });
@@ -1321,8 +1479,7 @@ function openFaqCategory(catId, opts) {
     `<button type="button" class="msg-faq-q" onclick="openFaqItem('${esc(q.id)}')">${esc(_faqPick(q, 'label'))}<span class="material-icons-round notranslate" translate="no">chevron_right</span></button>`
   ).join('');
   tree.innerHTML = `
-    <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
-    <div class="msg-faq-cat-title">${esc(_faqPick(cat, 'label'))}</div>
+    ${_faqSubHeadHtml(_faqPick(cat, 'label'))}
     <div class="msg-faq-qlist">${list || stateEmptyHtml('help_outline', '', t('messaging.faq.unavailable'))}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
   `;
@@ -1331,7 +1488,7 @@ function openFaqCategory(catId, opts) {
 
 // 질문 선택 → 답변 카드 또는 분기(자식 item) 또는 바로 직접 문의(handoff)
 function openFaqItem(itemId, opts) {
-  const tree = $('msgFaqTree');
+  const tree = _faqHostEl();
   const node = _faqNodes.find(n => n.id === itemId);
   if (!tree || !node) return;
 
@@ -1352,8 +1509,7 @@ function openFaqItem(itemId, opts) {
     ).join('');
     const parentCatId = node.parent_id;
     tree.innerHTML = `
-      <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
-      <div class="msg-faq-cat-title">${esc(_faqPick(node, 'label'))}</div>
+      ${_faqSubHeadHtml(_faqPick(node, 'label'))}
       <div class="msg-faq-qlist">${list}</div>
       <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
     `;
@@ -1372,9 +1528,8 @@ function openFaqItem(itemId, opts) {
     actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate(${jsStr(node.action_target)})"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
   }
   tree.innerHTML = `
-    <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
+    ${_faqSubHeadHtml(_faqPick(node, 'label'))}
     <div class="msg-faq-answer">
-      <div class="msg-faq-answer-q">${esc(_faqPick(node, 'label'))}</div>
       <div class="msg-faq-answer-body">${bodyHtml}</div>
       ${actionBtn}
     </div>
@@ -1390,11 +1545,19 @@ function openFaqItem(itemId, opts) {
 async function faqMarkResolved(itemId) {
   await recordFaqInteraction(_msgCurrentAppId, itemId, 'resolved');
   toast(t('messaging.faq.resolvedToast'));
+  if (_faqOnPage()) { renderFaqCategories(); return; }   // 질문 페이지 — 첫 단계(카테고리)로
   navigateBackFromMessages();
 }
 
 // [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록
 async function faqStartDirectContact(itemId) {
+  // 따로 떨어진 질문 페이지 — 서비스는 새 문의 화면, 캠페인은 캠페인 문의 목록(2026-10-07 사용자 결정).
+  //   「직접문의 전환」 기록은 남기지 않는다 — 옮긴 뒤 실제로 보냈는지 모른다(아래 F-11 과 같은 이유)
+  if (_faqOnPage()) {
+    if (_faqPageKind === 'service') openGeneralInquiryNew('faq');
+    else { _inqTab = 'app'; openInquiryPage('back'); }
+    return;
+  }
   // 읽기 전용(취소된 응모)에서는 보낼 곳이 없다 — 이 버튼은 입력창으로 데려가는 게 전부라
   //   그대로 두면 눌러도 아무 일이 안 일어나는 또 다른 막다른 길이 된다(F-11 리뷰 지적).
   //   기록도 남기지 않는다 — 실제로 문의로 이어지지 않은 클릭이 관리자 화면의
@@ -1404,10 +1567,52 @@ async function faqStartDirectContact(itemId) {
     if (typeof toast === 'function') toast(t('messaging.cancelledReadOnly'));
     return;
   }
+  // 응모 끝나고 90일 지난 대화도 같은 이유로(509)
+  if (_msgAppPast) {
+    closeFaqOverlay();
+    if (typeof toast === 'function') toast(t('inquiry.campaignPastReadOnly'));
+    return;
+  }
   await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
   closeFaqOverlay();
   const inputEl = $('msgModalInput');
   if (inputEl) { try { inputEl.focus(); } catch (_e) {} }
+}
+
+// ── 따로 떨어진 「よくある質問」 페이지 (#faq-campaign / #faq-service, 2026-10-07 사용자 지시) ──
+//   문의 목록 「対応中のお問い合わせ」 옆 단추로 연다. 보던 탭에 맞는 질문만(캠페인 = 대화 화면과 같은 전체,
+//   서비스 = 서비스 문의 갈래). 그리는 함수는 대화 화면 오버레이와 같다(_faqHostId 만 바꾼다)
+let _faqPageKind = 'campaign';
+async function openFaqPage(kind, pushHistory) {
+  if (!currentUser) { navigate('login'); return; }
+  _faqPageKind = kind === 'service' ? 'service' : 'campaign';
+  if (navigate('faq-' + _faqPageKind, pushHistory) === false) return;
+  _faqHostId = 'faqPageBody';
+  _faqStage = null; _faqNav = [];
+  const titleEl = $('faqPageTitle');
+  if (titleEl) titleEl.textContent = t(_faqPageKind === 'service' ? 'inquiry.faqPageTitleService' : 'inquiry.faqPageTitleCampaign');
+  const host = _faqHostEl();
+  if (host) host.innerHTML = stateLoadingHtml(t('messaging.loading'));
+  const myKind = _faqPageKind;
+  await setupFaqGate(null, {}, { general: myKind === 'service' });
+  if (!_faqOnPage() || _faqPageKind !== myKind) return;   // 기다리는 사이 떠났다(늦은 결과는 setupFaqGate 가 버린다)
+  renderFaqCategories();
+}
+// 머리의 뒤로 — 페이지 안에서 들어간 단계가 있으면 한 단계, 아니면 문의 목록의 같은 탭
+function faqPageBack() {
+  if (_faqNav.length > 1) { faqBack(); return; }
+  leaveFaqPage();
+}
+function leaveFaqPage() {
+  _inqTab = _faqPageKind === 'service' ? 'other' : 'app';
+  if (typeof openInquiryPage === 'function') openInquiryPage('back');
+}
+// 페이지를 떠날 때(navigate 훅) — 그릴 자리를 대화 화면 오버레이로 되돌리고 질문 상태를 비운다
+function cleanupFaqPage() {
+  _faqHostId = 'msgFaqTree';
+  _faqLoadSeq++;   // 이 페이지가 기다리던 불러오기 결과를 버린다
+  const host = $('faqPageBody'); if (host) host.innerHTML = '';
+  _faqNodes = []; _faqNav = []; _faqStage = null; _faqCtx = {}; _faqApp = null; _faqCamp = null; _faqLoaded = false;
 }
 
 // FAQ 화면 이동 — 모달 닫고 해시 경로로 라우팅 (§8-2 고정값)
