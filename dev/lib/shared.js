@@ -2174,6 +2174,34 @@ function campaignFinishDate(camp) {
   return null;
 }
 
+// 관리자 대리 등록 기간 — 기준일(campaignFinishDate) + 달력 1개월(일본 시각)까지만 열린다.
+//   사양서 docs/specs/2026-10-06-proxy-registration-window.md 「판정식」.
+//   🔴 서버 admin_create_deliverable_proxy(마이그레이션 511)가 같은 식으로 거부한다 — 식을 바꾸면 양쪽을 함께.
+//   ⚠️ 판정하려면 캠페인 객체에 submission_end · visit_end · event_mode 셋이 다 있어야 한다
+//      (날짜만 있으면 행사 캠페인이 마지막 방문일 기준을 잃는다).
+// 마지막 가능일 'YYYY-MM-DD' — 기준일이 없으면 null. 말일은 맞춘다(1/31 → 2/28, 윤년 2/29 — 서버 interval '1 month' 와 같다).
+function proxyWindowLastDate(camp) {
+  const base = campaignFinishDate(camp);
+  if (!base) return null;
+  const [y, m, d] = String(base).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const ty = m === 12 ? y + 1 : y;
+  const tm = m === 12 ? 1 : m + 1;
+  const lastDayOfMonth = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+  const td = Math.min(d, lastDayOfMonth);
+  return `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}`;
+}
+
+// 대리 등록이 열려 있나 — 기준일이 없으면 제한하지 않는다(사양서 P-3).
+function isProxyWindowOpen(camp) {
+  const last = proxyWindowLastDate(camp);
+  if (!last) return true;
+  return jstTodayStr() <= last;
+}
+
+// 위 판정에 필요한 캠페인 칸 — 캠페인을 조회해 판정하는 자리는 이 칸을 모두 더한다(사양서 「판정 칸」).
+const PROXY_WINDOW_CAMPAIGN_COLS = 'submission_end, visit_end, event_mode';
+
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
   if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)

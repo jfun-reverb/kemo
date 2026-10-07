@@ -270,6 +270,9 @@ async function renderDeliverablesList() {
   _delivVisibleGroups = null;
   tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   const seq = ++_delivRenderSeq;
+  // 머리 「관리자 대리 등록」 버튼 — 매니저에게 숨김. 첫 진입 때 관리자 정보가 늦게 와도 다음 그리기에서 맞춰진다
+  const headerProxyBtn = $('delivHeaderProxyBtn');
+  if (headerProxyBtn) headerProxyBtn.style.display = _isProxyManagerRole() ? 'none' : '';
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
   const includeMissing = !!$('delivIncludeMissing')?.checked;
@@ -1420,8 +1423,7 @@ async function openDelivCombined(applicationId) {
   // RPC 자체에 is_campaign_admin() 가드 있어 우회 시도해도 안전하지만, UI 일관성 차원에서 사전 차단
   const proxyBtn = $('delivCombinedProxyBtn');
   if (proxyBtn) {
-    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
-    proxyBtn.style.display = isManager ? 'none' : '';
+    proxyBtn.style.display = _isProxyManagerRole() ? 'none' : '';
   }
   openModal('delivCombinedModal');
   await renderDelivCombinedBody(applicationId);
@@ -1452,7 +1454,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS})
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -1477,7 +1479,7 @@ async function renderDelivCombinedBody(applicationId) {
       if (app.campaign_id) {
         // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
         // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end').eq('id', app.campaign_id).maybeSingle();
+        const campRes = await db?.from('campaigns').select(`id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS}`).eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -1723,9 +1725,34 @@ async function renderDelivCombinedBody(applicationId) {
   //   (openDelivCombined 를 거치지 않는 직접 재렌더 경로 대비 — 숨김이 안 풀리는 잠재 결함 방지)
   const proxyBtn = $('delivCombinedProxyBtn');
   if (proxyBtn) {
-    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
-    proxyBtn.style.display = (isManager || isExcluded) ? 'none' : '';
+    proxyBtn.style.display = (_isProxyManagerRole() || isExcluded) ? 'none' : '';
+    // 대리 등록 기간이 지났으면 감추지 않고 회색 + 이유(사양서 P-4, 문구 ②)
+    const windowOpen = isProxyWindowOpen(camp);
+    proxyBtn.disabled = !windowOpen;
+    proxyBtn.style.opacity = windowOpen ? '' : '0.5';
+    proxyBtn.style.cursor = windowOpen ? '' : 'not-allowed';
+    proxyBtn.title = windowOpen ? _PROXY_BTN_DEFAULT_TITLE : _proxyWindowClosedText(camp);
+    const note = $('delivCombinedProxyNote');
+    if (note) {
+      note.textContent = windowOpen ? '' : _proxyWindowClosedText(camp);
+      note.style.display = (windowOpen || proxyBtn.style.display === 'none') ? 'none' : '';
+    }
   }
+}
+
+const _PROXY_BTN_DEFAULT_TITLE = '이 신청에 결과물을 관리자가 대신 등록·즉시 승인합니다';
+
+// 대리 등록 입구 두 곳(머리 버튼·검수 창 버튼)의 매니저 판정 — 서버(is_campaign_admin)가 매니저를 거부한다
+function _isProxyManagerRole() {
+  return typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager';
+}
+
+// 문구 ② — 「대리 등록 기간이 지났습니다(○/○까지)」
+function _proxyWindowClosedText(camp) {
+  const last = proxyWindowLastDate(camp);
+  if (!last) return '대리 등록 기간이 지났습니다';
+  const [, m, d] = last.split('-').map(Number);
+  return `대리 등록 기간이 지났습니다(${m}/${d}까지)`;
 }
 
 // 채널 미지정 review_image 에 채널 지정 (마이그레이션 162). 드롭다운 선택값으로 assign RPC 호출 후 모달·목록 재렌더.
@@ -2226,7 +2253,10 @@ async function openAdminProxyModal(presetAppId) {
     // 검수 모달에서 진입한 경우 캠페인·인플 자동 선택
     if (presetAppId) {
       const app = _adminProxyApps.find(a => a.id === presetAppId);
-      if (app) {
+      // 창을 열 때 새로 받은 캠페인 칸으로 판정한다 — 검수 창 버튼이 그려진 뒤 날짜가 넘어간 경우가 여기로 온다
+      if (app && !isProxyWindowOpen(app.campaigns)) {
+        toast(_proxyWindowClosedText(app.campaigns), 'error');
+      } else if (app) {
         selectAdminProxyCamp(app.campaign_id, /*silent*/true);
         selectAdminProxyInf(app.id, /*silent*/true);
       }
@@ -2391,7 +2421,8 @@ async function _loadAdminProxyApprovedApps() {
   const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
   const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
   const [campRows, infRows] = await Promise.all([
-    _proxyFetchByIds('campaigns', 'id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no', campIds),
+    // 판정 칸(PROXY_WINDOW_CAMPAIGN_COLS) — 대리 등록 기간 판정용. 창을 열 때마다 새로 받는다(사양서 검증 4 가 이것에 기댄다)
+    _proxyFetchByIds('campaigns', `id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no, ${PROXY_WINDOW_CAMPAIGN_COLS}`, campIds),
     // ⚠️ 원본 표(influencers)가 아니라 가림막 통로(influencers_admin_view)로 부른다.
     //    마이그레이션 312 가 원본 표의 「관리자면 통과」 정책을 지워, 원본을 직접 부르면
     //    관리자에게도 0행이 돌아온다 — 오류가 아니라 조용한 0행이라 아무 경고 없이
@@ -2480,15 +2511,20 @@ function _renderAdminProxyCampList(query) {
     if (!campMap.has(a.campaigns.id)) campMap.set(a.campaigns.id, a.campaigns);
   });
   const q = (query || '').trim().toLowerCase();
-  const filtered = Array.from(campMap.values()).filter(c => {
+  const matched = Array.from(campMap.values()).filter(c => {
     if (!q) return true;
     return matchSearchTokens(q, [c.title, c.brand, c.brand_ja, c.brand_en, c.campaign_no]);
   });
+  // 대리 등록 기간이 지난 캠페인은 뺀다(사양서 D-4). 안내 문구 ① 은 이 검색어에서 기간 때문에 빠진 것이 있을 때만 한 번.
+  const filtered = matched.filter(c => isProxyWindowOpen(c));
+  const closedNotice = filtered.length < matched.length
+    ? '<div class="empty">대리 등록 기간이 지난 캠페인은 목록에서 빠집니다</div>'
+    : '';
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
+    list.innerHTML = closedNotice || '<div class="empty">일치하는 캠페인 없음</div>';
     return;
   }
-  list.innerHTML = filtered.slice(0, 100).map(c => {
+  list.innerHTML = closedNotice + filtered.slice(0, 100).map(c => {
     const meta = `${brandLabelAdmin(c)} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
     return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
       <div>${esc(c.title || '제목 없음')}</div>
@@ -2875,6 +2911,10 @@ async function submitAdminProxyDelivProxy() {
     console.error('[admin-proxy] RPC 실패', err);
     const raw = String(err.message || err || '');
     // 중복(이미 제출됨) 에러는 다음 행동까지 안내 — 담당자가 멈추지 않도록
+    if (raw.includes('proxy_window_closed')) {
+      toast('대리 등록 기간이 지났습니다', 'error');
+      return;
+    }
     const isDup = err.code === '23505' || /이미 등록되어 있습니다|이미 등록되어 있습니다\.|리뷰 이미지가 이미 등록/.test(raw);
     const extra = isDup ? ' 대리 등록 대신 「결과물 검수」에서 처리해 주세요.' : '';
     toast('대리 등록 실패: ' + raw + extra, 'error');
