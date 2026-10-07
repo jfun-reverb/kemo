@@ -1151,6 +1151,8 @@ async function fetchPendingDeliverableCount() {
 //
 //   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
 //     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+//   ⚠️ 대리 등록 기간(isProxyWindowOpen)이 지난 캠페인의 응모는 뺀다 — 아래 fetchStalledDraftDetails 와
+//      **같은 판정**이어야 딱지와 건수가 어긋나지 않는다(사양서 2026-10-06-proxy-registration-window D-5).
 async function fetchStalledDraftApplications() {
   if (!db) return null;
   try {
@@ -1159,9 +1161,12 @@ async function fetchStalledDraftApplications() {
     //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
     for (let from = 0; ; from += 1000) {
       const {data, error} = await db.from('deliverables')
-        .select('application_id').eq('status', 'draft').range(from, from + 999);
+        .select(`application_id, campaigns:campaign_id (${PROXY_WINDOW_CAMPAIGN_COLS})`)
+        .eq('status', 'draft').order('id').range(from, from + 999);
       if (error) throw error;
-      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      (data || []).forEach(r => {
+        if (r.application_id && isProxyWindowOpen(r.campaigns)) ids.add(r.application_id);
+      });
       if (!data || data.length < 1000) break;
     }
     return ids;
@@ -1177,10 +1182,11 @@ async function fetchStalledDraftDetails() {
     const rows = [];
     for (let from = 0; ; from += 1000) {
       const {data, error} = await db.from('deliverables')
-        .select('id, kind, post_channel, updated_at, application_id, user_id, campaign_id, applications:application_id (id, status, campaign_id, user_id), campaigns:campaign_id (id, campaign_no, title, brand)')
+        .select(`id, kind, post_channel, updated_at, application_id, user_id, campaign_id, applications:application_id (id, status, campaign_id, user_id), campaigns:campaign_id (id, campaign_no, title, brand, ${PROXY_WINDOW_CAMPAIGN_COLS})`)
         .eq('status', 'draft').order('updated_at', {ascending: false}).order('id').range(from, from + 999);
       if (error) throw error;
-      rows.push(...(data || []));
+      // 대리 등록 기간이 지난 캠페인은 추적하지 않는다 — 위 fetchStalledDraftApplications 와 같은 판정
+      rows.push(...(data || []).filter(r => isProxyWindowOpen(r.campaigns)));
       if (!data || data.length < 1000) break;
     }
     const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))];

@@ -1590,7 +1590,8 @@
                      옮겼다(그 열의 딱지를 가리키는 경고라 그 옆이 맞다). 여기에 다시 넣지 말 것 —
                      같은 id 가 둘이 되면 표시 함수가 앞의 것만 찾아 표 쪽이 영영 안 뜬다. -->
               </div>
-              <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
+              <!-- 캠페인 매니저에게는 숨긴다 — renderDeliverablesList 가 그릴 때마다 판정(사양서 D-6) -->
+              <button class="btn btn-primary btn-sm" id="delivHeaderProxyBtn" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
                 <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
                 관리자 대리 등록
               </button>
@@ -3755,6 +3756,8 @@
       <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
     </div>
     <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <!-- 대리 등록 기간이 지났을 때 회색 버튼 옆 이유(문구 ②) — renderDelivCombinedBody 가 채운다 -->
+      <span id="delivCombinedProxyNote" style="display:none;align-self:center;font-size:12px;color:var(--muted)"></span>
       <button class="btn btn-ghost btn-sm" id="delivCombinedProxyBtn" onclick="openAdminProxyFromCombined()" title="이 신청에 결과물을 관리자가 대신 등록·즉시 승인합니다" style="background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-weight:600">
         <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add_task</span>
         대리 등록

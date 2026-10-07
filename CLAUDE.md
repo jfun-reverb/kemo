@@ -119,6 +119,7 @@
 **현재 원본 번호**
 - `get_report_share_data` — **491**(414 → 449 → 457 → 469 → 491). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다
 - `touch_campaign_report_updated_at` — **491**
+- `admin_create_deliverable_proxy` — **511**(184 → 511, 대리 등록 기간 거부 `proxy_window_closed` — 화면 판정 `isProxyWindowOpen` 과 같은 식). 🔴 **`CREATE OR REPLACE` 로만**(184 의 `DROP` 을 옮기지 말 것)
 
 - 신청 관리·취소 되돌리기(🔴 `reviewed_at` 안 건드림 — 당선 메일 재발송 방지 · 탈퇴와 얽히면 항상 거부 · 정원은 이 함수가 유일한 방어선)·캠페인 진행현황 — 상세 `.claude/rules/application-admin.md`
 - 결과물 검수·인증 상태/인증 성공일/구매금액 열(🔴 진행현황 표와 행 함수 공유 — 열을 늘리면 머리글·`colspan` 여러 곳)·검수대기 배지(배지 전용 재현)·영수증 수정(정산 재계산·「자동 보류」 연속 표현 금지)·엑셀 — 상세 `.claude/rules/deliverable-review.md`
