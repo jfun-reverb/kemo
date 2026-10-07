@@ -528,7 +528,7 @@ input.admin-filter{padding-right:8px}
 .lookup-toggle input{opacity:0;width:0;height:0}
 .lookup-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;transition:.2s}
 .lookup-toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--accent-ink)}
+.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--accent-ink,#625EBD)}   /* 색 변수는 #page-admin 안에만 있다 — 그 밖에 뜨는 편집 창(모달)에서 비지 않게 같은 값으로 대신 */
 .lookup-toggle input:checked + .lookup-toggle-slider::before{transform:translateX(16px)}
 .lookup-toggle input:disabled + .lookup-toggle-slider{opacity:.5;cursor:not-allowed}
 
@@ -1437,7 +1437,10 @@ input.admin-filter{padding-right:8px}
    응모건 메시지 (PR 2) — 받은편지함 3단 + 메시지 카드/모달
    ════════════════════════════════════════════════════════════ */
 /* 받은편지함 3단 패널 — 단계 진행형 너비 */
-.inbox-3pane{display:flex;gap:0;flex:1;min-height:0;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+/* 페인을 세로 묶음으로 — 제목·탭·검색 줄을 뺀 남은 높이를 3단이 채운다(고정 calc 는 머리 높이가 바뀌면 넘쳐 페인 전체가 스크롤됐다) */
+#adminPane-messages.on{display:flex;flex-direction:column;overflow:hidden}
+#adminPane-messages .admin-sticky-header{flex-shrink:0}
+.inbox-3pane{display:flex;gap:0;flex:1;min-height:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
 .inbox-col{display:flex;flex-direction:column;min-height:0;min-width:0}
 .inbox-col-body{flex:1;overflow-y:auto;min-height:0}
 /* 각 영역 상단 제목 헤더 — 캠페인·대화 목록은 클릭으로 영역 확장 토글, 대화 내용은 정적 */
@@ -1460,6 +1463,8 @@ input.admin-filter{padding-right:8px}
 .inbox-col-camps{border-right:1px solid var(--line);background:var(--surface-container-low)}
 .inbox-col-threads{border-right:1px solid var(--line)}
 .inbox-col-view{display:flex;flex-direction:column}
+/* 대화 내용 칸 — 메시지 목록(.adm-msg-thread flex:1)만 스크롤하고 입력칸(.adm-msg-composer)은 아래에 고정 */
+.inbox-col-view .inbox-col-body{display:flex;flex-direction:column;overflow:hidden}
 .inbox-empty{padding:24px 16px;color:var(--muted);font-size:13px;text-align:center}
 /* 단계: 3단 모두 항상 표시, 활성 단만 flex-grow 로 넓힘 (숨김 없이 너비만 부드럽게 변화) */
 .inbox-col-camps{min-width:210px;transition:flex-grow .25s ease}
@@ -1506,6 +1511,21 @@ input.admin-filter{padding-right:8px}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
 .inbox-thread-chip.withdraw{background:#FFF4E5;color:#B45309;border:1px solid #F5C98A}  /* 탈퇴 D-N·대기 중 — 미응대(빨강)와 구분 */
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
+/* 서비스 문의 여러 대화(개정 R2) — 상태 칩 · 대화 제목 · 목록 머리 · 대화 머리 · 닫힌 대화 다시 열기 */
+.inbox-thread-chip.waiting{background:var(--surface-dim);color:var(--muted)}
+.inbox-thread-chip.closed{background:#EEE;color:#777}
+.adm-gen-title{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-gen-title-empty{color:var(--muted);font-weight:600}
+.adm-gen-title-orig{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-gen-link{border:0;background:none;padding:0;color:var(--pink);font-size:12px;cursor:pointer;text-decoration:underline}
+.adm-gen-member{align-self:flex-start;margin-top:2px}
+.adm-gen-listhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.adm-gen-listhead label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.adm-gen-head{flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.adm-gen-headrow{display:flex;align-items:center;gap:8px}
+.adm-gen-headtitle{flex:1;min-width:0;display:flex;flex-direction:column}
+.adm-gen-others{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.adm-gen-reopen{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted)}
 
 /* 대화 내용 영역 (받은편지함 우측 + 모달 본문 공용) */
 .adm-msg-actionbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--surface-container-low)}
@@ -1626,17 +1646,34 @@ input.admin-filter{padding-right:8px}
 .faq-item-label{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4}
 .faq-item-count{font-size:11px;font-weight:400;color:var(--muted);margin-left:4px}
 .faq-item-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+/* 카테고리 노출 위치 — 제목 아래 별도 줄(2026-10-07) */
+.faq-scope-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.faq-scope-row .badge{margin-left:0!important}
 .faq-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .faq-item-actions .btn-xs{padding:2px 6px;font-size:11px}
 /* 측정 배지 */
 .faq-stats{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .faq-stat{font-size:10px;color:var(--muted);background:var(--surface-dim);border-radius:6px;padding:1px 6px}
 .faq-stat-warn{color:var(--red-d);background:#FDECEA;font-weight:700}
+/* 질문 목록 표(2026-10-07) — 꼬리표를 열로. 공용 표(.data-table)를 쓰고 이 페인 안에서만 여백·줄바꿈 */
+.faq-table-wrap{overflow-x:auto}
+.faq-table{width:100%;min-width:860px}
+.faq-table td{vertical-align:middle;padding:10px 10px;font-size:12px}
+.faq-table th{white-space:nowrap;font-size:11px;padding:8px 10px}
+.faq-table .faq-td-q{min-width:240px}
+.faq-table .faq-stats{margin-top:0}
+.faq-table .faq-td-actions{white-space:nowrap}
+.faq-table td .badge{white-space:nowrap}
+.faq-table tr.faq-row-off td{opacity:.5}
 /* 편집 모달 — 한·일 2열 */
 .faq-bilingual{display:flex;gap:14px}
 .faq-bilingual > .form-group{flex:1;min-width:0}
 .faq-stage-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500}
 .faq-stage-chip input{accent-color:var(--pink)}
+/* 편집 창 구역 — 「질문·답변」(내용) / 「설정」을 구분(2026-10-07) */
+.faq-section-title{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 10px}
+.faq-settings-box{margin-top:18px;padding:16px 16px 4px;border:1px solid var(--line,#E5E7EB);border-radius:12px;background:#FAFAFB}
+.faq-settings-box .form-group:last-child{margin-bottom:12px}
 /* 미리보기 박스 — 인플루언서 일본어 화면 흉내 */
 .faq-preview{margin-top:10px;padding:14px;border:1px dashed var(--pink);border-radius:12px;background:var(--light-pink)}
 .faq-pv-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px}

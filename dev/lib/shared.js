@@ -1301,6 +1301,39 @@ function faqComputeCancelPhase(camp) {
   return 'other';
 }
 
+// 자주 묻는 질문 노출 위치 — 「캠페인 문의」 / 「서비스 문의」(마이그레이션 510, 2026-10-07 사용자 결정).
+//   보이는 조건 = 자기 칸이 켜져 있고 **위쪽 카테고리 칸도 전부** 켜져 있음(활성 상속 faqNodeChainActive 와 같은 모양).
+//   🔴 회원 화면(대화 「＋」 서랍·질문 페이지)과 관리자 화면(「회원 화면 보기」 거름)이 **이 함수 하나**를 쓴다 — 사본 금지.
+//   510 이 아직 없는 데이터베이스(칸이 undefined)에서는 옛 규칙으로 돌아간다 — 캠페인 = 전부,
+//   서비스 = 아래 카테고리 셋 안의 단계 없는 질문(배포 순서가 어긋나도 서비스 질문이 0건이 되지 않게)
+const FAQ_GENERAL_CATEGORY_IDS = [
+  '00000001-0000-0000-0000-000000000005',
+  '00000001-0000-0000-0000-000000000006',
+  '00000001-0000-0000-0000-000000000007',
+];
+function faqNodeVisibleIn(node, byId, scope) {
+  if (!node) return false;
+  const col = scope === 'service' ? 'show_in_service' : 'show_in_campaign';
+  if (node[col] === undefined) {
+    if (scope !== 'service') return true;
+    let root = node, guard = 0;
+    while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
+    if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
+    if (node.kind === 'category') return true;
+    const st = node.relevant_stages;
+    return !Array.isArray(st) || st.length === 0;
+  }
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur[col]) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];
+  }
+  return true;
+}
+
 // 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
 //   status: applications.status (pending/approved/rejected/cancelled)
 //   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
@@ -1525,7 +1558,7 @@ const POLICY_NOTICE = {
   // 일반 문의 창구 개설 + 개인정보처리방침 개정(문의 범위 확대·보관 기간 표기 정정) 예고.
   //   공고일 2026-09-29 → 시행일 2026-10-06(공고+7일). 근거 사양서 docs/specs/2026-05-21-general-inquiry-desk.md §10
   //   ⚠️ 메타 픽셀 공지(metaPixel2026, ~10-17)를 대체한다 — 공지 틀이 하나뿐이라서(2026-09-29 사용자 결정. 픽셀은 메일 통지 완료)
-  //   ⚠️ 본문의 「お問い合わせ」「サービスのお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
+  //   ⚠️ 본문의 「お問い合わせ」「サービス」(탭)는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
   id: 'inquiryDesk2026',        // localStorage 키 식별자 — 통지마다 새 값(옛 값이면 지난 공지를 닫은 사람에게 안 뜬다)
   effectiveDate: '2026-10-06',  // 시행일(본문 {date} 표기용) = 창구 개설일
   // 노출 종료일 = 시행일. 이 날 0시(KST)부터 자동 비노출 — 본문이 「10월 5일까지」 기간과 「10월 6일부터」 예고를 말하므로
@@ -2396,6 +2429,11 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   // 송금 묶음 도입 뒤 옛 송금완료 경로 거부 · 묶음 건의 송금일을 건에서 바꾸려 함(마이그레이션 486)
   //   — 서버의 의도적 거부다. 오류 문구 등록(admin-core.js friendlyError)과 **한 세트**다.
   /payout_bundle_required|paid_at_owned_by_transfer/,
+  // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
+  //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화(「이미 열린 대화 있음」은 508 에서 없어졌다)
+  /new_message_since_view|no_open_thread|thread_closed|thread_not_found/,
+  // 같은 기능의 개정(마이그레이션 508) — 새 문의 제목 없음 · 제목 40자 초과 · 열린 문의 상한 · 운영팀 발신에 대화 지정 필요
+  /title_required|title_too_long|too_many_open_threads|thread_required/,
   /모집 정원|slots_full|under_age|age_policy/,
   // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
   /uidx_applications_user_campaign|applications_user_camp_active_uidx/,

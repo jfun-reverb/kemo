@@ -4783,12 +4783,14 @@ async function fetchApplicationHideHistory(applicationId) {
 //   사양서 docs/specs/2026-05-21-general-inquiry-desk.md §5-4·§6
 // ════════════════════════════════════════════════════════════════════
 
-// 일반 문의 대화 목록 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
-async function fetchGeneralInquiryMessages(influencerId = null) {
+// 일반 문의 메시지 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
+//   threadId 를 주면 그 대화만(505), 비우면 회원 전체(옛 화면 하위 호환용 — 새 화면은 대화 id 를 준다).
+//   ⚠️ 인자 순서를 바꾸지 않는다 — 옛 화면이 위치로 넘긴다.
+async function fetchGeneralInquiryMessages(influencerId = null, threadId = null) {
   if (!db) return null;
   try {
     return await retryWithRefresh(async () => {
-      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId });
+      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId, p_thread_id: threadId });
       if (error) throw error;
       return data || [];
     });
@@ -4797,24 +4799,35 @@ async function fetchGeneralInquiryMessages(influencerId = null) {
 
 // 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
 //   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
-async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null) {
+//   threadId: 그 대화로(508 — 회원도 따른다. 닫힌 지 24시간 안이면 다시 열고, 지났으면 thread_closed).
+//   새 문의는 threadId 없이 title + clientToken(화면이 만든 난수 — 같은 값으로 다시 보내면 같은 대화).
+//   거부 코드: title_required · title_too_long · too_many_open_threads · thread_closed · thread_not_found ·
+//             (운영팀) no_open_thread · thread_required — 화면이 문구로 바꾼다.
+//   반환 `{ message_id, thread_id }` — 새 문의면 새 대화 id 가 여기로 온다.
+//   ⚠️ 인자 순서를 바꾸지 않는다 — 옛 호출이 위치로 넘긴다. 제목·토큰은 값이 있을 때만 보낸다
+//      (508 전 서버의 4인자 함수에도 그대로 맞도록).
+async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null, threadId = null, title = null, clientToken = null) {
   if (!db) throw new Error('DB 미연결');
+  const params = {
+    p_influencer_id: influencerId,
+    p_body: body || '',
+    p_attachments: attachments,
+    p_thread_id: threadId,
+  };
+  if (title != null) params.p_title = title;
+  if (clientToken != null) params.p_client_token = clientToken;
   return await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('send_general_inquiry_message', {
-      p_influencer_id: influencerId,
-      p_body: body || '',
-      p_attachments: attachments,
-    });
+    const {data, error} = await db.rpc('send_general_inquiry_message', params);
     if (error) throw error;
-    return data;
+    return Array.isArray(data) ? (data[0] || null) : (data || null);
   });
 }
 
-// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at).
-async function markGeneralInquiryMessagesRead(influencerId = null) {
+// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at). threadId 를 주면 그 대화만.
+async function markGeneralInquiryMessagesRead(influencerId = null, threadId = null) {
   if (!db) return;
   await retryWithRefresh(async () => {
-    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId });
+    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId, p_thread_id: threadId });
     if (error) throw error;
   });
 }
@@ -4870,17 +4883,41 @@ async function fetchMyApplicationThreads() {
   } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
 }
 
+// 응모건 메시지 「쓸 수 있는가」 — 본인 응모건 전부(509). 종료 후 90일 지나면 writable=false(읽기만).
+//   반환 Map<application_id, {writable, ended_at}> / 실패·미로그인 `null`(화면은 입력칸을 막지 말고 서버 거부에 맡긴다).
+async function fetchMyApplicationMessageStatus() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const { data, error } = await db.rpc('get_my_application_message_status');
+    if (error) throw error;
+    return new Map(Object.entries(data || {}));
+  } catch (e) { console.warn('[fetchMyApplicationMessageStatus]', e); logAppError('fetchMyApplicationMessageStatus', e); return null; }
+}
+
 // 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
+//   대화 뷰(506)의 여러 행을 **합산**한다 — 대화가 여럿이라 한 줄로 받으면(`maybeSingle`) 오류가 난다.
 async function fetchMyGeneralInquiryUnread() {
   if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
   try {
-    const {data, error} = await db.from('general_inquiry_message_summary')
-      .select('unread_for_influencer')
+    const data = await fetchAllPaged(() => db.from('general_inquiry_thread_summary')
+      .select('thread_id, unread_for_influencer')
       .eq('influencer_id', currentUser.id)
-      .maybeSingle();
-    if (error) throw error;
-    return Number(data?.unread_for_influencer) || 0;   // 문의가 없으면 행이 없다 → 0
+      .order('thread_id'));
+    return (data || []).reduce((sum, r) => sum + (Number(r.unread_for_influencer) || 0), 0);   // 문의가 없으면 0
   } catch (e) { console.warn('[fetchMyGeneralInquiryUnread]', e); logAppError('fetchMyGeneralInquiryUnread', e); return null; }
+}
+
+// 회원 서비스 문의 — 본인 대화 전부(열림·닫힘), 최근에 연 순. 실패 `null`, 0건 `[]`.
+async function fetchMyGeneralInquiryThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('general_inquiry_thread_summary')
+      .select('*')
+      .eq('influencer_id', currentUser.id)
+      .order('opened_at', { ascending: false })
+      .order('thread_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyGeneralInquiryThreads]', e); logAppError('fetchMyGeneralInquiryThreads', e); return null; }
 }
 
 // 관리자 받은편지함 「일반 문의」 탭 목록 — 새 뷰(481). 열 모양은 응모건 뷰와 같다(application_id·campaign_id 는 빈 값).
@@ -4923,15 +4960,16 @@ async function fetchGeneralInquiryUnresolvedCount() {
   } catch (e) { console.warn('[fetchGeneralInquiryUnresolvedCount]', e); return null; }
 }
 
-// 관리자 본인 미열람 수 (회원별). 반환 Map<influencer_id, count>, 실패 `null`.
+// 관리자 본인 미열람 수 (회원별 — 옛 화면용). 반환 Map<influencer_id, count>, 실패 `null`.
+//   505 부터 서버는 **대화별**로 돌려준다 — 한 회원에 여러 줄이라 더해서 회원 단위로 만든다(덮어쓰면 마지막 대화 수만 남는다).
 async function fetchGeneralInquiryAdminUnreadCounts() {
   if (!db) return null;
   let data;
   try {
-    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id'));
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id').order('thread_id'));
   } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadCounts]', e); return null; }
   const map = new Map();
-  (data || []).forEach(r => map.set(r.influencer_id, Number(r.unread_count) || 0));
+  (data || []).forEach(r => map.set(r.influencer_id, (map.get(r.influencer_id) || 0) + (Number(r.unread_count) || 0)));
   return map;
 }
 
@@ -4991,6 +5029,115 @@ async function fetchGeneralInquiryHideHistory(influencerId) {
       .order('id'));
     return data || [];
   } catch (e) { console.warn('[fetchGeneralInquiryHideHistory]', e); return null; }
+}
+
+// ── 서비스 문의 여러 대화 (마이그레이션 504~506) — 관리자 ──────────────────
+//   대화 단위 뷰 `general_inquiry_thread_summary` 를 본다. 위의 회원 단위 함수(481 뷰)는 옛 화면용으로 남아 있다.
+//   사양서 docs/specs/2026-10-06-service-inquiry-threads.md
+
+// 서비스 문의 탭 목록 — 대화 한 줄씩. 실패 `null`, 0건 `[]`.
+//   opts: sinceMonths / fromIso·toIso(마지막 글 시각 기준, 보이는 글이 없는 대화는 연 시각 기준)
+//         includeClosed(기본 false = 열린 대화만) · influencerId(그 회원 대화 **전부** — 「이 회원 대화 N」.
+//         ⚠️ 이때는 기간을 걸지 않고 닫힌 대화도 포함한다)
+//   ⚠️ 옛 함수의 `.gt('message_count', 0)` 은 **옮기지 않는다** — 회원이 글을 전부 회수한 열린 대화도
+//      목록에 남아야 운영팀이 닫을 수 있다(506 머리말 · 검증 12 「보이는 글 0건 대화 닫기」)
+async function fetchAdminGeneralInquiryThreadRows(opts = {}) {
+  if (!db) return null;
+  const useRange = !!(opts.fromIso || opts.toIso);
+  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
+  // 마지막 글 시각이 비면(보이는 글 0건) 연 시각으로 기간을 판정한다 — 조건 하나(`or` 한 번)로 묶는다
+  const period = (fromIso, toIso) => {
+    const on = (col) => [fromIso && `${col}.gte.${fromIso}`, toIso && `${col}.lte.${toIso}`].filter(Boolean).join(',');
+    return `and(${on('last_message_at')}),and(last_message_at.is.null,${on('opened_at')})`;
+  };
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('general_inquiry_thread_summary')
+        .select('*')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('thread_id');
+      if (opts.influencerId) return q.eq('influencer_id', opts.influencerId);
+      if (!opts.includeClosed) q = q.eq('status', 'open');
+      return useRange ? q.or(period(opts.fromIso, opts.toIso)) : q.or(period(sinceIso, null));
+    });
+    return data || [];
+  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreadRows]', e); logAppError('fetchAdminGeneralInquiryThreadRows', e); return null; }
+}
+
+// 서비스 문의 미응대 수 = 「회원 답 대기가 아닌, 운영팀이 답할 차례」인 열린 대화 수. 실패 `null`.
+//   🔴 기간 창을 걸지 않는다 — 사이드바·탭 배지·30초 갱신 세 자리가 모두 이 값을 써야 숫자가 맞는다(R-4).
+async function fetchGeneralInquiryNeedsReplyCount() {
+  if (!db) return null;
+  try {
+    const {count, error} = await db.from('general_inquiry_thread_summary')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .eq('needs_reply', true);
+    if (error) { console.warn('[fetchGeneralInquiryNeedsReplyCount]', error); return null; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchGeneralInquiryNeedsReplyCount]', e); return null; }
+}
+
+// 관리자 본인 미열람 수 (대화별). 반환 Map<thread_id, count>, 실패 `null`.
+async function fetchGeneralInquiryAdminUnreadByThread() {
+  if (!db) return null;
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('thread_id'));
+  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadByThread]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.thread_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 「내가 보낸 순」 정렬 — 본인 관리자가 서비스 문의에 보낸 대화별 최신 시각. 반환 Map<thread_id, iso>, 실패 `null`.
+async function fetchAdminGeneralThreadSentAtMap() {
+  if (!db) return null;
+  let data;
+  try {
+    const {data: udata} = await db.auth.getUser();
+    const uid = udata?.user?.id;
+    if (!uid) return null;
+    data = await fetchAllPaged(() => db.from('application_messages')
+      .select('general_thread_id, created_at')
+      .is('application_id', null)
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .order('id'));
+  } catch (e) { console.warn('[fetchAdminGeneralThreadSentAtMap]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => { if (r.general_thread_id && !map.has(r.general_thread_id)) map.set(r.general_thread_id, r.created_at); });
+  return map;
+}
+
+// 대화 닫기(「응대 완료」). seenLastMessageId = 화면이 본 **숨김·회수 뺀** 마지막 글 id(없으면 null).
+//   실패는 예외 — 거부 코드 new_message_since_view · thread_closed · thread_not_found 를 화면이 문구로 바꾼다.
+async function closeGeneralInquiryThread(threadId, seenLastMessageId = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('close_general_inquiry_thread', { p_thread_id: threadId, p_seen_last_message_id: seenLastMessageId });
+    if (error) throw error;
+  });
+}
+
+// 대화 다시 열기(운영팀). 실패는 예외 — 거부 코드 thread_not_found(508 부터 다른 열린 대화가 있어도 열린다).
+async function reopenGeneralInquiryThread(threadId) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('reopen_general_inquiry_thread', { p_thread_id: threadId });
+    if (error) throw error;
+  });
+}
+
+// 대화 제목 고치기(운영팀만, 508). 앞뒤 공백은 서버가 뗀다 · 빈 값이면 제목·번역을 비운다 ·
+//   바뀌면 번역 대기로 돌아가 번역 함수가 다시 번역한다. 실패는 예외 — title_too_long · thread_not_found.
+async function updateGeneralInquiryThreadTitle(threadId, title) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_general_inquiry_thread_title', { p_thread_id: threadId, p_title: title ?? '' });
+    if (error) throw error;
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════

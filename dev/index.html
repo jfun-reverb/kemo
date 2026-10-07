@@ -311,6 +311,18 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 따로 떨어진 「よくある質問」 페이지 (#faq-campaign / #faq-service, 2026-10-07) — 문의 목록 「対応中」 옆 단추로 연다.
+     본문은 대화 화면 오버레이와 같은 그리는 함수가 채운다(messaging.js _faqHostId) -->
+<div id="page-faq" class="page">
+  <div class="mypage-sub-header">
+    <button type="button" class="faq-page-head-back" onclick="faqPageBack()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
+      <span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span>
+    </button>
+    <div id="faqPageTitle" class="mypage-sub-title"></div>
+  </div>
+  <div id="faqPageBody" class="faq-page-body"></div>
+</div>
+
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
 <!-- 문의 갈래 화면 (일반 문의 창구, 2026-09) — 햄버거 「お問い合わせ」 단일 입구.
      「응모한 캠페인에 대해」(응모건 메시지) / 「그 외 문의」(#inquiry-general, 아래 #page-messages 재사용) -->
@@ -318,9 +330,10 @@ window._supabaseLoaded = false;
   <!-- 머리는 마이페이지 폼 화면과 같다(조각 5-C) — 뒤로 화살표 없음, 이동은 햄버거·브라우저 뒤로가기 -->
   <div class="mypage-sub-header">
     <div class="mypage-sub-title" data-i18n="inquiry.title">お問い合わせ</div>
+    <!-- 탭 「キャンペーン / サービス」은 제목 오른쪽(2026-10-07 사용자 지시) — renderInquiryBranch 가 채우고 비운다 -->
+    <div id="inquiryTabSlot" class="inq-head-tabs"></div>
   </div>
   <div class="inq-body">
-    <p class="inq-lead" data-i18n="inquiry.lead">お問い合わせの内容をえらんでください</p>
     <div id="inquiryBranchBody"></div>
   </div>
 </div>
@@ -347,12 +360,42 @@ window._supabaseLoaded = false;
     <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
     <!-- 취소된 응모: 읽기만 가능하다는 안내. 작성 줄 대신 이 줄을 보여준다(F-11) -->
     <div id="msgReadOnlyNote" class="msg-readonly-note" style="display:none" data-i18n="messaging.cancelledReadOnly"></div>
+    <!-- 서비스 문의 지난 문의(닫히고 24시간 지난 대화): 읽기만 — 입력란 대신 「문의 목록으로」 버튼.
+         「끝난 문의」 안내 문구는 대화 맨 아래 안내 줄 자리에 나온다(renderMessageThread, 2026-10-06 사용자 지시) -->
+    <div id="msgPastNote" class="msg-past-note" style="display:none">
+      <button type="button" class="inq-start-btn" onclick="backToInquiryList()">
+        <span class="material-icons-round notranslate" translate="no">list</span><span data-i18n="inquiry.backToList"></span>
+      </button>
+    </div>
+    <!-- 「＋」 → 「よくある質問」 아래 서랍 — 「こちらで解決できるか確認してみましょう」 + 추천 질문 + 전체 보기(2026-10-07) -->
+    <div id="msgFaqSheet" class="msg-faq-sheet" role="dialog" data-i18n-attr="aria-label:messaging.plusFaq" aria-label="よくある質問" style="display:none"></div>
+    <!-- 서비스 문의 새 문의 화면만: 열린 문의 안내(N건·상한) + 제목 칸(1~40자, 서버 검사 제약과 같다) -->
+    <div id="msgOpenNote" class="msg-open-note" style="display:none"></div>
+    <div id="msgSubjectWrap" class="msg-subject-wrap" style="display:none">
+      <label for="msgSubjectInput" class="msg-subject-label" data-i18n="inquiry.subjectLabel">件名</label>
+      <input id="msgSubjectInput" class="msg-subject-input" type="text" maxlength="40" autocomplete="off" oninput="_msgSubjectError('')"
+        data-i18n-attr="placeholder:inquiry.subjectPlaceholder" placeholder="例：ポイントの使い方">
+      <div id="msgSubjectError" class="msg-subject-error" role="alert" style="display:none"></div>
+    </div>
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
     <div class="msg-input-row">
-      <label class="msg-attach-btn" aria-label="attach image">
-        <span class="material-icons-round notranslate" translate="no">image</span>
-        <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
-      </label>
+      <!-- 「＋」 — 이미지 첨부 · 자주 묻는 질문(2026-10-07 사용자 지시). 대화 맨 위 안내 카드 대신 여기서 연다.
+           🔴 「画像を添付」는 <label for> 로 둔다 — 코드로 input.click() 을 부르면 아이폰 사파리가 사용자 동작으로 안 봐 파일 창이 안 열린다 -->
+      <div class="msg-plus-wrap">
+        <button type="button" id="msgPlusBtn" class="msg-attach-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="msgPlusMenu"
+          onclick="toggleMsgPlusMenu()" data-i18n-attr="aria-label:messaging.plusMenu" aria-label="メニュー">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">add</span>
+        </button>
+        <div id="msgPlusMenu" class="msg-plus-menu" role="menu" style="display:none">
+          <label for="msgModalAttachInput" class="msg-plus-item" role="menuitem" onclick="setTimeout(closeMsgPlusMenu, 0)">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">image</span><span data-i18n="messaging.plusAttach">画像を添付</span>
+          </label>
+          <button type="button" class="msg-plus-item" role="menuitem" onclick="openMsgFaqSheet()">
+            <span class="material-icons-round notranslate" translate="no" aria-hidden="true">help_outline</span><span data-i18n="messaging.plusFaq">よくある質問</span>
+          </button>
+        </div>
+      </div>
+      <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       <textarea id="msgModalInput" class="msg-input" rows="1"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
