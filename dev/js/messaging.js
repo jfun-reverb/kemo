@@ -15,13 +15,7 @@ let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 
 //   같은 #page-messages 를 재사용하므로 **진입 함수가 매번 정하고 정리 함수가 'app' 으로 되돌린다.**
 //   ⚠️ 일반 문의에서는 _msgCurrentAppId 가 null 이다 — 「대화가 열려 있나」는 _msgActive() 로 본다.
 let _msgMode = 'app';
-// 일반 문의 「그 외」 갈래에 보일 자주 묻는 질문 카테고리(보수·정산 / 계정·프로필 / 그 외 — 시드 146 고유 번호).
-//   사양서 §7 — 이 셋 안에서도 단계 무관(relevant_stages 비어 있음) 항목만 낸다.
-const FAQ_GENERAL_CATEGORY_IDS = [
-  '00000001-0000-0000-0000-000000000005',
-  '00000001-0000-0000-0000-000000000006',
-  '00000001-0000-0000-0000-000000000007',
-];
+// 자주 묻는 질문을 어느 문의에 보일지는 shared.js `faqNodeVisibleIn`(마이그레이션 510 노출 위치 칸) — 옛 카테고리 셋 상수도 그쪽으로 옮겼다
 
 // 서비스 문의 여러 대화(마이그레이션 505) — 지금 연 대화 id. null = 새 문의 화면.
 //   🔴 새 문의 화면에서는 조회·읽음을 부르지 않는다 — 대화 인자가 비면 서버가 회원 전체를 돌려주고
@@ -1304,7 +1298,9 @@ async function setupFaqGate(app, camp, opts) {
     const _byId = {};
     (all || []).forEach(n => { if (n && n.id) _byId[n.id] = n; });
     _faqNodes = (all || []).filter(n => faqNodeChainActive(n, _byId));
-    if (opts && opts.general) _faqNodes = _faqNodes.filter(n => _faqNodeInGeneral(n, _byId));
+    // 노출 위치(510) — 서비스 문의는 「서비스」, 그 외(캠페인 대화·캠페인 질문 페이지)는 「캠페인」 칸
+    const scope = (opts && opts.general) ? 'service' : 'campaign';
+    _faqNodes = _faqNodes.filter(n => faqNodeVisibleIn(n, _byId, scope));
     _faqLoaded = true;
   } catch (e) {
     if (mySeq !== _faqLoadSeq) return;
@@ -1314,17 +1310,6 @@ async function setupFaqGate(app, camp, opts) {
     _faqNodes = [];
     _faqLoaded = true;
   }
-}
-
-// 일반 문의 갈래 판정 — 맨 위 카테고리가 FAQ_GENERAL_CATEGORY_IDS 안이고,
-//   질문이면 relevant_stages 가 비어 있을 것(단계 정보가 없는 갈래이므로).
-function _faqNodeInGeneral(node, byId) {
-  let root = node, guard = 0;
-  while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
-  if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
-  if (node.kind === 'category') return true;
-  const st = node.relevant_stages;
-  return !Array.isArray(st) || st.length === 0;
 }
 
 // 추천 후보 — 현재 단계(relevant_stages) 우선, 답변 노드(handoff 아닌 item, body 보유)만 상위 N개.

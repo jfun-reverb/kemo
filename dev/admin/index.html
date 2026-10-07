@@ -2805,6 +2805,14 @@
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">자주 묻는 질문 (자동응답)</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">응모건 메시지에서 인플루언서가 묻기 전에 셀프 해결하도록 안내하는 질문·답변을 관리합니다 (campaign_admin 이상)</div>
               </div>
+              <!-- 회원 화면 보기 — 그 문의에서 회원에게 실제로 보이는 것만 거른다(노출 위치 + 위쪽 카테고리, 활성은 별도) -->
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">회원 화면 보기
+                <select id="faqScopeView" class="form-input" style="width:auto;padding:4px 8px;font-size:12px" onchange="changeFaqScopeView(this.value)">
+                  <option value="all">전체</option>
+                  <option value="campaign">캠페인 문의에 보이는 것</option>
+                  <option value="service">서비스 문의에 보이는 것</option>
+                </select>
+              </label>
             </div>
           </div>
           <div class="faq-split">
@@ -3478,6 +3486,8 @@
       <input type="hidden" id="faqEditParentId">
       <input type="hidden" id="faqEditKind">
 
+      <!-- ── 질문·답변(내용) 구역 ── -->
+      <div class="faq-section-title">질문·답변</div>
       <!-- 질문 제목 / 카테고리명 — 한·일 2열 -->
       <div class="faq-bilingual">
         <div class="form-group">
@@ -3503,6 +3513,18 @@
           </div>
         </div>
 
+        <!-- 미리보기(답변 내용 확인 — 내용 구역 안) -->
+        <div id="faqPreviewWrap">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="toggleFaqPreview()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">visibility</span> <span id="faqPreviewToggleLabel">미리보기 (일본어 화면)</span></button>
+          <div id="faqPreviewBox" class="faq-preview" style="display:none"></div>
+        </div>
+
+      </div>
+
+      <!-- ── 설정 구역(2026-10-07 사용자 지시 — 내용과 구분) ── -->
+      <div class="faq-settings-box">
+        <div class="faq-section-title">설정</div>
+        <div id="faqItemSettings">
         <!-- 화면 이동 -->
         <div class="form-group">
           <label class="form-label">앱 화면 이동 버튼</label>
@@ -3530,7 +3552,7 @@
         </div>
 
         <!-- handoff 토글 -->
-        <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <div class="form-group" style="display:flex;flex-direction:row;align-items:center;gap:10px">
           <label class="lookup-toggle" title="직접 문의로 바로" style="margin:0">
             <input type="checkbox" id="faqHandoff" onchange="onFaqHandoffChange()">
             <span class="lookup-toggle-slider"></span>
@@ -3542,30 +3564,28 @@
         <div class="form-group">
           <label class="form-label">맞춤 노출 단계 <span style="font-size:11px;font-weight:400;color:var(--muted)">(미선택 = 모든 단계 노출)</span></label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="pending"> 심사중</label>
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_purchase"> 승인-구매기간</label>
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_visit"> 승인-방문기간</label>
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_post"> 승인-제출단계</label>
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="rejected"> 비승인</label>
-            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="done"> 완료</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="pending" onchange="renderFaqScopeHint()"> 심사중</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_purchase" onchange="renderFaqScopeHint()"> 승인-구매기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_visit" onchange="renderFaqScopeHint()"> 승인-방문기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_post" onchange="renderFaqScopeHint()"> 승인-제출단계</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="rejected" onchange="renderFaqScopeHint()"> 비승인</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="done" onchange="renderFaqScopeHint()"> 완료</label>
           </div>
         </div>
+        </div>
+        <!-- 노출 위치(마이그레이션 510) — 카테고리·질문 공용. 위쪽 카테고리도 켜져 있어야 보인다 -->
+        <div class="form-group">
+          <label class="form-label">노출 위치 <span style="font-size:11px;font-weight:400;color:var(--muted)">(둘 다 끄면 어디에도 안 보임)</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <label class="faq-stage-chip"><input type="checkbox" id="faqShowCampaign" onchange="renderFaqScopeHint()"> 캠페인 문의</label>
+            <label class="faq-stage-chip"><input type="checkbox" id="faqShowService" onchange="renderFaqScopeHint()"> 서비스 문의</label>
+          </div>
+          <div id="faqScopeHint" style="display:none;margin-top:6px;font-size:12px;line-height:1.6;color:var(--muted)"></div>
+        </div>
+
       </div>
 
-      <!-- 활성 여부 -->
-      <div class="form-group" style="display:flex;align-items:center;gap:10px">
-        <label class="lookup-toggle" title="활성" style="margin:0">
-          <input type="checkbox" id="faqActive" checked>
-          <span class="lookup-toggle-slider"></span>
-        </label>
-        <span style="font-size:13px;color:var(--ink)">활성 (인플루언서에게 노출)</span>
-      </div>
-
-      <!-- 미리보기 토글 (item 만) -->
-      <div id="faqPreviewWrap">
-        <button type="button" class="btn btn-ghost btn-xs" onclick="toggleFaqPreview()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">visibility</span> <span id="faqPreviewToggleLabel">미리보기 (일본어 화면)</span></button>
-        <div id="faqPreviewBox" class="faq-preview" style="display:none"></div>
-      </div>
+      <!-- 활성 여부는 목록의 토글로만 정한다(2026-10-07 사용자 지시 — 편집 창에서 뺌). 새 노드는 활성으로 만든다 -->
 
       <div id="faqEditError" class="form-error" style="display:none;margin:8px 0"></div>
     </div>
