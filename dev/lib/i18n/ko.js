@@ -692,6 +692,9 @@ window.I18N_KO = {
     addDraftBtn: '리스트에 추가',
     submitToAdminBtn: '제출하기',
     draftBadge: '미제출',
+    // 결과물 옆 날짜 — 제출일과 승인일을 나눠 보여 준다
+    submittedOn: '제출일',
+    approvedOn: '승인일',
     draftAdded: '리스트에 추가했습니다',
     // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
     draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',

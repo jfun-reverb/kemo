@@ -1913,7 +1913,7 @@ function renderActivityReceiptList(delivs) {
       : activityStatusBadge(r.status);
     const rightCol = isDraft
       ? `<button type="button" class="btn btn-ghost btn-xs ac-del" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">delete</span></button>`
-      : `<div class="ac-row-date">${formatDate(r.submitted_at || r.created_at)}</div>`;
+      : activityDateLines(r);
     // 반려된 결과물에는 행 하단에 사유 박스 표시 (상단 배너와는 별개로 행 단위 인지 강화)
     const reasonBox = (r.status === 'rejected' && r.reject_reason)
       ? `<div class="ac-row-msg ng">${esc(r.reject_reason)}</div>`
@@ -1982,7 +1982,7 @@ function renderActivityReviewImageList(delivs, channels) {
         : activityStatusBadge(row.status);
       const rightCol = isDraft
         ? `<button type="button" class="btn btn-ghost btn-xs ac-del" onclick="deleteDraft('${esc(row.id)}')"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">delete</span></button>`
-        : `<div class="ac-row-date">${formatDate(row.submitted_at || row.created_at)}</div>`;
+        : activityDateLines(row);
       const reasonBox = (row.status === 'rejected' && row.reject_reason)
         ? `<div class="ac-row-msg ng">${esc(row.reject_reason)}</div>`
         : '';
@@ -2184,7 +2184,7 @@ function renderActivityPostList(delivs) {
         <div class="ac-row-inline">${stBadge}${actionBtn}</div>
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" class="ac-row-url">${esc(d.post_url||'')}</a>
-      <div class="ac-row-date" style="margin-top:4px">${formatDate(d.submitted_at)}</div>
+      ${isDraft ? '' : `<div style="margin-top:4px">${activityDateLines(d)}</div>`}
       ${proxyBox}
       ${shapeBox}
       ${reasonBox}
@@ -2197,6 +2197,18 @@ function renderActivityPostList(delivs) {
     submitBtn.disabled = !submittableDraftCount;
   }
   renderDraftPendingBar('post', submittableDraftCount);
+}
+
+// 결과물 행의 날짜 줄 — 「提出日」(제출일) + 승인이면 「承認日」(승인일). 세 목록(영수증·리뷰 인증샷·게시물)이 같이 쓴다.
+//   제출일은 서버 트리거(마이그레이션 512)가 임시저장 → 검수 대기가 되는 순간 찍는다. 그 전 행은 처음 만든 날일 수 있다.
+//   임시저장은 아직 제출 전이라 날짜를 그리지 않는다. 승인인데 승인일이 비면 그 줄은 생략한다(빈 날짜 금지).
+function activityDateLines(d) {
+  if (!d || d.status === 'draft') return '';
+  const submitted = d.submitted_at || d.created_at;
+  const lines = [];
+  if (submitted) lines.push(`<div class="ac-row-date">${esc(t('activity.submittedOn'))} ${formatDate(submitted)}</div>`);
+  if (d.status === 'approved' && d.reviewed_at) lines.push(`<div class="ac-row-date">${esc(t('activity.approvedOn'))} ${formatDate(d.reviewed_at)}</div>`);
+  return lines.join('');
 }
 
 function activityStatusBadge(status) {
