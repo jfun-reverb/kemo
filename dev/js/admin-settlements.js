@@ -1170,9 +1170,10 @@ function _renderBulkBundles() {
          ${manual ? '<span style="font-size:11px;color:#B8741A">고친 값</span>' : ''}
          <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="editBulkFee(${bi})">수정</button>`;
     const span = canSplit ? 2 : 1;   // 합계 줄의 값 칸이 「보낸 금액」 열(+ 따로 보내기 열)을 덮는다
-    const sumRow = function (label, valueHtml) {
-      return `<tr><td colspan="2" style="${TD};text-align:right;color:var(--muted);background:#FAFAFA">${label}</td>
-        <td colspan="${span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap">${valueHtml}</td></tr>`;
+    // wide — 값 칸을 「지급 예정」 열까지 넓힌다(수수료 줄: 금액·「이 송금 요율」·「자동으로」가 「보낸 금액」 열 하나에 안 들어간다)
+    const sumRow = function (label, valueHtml, wide) {
+      return `<tr><td colspan="${wide ? 1 : 2}" style="${TD};text-align:right;color:var(--muted);background:#FAFAFA">${label}</td>
+        <td colspan="${wide ? span + 1 : span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap">${valueHtml}</td></tr>`;
     };
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -1201,7 +1202,7 @@ function _renderBulkBundles() {
           </tr></thead>
           <tbody>${rows}
           ${sumRow('보낸 금액 합계', `<b id="bulkTotal_${bi}">${esc(settlementAmountYen(total))}</b>`)}
-          ${sumRow('수수료', `<span style="display:inline-flex;align-items:center;gap:6px">${feeHtml}</span>`)}
+          ${sumRow('수수료', `<span style="display:inline-flex;align-items:center;gap:6px">${feeHtml}</span>`, true)}
           ${b.feeEditing ? `<tr><td colspan="${2 + span}" style="${TD};background:#FAFAFA">${_bulkRuleRowHtml(b, bi, INP)}</td></tr>` : ''}
           ${sumRow('총지출', `<b id="bulkSpend_${bi}">${fee === null ? '—' : esc(settlementAmountYen(total + fee))}</b>`)}
           </tbody>
