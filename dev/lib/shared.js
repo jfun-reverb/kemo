@@ -1301,6 +1301,21 @@ function faqComputeCancelPhase(camp) {
   return 'other';
 }
 
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+//   회원 앱(messaging.js)·관리자 메시지 화면(admin-messaging.js) 공용
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
+}
+
 // 자주 묻는 질문 노출 위치 — 「캠페인 문의」 / 「서비스 문의」(마이그레이션 510, 2026-10-07 사용자 결정).
 //   보이는 조건 = 자기 칸이 켜져 있고 **위쪽 카테고리 칸도 전부** 켜져 있음(활성 상속 faqNodeChainActive 와 같은 모양).
 //   🔴 회원 화면(대화 「＋」 서랍·질문 페이지)과 관리자 화면(「회원 화면 보기」 거름)이 **이 함수 하나**를 쓴다 — 사본 금지.
