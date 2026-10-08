@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791434939';
+  var CURRENT_BUILD = 'v1791435925';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-08 13:48 · f2483c9</span>
+          <span class="admin-build-text">2026-10-08 14:05 · 2f86071</span>
         </div>
       </div>
     </aside>
@@ -17301,6 +17301,21 @@ async function fetchSettlementTransfers(from, to) {
       p_to: to || null
     }));
   } catch(e) { console.error('[fetchSettlementTransfers]', e); return null; }
+}
+
+// 송금 묶음 1건의 변경 이력 — settlement_transfer_events(485, 조회 정책 settlement.view 읽기).
+//   기록(create)·묶음 정정(correct)·건별 송금액 정정(correct, 합계·수수료만)이 시간순으로 쌓인다.
+//   실패 null, 0건 [] — ⚠️ 권한이 없는 등급은 오류가 아니라 0건이 온다.
+async function fetchSettlementTransferEvents(transferId) {
+  if (!db || !transferId) return null;
+  try {
+    const {data, error} = await db.from('settlement_transfer_events')
+      .select('id, action, prev, next, memo, actor_name, at')
+      .eq('transfer_id', transferId)
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferEvents]', e); return null; }
 }
 
 // 월별 송금 집계 — RPC get_settlement_transfer_monthly(487). 실패 null, 0건 [].
@@ -45949,11 +45964,12 @@ async function confirmSettlementPay() {
 // ⚠️ **비운 칸은 안 고친다.** 그래서 여는 시점에 현재 값을 미리 채워 넣지 않는다 —
 //    채워 두면 「비우면 안 고침」과 앞뒤가 안 맞는다. 현재 값은 위쪽 안내에 보여준다.
 
-function openSettlementCorrectModal(id) {
+// from — 'list'(정산 목록) | 'payout'(회차별·사람별 상세). 저장 뒤 그 화면을 다시 그린다
+function openSettlementCorrectModal(id, from) {
   const s = _settlements.find(x => x.id === id);
   if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
   if (s.status !== 'paid') { toast('송금완료 건만 정정할 수 있습니다', 'warn'); return; }
-  _settlementModalCtx = { id: s.id, version: s.version, mode: 'correct' };
+  _settlementModalCtx = { id: s.id, version: s.version, mode: 'correct', from: from || 'list' };
 
   const inf = s.influencers || {};
   const camp = s.campaigns || {};
@@ -46050,7 +46066,8 @@ async function confirmSettlementCorrect() {
   }
   closeModal('settlementCorrectModal');
   _settlementModalCtx = null;
-  await refreshPane('settlements');
+  // ⚠️ refreshPane 만으로는 회차 상세(_payoutRows)가 안 바뀐다 — 보던 화면을 다시 그린다
+  await _settlementRefreshKeepingView(ctx.from || 'list');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -46749,6 +46766,147 @@ async function confirmSettlementReason() {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 회차 상세 「지급 완료」 줄의 정정·이력 (2026-10-08 사용자 요청)
+// ════════════════════════════════════════════════════════════════════
+//
+// ⚠️ 사람별 펼침(_payoutItemRowHtml)·캠페인별 펼침(_payoutCampDetailHtml) **두 곳이 이 함수 하나**를 부른다.
+// ⚠️ 정산 행이 없는 줄(미등록)은 버튼이 없다. 송금 묶음 없이 옛 방식으로 기록된 건은 「송금 정정」을 회색으로.
+// ⚠️ 줄 클릭(펼침)과 겹치지 않게 stopPropagation.
+function _payoutPaidActionsHtml(r) {
+  if (!r || !r.settlementId) return '';
+  const s = _settlements.find(function (x) { return x.id === r.settlementId; });
+  if (!s || s.status !== 'paid') return '';
+  const id = esc(s.id);
+  const btn = 'class="btn btn-ghost btn-xs" style="padding:1px 6px;font-size:11px;white-space:nowrap;margin-left:4px"';
+  const out = [];
+  if (canWrite('settlement.pay')) {
+    out.push(`<button ${btn} onclick="event.stopPropagation();openSettlementCorrectModal('${id}', 'payout')" title="이 건의 보낸 금액을 고칩니다">금액 정정</button>`);
+    out.push(s.current_transfer_id
+      ? `<button ${btn} onclick="event.stopPropagation();openPayoutTransferCorrect('${id}')" title="이 건이 들어 있는 송금의 송금일·수수료·요율을 고칩니다">송금 정정</button>`
+      : `<button ${btn} disabled title="송금 묶음 없이 옛 방식으로 기록된 건입니다 — 송금일은 「금액 정정」 창에서 고칩니다">송금 정정</button>`);
+  }
+  out.push((s.event_count || 0) > 0
+    ? `<button ${btn} onclick="event.stopPropagation();openSettlementHistoryModal('${id}')">이력</button>`
+    : `<button ${btn} disabled title="변경 이력이 없습니다">이력</button>`);
+  return out.join('');
+}
+
+// 회차 상세에서 「송금 정정」 — 그 건의 현재 송금 묶음을 받아 정정 창을 연다.
+//   송금일(일본 날짜)로 먼저 찾고, 없으면(화면 값이 낡았을 수 있다) 전 기간으로 한 번 더 찾는다.
+async function openPayoutTransferCorrect(settlementId) {
+  const s = _settlements.find(function (x) { return x.id === settlementId; });
+  if (!s || !s.current_transfer_id) { toast('이 건의 송금 기록을 찾을 수 없습니다', 'warn'); return; }
+  const tid = s.current_transfer_id;
+  const day = _settlementDateInputValue(s.paid_at);
+  let rows = day ? await fetchSettlementTransfers(day, day) : [];
+  let t = Array.isArray(rows) ? rows.find(function (x) { return x.id === tid; }) : null;
+  if (!t) {
+    rows = await fetchSettlementTransfers(null, null);
+    if (rows === null) { toast('송금 기록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요', 'error'); return; }
+    t = rows.find(function (x) { return x.id === tid; });
+  }
+  if (!t) { toast('송금 기록을 찾을 수 없습니다. 화면을 새로고침해 주세요', 'warn'); return; }
+  openTransferCorrectModal(t.id, t, 'payout');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 송금 묶음 이력 모달 (settlement_transfer_events, 읽기 전용)
+// ════════════════════════════════════════════════════════════════════
+//
+// ⚠️ 이력 줄의 칸 구성이 마이그레이션마다 다르다(486 다섯 칸 → 502 추정 표시 → 514·517 요율 칸).
+//    없는 칸은 그리지 않고, 값이 NULL 이면 「—」 — 0·¥0 으로 그리지 않는다(Number(null) 함정).
+const TRANSFER_EVENT_FIELDS = [
+  ['sent_at', '송금일'], ['sent_total_jpy', '보낸 금액'], ['fee_jpy', '수수료'], ['fee_manual', '고친 값'],
+  ['fee_rate_percent', '요율'], ['fee_fixed_jpy', '고정액'], ['fee_rounding', '끝수'], ['fee_rule_custom', '이 송금만'],
+  ['sent_at_estimated', '송금일 추정'], ['fee_estimated', '수수료 추정'],
+  ['paypal_txn_id', '페이팔 거래번호'], ['memo', '메모'], ['source', '출처'],
+];
+const TRANSFER_EVENT_SOURCE_LABELS = { app: '화면 기록', sheet_backfill: '지급 시트에서 채움' };
+
+function _transferEventValue(key, v) {
+  if (v === null || v === undefined) return '—';
+  if (key === 'sent_at') return _settlementDateInputValue(v) || '—';
+  if (key === 'sent_total_jpy' || key === 'fee_jpy' || key === 'fee_fixed_jpy') return settlementAmountYen(Number(v));
+  if (key === 'fee_rate_percent') return String(Number(v)) + '%';
+  if (key === 'fee_rounding') return FEE_ROUNDING_LABELS[v] || String(v);
+  if (key === 'source') return TRANSFER_EVENT_SOURCE_LABELS[v] || String(v);
+  if (typeof v === 'boolean') return v ? '예' : '아니오';
+  return String(v) === '' ? '(비움)' : String(v);
+}
+
+function _transferEventLinesHtml(e) {
+  const prev = e.prev || {}, next = e.next || {};
+  const lines = [];
+  TRANSFER_EVENT_FIELDS.forEach(function (f) {
+    const key = f[0];
+    if (!(key in next)) return;
+    const nv = _transferEventValue(key, next[key]);
+    if (e.action === 'create') {
+      if (next[key] === null || next[key] === undefined) return;
+      lines.push(`<div><span style="color:var(--muted)">${esc(f[1])}</span> ${esc(nv)}</div>`);
+      return;
+    }
+    if (!(key in prev)) return;
+    const pv = _transferEventValue(key, prev[key]);
+    if (pv === nv) return;
+    lines.push(`<div><span style="color:var(--muted)">${esc(f[1])}</span> ${esc(pv)}`
+      + ` <span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px;color:var(--muted)">arrow_forward</span> <b>${esc(nv)}</b></div>`);
+  });
+  if (e.action === 'create' && Array.isArray(next.items)) lines.push(`<div><span style="color:var(--muted)">건수</span> ${next.items.length}건</div>`);
+  if (!lines.length) lines.push('<div style="color:var(--muted)">(바뀐 칸 없음)</div>');
+  return lines.join('');
+}
+
+function _ensureTransferHistoryModal() {
+  let el = $('transferHistoryModal');
+  if (el) return el;
+  el = document.createElement('div');
+  el.className = 'modal-overlay';
+  el.id = 'transferHistoryModal';
+  el.style.zIndex = '615';
+  el.innerHTML = `
+    <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
+      <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 이력</div>
+        <div id="transferHistoryHeader" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div class="modal-body" id="transferHistoryBody" style="padding:6px 22px 14px;max-height:60vh;overflow-y:auto"></div>
+      <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('transferHistoryModal')">닫기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+// headerText — 송금 내역에서 열면 비워 두고 그 줄 정보로 채운다
+async function openTransferHistoryModal(transferId, headerText) {
+  _ensureTransferHistoryModal();
+  const t = (_transferRows || []).find(function (x) { return x.id === transferId; });
+  const head = headerText || (t ? `${t.influencer_name || '(탈퇴한 회원)'} · ${_settlementDateInputValue(t.sent_at)} · 보낸 금액 ${settlementAmountYen(t.sent_total_jpy)}` : '');
+  $('transferHistoryHeader').textContent = head;
+  const body = $('transferHistoryBody');
+  body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:22px;font-size:12px">이력을 불러오는 중…</div>';
+  openModal('transferHistoryModal');
+  const events = await fetchSettlementTransferEvents(transferId);
+  if (events === null) { body.innerHTML = '<div style="text-align:center;color:#C33;padding:26px;font-size:13px">이력을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.</div>'; return; }
+  // 정상 송금은 기록 이력이 최소 1건 있다 — 0건이면 정산 열람 권한이 없는 경우가 대부분이다(정책이 오류 대신 0건을 준다)
+  if (!events.length) { body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:26px;font-size:13px">이력이 없거나 볼 권한이 없습니다.</div>'; return; }
+  body.innerHTML = events.slice().reverse().map(function (e) {
+    const label = e.action === 'create' ? '송금 기록' : '정정';
+    return `<div style="padding:11px 0;border-bottom:1px dashed var(--line)">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <span style="font-size:13px;font-weight:700;color:var(--ink)">${label}</span>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">${e.at ? esc(formatDateTime(e.at)) : ''}</span>
+      </div>
+      <div style="margin-top:6px;font-size:12px;line-height:1.7">${_transferEventLinesHtml(e)}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--muted)">처리자: ${esc(e.actor_name || '시스템')}</div>
+      ${e.memo ? `<div style="margin-top:4px;font-size:12px;white-space:pre-wrap">${esc(e.memo)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
 // SECTION: SETTLEMENTS — 정산 이력 모달 (settlement_events 타임라인, 읽기 전용)
 // ════════════════════════════════════════════════════════════════════
 //
@@ -46781,7 +46939,11 @@ async function openSettlementHistoryModal(id) {
     headEl.innerHTML = `<div style="font-weight:600">${esc(inf.name || '—')}${kana}</div>`
       + `<div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
       + `<span>${esc(camp.title || '—')}</span><span>·</span><span>${settlementAmountYen(s.amount_jpy)}</span>`
-      + `<span>·</span>${settlementStatusBadge(s.status)}</div>`;
+      + `<span>·</span>${settlementStatusBadge(s.status)}</div>`
+      // 이 건이 들어 있는 송금의 이력(송금일·수수료·요율 정정은 건 이력이 아니라 송금 이력에 남는다)
+      + (s.current_transfer_id
+        ? `<div style="margin-top:6px"><a href="javascript:void(0)" style="font-size:12px;color:#2563EB" onclick="closeSettlementHistoryModal();openTransferHistoryModal(${jsStr(s.current_transfer_id)}, ${jsStr((inf.name || '') + ' · ' + (camp.title || ''))})">이 건이 들어 있는 송금의 이력 보기 (송금일·수수료·요율 정정)</a></div>`
+        : '');
   }
 
   const bodyEl = $('settlementHistoryBody');
@@ -47996,7 +48158,7 @@ function payoutPaypalHtml(p) {
 const _payoutPersonOpen = new Set();   // 펼친 사람 id
 let _payoutPersonKeyMap = {};          // 사람 id → 그 사람의 선택 열쇠말(사람id|회차) 목록
 // 열 순서는 캠페인별 펼침(_PAYOUT_CAMP_ITEM_COLS)과 같다 — … · 인증 성공일 · 지급 예정(회차) · 송금일 · 금액 · 상태(2026-10-01 사용자 결정)
-const _PAYOUT_ITEM_COLS = 'display:grid;grid-template-columns:minmax(0,1fr) 100px 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
+const _PAYOUT_ITEM_COLS = 'display:grid;grid-template-columns:minmax(0,1fr) 100px 100px 100px 90px 250px;column-gap:12px;align-items:center;padding:6px 12px';
 
 function _payoutPersonKeys(entry) {
   return Object.keys(entry.dues).map(function (d) { return entry.person.id + '|' + d; });
@@ -48016,7 +48178,7 @@ function togglePayoutPersonSelect(id, on) {
 function _payoutItemRowHtml(r, sent, showDue) {
   const camp = esc(r.campaignNo ? '[' + r.campaignNo + '] ' : '') + esc(r.campaignTitle || '(캠페인 미상)');
   const state = sent
-    ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>'
+    ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>' + _payoutPaidActionsHtml(r)
     : (r.applicationId
         ? `<button class="btn btn-ghost btn-xs" style="padding:1px 8px;font-size:11px;white-space:nowrap"
              onclick="openPayoutSendOneModal('${esc(r.applicationId)}')" title="이 건만 송금완료로 기록">보냄</button>`
@@ -48027,7 +48189,7 @@ function _payoutItemRowHtml(r, sent, showDue) {
     <div style="white-space:nowrap">${showDue ? (r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)) : ''}</div>
     <div style="white-space:nowrap" title="실제로 송금한 날(기록된 값)">${sent && r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
     <div style="text-align:right;white-space:nowrap">${sent ? esc(_payoutYen(r.amount)) : _payoutAmountCell(r)}</div>
-    <div>${state}</div>
+    <div style="white-space:nowrap">${state}</div>
   </div>`;
 }
 
@@ -48364,7 +48526,7 @@ function groupPayoutRowsByCampaign(rows) {
 //   ⚠️ 펼침은 캠페인 열쇠(번호|제목)로 기억한다 — onclick 에는 **목록 순번만** 넘긴다(제목에 따옴표가 들어올 수 있다).
 const _payoutCampOpen = new Set();
 let _payoutCampList = [];
-const _PAYOUT_CAMP_ITEM_COLS = 'display:grid;grid-template-columns:140px minmax(0,1fr) 100px 100px 100px 90px 64px;column-gap:12px;align-items:center;padding:6px 12px';
+const _PAYOUT_CAMP_ITEM_COLS = 'display:grid;grid-template-columns:140px minmax(0,1fr) 100px 100px 100px 90px 250px;column-gap:12px;align-items:center;padding:6px 12px';
 function _payoutCampKey(entry) { return (entry.no || '') + '|' + (entry.title || ''); }
 function togglePayoutCampOpen(i) {
   const e = _payoutCampList[i];
@@ -48388,8 +48550,8 @@ function _payoutCampDetailHtml(entry) {
       <div style="white-space:nowrap">${r.due ? esc(r.due) : _missingDash(_MISSING_CERT_TIP)}</div>
       <div style="white-space:nowrap" title="실제로 송금한 날(기록된 값)">${sent && r.paidAt ? esc(formatDate(r.paidAt)) : '—'}</div>
       <div style="text-align:right;white-space:nowrap">${sent ? esc(_payoutYen(r.amount)) : _payoutAmountCell(r)}</div>
-      <div>${sent
-        ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>'
+      <div style="white-space:nowrap">${sent
+        ? '<span style="font-size:10px;background:#E8F5E9;color:#16A34A;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap">지급 완료</span>' + _payoutPaidActionsHtml(r)
         : '<span style="font-size:10px;color:#C33;font-weight:700;white-space:nowrap">미지급</span>'}</div>
     </div>`;
   });
@@ -49301,13 +49463,14 @@ function _transferListHtml() {
         <td style="font-size:11px;font-family:monospace;white-space:nowrap">${esc(t.paypal_txn_id || '')}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">${canEdit
           ? `<button class="btn btn-ghost btn-xs" onclick="openTransferCorrectModal('${esc(t.id)}')">정정</button>`
-          : ''}</td>
+          : ''}
+          <button class="btn btn-ghost btn-xs" onclick="openTransferHistoryModal('${esc(t.id)}')" title="이 송금의 기록·정정 이력">이력</button></td>
       </tr>${detail}`;
   }).join('');
   return `<div class="admin-table-wrap"><table class="data-table">
       <thead><tr><th style="width:28px"></th><th style="width:130px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th style="width:60px;text-align:right">건수</th>
         <th style="width:100px;text-align:right">보낸 금액</th><th style="width:210px;text-align:right">수수료</th><th style="width:100px;text-align:right">총지출</th>
-        <th>페이팔 거래번호</th><th style="width:84px"></th></tr></thead>
+        <th>페이팔 거래번호</th><th style="width:124px"></th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr class="transfer-foot"><td></td><td colspan="3" style="white-space:nowrap">합계 · 송금 ${rows.length}번${est ? ` <span style="font-weight:400;color:#B45309" title="${esc(_TRANSFER_EST_TIP)}">· 추정 포함 송금 ${est}번</span>` : ''}</td>
         <td style="text-align:right;white-space:nowrap">${cnt}건</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent))}</td>
@@ -49561,13 +49724,16 @@ function _ensureTransferCorrectModal() {
   return el;
 }
 
-function openTransferCorrectModal(id) {
+// row — 회차 상세에서 열 때 따로 받아 온 묶음 행(송금 내역 캐시 _transferRows 에 넣지 않는다 — 엑셀이 그 값을 쓴다)
+// from — 'transfer'(송금 내역) | 'payout'(회차별·사람별 상세)
+function openTransferCorrectModal(id, row, from) {
   if (!canWrite('settlement.pay')) { toast('변경 권한이 없습니다', 'warn'); return; }
-  const t = (_transferRows || []).find(function (x) { return x.id === id; });
+  const t = row || (_transferRows || []).find(function (x) { return x.id === id; });
   if (!t) { toast('송금 묶음을 찾을 수 없습니다', 'warn'); return; }
   _ensureTransferCorrectModal();
   const day = _settlementDateInputValue(t.sent_at);
   _transferCorrectCtx = { id: t.id, version: t.version, day: day, fee: Number(t.fee_jpy), txn: t.paypal_txn_id || '', memo: t.memo || '',
+                          from: from || 'transfer',
                           dayEst: !!t.sent_at_estimated, feeEst: !!t.fee_estimated,
                           // 「이 송금 요율 직접 정하기」(사양서 2026-10-02-settlement-per-transfer-fee-rule 설계 ⓪ — 정본)
                           total: Number(t.sent_total_jpy), rate0: t.fee_rate_percent, fixed0: t.fee_fixed_jpy,
@@ -49709,6 +49875,10 @@ async function saveTransferCorrect() {
     return;
   }
   closeTransferCorrectModal();
+  if (ctx.from === 'payout') {            // 회차 상세에서 열었으면 그 화면만 다시 그린다(송금 내역은 안 보인다)
+    await _settlementRefreshKeepingView('payout');
+    return;
+  }
   await refreshPane('settlements');       // 정산 행의 송금일이 바뀌었을 수 있다
   await _loadTransferHistory();
 }
