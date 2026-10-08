@@ -1829,11 +1829,10 @@ async function openTransferHistoryModal(transferId, headerText) {
     return `<div style="padding:11px 0;border-bottom:1px dashed var(--line)">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
         <span style="font-size:13px;font-weight:700;color:var(--ink)">${label}</span>
-        <span style="font-size:11px;color:var(--muted);white-space:nowrap">${e.at ? esc(formatDateTime(e.at)) : ''}</span>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">처리자: ${esc(e.actor_name || '시스템')} · ${e.at ? esc(formatDateTime(e.at)) : ''}</span>
       </div>
       <div style="margin-top:6px;font-size:12px;line-height:1.7">${_transferEventLinesHtml(e)}</div>
-      <div style="margin-top:4px;font-size:11px;color:var(--muted)">처리자: ${esc(e.actor_name || '시스템')}</div>
-      ${e.memo ? `<div style="margin-top:4px;font-size:12px;white-space:pre-wrap">${esc(e.memo)}</div>` : ''}
+      <div style="margin-top:4px;display:flex;gap:8px;font-size:12px"><span style="color:var(--muted);flex-shrink:0">메모</span>${e.memo ? `<span style="white-space:pre-wrap">${esc(e.memo)}</span>` : '<span style="color:var(--muted)">—</span>'}</div>
     </div>`;
   }).join('');
 }
@@ -1906,18 +1905,20 @@ function renderSettlementEventItem(e) {
   }
   const actor = e.actor_name ? esc(e.actor_name) : '자동';
   const at = e.at ? esc(formatDate(e.at)) : '';
-  const memoLine = e.memo
-    ? `<div style="margin-top:6px;font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.55">${esc(e.memo)}</div>`
-    : '<div style="margin-top:6px;font-size:12px;color:var(--muted)">사유: —</div>';
+  // 줄마다 제목(상태 변경·메모)을 붙이고 처리자는 날짜 왼쪽에 둔다(2026-10-08 사용자 요청 — 송금 이력 창과 같은 모양)
+  const memoLine = `<div style="margin-top:6px;display:flex;gap:8px;font-size:12px;line-height:1.55">`
+    + `<span style="color:var(--muted);flex-shrink:0;width:52px">메모</span>`
+    + (e.memo ? `<span style="color:var(--ink);white-space:pre-wrap">${esc(e.memo)}</span>` : '<span style="color:var(--muted)">—</span>')
+    + `</div>`;
   return `<div style="padding:11px 0;border-bottom:1px dashed var(--line)">`
     + `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">`
     + `<span style="font-size:13px;font-weight:700;color:var(--ink)">${esc(label)}</span>`
-    + `<span style="font-size:11px;color:var(--muted);white-space:nowrap">${at}</span>`
+    + `<span style="font-size:11px;color:var(--muted);white-space:nowrap">처리자: ${actor} · ${at}</span>`
     + `</div>`
-    + `<div style="margin-top:5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px">`
-    + `<span style="display:inline-flex;align-items:center;gap:4px">${transition}</span>`
-    + `<span style="color:var(--muted)">처리자: ${actor}</span>`
-    + `</div>${memoLine}</div>`;
+    + (transition ? `<div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-size:12px">`
+      + `<span style="color:var(--muted);flex-shrink:0;width:52px">상태 변경</span>`
+      + `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px">${transition}</span></div>` : '')
+    + `${memoLine}</div>`;
 }
 
 function closeSettlementHistoryModal() {
