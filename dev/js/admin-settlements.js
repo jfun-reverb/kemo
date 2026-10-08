@@ -1231,7 +1231,7 @@ function _bulkRuleCellHtml(b, bi, INP) {
       </div>
       <span style="color:var(--muted);white-space:nowrap">수수료</span>
     </div>
-    ${b.ruleOn ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+    ${b.ruleOn ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">기준 수수료 설정</a>에서 바꿉니다.</div>
     <div id="bulkRateWarn_${bi}" style="font-size:11px;color:#B8741A;margin-top:2px;${_ruleRateWarn(b.ruleOn, b.rate) ? '' : 'display:none'}">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>` : ''}`;
 }
 // 요율 10% 초과 경고 — 막지 않는다(사양서 경우의 수 8). 확인 창·정정 창이 같이 쓴다
@@ -2789,11 +2789,12 @@ function renderPayoutSummary() {
         <th style="width:90px"></th>
       </tr></thead>
       <tbody>`
+  // 순서: 이번 달 → 정산 예정(다음 달 이후) → 지난 달 이전 — 시간 흐름대로 앞으로 볼 것을 먼저(2026-10-08 사용자 요청)
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
+  + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   // ⚠️ 색은 **여섯 자리로** 적는다. 제목 배경을 색+투명도로 만드는데, 세 자리(#C33)에
   //    붙이면 없는 값이 되어 **그 구역만 배경이 안 깔린다**(2026-08-18 운영에서 확인).
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#CC3333', before, byDue, todayStr, '밀린 것이 없습니다.')
-  + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + payoutNoDueSectionHtml(rows.filter(function(r) { return !r.due; }))
   // ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
   //    회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다.
@@ -3804,7 +3805,7 @@ function _ensureSettlementFeeRuleModal() {
   el.innerHTML = `
     <div class="modal" style="max-width:520px;border-radius:20px;margin:auto;max-height:86vh;display:flex;flex-direction:column">
       <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
-        <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 수수료 설정</div>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 수수료 설정</div>
       </div>
       <div class="modal-body" id="settlementFeeRuleBody" style="padding:18px 22px;overflow-y:auto;flex:1"></div>
       <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
@@ -4680,7 +4681,7 @@ function openTransferCorrectModal(id, row, from) {
         <span id="transferCorrectFeeShow" style="font-size:14px;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}</span>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">지금 ${(t.source === 'sheet_backfill' && !t.fee_estimated && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined) ? '지급 시트 실제값' : (t.fee_rule_custom ? '이 송금 요율로 계산한 값' : '자동 계산값'))}입니다.</div>
-      <div id="transferCorrectRuleNote" style="font-size:11px;color:var(--muted);margin-top:2px;display:none">저장하면 이 요율로 수수료를 다시 계산합니다. 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+      <div id="transferCorrectRuleNote" style="font-size:11px;color:var(--muted);margin-top:2px;display:none">저장하면 이 요율로 수수료를 다시 계산합니다. 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">기준 수수료 설정</a>에서 바꿉니다.</div>
       <div id="transferCorrectRateWarn" style="font-size:11px;color:#B8741A;margin-top:2px;display:none">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>
       ${estChk('transferCorrectFeeOk', t.fee_estimated)}</div>
     <div class="form-group"><label class="form-label">페이팔 거래번호</label>
