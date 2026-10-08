@@ -2789,11 +2789,12 @@ function renderPayoutSummary() {
         <th style="width:90px"></th>
       </tr></thead>
       <tbody>`
+  // 순서: 이번 달 → 정산 예정(다음 달 이후) → 지난 달 이전 — 시간 흐름대로 앞으로 볼 것을 먼저(2026-10-08 사용자 요청)
   + payoutSectionHtml(`이번 달 (${esc(thisMonth)})`, '#2563EB', thisM, byDue, todayStr, '이번 달 지급 예정이 없습니다.')
+  + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   // ⚠️ 색은 **여섯 자리로** 적는다. 제목 배경을 색+투명도로 만드는데, 세 자리(#C33)에
   //    붙이면 없는 값이 되어 **그 구역만 배경이 안 깔린다**(2026-08-18 운영에서 확인).
   + payoutSectionHtml('지난 달 이전 — 밀린 것', '#CC3333', before, byDue, todayStr, '밀린 것이 없습니다.')
-  + payoutSectionHtml('정산 예정', '#6B7280', after, byDue, todayStr, '앞으로 예정된 정산이 없습니다.')
   + payoutNoDueSectionHtml(rows.filter(function(r) { return !r.due; }))
   // ⚠️ 달을 넘겨 보던 「지급 완료」 묶음은 없앴다(2026-08-18 사용자 결정) —
   //    회차 표의 **송금완료 열**이 같은 것을 회차별로 보여주므로 중복이다.
