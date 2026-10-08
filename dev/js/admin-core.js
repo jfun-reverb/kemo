@@ -180,6 +180,8 @@ function switchAdminPane(pane, el, pushHistory) {
   if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
   if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
   if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
+  // 메시지 화면 「자주 묻는 질문」 참고 창도 화면 고정이라 다른 페인으로 가면 닫는다
+  if (pane !== 'messages' && typeof closeInboxFaqPanel === 'function') closeInboxFaqPanel();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791447017';
+  var CURRENT_BUILD = 'v1791452261';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-08 17:10 · de0c93d</span>
+          <span class="admin-build-text">2026-10-08 18:37 · 5cf1255</span>
         </div>
       </div>
     </aside>
@@ -9318,6 +9318,21 @@ function faqComputeCancelPhase(camp) {
   if (visitEnd      && now > visitEnd)      return 'post';
   if (recruitDeadline && now <= recruitDeadline) return 'recruit';
   return 'other';
+}
+
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+//   회원 앱(messaging.js)·관리자 메시지 화면(admin-messaging.js) 공용
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
 }
 
 // 자주 묻는 질문 노출 위치 — 「캠페인 문의」 / 「서비스 문의」(마이그레이션 510, 2026-10-07 사용자 결정).
@@ -16049,6 +16064,19 @@ async function fetchFaqNodes() {
   } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
 }
 
+// 관리자 메시지 화면 「자주 묻는 질문」 창용 — fetchFaqNodes 와 같지만 **실패 null · 0건 []**
+//   (실패를 「등록된 질문 없음」으로 그리지 않게)
+async function fetchFaqNodesOrNull() {
+  if (!db) return null;
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodesOrNull]', error); logAppError('fetchFaqNodesOrNull', error); return null; }
+}
+
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
 async function fetchFaqInteractionStats() {
   if (!db) return {};
@@ -19359,6 +19387,8 @@ function switchAdminPane(pane, el, pushHistory) {
   if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
   if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
   if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
+  // 메시지 화면 「자주 묻는 질문」 참고 창도 화면 고정이라 다른 페인으로 가면 닫는다
+  if (pane !== 'messages' && typeof closeInboxFaqPanel === 'function') closeInboxFaqPanel();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
@@ -30649,7 +30679,10 @@ function renderInboxKindTabs() {
   const cnt = (n, failed) => failed ? '<span class="tab-count">(—)</span>' : `<span class="tab-count">(미응대 ${n})</span>`;
   bar.innerHTML = tab('app', '캠페인 문의', cnt(nApp, false))
     + tab('general', '서비스 문의', cnt(nGen, _genNeedsReply === null))
-    + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '');
+    + (admMsgIsCampaignAdmin() ? tab('broadcasts', '일괄발송 이력', '') : '')
+    // 「자주 묻는 질문」 참고 창 — 넣을 답장 칸이 없는 일괄발송 이력 탭에서는 숨긴다
+    + (_inboxTab === 'broadcasts' ? '' :
+       `<button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;align-self:center" onclick="toggleInboxFaqPanel()" title="질문과 답변을 보며 답장에 넣을 수 있습니다">자주 묻는 질문</button>`);
 }
 // 받은편지함 종류 전환(캠페인 문의 ↔ 서비스 문의) — switchInboxTab 이 부른다
 function switchInboxKind(kind) {
@@ -31728,6 +31761,187 @@ function switchInboxTab(tab) {
   applyBulkMsgButtonVisibility();
   if (isList) switchInboxKind(_inboxTab);
   else { renderInboxKindTabs(); loadBroadcasts(); }
+  // 「자주 묻는 질문」 창 — 이력 탭이면 닫고, 문의 탭이면 그 탭에 맞는 질문으로 다시 거른다
+  if (!isList) closeInboxFaqPanel();
+  else if (_inboxFaqOpen) { _inboxFaqScope = _inboxTab === 'general' ? 'service' : 'campaign'; renderInboxFaqPanel(); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「자주 묻는 질문」 참고 창 (2026-10-08 사용자 요청)
+//   배경을 가리지 않는 떠 있는 창 — 열어 둔 채 대화를 읽고 답장을 쓴다.
+//   · 캠페인 문의(show_in_campaign) / 서비스 문의(show_in_service) 질문 — faqNodeVisibleIn. 처음엔 지금 탭에 맞추고 창 안에서 바꿀 수 있다
+//     + 위 분류까지 켜진 것만(faqNodeChainActive — 회원 화면과 같은 판정, shared.js)
+//   · 「답장에 넣기」 = 지금 보이는 언어의 답변을 **열린 대화의 답장 칸 커서 자리에 덧붙인다**(자동 전송 없음).
+//     기본 언어는 일본어 — 운영팀이 일본어로 쓰면 회원은 공식 문안을 원문 그대로 받는다(한국어는 기계 번역)
+//   · 「직접 문의」로 넘기는 질문(is_human_handoff)은 회원에게 「문의하세요」라는 문안이라 읽기만(넣기 없음)
+//   · 창을 열 때마다 다시 받는다 — 설정 화면에서 고친 내용이 바로 보이게
+// ══════════════════════════════════════════════════════════════════
+let _inboxFaqOpen = false;
+let _inboxFaqNodes = undefined;   // undefined 받는 중 / null 실패 / 배열
+let _inboxFaqLang = 'ja';
+let _inboxFaqScope = 'campaign';  // 'campaign' | 'service' — 창을 열 때·탭을 바꿀 때 그 탭에 맞추고, 창 안에서 바꿀 수 있다
+let _inboxFaqOpenItem = null;     // 펼친 질문 id
+let _inboxFaqSeq = 0;
+
+// 답변 본문의 동적 토큰(회원 화면 messaging.js renderFaqBody 와 같은 규칙) — 관리자 쪽은 응모마다의 값을 모르므로
+//   {intro} 만 일반 문구로 채우고, 값이 없는 토큰({required}·{current})이 있는 줄은 통째로 뺀다.
+//   ⚠️ {intro} 일반 문구는 i18n messaging.faqFollowerIntroGeneric(ja·ko)의 사본이다 — 거기를 고치면 여기도.
+const INBOX_FAQ_TOKENS = ['intro', 'required', 'current'];
+const INBOX_FAQ_INTRO = {
+  ja: 'フォロワー数の条件はキャンペーンごとに異なります。',
+  ko: '팔로워 수 조건은 캠페인마다 다릅니다.',
+};
+function _inboxFaqPlainBody(text, lang) {
+  if (!text) return '';
+  const ctx = { intro: INBOX_FAQ_INTRO[lang] || INBOX_FAQ_INTRO.ja };
+  return String(text).split('\n').filter(function (line) {
+    const toks = (line.match(/\{([a-z]+)\}/g) || []).map(function (s) { return s.slice(1, -1); });
+    return !toks.some(function (tok) { return INBOX_FAQ_TOKENS.includes(tok) && !ctx[tok]; });
+  }).join('\n').replace(/\{([a-z]+)\}/g, function (m, tok) {
+    return (INBOX_FAQ_TOKENS.includes(tok) && ctx[tok]) ? ctx[tok] : m;
+  });
+}
+function _inboxFaqPick(n, base) {
+  const ja = n[base + '_ja'], ko = n[base + '_ko'];
+  return (_inboxFaqLang === 'ko' ? (ko || ja) : (ja || ko)) || '';
+}
+
+function _ensureInboxFaqPanel() {
+  let el = document.getElementById('inboxFaqPanel');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'inboxFaqPanel';
+  // ⚠️ 배경을 가리지 않는다(어둡게 하지 않고 뒤 화면을 그대로 조작) — modal-overlay 를 쓰지 않는다.
+  //   위치는 오른쪽 위, 아래쪽은 대화 보기 맨 아래 답장 칸·「전송」을 가리지 않게 비워 둔다.
+  //   쌓임 순서는 일반 모달(500)·이미지 확대 창보다 아래.
+  el.style.cssText = 'position:fixed;top:96px;right:24px;width:400px;max-height:calc(100vh - 300px);'
+    + 'display:none;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;'
+    + 'box-shadow:0 8px 28px rgba(0,0,0,.14);z-index:400;overflow:hidden';
+  document.body.appendChild(el);
+  return el;
+}
+
+async function toggleInboxFaqPanel() {
+  if (_inboxFaqOpen) { closeInboxFaqPanel(); return; }
+  _inboxFaqOpen = true;
+  _inboxFaqOpenItem = null;
+  _inboxFaqScope = _inboxTab === 'general' ? 'service' : 'campaign';
+  const el = _ensureInboxFaqPanel();
+  el.style.display = 'flex';
+  _inboxFaqNodes = undefined;
+  renderInboxFaqPanel();
+  const seq = ++_inboxFaqSeq;
+  const nodes = await fetchFaqNodesOrNull();
+  if (seq !== _inboxFaqSeq || !_inboxFaqOpen) return;
+  _inboxFaqNodes = nodes;
+  renderInboxFaqPanel();
+}
+function closeInboxFaqPanel() {
+  _inboxFaqOpen = false;
+  _inboxFaqSeq++;
+  const el = document.getElementById('inboxFaqPanel');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+function setInboxFaqLang(lang) { _inboxFaqLang = lang === 'ko' ? 'ko' : 'ja'; renderInboxFaqPanel(); }
+function setInboxFaqScope(scope) { _inboxFaqScope = scope === 'service' ? 'service' : 'campaign'; _inboxFaqOpenItem = null; renderInboxFaqPanel(); }
+function toggleInboxFaqItem(id) { _inboxFaqOpenItem = _inboxFaqOpenItem === id ? null : id; renderInboxFaqPanel(); }
+
+// 「설정」 — 자주 묻는 질문 설정 화면으로. 쓰던 답장이 있으면 사라진다는 것을 먼저 묻는다
+function goInboxFaqSettings() {
+  const input = document.getElementById('inboxComposerInput');
+  if (input && input.value.trim() && !confirm('쓰던 답장이 사라집니다. 자주 묻는 질문 설정 화면으로 이동할까요?')) return;
+  closeInboxFaqPanel();
+  navAdminPaneReload('faq');
+}
+
+// 지금 넣을 수 있는 답장 칸 — 넣는 순간에 다시 찾는다(대화를 바꿀 때마다 새로 그려진다)
+function _inboxFaqComposer() {
+  return document.getElementById('inboxComposerInput');
+}
+function insertInboxFaqAnswer(id) {
+  const n = (_inboxFaqNodes || []).find(function (x) { return x.id === id; });
+  const input = _inboxFaqComposer();
+  if (!n) return;
+  if (!input) { toast('대화를 먼저 여세요. 닫힌 문의는 다시 연 뒤 넣을 수 있습니다.', 'warn'); return; }
+  const text = _inboxFaqPlainBody(_inboxFaqPick(n, 'body'), _inboxFaqLang).trim();
+  if (!text) { toast('넣을 답변 문구가 없습니다', 'warn'); return; }
+  // 덮어쓰지 않고 커서 자리(없으면 끝)에 덧붙인다 — 앞에 글이 있으면 빈 줄 하나를 둔다
+  const v = input.value;
+  const pos = (typeof input.selectionStart === 'number' && document.activeElement === input) ? input.selectionStart : v.length;
+  const before = v.slice(0, pos), after = v.slice(pos);
+  const sep = before && !/\n\n$/.test(before) ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+  input.value = before + sep + text + after;
+  const caret = (before + sep + text).length;
+  input.focus();
+  try { input.setSelectionRange(caret, caret); } catch (e) { /* 일부 브라우저 */ }
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  toast('답장 칸에 넣었습니다. 확인 후 「전송」을 누르세요.');
+}
+
+function renderInboxFaqPanel() {
+  const el = document.getElementById('inboxFaqPanel');
+  if (!el || !_inboxFaqOpen) return;
+  const scope = _inboxFaqScope;
+  const canEdit = typeof isHidden === 'function' ? !isHidden('menu.faq') : true;
+  const segBtn = function (on, fn, k, label) {
+    return `<button type="button" class="btn btn-ghost btn-xs" style="padding:2px 8px;${on ? 'background:var(--ink);color:#fff;border-color:var(--ink)' : ''}" onclick="${fn}('${k}')">${label}</button>`;
+  };
+  const langBtn = function (k, label) { return segBtn(_inboxFaqLang === k, 'setInboxFaqLang', k, label); };
+  const scopeBtn = function (k, label) { return segBtn(scope === k, 'setInboxFaqScope', k, label); };
+  const head = `<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">자주 묻는 질문</div>
+      ${canEdit ? `<button type="button" class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="goInboxFaqSettings()" title="자주 묻는 질문 설정 화면으로 이동">설정</button>` : ''}
+      <span style="margin-left:auto;display:inline-flex;gap:4px">${langBtn('ja', '일본어')}${langBtn('ko', '한국어')}</span>
+      <button type="button" class="btn btn-ghost btn-xs" style="padding:2px 6px" onclick="closeInboxFaqPanel()" aria-label="닫기">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">close</span></button>
+    </div>
+    <div style="display:flex;gap:4px;padding:8px 14px;border-bottom:1px solid var(--line);background:#FAFAFA">
+      ${scopeBtn('campaign', '캠페인 문의')}${scopeBtn('service', '서비스 문의')}
+    </div>`;
+  let body;
+  if (_inboxFaqNodes === undefined) {
+    body = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div>';
+  } else if (_inboxFaqNodes === null) {
+    body = '<div style="padding:24px;text-align:center;color:#C33;font-size:12px">질문을 불러오지 못했습니다. 창을 닫았다가 다시 열어 주세요.</div>';
+  } else {
+    const byId = {};
+    _inboxFaqNodes.forEach(function (n) { byId[n.id] = n; });
+    const shown = function (n) { return faqNodeChainActive(n, byId) && faqNodeVisibleIn(n, byId, scope); };
+    const cats = _inboxFaqNodes.filter(function (n) { return n.kind === 'category' && !n.parent_id && shown(n); });
+    const itemsOf = function (pid) { return _inboxFaqNodes.filter(function (n) { return n.kind === 'item' && n.parent_id === pid && shown(n); }); };
+    const subsOf = function (pid) { return _inboxFaqNodes.filter(function (n) { return n.kind === 'category' && n.parent_id === pid && shown(n); }); };
+    const itemHtml = function (q) {
+      const open = _inboxFaqOpenItem === q.id;
+      const label = _inboxFaqPick(q, 'label');
+      let detail = '';
+      if (open) {
+        const txt = _inboxFaqPlainBody(_inboxFaqPick(q, 'body'), _inboxFaqLang);
+        detail = `<div style="padding:8px 10px 10px;background:#FAFAFA;border-top:1px solid var(--line)">
+            <div style="font-size:12px;line-height:1.6;white-space:pre-wrap;color:var(--ink)">${esc(txt || '(답변 문구 없음)')}</div>
+            <div style="margin-top:8px;display:flex;justify-content:flex-end">${q.is_human_handoff
+              ? '<span style="font-size:11px;color:var(--muted)">「직접 문의」로 넘기는 질문이라 답장에 넣지 않습니다</span>'
+              : `<button type="button" class="btn btn-primary btn-xs" style="padding:3px 10px" onclick="insertInboxFaqAnswer('${esc(q.id)}')">답장에 넣기</button>`}</div>
+          </div>`;
+      }
+      return `<div style="border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden">
+          <button type="button" onclick="toggleInboxFaqItem('${esc(q.id)}')" style="width:100%;text-align:left;background:#fff;border:0;padding:8px 10px;font-size:12px;cursor:pointer;display:flex;gap:6px;align-items:flex-start">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--muted)">${open ? 'expand_less' : 'expand_more'}</span>
+            <span style="flex:1">${esc(label)}</span></button>${detail}</div>`;
+    };
+    const catHtml = function (c, depth) {
+      const items = itemsOf(c.id).map(itemHtml).join('');
+      const subs = subsOf(c.id).map(function (s) { return catHtml(s, depth + 1); }).join('');
+      if (!items && !subs) return '';
+      return `<div style="margin:${depth ? '6px 0 0 8px' : '0 0 10px'}">
+          <div style="font-size:${depth ? 11 : 12}px;font-weight:700;color:var(--muted);margin-bottom:6px">${esc(_inboxFaqPick(c, 'label'))}</div>
+          ${items}${subs}</div>`;
+    };
+    const list = cats.map(function (c) { return catHtml(c, 0); }).join('');
+    body = list
+      ? `<div style="padding:12px 14px;overflow-y:auto">${list}</div>`
+      : `<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">${scope === 'service' ? '서비스 문의' : '캠페인 문의'}에 보이는 질문이 없습니다.</div>`;
+  }
+  el.innerHTML = head + body;
 }
 
 // ── 일괄 발송 모달 ──
