@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791442521';
+  var CURRENT_BUILD = 'v1791444643';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-08 15:55 · 918f28c</span>
+          <span class="admin-build-text">2026-10-08 16:30 · a6e13e5</span>
         </div>
       </div>
     </aside>
@@ -17204,6 +17204,19 @@ async function fetchSettlementFeeRule() {
     if (error) throw error;
     return data || null;
   } catch(e) { console.error('[fetchSettlementFeeRule]', e); return null; }
+}
+
+// 수수료 설정 변경 이력 전부(오래된 순) — 송금 내역이 「그 송금 당시 기준 요율」을 찾는 데 쓴다.
+//   표 settlement_fee_rule_history(484, 조회 정책 settlement.view 읽기 · 추가만). 실패 null, 0건 [].
+async function fetchSettlementFeeRuleHistoryAll() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.from('settlement_fee_rule_history')
+      .select('prev_rate_percent, next_rate_percent, prev_fixed_jpy, next_fixed_jpy, at')
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementFeeRuleHistoryAll]', e); return null; }
 }
 
 // 수수료 규칙 저장 — RPC update_settlement_fee_rule(484). 서버가 반환한 jsonb 를 그대로 돌려준다.
@@ -46161,7 +46174,7 @@ function _bulkBuildBundles(items) {
     const key = it.influencerId || '(미상)';
     if (byPerson[key] === undefined) {
       byPerson[key] = bundles.length;
-      bundles.push({ influencerId: it.influencerId, itemIdx: [], sentDate: today, feeOverride: null, feeEditing: false, txn: '', ruleOn: false, rate: '', fixed: '' });
+      bundles.push({ influencerId: it.influencerId, itemIdx: [], sentDate: today, txn: '', ruleOn: false, rate: '', fixed: '' });
     }
     bundles[byPerson[key]].itemIdx.push(idx);
   });
@@ -46185,7 +46198,6 @@ function _bulkRuleReady(b) {
 function _bulkBundleFee(bi) {
   const b = _bulkPayCtx.bundles[bi];
   if (b.ruleOn && !_bulkRuleReady(b)) return null;
-  if (!b.ruleOn && b.feeOverride !== null && b.feeOverride !== '') return Number(b.feeOverride);
   const f = _bulkPayCtx.feePreview;
   return (f && Array.isArray(f.fees) && f.fees[bi] !== undefined) ? f.fees[bi] : null;   // null = 아직/계산 못 함
 }
@@ -46225,26 +46237,14 @@ function _renderBulkBundles() {
     }).join('');
     const fee = _bulkBundleFee(bi);
     const total = _bulkBundleTotal(b);
-    const manual = !b.ruleOn && b.feeOverride !== null && b.feeOverride !== '';
-    // R2 — 체크 칸을 켜면 금액 칸은 잠기고 미리보기 값만 보인다(id bulkFee_ 로 숫자만 고쳐 쓴다)
-    const feeHtml = b.feeEditing
-      ? (b.ruleOn
-          ? `<span id="bulkFee_${bi}">${fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee))}</span>
-             <span style="font-size:11px;color:#2563EB">이 송금 요율</span>
-             <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="resetBulkFee(${bi})">자동으로</button>`
-          : `<input type="number" class="admin-input" min="0" step="1" value="${esc(b.feeOverride === null ? '' : String(b.feeOverride))}"
-               placeholder="${fee === null ? '' : esc(String(fee))}"
-               oninput="onBulkFeeInput(${bi}, this.value)"
-               style="width:96px;text-align:right;${INP};border-color:#F59E0B" aria-label="수수료 직접 입력">
-             <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="resetBulkFee(${bi})">자동으로</button>`)
-      : `<span id="bulkFee_${bi}">${fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee))}</span>
-         ${manual ? '<span style="font-size:11px;color:#B8741A">고친 값</span>' : ''}
-         <button class="btn btn-ghost btn-xs" style="padding:2px 8px" onclick="editBulkFee(${bi})">수정</button>`;
+    // 수수료 값 칸 — 금액만(2026-10-08 사용자 결정: 확인 창에서 수수료 금액은 직접 고치지 않는다 — 요율·고정액만.
+    //   금액이 다르면 기록 뒤 「송금 내역」→「정정」). ⚠️ id bulkFee_ 는 금액·요율 입력 때 숫자만 고쳐 쓰는 자리다
+    const feeHtml = `<span id="bulkFee_${bi}">${fee === null ? `<span style="color:var(--muted)">${_bulkFeePendingText()}</span>` : esc(settlementAmountYen(fee))}</span>`;
     const span = canSplit ? 2 : 1;   // 합계 줄의 값 칸이 「보낸 금액」 열(+ 따로 보내기 열)을 덮는다
-    // wide — 값 칸을 「지급 예정」 열까지 넓힌다(수수료 줄: 금액·「이 송금 요율」·「자동으로」가 「보낸 금액」 열 하나에 안 들어간다)
-    const sumRow = function (label, valueHtml, wide) {
-      return `<tr><td colspan="${wide ? 1 : 2}" style="${TD};text-align:right;color:var(--muted);background:#FAFAFA">${label}</td>
-        <td colspan="${wide ? span + 1 : span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap">${valueHtml}</td></tr>`;
+    // 합계 줄(보낸 금액 합계·총지출). ⚠️ 수수료 줄은 따로 그리지만 칸 나눔은 같다(제목·값 열을 맞춘다) — 왼쪽 칸에 「직접 지정」·요율이 더 들어간다
+    const sumRow = function (label, valueHtml) {
+      return `<tr><td colspan="2" style="${TD};text-align:right;color:var(--muted);background:#FAFAFA">${label}</td>
+        <td colspan="${span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap">${valueHtml}</td></tr>`;
     };
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -46273,8 +46273,10 @@ function _renderBulkBundles() {
           </tr></thead>
           <tbody>${rows}
           ${sumRow('보낸 금액 합계', `<b id="bulkTotal_${bi}">${esc(settlementAmountYen(total))}</b>`)}
-          ${sumRow('수수료', `<span style="display:inline-flex;align-items:center;gap:6px">${feeHtml}</span>`, true)}
-          ${b.feeEditing ? `<tr><td colspan="${2 + span}" style="${TD};background:#FAFAFA">${_bulkRuleRowHtml(b, bi, INP)}</td></tr>` : ''}
+          <tr><td colspan="2" style="${TD};background:#FAFAFA">${_bulkRuleCellHtml(b, bi, INP)}</td>
+            <td colspan="${span}" style="${TD};text-align:right;background:#FAFAFA;white-space:nowrap${b.ruleOn ? ';vertical-align:top' : ''}">${b.ruleOn
+              // 켜면 왼쪽 칸이 두 줄(입력 줄 + 안내)이 된다 — 금액을 「수수료」 제목이 있는 첫 줄(입력칸 높이)에 맞춘다
+              ? `<div style="height:37px;display:flex;align-items:center;justify-content:flex-end">${feeHtml}</div>` : feeHtml}</td></tr>
           ${sumRow('총지출', `<b id="bulkSpend_${bi}">${fee === null ? '—' : esc(settlementAmountYen(total + fee))}</b>`)}
           </tbody>
         </table>
@@ -46294,23 +46296,25 @@ function _renderBulkBundles() {
   // 묶음 전체 합계 줄은 두지 않는다(2026-10-01 사용자 결정) — 묶음마다 표 아래에 합계가 있다.
 }
 
-// 확인 창 「수정」의 요율 줄 — 체크 칸 + 요율·고정액 + 안내·설정 링크 + 10% 경고(사양서 설계 ⓪·②)
-function _bulkRuleRowHtml(b, bi, INP) {
-  const amountTyped = b.feeOverride !== null && b.feeOverride !== '';
-  const dis = b.ruleOn ? '' : 'disabled';
-  return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px">
-      <label style="display:inline-flex;align-items:center;gap:4px;cursor:${amountTyped ? 'not-allowed' : 'pointer'};${amountTyped ? 'opacity:.45' : ''}"
-             title="${amountTyped ? '수수료 금액을 직접 넣었으면 요율을 정할 수 없습니다 — 금액을 지우면 켤 수 있습니다' : ''}">
-        <input type="checkbox" id="bulkRuleChk_${bi}" ${b.ruleOn ? 'checked' : ''} ${amountTyped ? 'disabled' : ''}
-               onchange="onBulkRuleToggle(${bi}, this.checked)"> 이 송금 요율 직접 정하기
-      </label>
-      <span>요율</span><input type="number" id="bulkRate_${bi}" class="admin-input" min="0" max="100" step="0.01" value="${esc(String(b.rate))}" ${dis}
+// 수수료 줄 왼쪽 칸 — 「직접 지정」 체크 칸 + (켜면) 요율·고정액 + 오른쪽 끝 「수수료」 제목(2026-10-08 사용자 요청 배치)
+//   동작은 사양서 2026-10-02-settlement-per-transfer-fee-rule 설계 ⓪ — 단 확인 창의 수수료 금액 직접 입력은 없앴다(2026-10-08 사용자 결정)
+function _bulkRuleCellHtml(b, bi, INP) {
+  const inputs = b.ruleOn ? `
+      <span>요율</span><input type="number" id="bulkRate_${bi}" class="admin-input" min="0" max="100" step="0.01" value="${esc(String(b.rate))}"
              oninput="onBulkRuleInput(${bi}, 'rate', this.value)" style="width:76px;text-align:right;${INP}" aria-label="이 송금 요율(%)"><span>%</span>
-      <span>고정액</span><input type="number" id="bulkFixed_${bi}" class="admin-input" min="0" step="1" value="${esc(String(b.fixed))}" ${dis}
-             oninput="onBulkRuleInput(${bi}, 'fixed', this.value)" style="width:76px;text-align:right;${INP}" aria-label="이 송금 고정액(엔)"><span>엔</span>
+      <span>고정액</span><input type="number" id="bulkFixed_${bi}" class="admin-input" min="0" step="1" value="${esc(String(b.fixed))}"
+             oninput="onBulkRuleInput(${bi}, 'fixed', this.value)" style="width:76px;text-align:right;${INP}" aria-label="이 송금 고정액(엔)"><span>엔</span>` : '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px">
+        <label style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer" title="이 송금만 요율·고정액을 직접 정합니다">
+          <input type="checkbox" id="bulkRuleChk_${bi}" ${b.ruleOn ? 'checked' : ''}
+                 onchange="onBulkRuleToggle(${bi}, this.checked)"> 직접 지정
+        </label>${inputs}
+      </div>
+      <span style="color:var(--muted);white-space:nowrap">수수료</span>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
-    <div id="bulkRateWarn_${bi}" style="font-size:11px;color:#B8741A;margin-top:2px;${_ruleRateWarn(b.ruleOn, b.rate) ? '' : 'display:none'}">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>`;
+    ${b.ruleOn ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+    <div id="bulkRateWarn_${bi}" style="font-size:11px;color:#B8741A;margin-top:2px;${_ruleRateWarn(b.ruleOn, b.rate) ? '' : 'display:none'}">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>` : ''}`;
 }
 // 요율 10% 초과 경고 — 막지 않는다(사양서 경우의 수 8). 확인 창·정정 창이 같이 쓴다
 function _ruleRateWarn(on, rate) { return !!on && rate !== '' && Number(rate) > 10; }
@@ -46367,40 +46371,17 @@ function onBulkBundleField(bi, field, v) {
   if (!_bulkPayCtx || !_bulkPayCtx.bundles[bi]) return;
   _bulkPayCtx.bundles[bi][field] = v;
 }
-function onBulkFeeInput(bi, v) {
-  if (!_bulkPayCtx || !_bulkPayCtx.bundles[bi]) return;
-  _bulkPayCtx.bundles[bi].feeOverride = (v === '' ? null : v);
-  const b = _bulkPayCtx.bundles[bi];
-  const chk = $('bulkRuleChk_' + bi);
-  if (chk) {
-    chk.disabled = (v !== '');
-    if (chk.parentElement) { chk.parentElement.style.opacity = v !== '' ? '.45' : ''; chk.parentElement.style.cursor = v !== '' ? 'not-allowed' : 'pointer'; }
-  }
-  const fee = _bulkBundleFee(bi);
-  const s = $('bulkSpend_' + bi); if (s) s.textContent = fee === null ? '—' : settlementAmountYen(_bulkBundleTotal(b) + fee);
-}
-function editBulkFee(bi) { _bulkPayCtx.bundles[bi].feeEditing = true; _renderBulkBundles(); }
-function resetBulkFee(bi) {
-  const b = _bulkPayCtx.bundles[bi];
-  // R5 — 체크 칸도 끄고 금액도 지운다(셋 다 설정 규칙)
-  const hadRule = b.ruleOn;
-  b.feeOverride = null; b.feeEditing = false; b.ruleOn = false; b.rate = ''; b.fixed = '';
-  _renderBulkBundles();
-  if (hadRule) _scheduleBulkFeePreview();
-}
-// 체크 칸 — 켜면 처음 값 = 설정 규칙(R4), 금액 입력은 지운다(R2). 끄면 요율 칸을 비우고 설정 규칙으로(R3)
+// 체크 칸 — 켜면 처음 값 = 설정 규칙(R4). 끄면 요율 칸을 비우고 설정 규칙(자동 계산값)으로(R3)
 function onBulkRuleToggle(bi, on) {
   const ctx = _bulkPayCtx;
   const b = ctx && ctx.bundles[bi];
   if (!b) return;
-  if (on && b.feeOverride !== null && b.feeOverride !== '') { _renderBulkBundles(); return; }   // R2 — 금액을 넣었으면 못 켠다
   b.ruleOn = !!on;
   const f = ctx.feePreview;
   // ⚠️ 미리보기를 못 받았으면 처음 값을 비워 둔다 — 0 으로 채우면(Number('') 함정) 수수료 0 이 기록된다
   const ruleKnown = f && !f.failed && f.rate_percent !== undefined && f.rate_percent !== null;
   b.rate  = on && ruleKnown ? String(f.rate_percent) : '';
   b.fixed = on && ruleKnown ? String(f.fixed_jpy) : '';
-  b.feeOverride = null;
   _renderBulkBundles();
   _scheduleBulkFeePreview();
 }
@@ -46418,7 +46399,7 @@ function splitBulkItem(bi, idx) {
   const b = ctx.bundles[bi];
   if (!b || b.itemIdx.length < 2) return;
   b.itemIdx = b.itemIdx.filter(function (x) { return x !== idx; });
-  ctx.bundles.splice(bi + 1, 0, { influencerId: b.influencerId, itemIdx: [idx], sentDate: b.sentDate, feeOverride: null, feeEditing: false, txn: '', ruleOn: false, rate: '', fixed: '' });
+  ctx.bundles.splice(bi + 1, 0, { influencerId: b.influencerId, itemIdx: [idx], sentDate: b.sentDate, txn: '', ruleOn: false, rate: '', fixed: '' });
   // ⚠️ 묶음 순서가 바뀌면 미리보기 배열 자리도 밀린다 — 다시 받을 때까지 「계산 중」으로 둔다
   ctx.feePreview = null;
   _renderBulkBundles();
@@ -46433,7 +46414,7 @@ function mergeBulkBundle(bi) {
   if (target < 0 || target === bi) return;
   ctx.bundles[target].itemIdx = ctx.bundles[target].itemIdx.concat(b.itemIdx);
   ctx.bundles.splice(bi, 1);
-  if (b.ruleOn || (b.feeOverride !== null && b.feeOverride !== '')) toast('합친 묶음에 정했던 수수료(요율·금액)는 버리고, 남는 묶음의 설정을 씁니다', 'warn');
+  if (b.ruleOn) toast('합친 묶음에 정했던 요율은 버리고, 남는 묶음의 설정을 씁니다', 'warn');
   ctx.feePreview = null;
   _renderBulkBundles();
   _scheduleBulkFeePreview();
@@ -46511,10 +46492,6 @@ async function _confirmBulkTransfers(ctx, memo, btn) {
       }
       payload.fee_rate_percent = r;
       payload.fee_fixed_jpy = x;
-    } else if (b.feeOverride !== null && b.feeOverride !== '') {
-      const f = Number(b.feeOverride);
-      if (!Number.isInteger(f) || f < 0) bad.push((ctx.items[b.itemIdx[0]].name || '(이름 미상)') + ' 묶음 수수료');
-      payload.fee_jpy = f;
     }
     return payload;
   });
@@ -46565,7 +46542,7 @@ function _openBulkPayModal() {
     ? '<b>아직 지급하지 않은 건만</b> 처리하세요. 정산대기로 올려 두면 나중에 「송금완료 기록」으로 마무리합니다.'
       + '<br>⚠️ 인플루언서에게는 알림이 가지 않습니다.'
     : '<b>묶음 하나 = 페이팔 송금 한 번</b>입니다. 한 사람에게 여러 건을 실제로 따로 보냈으면 「따로 보내기」로 나누세요(건이 둘 이상인 묶음에만 보입니다. 수수료는 묶음마다 붙습니다).'
-      + '<br>금액은 <b>실제로 보낸 금액</b>으로, 수수료는 자동 계산값과 다르면 「수정」으로 넣으세요.'
+      + '<br>금액은 <b>실제로 보낸 금액</b>으로, 수수료 요율이 다르면 「직접 지정」으로 정하세요(금액이 다르면 기록 뒤 「송금 내역」의 「정정」에서 고칩니다).'
       + '<br>⚠️ 하나라도 기록할 수 없으면 <b>아무것도 기록하지 않고</b> 이유를 보여 드립니다. 페이팔 미등록·정산대기가 아닌 건은 묶음에 넣지 않고 맨 위 빨간 상자에 따로 보여 드립니다.';
   onSettlementBulkPayInput();
   openModal('settlementBulkPayModal');
@@ -49291,9 +49268,12 @@ async function _loadTransferHistory() {
     fetchSettlementTransferMonthly(from, to),
     fetchSettlementTransferByRound(from, to),
     fetchSettlementTransferUnrecorded(),
+    fetchSettlementFeeRule(),
+    fetchSettlementFeeRuleHistoryAll(),
   ]);
   if (seq !== _transferLoadSeq) return;   // 그 사이 기간을 또 바꿨다 — 옛 응답은 버린다
   _transferRows = res[0]; _transferMonthly = res[1]; _transferRound = res[2]; _transferUnrecorded = res[3];
+  _feeRuleTimeline = (res[4] && Array.isArray(res[5])) ? { current: res[4], history: res[5] } : null;
   // 받는 사람 페이팔은 **정산 행 스냅샷**에서 찾는다(묶음 표에는 페이팔 주소를 두지 않는다 — 363 파기)
   if (!_settlementsLoaded) { try { await reloadSettlementsData(); } catch (e) {} }
   _renderTransferUnrecorded();
@@ -49359,44 +49339,61 @@ function _transferEstBadge(on) {
     ? `<span title="${esc(_TRANSFER_EST_TIP)}" style="display:inline-block;margin-left:4px;font-size:10px;font-weight:600;line-height:1.4;padding:0 5px;border-radius:4px;background:#FFF4E5;color:#B45309;border:1px solid #F5C98A;white-space:nowrap;vertical-align:1px">추정</span>`
     : '';
 }
-// 수수료 칸 아래 줄 — 고친 값이면 「규칙 계산 ¥A · 차이 ±¥B」로 근거를 남긴다(2026-10-02 사용자 결정 ①).
-//   🔴 규칙 계산값(fee_rule_jpy)은 서버가 저장된 규칙으로 계산해 준다 — 화면에 계산식을 두지 않는다.
+// 수수료 칸 아래 줄 — 🔴 화면에 계산식을 두지 않는다(규칙 계산은 서버).
 //   스냅샷이 없는 묶음(시트 합산 탭의 실제 수수료 — 결정 6)은 비교할 규칙이 없어 「지급 시트 실제값」으로 적는다.
 // 그 송금의 요율 사본 → 「4.4% + ¥50」(화면·엑셀 공용). 사본이 비면 ''. 요율 끝의 0 은 뺀다(4.40 → 4.4)
 function _transferRuleText(t) {
   if (!t || t.fee_rate_percent === null || t.fee_rate_percent === undefined || t.fee_fixed_jpy === null || t.fee_fixed_jpy === undefined) return '';
   return String(Number(t.fee_rate_percent)) + '% + ' + settlementAmountYen(Number(t.fee_fixed_jpy));
 }
+// 수수료 설정 시간표 — { current: 지금 설정, history: 변경 이력(오래된 순) }. 송금 내역을 받을 때 함께 받는다. 못 받으면 null
+let _feeRuleTimeline = null;
+// 그 시각에 적용되던 수수료 설정 { rate, fixed } — 그 시각 이전 마지막 변경의 「바뀐 값」, 변경 전이면 첫 변경의 「이전 값」,
+//   변경 이력이 없으면 지금 설정. 시간표가 없으면 null(비교하지 않는다)
+function _feeRuleAt(ts) {
+  const tl = _feeRuleTimeline;
+  if (!tl || !tl.current) return null;
+  const h = tl.history || [];
+  const at = ts ? Date.parse(ts) : NaN;
+  if (!h.length || Number.isNaN(at)) return { rate: Number(tl.current.rate_percent), fixed: Number(tl.current.fixed_jpy) };
+  let pick = null;
+  h.forEach(function (e) { if (Date.parse(e.at) <= at) pick = e; });
+  return pick ? { rate: Number(pick.next_rate_percent), fixed: Number(pick.next_fixed_jpy) }
+              : { rate: Number(h[0].prev_rate_percent), fixed: Number(h[0].prev_fixed_jpy) };
+}
+// 기준보다 크면 파랑, 작으면 빨강, 같거나 기준을 모르면 그대로(회색) — 수수료 열 보조 줄의 색 규칙(2026-10-08 사용자 요청)
+const TRANSFER_UP_COLOR = '#2563EB', TRANSFER_DOWN_COLOR = '#DC2626';
+function _transferCmpSpan(text, v, base) {
+  const c = (base === null || base === undefined || !Number.isFinite(base) || !Number.isFinite(v) || v === base) ? ''
+    : (v > base ? TRANSFER_UP_COLOR : TRANSFER_DOWN_COLOR);
+  return c ? `<span style="color:${c}">${esc(text)}</span>` : esc(text);
+}
+// 「4.4% + ¥50」 — 요율·고정액을 각각 그 송금 당시 수수료 설정과 비교해 색을 입힌다
+function _transferRuleColoredHtml(t) {
+  if (!_transferRuleText(t)) return '';
+  const base = _feeRuleAt(t.recorded_at || t.sent_at);
+  const r = Number(t.fee_rate_percent), x = Number(t.fee_fixed_jpy);
+  return _transferCmpSpan(String(r) + '%', r, base ? base.rate : null) + ' + ' + _transferCmpSpan(settlementAmountYen(x), x, base ? base.fixed : null);
+}
 // ⚠️ 이 함수는 세 자리(목록·월별 상세·회차 상세)가 같이 부른다 — 여기만 고치면 셋이 함께 바뀐다.
-//   「이 송금만」(fee_rule_custom, 마이그레이션 513)은 서버 저장값만 본다 — 화면에서 설정과 다시 비교하지 않는다
-//   (설정을 나중에 바꿔도 옛 송금 표시가 흔들리지 않게 — 사양서 2026-10-02-settlement-per-transfer-fee-rule 완료 기준 6).
-//   🔴 「고친 값」(fee_manual)이 우선한다(사양서 설계 ②).
+//   보조 줄은 기본 회색이고, 색은 이 송금 요율·고정액(당시 설정보다 높으면 파랑 · 낮으면 빨강)에만.
+//   「고친 값」(fee_manual)·「금액이 바뀐 뒤 손으로 고친 값」·「규칙 계산 · 차이」 줄은 없앴다(2026-10-08 사용자 결정 — 수수료 금액을
+//   손으로 넣는 입력칸을 없앴고 운영 「고친 값」 송금 0건 확인). 칸(fee_manual·fee_stale·fee_rule_jpy)은 서버 응답에 그대로 있다.
+//   「이 송금만」을 보일지는 서버 저장값(fee_rule_custom, 513)만 본다 — 화면의 비교는 **색**에만 쓴다(설정을 나중에 바꿔도
+//   옛 송금 표시가 흔들리지 않게 — 비교 기준도 「지금 설정」이 아니라 그 송금 당시 설정이다. 사양서 2026-10-02-settlement-per-transfer-fee-rule 완료 기준 6).
 function _transferFeeNoteHtml(t) {
-  const lines = [];   // [글, 색]
-  const AMBER = '#B8741A', BLUE = '#2563EB';
-  const ruleTxt = t.fee_rule_custom ? _transferRuleText(t) : '';
-  if (t.fee_manual) lines.push([t.fee_stale ? '금액이 바뀐 뒤 손으로 고친 값 — 확인 필요' : '고친 값', AMBER]);
-  if (t.fee_manual && t.fee_rule_jpy !== null && t.fee_rule_jpy !== undefined) {
-    const diff = (Number(t.fee_jpy) || 0) - Number(t.fee_rule_jpy);
-    // 규칙 계산값은 사본으로 계산된다 — 이 송금 요율이면 그 요율로 계산한 값이라 끝에 밝힌다
-    lines.push(['규칙 계산 ' + settlementAmountYen(t.fee_rule_jpy) + ' · 차이 ' + (diff > 0 ? '+' : diff < 0 ? '−' : '') + settlementAmountYen(Math.abs(diff))
-      + (ruleTxt ? ' (이 송금 요율 ' + ruleTxt + ')' : ''), AMBER]);
+  const lines = [];   // HTML 조각(글자는 이미 esc)
+  const ruleHtml = t.fee_rule_custom ? _transferRuleColoredHtml(t) : '';
+  if (ruleHtml) lines.push('요율 ' + ruleHtml + esc('(이 송금만)'));
+  if (!t.fee_estimated && t.source === 'sheet_backfill' && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined)) {
+    lines.push(esc('지급 시트 실제값'));
   }
-  if (!t.fee_manual && ruleTxt) lines.push(['요율 ' + ruleTxt + '(이 송금만)', BLUE]);
-  if (!t.fee_manual && !t.fee_estimated && t.source === 'sheet_backfill' && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined)) {
-    lines.push(['지급 시트 실제값', AMBER]);
-  }
-  return lines.map(function (l) { return `<div style="font-size:10px;color:${l[1]};white-space:nowrap">${esc(l[0])}</div>`; }).join('');
+  return lines.map(function (l) { return `<div style="font-size:10px;color:var(--muted);white-space:nowrap">${l}</div>`; }).join('');
 }
 // 엑셀 「수수료 요율」·「수수료 고정액」 두 칸 — 판정 순서(사양서 ②, 낱말은 작업표 결정 P3 「화면과 통일」):
-//   ①고친 값(fee_manual) → 두 칸 「고친 값」(이 송금 요율이면 「고친 값(이 송금 요율 …)」)
-//   ②사본이 빔 → 두 칸 「지급 시트 실제값」  ③그 밖 → 사본 값(이 송금 요율이면 끝에 「(이 송금만)」)
+//   ①사본이 빔 → 두 칸 「지급 시트 실제값」  ②그 밖 → 사본 값(이 송금 요율이면 끝에 「(이 송금만)」). 「고친 값」 갈래는 없앴다(2026-10-08)
 function _transferRuleExcelCells(t) {
   const ruleTxt = _transferRuleText(t);
-  if (t.fee_manual) {
-    const v = '고친 값' + (t.fee_rule_custom && ruleTxt ? '(이 송금 요율 ' + ruleTxt + ')' : '');
-    return [v, v];
-  }
   if (!ruleTxt) return ['지급 시트 실제값', '지급 시트 실제값'];
   const tail = t.fee_rule_custom ? '(이 송금만)' : '';
   return [String(Number(t.fee_rate_percent)) + '%' + tail, settlementAmountYen(Number(t.fee_fixed_jpy)) + tail];
@@ -49666,10 +49663,10 @@ async function exportTransferHistoryExcel() {
     const wb = new ExcelJS.Workbook();
     const ws1 = wb.addWorksheet('송금 내역');
     // ⚠️ 열 위치가 넷(폭·머리글·합계 줄·숫자 형식 열 번호)에 묶여 있다 — 열을 끼우면 넷을 함께 고친다
-    ws1.columns = [12, 18, 30, 8, 12, 10, 8, 22, 22, 10, 10, 12, 22, 30].map(function (w) { return { width: w }; });
+    ws1.columns = [12, 18, 30, 8, 12, 10, 22, 22, 10, 10, 12, 22, 30].map(function (w) { return { width: w }; });
     ws1.addRow(['송금 내역 · 송금일 ' + (_transferFrom || '처음') + ' ~ ' + (_transferTo || '지금') + ' · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
     ws1.addRow([]);
-    ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 수정', '수수료 요율', '수수료 고정액', '송금일 추정', '수수료 추정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
+    ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 요율', '수수료 고정액', '송금일 추정', '수수료 추정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
     const ws2 = wb.addWorksheet('포함 건');
     ws2.columns = [12, 18, 14, 34, 12, 12, 10].map(function (w) { return { width: w }; });
     ws2.addRow(['송금일', '이름(한자)', '캠페인 번호', '캠페인', '지급 예정(회차)', '보낸 금액', '현재 연결']).font = { bold: true };
@@ -49679,7 +49676,7 @@ async function exportTransferHistoryExcel() {
       const items = Array.isArray(t.items) ? t.items : [];
       sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0;
       ws1.addRow([day, t.influencer_name || '(탈퇴한 회원)', _transferPaypalOf(t) || '', items.length,
-        Number(t.sent_total_jpy) || 0, Number(t.fee_jpy) || 0, t.fee_manual ? '예' : ''].concat(_transferRuleExcelCells(t), [
+        Number(t.sent_total_jpy) || 0, Number(t.fee_jpy) || 0].concat(_transferRuleExcelCells(t), [
         t.sent_at_estimated ? '예' : '', t.fee_estimated ? '예' : '', Number(t.total_spend_jpy) || 0,
         t.paypal_txn_id || '', t.memo || '']));
       items.forEach(function (it) {
@@ -49687,8 +49684,8 @@ async function exportTransferHistoryExcel() {
           it.due_date || '기록 없음', Number(it.amount_jpy) || 0, it.is_current ? '예' : '보류 해제로 끊김']);
       });
     });
-    ws1.addRow(['합계', '', '', '', sent, fee, '', '', '', '', '', sent + fee, '', '']).font = { bold: true };
-    [5, 6, 12].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
+    ws1.addRow(['합계', '', '', '', sent, fee, '', '', '', '', sent + fee, '', '']).font = { bold: true };
+    [5, 6, 11].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
     ws2.getColumn(6).numFmt = '#,##0';
     await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx');
   } catch (e) {
@@ -49697,9 +49694,8 @@ async function exportTransferHistoryExcel() {
 }
 
 // ── 묶음 정정 (correct_settlement_transfer · 486) ──────────────────────
-//   송금일·수수료·거래번호·메모. **바꾼 칸만** 보낸다(서버: NULL = 안 고침, '' = 비움).
+//   송금일·수수료(요율·고정액으로만 — 금액 직접 입력은 2026-10-08 없앴다)·거래번호·메모. **바꾼 칸만** 보낸다(서버: NULL = 안 고침, '' = 비움).
 //   ⚠️ 송금일을 고치면 이 묶음에 현재 연결된 건들의 송금일도 함께 바뀐다(서버가 한다).
-//   ⚠️ 수수료를 다른 값으로 넣으면 「고친 값」이 된다 — 자동 계산으로 되돌리는 칸은 없다.
 //   ⚠️ 「추정」 칸에는 「값이 맞음(추정 해제)」 체크가 붙는다 — 체크하면 **같은 값이라도** 그 칸을 보내 추정 표시만 지운다
 //      (서버 502: 같은 수수료면 fee_manual 을 안 건드린다 — 사양서 결정 7).
 let _transferCorrectCtx = null;
@@ -49728,6 +49724,7 @@ function _ensureTransferCorrectModal() {
 
 // row — 회차 상세에서 열 때 따로 받아 온 묶음 행(송금 내역 캐시 _transferRows 에 넣지 않는다 — 엑셀이 그 값을 쓴다)
 // from — 'transfer'(송금 내역) | 'payout'(회차별·사람별 상세)
+// 수수료 칸은 확인 창과 같은 배치(2026-10-08 사용자 결정) — 「직접 지정」 옆에 요율·고정액, 수수료 금액은 직접 고치지 않는다
 function openTransferCorrectModal(id, row, from) {
   if (!canWrite('settlement.pay')) { toast('변경 권한이 없습니다', 'warn'); return; }
   const t = row || (_transferRows || []).find(function (x) { return x.id === id; });
@@ -49751,21 +49748,23 @@ function openTransferCorrectModal(id, row, from) {
       <input type="date" id="transferCorrectDate" class="form-input" value="${esc(day)}" max="${esc(jstTodayStr())}">
       <div style="font-size:11px;color:var(--muted);margin-top:4px">바꾸면 이 송금에 들어 있는 ${current}건의 송금일도 함께 바뀝니다.</div>
       ${estChk('transferCorrectDateOk', t.sent_at_estimated)}</div>
-    <div class="form-group"><label class="form-label">수수료(엔)</label>
-      <input type="number" id="transferCorrectFee" class="form-input" min="0" step="1" value="${esc(String(t.fee_jpy))}" oninput="onTransferFeeInput(this.value)">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">다른 값으로 바꾸면 「고친 값」으로 남습니다. 지금 ${t.fee_manual ? '고친 값' : (t.source === 'sheet_backfill' && !t.fee_estimated && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined) ? '지급 시트 실제값' : (t.fee_rule_custom ? '이 송금 요율로 계산한 값' : '자동 계산값'))}입니다.</div>
-      ${estChk('transferCorrectFeeOk', t.fee_estimated)}
-      <div style="margin-top:10px;padding:8px 10px;background:#FAFAFA;border:1px solid var(--line);border-radius:8px;font-size:12px">
-        <label id="transferCorrectRuleLabel" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer">
-          <input type="checkbox" id="transferCorrectRuleChk" onchange="onTransferRuleToggle(this.checked)"> 이 송금 요율 직접 정하기
-        </label>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px">
-          <span>요율</span><input type="number" id="transferCorrectRate" class="form-input" min="0" max="100" step="0.01" disabled oninput="onTransferRuleInput('rate', this.value)" style="width:90px;text-align:right" aria-label="이 송금 요율(%)"><span>%</span>
-          <span>고정액</span><input type="number" id="transferCorrectFixed" class="form-input" min="0" step="1" disabled oninput="onTransferRuleInput('fixed', this.value)" style="width:90px;text-align:right" aria-label="이 송금 고정액(엔)"><span>엔</span>
+    <div class="form-group"><label class="form-label">수수료</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#FAFAFA;border:1px solid var(--line);border-radius:8px;font-size:12px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="이 송금만 요율·고정액을 직접 정합니다">
+            <input type="checkbox" id="transferCorrectRuleChk" onchange="onTransferRuleToggle(this.checked)"> 직접 지정
+          </label>
+          <span id="transferCorrectRuleInputs" style="display:none;align-items:center;gap:6px">
+            <span>요율</span><input type="number" id="transferCorrectRate" class="admin-input" min="0" max="100" step="0.01" oninput="onTransferRuleInput('rate', this.value)" style="width:76px;text-align:right;box-sizing:border-box" aria-label="이 송금 요율(%)"><span>%</span>
+            <span>고정액</span><input type="number" id="transferCorrectFixed" class="admin-input" min="0" step="1" oninput="onTransferRuleInput('fixed', this.value)" style="width:76px;text-align:right;box-sizing:border-box" aria-label="이 송금 고정액(엔)"><span>엔</span>
+          </span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">켜고 저장하면 이 요율로 수수료를 다시 계산합니다(직접 고친 수수료도 덮습니다). 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
-        <div id="transferCorrectRateWarn" style="font-size:11px;color:#B8741A;margin-top:2px;display:none">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>
-      </div></div>
+        <span id="transferCorrectFeeShow" style="font-size:14px;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">지금 ${(t.source === 'sheet_backfill' && !t.fee_estimated && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined) ? '지급 시트 실제값' : (t.fee_rule_custom ? '이 송금 요율로 계산한 값' : '자동 계산값'))}입니다.</div>
+      <div id="transferCorrectRuleNote" style="font-size:11px;color:var(--muted);margin-top:2px;display:none">저장하면 이 요율로 수수료를 다시 계산합니다. 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+      <div id="transferCorrectRateWarn" style="font-size:11px;color:#B8741A;margin-top:2px;display:none">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>
+      ${estChk('transferCorrectFeeOk', t.fee_estimated)}</div>
     <div class="form-group"><label class="form-label">페이팔 거래번호</label>
       <input type="text" id="transferCorrectTxn" class="form-input" maxlength="100" value="${esc(t.paypal_txn_id || '')}"></div>
     <div class="form-group"><label class="form-label">메모</label>
@@ -49776,21 +49775,11 @@ function openTransferCorrectModal(id, row, from) {
 
 function closeTransferCorrectModal() { closeModal('transferCorrectModal'); _transferCorrectCtx = null; }
 
-// R2 — 수수료를 창을 열 때와 다른 값으로 고쳤으면 요율 체크 칸을 흐리게(켤 수 없게)
-function onTransferFeeInput(v) {
-  const ctx = _transferCorrectCtx; if (!ctx) return;
-  const changed = String(v).trim() !== String(ctx.fee);
-  const chk = $('transferCorrectRuleChk'), lab = $('transferCorrectRuleLabel');
-  if (chk) chk.disabled = changed;
-  if (lab) { lab.style.opacity = changed ? '.45' : ''; lab.style.cursor = changed ? 'not-allowed' : 'pointer';
-             lab.title = changed ? '수수료 금액을 고쳤으면 요율을 정할 수 없습니다 — 처음 값으로 되돌리면 켤 수 있습니다' : ''; }
-}
-
-// 체크 칸 — 켜면 처음 값 = 그 송금 사본(비었으면 설정 규칙, R4), 금액 칸 잠금(R2), 「값이 맞음」은 끄고 흐리게(작업표 결정 P1).
-//   끄면 요율 칸·수수료 칸을 창을 열 때 값으로 되돌린다(R3)
+// 체크 칸 — 켜면 처음 값 = 그 송금 사본(비었으면 설정 규칙, R4), 「값이 맞음」은 끄고 흐리게(작업표 결정 P1).
+//   끄면 요율 칸을 비우고 수수료 표시를 창을 열 때 값으로 되돌린다(R3)
 async function onTransferRuleToggle(on) {
   const ctx = _transferCorrectCtx; if (!ctx) return;
-  const fee = $('transferCorrectFee'), rate = $('transferCorrectRate'), fixed = $('transferCorrectFixed');
+  const fee = $('transferCorrectFeeShow'), rate = $('transferCorrectRate'), fixed = $('transferCorrectFixed');
   const feeOk = $('transferCorrectFeeOk');
   ctx.ruleOn = !!on;
   ctx.ruleSeq++;
@@ -49805,15 +49794,17 @@ async function onTransferRuleToggle(on) {
     }
     ctx.rate = (r === null || r === undefined) ? '' : String(r);
     ctx.fixed = (x === null || x === undefined) ? '' : String(x);
-    if (fee) { fee.value = ''; fee.disabled = true; fee.placeholder = '계산 중…'; }
+    if (fee) fee.textContent = '계산 중…';
     if (feeOk) { feeOk.checked = false; feeOk.disabled = true; if (feeOk.parentElement) feeOk.parentElement.style.opacity = '.45'; }
   } else {
     ctx.rate = ''; ctx.fixed = '';
-    if (fee) { fee.disabled = false; fee.value = String(ctx.fee); fee.placeholder = ''; }
+    if (fee) fee.textContent = settlementAmountYen(ctx.fee);
     if (feeOk) { feeOk.disabled = false; if (feeOk.parentElement) feeOk.parentElement.style.opacity = ''; }
   }
-  if (rate)  { rate.disabled = !on;  rate.value = ctx.rate; }
-  if (fixed) { fixed.disabled = !on; fixed.value = ctx.fixed; }
+  if (rate)  rate.value = ctx.rate;
+  if (fixed) fixed.value = ctx.fixed;
+  const box = $('transferCorrectRuleInputs'); if (box) box.style.display = on ? 'inline-flex' : 'none';
+  const note = $('transferCorrectRuleNote'); if (note) note.style.display = on ? '' : 'none';
   const w = $('transferCorrectRateWarn'); if (w) w.style.display = _ruleRateWarn(ctx.ruleOn, ctx.rate) ? '' : 'none';
   if (on) _scheduleTransferRulePreview();
 }
@@ -49831,12 +49822,12 @@ function _scheduleTransferRulePreview() {
   const seq = ++ctx.ruleSeq;
   _transferRuleTimer = setTimeout(async function () {
     if (ctx !== _transferCorrectCtx || seq !== ctx.ruleSeq) return;
-    const fee = $('transferCorrectFee');
-    if (ctx.rate === '' || ctx.fixed === '') { if (fee) fee.placeholder = '요율·고정액을 넣어 주세요'; return; }
+    const fee = $('transferCorrectFeeShow');
+    if (ctx.rate === '' || ctx.fixed === '') { if (fee) fee.textContent = '요율·고정액을 넣어 주세요'; return; }
     const res = await previewSettlementFees([ctx.total], { rates: [ctx.rate], fixeds: [ctx.fixed], roundings: [ctx.rounding] });
     if (ctx !== _transferCorrectCtx || seq !== ctx.ruleSeq || !fee) return;
     const v = res && Array.isArray(res.fees) ? res.fees[0] : null;
-    fee.placeholder = (v === null || v === undefined) ? '계산 못 함' : String(v);
+    fee.textContent = (v === null || v === undefined) ? '계산 못 함' : settlementAmountYen(v);
   }, 300);
 }
 
@@ -49844,13 +49835,10 @@ async function saveTransferCorrect() {
   const ctx = _transferCorrectCtx;
   if (!ctx) return;
   const day = ($('transferCorrectDate')?.value || '').trim();
-  const feeRaw = ($('transferCorrectFee')?.value || '').trim();
   const txn = ($('transferCorrectTxn')?.value || '').trim();
   const memo = ($('transferCorrectMemo')?.value || '').trim();
   if (!day) { toast('송금일을 넣어 주세요', 'warn'); return; }
-  const fee = Number(feeRaw);
   const ruleOn = !!ctx.ruleOn;
-  if (!ruleOn && (feeRaw === '' || !Number.isInteger(fee) || fee < 0)) { toast('수수료는 0엔 이상 정수로 넣어 주세요', 'warn'); return; }
   const rate = ruleOn ? Number(ctx.rate) : null;
   const fixed = ruleOn ? Number(ctx.fixed) : null;
   if (ruleOn && (ctx.rate === '' || ctx.fixed === '' || !Number.isFinite(rate) || rate < 0 || rate > 100 || !Number.isInteger(fixed) || fixed < 0)) {
@@ -49861,8 +49849,9 @@ async function saveTransferCorrect() {
   const dayOk = ctx.dayEst && !!$('transferCorrectDateOk')?.checked;
   const feeOk = ctx.feeEst && !!$('transferCorrectFeeOk')?.checked;
   const sentAt = (day !== ctx.day || dayOk) ? _settlementJstMidnight(day) : null;
-  // 체크 칸이 켜져 있으면 금액은 보내지 않고 요율·고정액만(R1·R2 — 값이 같아도 보낸다). 「값이 맞음」은 켤 수 없다(P1)
-  const feeArg = ruleOn ? null : ((fee !== ctx.fee || feeOk) ? fee : null);
+  // 수수료 금액은 직접 고치지 않는다(2026-10-08 사용자 결정) — 체크 칸이 켜져 있으면 요율·고정액만(R1 — 값이 같아도 보낸다).
+  //   꺼져 있을 때 금액을 보내는 것은 「값이 맞음(추정 해제)」뿐(같은 값 — 서버가 추정 표시만 지운다). 켜면 그 칸은 못 쓴다(P1)
+  const feeArg = (!ruleOn && feeOk) ? ctx.fee : null;
   const txnArg = txn !== ctx.txn ? txn : null;
   const memoArg = memo !== ctx.memo ? memo : null;
   if (!ruleOn && sentAt === null && feeArg === null && txnArg === null && memoArg === null) { toast('바꾼 칸이 없습니다', 'warn'); return; }

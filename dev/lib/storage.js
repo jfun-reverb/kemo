@@ -6485,6 +6485,19 @@ async function fetchSettlementFeeRule() {
   } catch(e) { console.error('[fetchSettlementFeeRule]', e); return null; }
 }
 
+// 수수료 설정 변경 이력 전부(오래된 순) — 송금 내역이 「그 송금 당시 기준 요율」을 찾는 데 쓴다.
+//   표 settlement_fee_rule_history(484, 조회 정책 settlement.view 읽기 · 추가만). 실패 null, 0건 [].
+async function fetchSettlementFeeRuleHistoryAll() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.from('settlement_fee_rule_history')
+      .select('prev_rate_percent, next_rate_percent, prev_fixed_jpy, next_fixed_jpy, at')
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementFeeRuleHistoryAll]', e); return null; }
+}
+
 // 수수료 규칙 저장 — RPC update_settlement_fee_rule(484). 서버가 반환한 jsonb 를 그대로 돌려준다.
 // 오류는 던진다(호출부가 friendlyError 로 안내).
 async function updateSettlementFeeRule(ratePercent, fixedJpy, rounding) {
