@@ -57,4 +57,21 @@
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
+**구현일:** 2026-10-08 · 개발 세션 · **마이그레이션:** 512(`trg_deliverable_stamp_submitted_at` + `_deliverable_stamp_submitted_at()`)
+
+### 착수 전 코드 대조(규칙 D)
+- 제출 경로: 회원 `submitDrafts` 가 **행마다** `status: 'pending'` UPDATE(+ `submit_deliverable` 은 이벤트만 기록, `submitted_at` 을 안 건드림). 재제출은 `insertDraftDeliverable` — **게시물·리뷰 인증샷은 기존 행을 draft 로 되돌리고, 영수증은 매번 새 행을 만든다**
+- 결과물 트리거 6개(035 상태 이벤트·`updated_at` · 037 알림 · 274 제출 마감 · 301 정산 잠금 · 422 탈퇴 차단) 중 `submitted_at` 을 읽거나 쓰는 것 없음
+- `submitted_at` 으로 「최신」을 고르는 서버 함수(정산 후보 455·인증 성공 수 456·리포트 공유 491)와 화면(결과물 관리·엑셀·리포트·회원 활동관리)은 **「처음 올린 날」이어야 하는 자리가 없다** — 전부 「최신」을 고르거나 「최근 제출일」을 보여 준다
+- 운영 실측(2026-10-08): 결과물 4,709건 · **같은 응모·종류·채널에 행이 둘 이상인 묶음 198개**(영수증 187 · 게시물 10 · 인증샷 1) · 승인인데 `reviewed_at` 빈 행 0건 · 임시저장 4건
+  - 영수증 중복은 재제출마다 새 행이라 생긴 정상 구조 — 새 행이 늘 나중에 제출되므로 「최신」 순서가 바뀌지 않는다
+  - 게시물 10묶음은 옛 오류의 중복 — 재제출이 **가장 오래된 행**에 새 주소를 넣는데 지금은 그 행의 날짜가 옛날이라 「최신」에서 밀린다. 트리거가 들어가면 새 주소를 담은 행이 「최신」이 되어 **바로잡힌다**
+
+### 초안 대비 변경 사항
+- 추가: `submitDrafts` 가 **만든 순서대로** 올린다(`order created_at, id`) — 제출일을 올리는 순간 찍으므로, 한 번에 여러 건을 낼 때 순서가 섞이면 「최신」이 바뀔 수 있다
+- 달라진 것: 게시물 목록은 예전에 **임시저장에도 날짜**가 찍혔다. 아직 제출 전인 것에 「提出日」을 붙이면 틀린 말이라 세 목록 모두 임시저장은 날짜 없음으로 맞췄다
+- 트리거는 `BEFORE UPDATE OF status` + `WHEN (OLD.status = 'draft' AND NEW.status = 'pending')` — 초안대로. 함수는 `SECURITY INVOKER`·`search_path` 고정, 실행 권한은 PUBLIC·anon·authenticated 모두 회수(트리거 실행에는 필요 없다)
+
+### 구현 중 기술 결정 사항
+- 날짜 줄 공용 함수 `activityDateLines(d)`(application.js) — 승인인데 `reviewed_at` 이 비면 승인일 줄 생략(운영 0건이지만 방어)
+- 번역 키 `activity.submittedOn`(提出日 / 제출일)·`activity.approvedOn`(承認日 / 승인일)

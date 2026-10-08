@@ -759,6 +759,9 @@ window.I18N_JA = {
     addDraftBtn: 'リストに追加',
     submitToAdminBtn: '提出する',
     draftBadge: '未提出',
+    // 結果物の横の日付 — 提出日と承認日を分けて見せる
+    submittedOn: '提出日',
+    approvedOn: '承認日',
     draftAdded: 'リストに追加しました',
     // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
     draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',

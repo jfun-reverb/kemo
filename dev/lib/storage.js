@@ -1801,6 +1801,9 @@ async function submitDrafts(applicationId, kind) {
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
+    // 만든 순서대로 올린다 — 제출일은 올리는 순간 서버가 찍으므로(마이그레이션 512), 순서가 섞이면
+    //   여러 건을 한 번에 낼 때 「최신」(제출일이 가장 늦은 행)이 나중에 만든 행이 아닐 수 있다.
+    q = q.order('created_at', {ascending: true}).order('id', {ascending: true});
     const {data: drafts, error: selErr} = await q;
     if (selErr) throw selErr;
     for (const row of (drafts || [])) {
