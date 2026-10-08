@@ -281,7 +281,8 @@
 **현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
 - `mark_settlements_paid_bulk` · `mark_settlement_revert` · `mark_settlement_paid` · `register_past_settlements` · `correct_settlement_payment` — **486**(베이스 416·416·343·339·341 아님)
 - `_settlement_cert_candidates` — **455**(232 를 베이스로 재작성하면 알림 잠금이 사라진다 — 번호가 가장 큰 정의를 베이스로)
-- `correct_settlement_transfer` · `get_settlement_transfers` · `get_settlement_transfer_monthly` · `get_settlement_transfer_by_round` — **502**(베이스 486·487 아님. 🔴 조회 셋은 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다)
+- `get_settlement_transfer_monthly` · `get_settlement_transfer_by_round` — **502**(베이스 487 아님. 🔴 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다)
+- 송금별 요율(513~517, 사양서 `docs/specs/2026-10-02-settlement-per-transfer-fee-rule.md`): `record_settlement_transfers` — **514**(베이스 486) · `preview_settlement_fees` — **515**(베이스 488, 4인자) · `get_settlement_transfers` — **516**(베이스 502) · `correct_settlement_transfer` — **517**(베이스 502, 8인자 — 🔴 옛 6인자는 지웠다. 두 벌이면 화면 호출이 모호 오류). 칸 `settlement_transfers.fee_rule_custom`(513) = 「이 송금만」 — 저장 순간 설정과 요율·고정액이 다름(끝수 비교 안 함), 화면은 이 저장값만 본다
 - `backfill_settlement_transfers_from_sheet` — **501**(과거 지급 시트 소급 전용. 🔴 시트 소급은 이것으로만 — `record_settlement_transfers` 로 넣으면 출처가 `app` 이 되어 그 순간 도입일이 생긴다)
 
 **송금 묶음·수수료**(마이그레이션 484~488 — ★**운영 반영 완료 2026-10-01**(문의 창구 475~482 보다 먼저, 골라 담기 #1831). 🔴 **운영 첫 기록 전**: 「미등록 응모를 묶음으로 기록」 경로를 시험 데이터로 한 번 — 첫 기록이 곧 도입일이다. 사양서 `docs/specs/2026-09-30-settlement-transfer-fee-record.md`)
