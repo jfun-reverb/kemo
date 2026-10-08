@@ -1140,8 +1140,8 @@ function _renderBulkBundles() {
     const TH = 'padding:6px 10px;font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3;text-align:left;white-space:nowrap';
     const TD = 'padding:6px 10px;font-size:12px;border-top:1px solid var(--line);vertical-align:middle';
     // 입력칸은 관리자 공통 「admin-input」(13px). ⚠️ 이 확인 창은 #page-admin **밖**이라 form-input 을 쓰면
-    //   회원 앱 크기(16px)가 된다 — 높이만 표 줄에 맞게 줄인다.
-    const INP = 'padding:4px 8px;height:30px;box-sizing:border-box';
+    //   회원 앱 크기(16px)가 된다. 높이도 기본 admin-input 그대로 — 아래 「처리 사유」 칸과 같게(2026-10-08 사용자 요청).
+    const INP = 'box-sizing:border-box';
     const canSplit = b.itemIdx.length > 1;
     const rows = b.itemIdx.map(function (idx) {
       const it = items[idx];
