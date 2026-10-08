@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791446846';
+  var CURRENT_BUILD = 'v1791447017';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-08 17:07 · 0718be6</span>
+          <span class="admin-build-text">2026-10-08 17:10 · de0c93d</span>
         </div>
       </div>
     </aside>
@@ -4881,7 +4881,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-sm" onclick="openSettlementFeeRuleFromPane()" title="송금 수수료 계산 규칙(비율·고정액·끝수 처리)을 보고 고칩니다">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">percent</span> 수수료 설정
+                  기준 수수료 설정
                 </button>
                 <!-- ⚠️ 정산 목록 탭에서만 보인다(refreshSettlementNav) — 이 버튼은 **정산 목록**을 내보낸다.
                      미등록 탭에서도 숨긴다 — 「보고 있는 미등록 목록이 나오겠지」로 읽혀 다른 자료를 받게 된다. -->
@@ -46313,7 +46313,7 @@ function _bulkRuleCellHtml(b, bi, INP) {
       </div>
       <span style="color:var(--muted);white-space:nowrap">수수료</span>
     </div>
-    ${b.ruleOn ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+    ${b.ruleOn ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">이 송금에만 적용됩니다. 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleBulkFeePreview)" style="color:#2563EB">기준 수수료 설정</a>에서 바꿉니다.</div>
     <div id="bulkRateWarn_${bi}" style="font-size:11px;color:#B8741A;margin-top:2px;${_ruleRateWarn(b.ruleOn, b.rate) ? '' : 'display:none'}">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>` : ''}`;
 }
 // 요율 10% 초과 경고 — 막지 않는다(사양서 경우의 수 8). 확인 창·정정 창이 같이 쓴다
@@ -48887,7 +48887,7 @@ function _ensureSettlementFeeRuleModal() {
   el.innerHTML = `
     <div class="modal" style="max-width:520px;border-radius:20px;margin:auto;max-height:86vh;display:flex;flex-direction:column">
       <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
-        <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 수수료 설정</div>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 수수료 설정</div>
       </div>
       <div class="modal-body" id="settlementFeeRuleBody" style="padding:18px 22px;overflow-y:auto;flex:1"></div>
       <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
@@ -49763,7 +49763,7 @@ function openTransferCorrectModal(id, row, from) {
         <span id="transferCorrectFeeShow" style="font-size:14px;font-weight:700;white-space:nowrap">${esc(settlementAmountYen(t.fee_jpy))}</span>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">지금 ${(t.source === 'sheet_backfill' && !t.fee_estimated && (t.fee_rule_jpy === null || t.fee_rule_jpy === undefined) ? '지급 시트 실제값' : (t.fee_rule_custom ? '이 송금 요율로 계산한 값' : '자동 계산값'))}입니다.</div>
-      <div id="transferCorrectRuleNote" style="font-size:11px;color:var(--muted);margin-top:2px;display:none">저장하면 이 요율로 수수료를 다시 계산합니다. 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">수수료 설정</a>에서 바꿉니다.</div>
+      <div id="transferCorrectRuleNote" style="font-size:11px;color:var(--muted);margin-top:2px;display:none">저장하면 이 요율로 수수료를 다시 계산합니다. 이 송금에만 적용됩니다 — 앞으로의 모든 송금은 <a href="javascript:void(0)" onclick="openFeeRuleFromChild(_scheduleTransferRulePreview)" style="color:#2563EB">기준 수수료 설정</a>에서 바꿉니다.</div>
       <div id="transferCorrectRateWarn" style="font-size:11px;color:#B8741A;margin-top:2px;display:none">요율이 10%를 넘습니다. 맞는지 확인해 주세요</div>
       ${estChk('transferCorrectFeeOk', t.fee_estimated)}</div>
     <div class="form-group"><label class="form-label">페이팔 거래번호</label>
