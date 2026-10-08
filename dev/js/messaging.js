@@ -1267,19 +1267,7 @@ function renderFaqBody(text, ctx) {
 // ── FAQ 노드 로드 (게이트→봇 카드 전환 2026-05-22) ──
 //   진입 시 1회 active 노드 로드만. 추천 안내는 renderMessageThread 가 스레드 맨 위
 //   봇 카드(_faqBotCardHtml)로 그린다. 입력란 위 고정 게이트는 폐기.
-// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
-//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
-function faqNodeChainActive(node, byId) {
-  const seen = {};
-  let cur = node;
-  while (cur) {
-    if (!cur.active) return false;
-    if (!cur.parent_id || seen[cur.id]) break;
-    seen[cur.id] = true;
-    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
-  }
-  return true;
-}
+// faqNodeChainActive — shared.js 로 옮겼다(관리자 메시지 화면 「자주 묻는 질문」 창도 쓴다, 2026-10-08)
 
 //   opts.general — 일반 문의 「그 외」 갈래(사양서 §7): 카테고리 셋 안의 단계 무관 항목만.
 let _faqLoadSeq = 0;   // 불러오기 차례 — 늦게 끝난 옛 불러오기가 새 화면의 질문 목록을 덮지 않게(질문 페이지 ↔ 대화 화면)

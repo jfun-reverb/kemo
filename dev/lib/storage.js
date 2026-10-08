@@ -5290,6 +5290,19 @@ async function fetchFaqNodes() {
   } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
 }
 
+// 관리자 메시지 화면 「자주 묻는 질문」 창용 — fetchFaqNodes 와 같지만 **실패 null · 0건 []**
+//   (실패를 「등록된 질문 없음」으로 그리지 않게)
+async function fetchFaqNodesOrNull() {
+  if (!db) return null;
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodesOrNull]', error); logAppError('fetchFaqNodesOrNull', error); return null; }
+}
+
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
 async function fetchFaqInteractionStats() {
   if (!db) return {};
