@@ -6502,12 +6502,14 @@ async function backfillSettlementTransfersFromSheet(bundles) {
   return {written: (result && result.written) || [], skipped: (result && result.skipped) || []};
 }
 
-// 송금 묶음 정정 — RPC correct_settlement_transfer(486). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
+// 송금 묶음 정정 — RPC correct_settlement_transfer(현재 원본 517). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
+// ⚠️ feeRatePercent·feeFixedJpy(517) — 「이 송금 요율 직접 정하기」. 둘 다 넘기면 서버가 그 요율로 수수료를 다시 계산한다.
+//    undefined/null 이면 null(안 고침). **0 은 유효한 값**이다. 수수료 금액(feeJpy)과 함께 보내면 서버가 거부한다(bundle_fee_conflict).
 // ⚠️ txnId·memo 는 서버에서 NULL = 「안 고침」, '' = 「비움」이다. 그래서 빈 문자열을
 //    null 로 바꾸지 않는다(다른 함수의 `x || null` 을 그대로 쓰면 「비우기」가 조용히 「안 고침」이 된다).
 //    undefined/null 만 null 로 보낸다.
 // ⚠️ sentAt·feeJpy 는 빈 값이면 null(안 고침). 수수료 0 은 유효한 값이다.
-async function correctSettlementTransfer(id, version, sentAt, feeJpy, txnId, memo) {
+async function correctSettlementTransfer(id, version, sentAt, feeJpy, txnId, memo, feeRatePercent, feeFixedJpy) {
   if (!db) throw new Error('DB 미연결');
   let newVersion = -1;
   await retryWithRefresh(async () => {
@@ -6517,7 +6519,12 @@ async function correctSettlementTransfer(id, version, sentAt, feeJpy, txnId, mem
       p_sent_at: sentAt || null,
       p_fee_jpy: (feeJpy === 0 || feeJpy) ? Number(feeJpy) : null,
       p_paypal_txn_id: (txnId === undefined || txnId === null) ? null : txnId,
-      p_memo: (memo === undefined || memo === null) ? null : memo
+      p_memo: (memo === undefined || memo === null) ? null : memo,
+      // 요율은 정할 때만 키를 싣는다 — 517 이전 서버(6인자)에서도 일반 정정이 「함수 없음」으로 실패하지 않게
+      ...((feeRatePercent === undefined || feeRatePercent === null || feeRatePercent === '') ? {} : {
+        p_fee_rate_percent: Number(feeRatePercent),
+        p_fee_fixed_jpy: (feeFixedJpy === undefined || feeFixedJpy === null || feeFixedJpy === '') ? null : Number(feeFixedJpy)
+      })
     });
     if (error) throw error;
     newVersion = data;
@@ -6573,14 +6580,22 @@ async function fetchSettlementTransferUnrecorded() {
   } catch(e) { console.error('[fetchSettlementTransferUnrecorded]', e); return null; }
 }
 
-// 확인 창 수수료 미리보기(마이그레이션 488). 묶음 합계 배열 → 같은 순서의 수수료 배열.
+// 확인 창·정정 창 수수료 미리보기(현재 원본 515). 묶음 합계 배열 → 같은 순서의 수수료 배열.
+//   opts = {rates, fixeds, roundings} — totals 와 같은 길이 배열(원소 null = 설정 규칙). 확인 창은 끝수를 안 보낸다,
+//   정정 창은 그 묶음 사본 끝수를 보낸다(저장 값과 같게). 반환에 custom[] — 요율·고정액이 설정과 다른가.
 //   ⚠️ 화면에 수수료 계산식을 두지 않으려고 서버에 묻는다(식은 486 `_settlement_fee_calc` 한 곳).
 //   ⚠️ **미리보기일 뿐** — 실제 기록 수수료는 저장 순간 서버가 다시 계산한다.
 //   반환: {rate_percent, fixed_jpy, rounding, fees:[…]} / 실패 null(화면은 「계산 못 함」, 0엔으로 그리지 않는다)
-async function previewSettlementFees(totals) {
+async function previewSettlementFees(totals, opts) {
   if (!db) return null;
   try {
-    const {data, error} = await db.rpc('preview_settlement_fees', {p_totals: (totals || []).map(n => Number(n) || 0)});
+    const args = {p_totals: (totals || []).map(n => Number(n) || 0)};
+    // 빈 칸('')·null 은 null(설정 규칙). Number('') 가 0 이 되는 함정을 피한다
+    const num = v => (v === undefined || v === null || v === '') ? null : Number(v);
+    if (opts && opts.rates)     args.p_rates     = opts.rates.map(num);
+    if (opts && opts.fixeds)    args.p_fixeds    = opts.fixeds.map(num);
+    if (opts && opts.roundings) args.p_roundings = opts.roundings.map(v => v || null);
+    const {data, error} = await db.rpc('preview_settlement_fees', args);
     if (error) throw error;
     return data || null;
   } catch(e) { console.error('[previewSettlementFees]', e); return null; }

@@ -137,6 +137,10 @@ function friendlyError(msg) {
   //   (「rule row missing」 같은 원문이 일반 규칙에 먼저 걸리면 엉뚱한 안내가 뜬다)
   if (s.includes('payout_bundle_required')) return '송금 기록 방식이 바뀌었습니다. 화면을 새로 고친 뒤 다시 기록해 주세요. [ERR_PAYOUT_BUNDLE_REQUIRED]';
   if (s.includes('paid_at_owned_by_transfer')) return '이 건의 송금일은 「송금 내역」에서 송금 단위로 고칩니다. [ERR_PAID_AT_OWNED_BY_TRANSFER]';
+  // 마이그레이션 514·515·517 — 송금별 요율. ⚠️ 바로 아래 fee_rule_invalid 보다 **먼저**(bundle_fee_rule_invalid 가 그 글자를 품고 있다)
+  if (s.includes('bundle_fee_rule_incomplete')) return '요율과 고정액을 함께 넣어 주세요. [ERR_BUNDLE_FEE_RULE_INCOMPLETE]';
+  if (s.includes('bundle_fee_rule_invalid')) return '이 송금 요율 값이 올바르지 않습니다(요율 0~100%, 고정액 0엔 이상). [ERR_BUNDLE_FEE_RULE_INVALID]';
+  if (s.includes('bundle_fee_conflict')) return '수수료 금액과 요율을 함께 보낼 수 없습니다 — 한쪽만 정해 주세요. [ERR_BUNDLE_FEE_CONFLICT]';
   if (s.includes('fee_rule_invalid')) return '수수료 규칙 값이 올바르지 않습니다(비율 0~100%, 고정액 0엔 이상). [ERR_FEE_RULE_INVALID]';
   if (s.includes('transfer_item_missing')) return '송금 묶음 연결이 맞지 않아 정정할 수 없습니다. 관리자에게 알려 주세요. [ERR_TRANSFER_ITEM_MISSING]';
   if (s.includes('nothing_to_correct')) return '고칠 항목을 하나 이상 입력해 주세요. [ERR_NOTHING_TO_CORRECT]';
