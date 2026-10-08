@@ -14545,6 +14545,21 @@ async function fetchSettlementTransfers(from, to) {
   } catch(e) { console.error('[fetchSettlementTransfers]', e); return null; }
 }
 
+// 송금 묶음 1건의 변경 이력 — settlement_transfer_events(485, 조회 정책 settlement.view 읽기).
+//   기록(create)·묶음 정정(correct)·건별 송금액 정정(correct, 합계·수수료만)이 시간순으로 쌓인다.
+//   실패 null, 0건 [] — ⚠️ 권한이 없는 등급은 오류가 아니라 0건이 온다.
+async function fetchSettlementTransferEvents(transferId) {
+  if (!db || !transferId) return null;
+  try {
+    const {data, error} = await db.from('settlement_transfer_events')
+      .select('id, action, prev, next, memo, actor_name, at')
+      .eq('transfer_id', transferId)
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferEvents]', e); return null; }
+}
+
 // 월별 송금 집계 — RPC get_settlement_transfer_monthly(487). 실패 null, 0건 [].
 async function fetchSettlementTransferMonthly(from, to) {
   if (!db) return null;
