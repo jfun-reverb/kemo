@@ -1788,22 +1788,23 @@ function _transferEventLinesHtml(e) {
   return lines.join('');
 }
 
+// ⚠️ 아이디는 transferEvent* — `transferHistoryBody` 는 「송금 내역」 화면(admin/index.html)이 이미 쓴다(겹치면 이 창이 그 화면을 덮어쓴다)
 function _ensureTransferHistoryModal() {
-  let el = $('transferHistoryModal');
+  let el = $('transferEventModal');
   if (el) return el;
   el = document.createElement('div');
   el.className = 'modal-overlay';
-  el.id = 'transferHistoryModal';
+  el.id = 'transferEventModal';
   el.style.zIndex = '615';
   el.innerHTML = `
     <div class="modal" style="max-width:520px;border-radius:20px;margin:auto">
       <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
         <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 이력</div>
-        <div id="transferHistoryHeader" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+        <div id="transferEventHeader" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
       </div>
-      <div class="modal-body" id="transferHistoryBody" style="padding:6px 22px 14px;max-height:60vh;overflow-y:auto"></div>
+      <div class="modal-body" id="transferEventBody" style="padding:6px 22px 14px;max-height:60vh;overflow-y:auto"></div>
       <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('transferHistoryModal')">닫기</button>
+        <button class="btn btn-ghost" onclick="closeModal('transferEventModal')">닫기</button>
       </div>
     </div>`;
   document.body.appendChild(el);
@@ -1815,10 +1816,10 @@ async function openTransferHistoryModal(transferId, headerText) {
   _ensureTransferHistoryModal();
   const t = (_transferRows || []).find(function (x) { return x.id === transferId; });
   const head = headerText || (t ? `${t.influencer_name || '(탈퇴한 회원)'} · ${_settlementDateInputValue(t.sent_at)} · 보낸 금액 ${settlementAmountYen(t.sent_total_jpy)}` : '');
-  $('transferHistoryHeader').textContent = head;
-  const body = $('transferHistoryBody');
+  $('transferEventHeader').textContent = head;
+  const body = $('transferEventBody');
   body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:22px;font-size:12px">이력을 불러오는 중…</div>';
-  openModal('transferHistoryModal');
+  openModal('transferEventModal');
   const events = await fetchSettlementTransferEvents(transferId);
   if (events === null) { body.innerHTML = '<div style="text-align:center;color:#C33;padding:26px;font-size:13px">이력을 불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.</div>'; return; }
   // 정상 송금은 기록 이력이 최소 1건 있다 — 0건이면 정산 열람 권한이 없는 경우가 대부분이다(정책이 오류 대신 0건을 준다)
