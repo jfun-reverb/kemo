@@ -14,6 +14,8 @@ var _companyCurrentId = null;
 var _companySavedCallback = null;
 var companiesLazy;
 var COMPANIES_PAGE_SIZE = 50;
+var _companyBrandNames = {};   // 회사 id → 소속 브랜드명 배열(loadCompanies 가 채운다)
+var COMPANY_BRAND_NAMES_MAX = 6;   // 목록 칸에 보이는 브랜드명 수 — 넘으면 「외 N개」, 전체는 마우스를 올리면
 
 // 회사 추가/수정/삭제 권한: campaign_admin 이상 (campaign_manager 는 읽기 전용)
 function canEditCompanies() {
@@ -26,11 +28,32 @@ async function loadCompanies() {
   if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
   var statusF = $('companiesStatusFilter')?.value || 'active';
   var q = (($('companiesSearch')?.value) || '').trim();
-  _companiesCache = await fetchCompanies({ status: statusF, search: q });
-  // 미분류(회사 미할당) 브랜드 수 — 인디케이터용
-  var unassigned = await fetchBrandsForAssign({ unassignedOnly: true });
-  _companiesUnassignedCount = (unassigned || []).length;
+  // 회사 목록 + 브랜드 전체(소속 브랜드명 표시·미분류 수)를 함께 받는다
+  var res = await Promise.all([fetchCompanies({ status: statusF, search: q }), fetchBrandsForAssign({})]);
+  _companiesCache = res[0];
+  var brands = res[1] || [];
+  // 회사 id → 소속 브랜드명 목록(이름순 — 조회가 이름순). 미분류 = company_id 없는 브랜드
+  _companyBrandNames = {};
+  brands.forEach(function (b) {
+    if (!b.company_id) return;
+    (_companyBrandNames[b.company_id] = _companyBrandNames[b.company_id] || []).push(b.name || '(이름 없음)');
+  });
+  _companiesUnassignedCount = brands.filter(function (b) { return !b.company_id; }).length;
   renderCompanyList();
+}
+
+// 소속 브랜드 칸 — 「N개」 + 브랜드명(앞 COMPANY_BRAND_NAMES_MAX 개, 나머지는 「외 N개」). 전체 이름은 title 로
+//   ⚠️ 개수는 회사 표의 total_brands(트리거 집계)를 그대로 쓴다 — 이름 목록 길이와 다르면 이름 쪽 조회가 덜 온 것
+function companyBrandNamesCell(companyId, brandCount) {
+  var names = _companyBrandNames[companyId] || [];
+  var cnt = '<span style="font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)">' + brandCount + '개</span>';
+  if (!names.length) return cnt;
+  // 브랜드명은 라벨(작은 둥근 칩)로 하나씩 — 이름 안에 「·」 「,」 가 있어도 경계가 보이게(2026-10-12 사용자 요청)
+  var chip = 'display:inline-block;font-size:11px;line-height:1.4;padding:1px 8px;border-radius:10px;background:#F4F4F5;border:1px solid var(--line);color:var(--ink);white-space:nowrap';
+  var shown = names.slice(0, COMPANY_BRAND_NAMES_MAX).map(function (n) { return '<span style="' + chip + '">' + esc(n) + '</span>'; }).join('');
+  var more = names.length > COMPANY_BRAND_NAMES_MAX ? '<span style="font-size:11px;color:var(--muted);align-self:center">외 ' + (names.length - COMPANY_BRAND_NAMES_MAX) + '개</span>' : '';
+  return '<div title="' + esc(names.join(', ')) + '">' + cnt
+    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' + shown + more + '</div></div>';
 }
 
 function renderCompanyList() {
@@ -95,7 +118,7 @@ function renderCompanyList() {
         + (c.business_no ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(c.business_no) + '</div>' : '')
       + '</td>'
       + '<td style="font-size:12px;color:var(--ink)">' + esc(c.name_ja || '—') + '</td>'
-      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + brandCount + '</td>'
+      + '<td>' + companyBrandNamesCell(c.id, brandCount) + '</td>'
       + '<td>' + statusBadge + '</td>'
       + '<td style="white-space:nowrap">' + assignBtn + ' ' + archiveBtn + ' ' + deleteBtn + '</td>'
       + '</tr>';
