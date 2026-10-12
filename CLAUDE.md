@@ -368,7 +368,7 @@
 > 인플루언서 앱 에러를 관리자가 모아 본다(실시간 아님). 개인정보 마스킹 필수.
 - `client_error_logs` — fingerprint 묶음. `fingerprint`+`status`(open/resolved/ignored) UNIQUE, 같은 에러는 `occurrence_count` 누적. `source`(influencer/admin)·`kind`(unhandled/rejection/handled)·`message`/`stack`/`page_hash`(마스킹)·`error_code`·`user_id`(influencers FK, anon 은 NULL)·`first/last_seen_at`·`resolved_by/at/note`. RLS SELECT `is_admin()` 만, 쓰기는 RPC 경유
 - `report_client_error(...)` RPC — SECURITY DEFINER, **anon+authenticated**. 빈값·범위·길이 가드 + **서버측 2차 마스킹**(이메일·전화·우편번호 `\d{3}-\d{4}`·Bearer 토큰·PostgreSQL `(col)=(val)`) + open fingerprint UPSERT
-- `resolve_client_error(id, status, note)` RPC — `is_admin()` 가드(open 되돌리기 시 resolved_* 초기화)
+- `resolve_client_error(id, status, note)` RPC(현재 원본 **518**, 베이스 165) — `is_admin()` 가드(open 되돌리기 시 resolved_* 초기화). 🔴 표가 `UNIQUE(fingerprint, status)` 라 재발한 오류를 다시 무시·해결·되돌릴 때 **같은 지문·같은 목표 상태 행으로 합친다**(횟수 합·처음/마지막 발생·최근 원문, 지금 행 삭제). 제약을 좁히는 방법은 쓰지 않았다 — 수집 함수(308)의 `ON CONFLICT (fingerprint, status)` 가 그 제약에 기대고, 비로그인 수집 경로라 틀리면 조용히 멈춘다
 - 클라: `dev/js/error-report.js`(`window.onerror`·`unhandledrejection` + `friendlyErrorJa` 훅 + 1차 마스킹·노이즈필터·60초 디바운스·throw 안 함), `storage.js` `reportClientError()`. 사양서 `docs/specs/2026-06-02-client-error-reporting.md`
 
 ### RLS·인증·세션
