@@ -726,6 +726,8 @@ async function lookupZipProfile() {
       if (pref) { const opts = Array.from(pref.options); const match = opts.find(o=>o.text===r.address1); if(match) pref.value=match.value||match.text; }
       const city = $('profileCity');
       if (city) city.value = (r.address2||'') + (r.address3||'');
+      // 코드로 채운 값은 입력 신호가 안 나므로 직접 알린다(마이페이지 저장 단추가 바뀐 값을 알아보게)
+      if (city) city.dispatchEvent(new Event('change', {bubbles: true}));
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
   // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는
@@ -1235,4 +1237,29 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get rendered() { return state.cursor; },
     get total() { return state.rows.length; },
   };
+}
+
+// ── 회원 앱 상태 안내 셋(사양서 2026-09-29-member-app-style-unification §3-2) ──
+//   🔴 조회 실패(null) = stateErrorHtml, 0건([]) = stateEmptyHtml — 둘을 같은 모양으로 그리지 않는다.
+//   ⚠️ 클래스는 회원 전용 member-ui.css 에만 있다 — 관리자 코드에서 부르지 않는다(스타일 없이 그려진다).
+//   ⚠️ retryFnName 은 코드가 넣는 고정 함수 이름만(사용자 입력 금지). 이름 모양이 아니면 단추를 그리지 않는다.
+function stateEmptyHtml(icon, title, sub) {
+  return '<div class="state-empty" role="status">' +
+    (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
+    (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+function stateLoadingHtml(text) {
+  const label = text || t('common.loading');
+  return '<div class="state-loading" role="status" aria-live="polite">' +
+    '<span class="state-spin" aria-hidden="true"></span><span>' + esc(label) + '</span></div>';
+}
+function stateErrorHtml(text, retryFnName) {
+  const fn = (typeof retryFnName === 'string' && /^[A-Za-z_$][\w$]*$/.test(retryFnName)) ? retryFnName : '';
+  return '<div class="state-error" role="alert">' +
+    '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">error_outline</span>' +
+    '<div class="state-text">' + esc(text || t('authError.genericError')) + '</div>' +
+    (fn ? '<button type="button" class="btn btn-ghost" onclick="' + fn + '()">' + esc(t('common.retry')) + '</button>' : '') +
+  '</div>';
 }

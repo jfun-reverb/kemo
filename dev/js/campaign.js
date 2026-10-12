@@ -184,9 +184,8 @@ function _paintCampPageTypeTabs(type) {
     const btn = $('campPageType-'+t);
     if (!btn) return;
     const on = t === type;
-    btn.style.color = on ? 'var(--pink)' : 'var(--muted)';
-    btn.style.borderBottomColor = on ? 'var(--pink)' : 'transparent';
-    btn.style.fontWeight = on ? '700' : '600';
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
   });
 }
 
@@ -346,7 +345,7 @@ function toggleCampPageSearch(force) {
 function campEmptyStateHtml(isFiltered) {
   const title = isFiltered ? t('campaign.emptyFiltered') : t('campaign.emptyState');
   const sub = isFiltered ? t('campaign.emptyFilteredSub') : t('campaign.emptyStateSub');
-  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${esc(title)}</div><div class="empty-sub">${esc(sub)}</div></div>`;
+  return stateEmptyHtml('assignment', title, sub);
 }
 
 function renderCampaignGrid() {
@@ -439,21 +438,21 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
-        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
-        ${isClosed&&!isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
-        ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
-        ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
-        <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
-          <span style="${isActive?'background:#E2F0E9;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px':'visibility:hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
-          ${isNew&&!isFull?`<span style="background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeNew')}</span>`:''}
+        ${isScheduled?`<div class="cc-overlay scheduled"><span>${t('detail.scheduledOverlay')}</span></div>`:''}
+        ${isClosed&&!isEnded?`<div class="cc-overlay"><span>${t('detail.closedOverlay')}</span></div>`:''}
+        ${isEnded?`<div class="cc-overlay"><span>${t('detail.endedOverlay')}</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosedLike?`<div class="cc-overlay"><span>${t('detail.fullOverlay')}</span></div>`:''}
+        <div class="camp-badges">
+          <span class="cc-flag ${isActive?'recruit':'hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
+          ${isNew&&!isFull?`<span class="cc-flag new">${t('campaign.badgeNew')}</span>`:''}
         </div>
-        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
+        <div class="camp-ch-badge">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${esc(brandLabelInflu(c))}</div>
-        ${typeLabel ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin:2px 0">${esc(typeLabel)}</div>` : ''}
+        ${typeLabel ? `<div class="cc-type">${esc(typeLabel)}</div>` : ''}
         <div class="camp-title">${esc(c.title)}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
+        ${c.content_types ? `<div class="cc-ct">${c.content_types.split(',').map(t=>`<span class="cd-chip">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
           // 締切間近 + {applied}/{slots}名 — 콘텐츠 종류 아래 (진행중 캠페인만)
           if (!isActive) return '';
@@ -467,12 +466,12 @@ function buildCampCards(camps) {
           const applied = c.applied_count || 0;
           const remaining = slots - applied;
           if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) urgent = true;
-          if (urgent) flags.push(`<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeUrgent')}</span>`);
-          if (slots > 0) flags.push(`<span style="background:#F5F5F5;color:#555;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.slotFormat').replace('{applied}',applied).replace('{slots}',slots)}</span>`);
-          return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${flags.join('')}</div>` : '';
+          if (urgent) flags.push(`<span class="cc-flag urgent">${t('campaign.badgeUrgent')}</span>`);
+          if (slots > 0) flags.push(`<span class="cc-flag slots">${t('campaign.slotFormat').replace('{applied}',applied).replace('{slots}',slots)}</span>`);
+          return flags.length ? `<div class="cc-flags">${flags.join('')}</div>` : '';
         })()}
       </div>
-      <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">redeem</span> ${reward}</div></div>
+      <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">redeem</span> ${reward}</div></div>
     </div>`;
   }).join('');
 }
@@ -490,12 +489,11 @@ function renderCampaigns(camps) {
     //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
     //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
     const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
-    const _icon = _failed ? 'cloud_off' : 'assignment';
     const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
     const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
     // 조회는 됐는데 조건으로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
     grid.innerHTML = _failed
-      ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
+      ? stateErrorHtml(`${_head} ${_sub}`, 'loadCampaigns')
       : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;

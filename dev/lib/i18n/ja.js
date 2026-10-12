@@ -99,7 +99,7 @@ window.I18N_JA = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '送信中…',
     uploading: 'アップロード中…',
-    retry: '再試行',
+    retry: 'もう一度読み込む',
     close: '閉じる',
     apply: '適用',
     ok: 'OK',
@@ -108,7 +108,7 @@ window.I18N_JA = {
   // 홈
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '韓国の人気Kブランドを',
       titleLine2: 'あなたのSNSで',
       titleLine3: '体験しよう',
@@ -226,7 +226,7 @@ window.I18N_JA = {
       newLabel: '新しいパスワード（8文字以上）',
       confirmLabel: 'パスワード確認',
       btn: 'パスワードを変更',
-      verifying: '確認しています...',
+      verifying: '確認しています…',
       expiredTitle: 'このリンクは使えません',
       expiredStep1: 'リンクは受け取ってから しばらくすると 使えなくなります',
       expiredStep2: '何回か送った場合は いちばん新しいメールのリンクだけ 使えます',
@@ -417,7 +417,7 @@ window.I18N_JA = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '確認しています...',
+    loading: '確認しています…',
     successTitle: 'メールの配信を停止しました',
     successDesc: '今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。',
     backToMypage: 'マイページへ',
@@ -537,6 +537,13 @@ window.I18N_JA = {
   },
 
   // 프로필 부족 알림
+  mypageLeave: {
+    title: '変更した内容を保存しますか？',
+    desc: '保存しないで移動すると、変更した内容は消えます。',
+    save: '保存する',
+    discard: '保存せずに移動',
+  },
+
   profileAlert: {
     title: 'キャンペーン応募の前に',
     desc: '応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。',
@@ -662,6 +669,8 @@ window.I18N_JA = {
     requiredMention: '必須メンション',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    slidePrev: '前の写真',
+    slideNext: '次の写真',
     productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
@@ -741,7 +750,7 @@ window.I18N_JA = {
     receiptDateLabel: '購入日',
     receiptAmountLabel: '金額（円）',
     submitBtn: '登録する',
-    uploading: 'アップロード中...',
+    uploading: 'アップロード中…',
     noReceipt: 'まだレシートが登録されていません',
     noImage: 'まだ画像が追加されていません',
     imageSection: '画像の提出',
@@ -750,6 +759,9 @@ window.I18N_JA = {
     addDraftBtn: 'リストに追加',
     submitToAdminBtn: '提出する',
     draftBadge: '未提出',
+    // 結果物の横の日付 — 提出日と承認日を分けて見せる
+    submittedOn: '提出日',
+    approvedOn: '承認日',
     draftAdded: 'リストに追加しました',
     // 「追加」だけで終わってしまう人が続いたため、提出がまだであることを必ず伝える
     draftAddedNeedSubmit: 'リストに追加しました。まだ提出されていません',
@@ -898,6 +910,7 @@ window.I18N_JA = {
     currentPw: '現在のパスワード',
     newPw: '新しいパスワード',
     newPwConfirm: '新しいパスワード（確認）',
+    changePwBtn: 'パスワードを変更',
     pwChangeHint: '定期的なパスワード変更をお勧めします',
     requiredHint: 'キャンペーン応募に必須の入力項目です',
     unregistered: '未登録',
@@ -953,10 +966,15 @@ window.I18N_JA = {
     //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
     faqFollowerIntroHas: 'このキャンペーンには「最低フォロワー数」の条件があります。',
     faqFollowerIntroNone: 'このキャンペーンにはフォロワー数の条件はありません。以下は、フォロワー条件があるキャンペーンのご案内です。',
+    faqFollowerIntroGeneric: 'フォロワー数の条件はキャンペーンごとに異なります。',
+    plusMenu: 'メニュー',
+    plusAttach: '画像を添付',
+    plusFaq: 'よくある質問',
+    emptyThreadPlusHint: '左下の「＋」から「よくある質問」も見られます。',
     cancelledReadOnly: 'キャンセルされた応募のため、新しいメッセージは送れません。過去のやり取りはご覧いただけます。',
     refresh: '最新のお問い合わせに更新',
     newArrived: '運営から新しい返信が届きました（タップで更新）',
-    loading: '読み込み中...',
+    loading: '読み込み中…',
     loadError: 'お問い合わせの読み込みに失敗しました',
     emptyThread: 'まだお問い合わせはありません。下の入力欄から運営チームへお問い合わせいただけます。',
     you: '本人',
@@ -967,7 +985,7 @@ window.I18N_JA = {
     withdraw: '取り消す',
     withdrawConfirm: 'このメッセージを取り消しますか？',
     withdrawFailed: 'メッセージの取り消しに失敗しました',
-    placeholder: 'お問い合わせ内容を入力...',
+    placeholder: 'お問い合わせ内容を入力…',
     attachMax: '添付は最大{n}枚までです',
     attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
     attachUploadFailed: '画像のアップロードに失敗しました',
@@ -1008,7 +1026,6 @@ window.I18N_JA = {
       resolvedBtn: '解決しました',
       resolvedToast: 'お役に立ててうれしいです。',
       back: 'もどる',
-      backToCategories: '一覧にもどる',
       unavailable: '現在ご案内できる項目がありません。下の「直接お問い合わせ」からご連絡ください。',
       // お問い合わせゲート (PR B-rev)
       openBtn: 'よくある質問',
@@ -1016,13 +1033,11 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
-  // 문의 창구 — 일반 문의 창구(2026-09). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  // 문의 창구 — 일반 문의 창구(2026-09). 탭 이름은 머리 오른쪽에 들어가게 짧게(2026-10-07). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
   inquiry: {
     title: 'お問い合わせ',
-    lead: 'お問い合わせの内容をえらんでください',
-    branchApp: 'キャンペーンのお問い合わせ',
-    branchOther: 'サービスのお問い合わせ',
-    readOnly: '閲覧のみ',
+    branchApp: 'キャンペーン',
+    branchOther: 'サービス',
     loadError: '応募履歴を読み込めませんでした',
     retry: 'もう一度読み込む',
     generalTitle: '運営チームへのお問い合わせ',
@@ -1034,12 +1049,39 @@ window.I18N_JA = {
     appEmpty: 'お問い合わせ中のキャンペーンはまだありません。下のボタンから、聞きたい応募をえらんでください。',
     otherLead: '参加したキャンペーン以外の、サービスに関するお問い合わせはこちらからどうぞ。',
     otherStart: 'お問い合わせを始める',
+    hasNewReply: '新しい返信があります',   // 탭 빨간 점의 읽어 주기 문구(화면에는 안 보인다)
+    campaignPastReadOnly: '応募終了から90日が過ぎたため、このお問い合わせは閲覧のみです',
+    // 문의 목록 「よくある質問」 단추·질문 페이지(2026-10-07)
+    faqBtn: 'よくある質問',
+    faqPageTitleCampaign: 'キャンペーンのよくある質問',
+    faqPageTitleService: 'サービスのよくある質問',
+    // 서비스 문의 여러 대화(2026-10-06)
+    currentTitle: '対応中のお問い合わせ',
+    pastTitle: '過去のお問い合わせ',
+    backToList: 'お問い合わせ一覧に戻る',
+    more: 'もっと見る',
+    resolved: '対応済み',
+    noVisibleMessage: '表示できるメッセージはありません',
+    threadNotFound: 'このお問い合わせは開けませんでした',
+    threadsLoadError: 'お問い合わせを読み込めませんでした',
+    pastReadOnly: 'このお問い合わせは終了しました。続けて聞きたいときは、一覧に戻ってください。',
+    // 서비스 문의 여러 대화 개정(2026-10-06 R2) — 새 문의 제목·열린 문의 상한
+    subjectLabel: '件名',
+    subjectPlaceholder: '例：ポイントの使い方',
+    subjectRequired: '件名を入力してください',
+    subjectTooLong: '件名は40文字以内で入力してください',
+    openLimit: '開いているお問い合わせが上限に達しています。開いているお問い合わせに続けて書いてください',
+    openLimitReopen: '開いているお問い合わせが上限に達しているため、このお問い合わせは再開できません。開いているお問い合わせに続けて書いてください',
+    threadClosedNew: 'このお問い合わせは終了しました。新しくお問い合わせしてください',
+    openCountHint: '開いているお問い合わせが{n}件あります。同じ内容なら、そちらに続けて書いてください',
+    seeList: 'お問い合わせ一覧を見る',
+    withdrawSubject: '退会について',
   },
   // 政策変更の告知 — 一般お問い合わせ窓口の開設 + 個人情報処理方針の改定（2026-09-29 公告 → 2026-10-06 施行）
   //   ⚠️ メール通知なし（アプリ内のみ）。{date} は施行日。
   policyNotice: {
     title: '「お問い合わせ」窓口ができます',
-    body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ 10月6日からのお問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「サービスのお問い合わせ」をえらんで、送る<br>※10月5日までは、これまでどおり応募履歴の吹き出しボタン、またはLINE（@reverb.jp）でお問い合わせください。<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
+    body: 'いつも REVERB JP をご利用いただきありがとうございます。<br><br>■ {date}から<br>キャンペーンのこと以外でも、運営チームにお問い合わせできるようになります。<br><br>■ 10月6日からのお問い合わせのしかた<br>1. 右上のメニュー（≡）をひらく<br>2. 「お問い合わせ」をえらぶ<br>3. 「サービス」タブをえらんで、送る<br>※10月5日までは、これまでどおり応募履歴の吹き出しボタン、またはLINE（@reverb.jp）でお問い合わせください。<br><br>■ 個人情報処理方針も変わります<br>これにあわせて、お問い合わせ内容の保管について個人情報処理方針を改定しました（10月6日から）。<br>くわしくは、下の「詳しく見る」またはアプリ下部の「個人情報処理方針」をご覧ください。<br><br>■ 同意できない場合<br>2026年10月5日までにお申し出がない場合は、同意いただいたものとみなします。<br>同意できない場合は、メニューの「退会する」から退会できます。',
     banner: '10月6日から「お問い合わせ」窓口ができます（個人情報処理方針の改定あり）。くわしくはこちら。',
     detailBtn: '詳しく見る',
     closeBtn: '今後表示しない',

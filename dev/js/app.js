@@ -59,6 +59,13 @@ function restoreActivityHash() {
   } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
 }
 
+// 상단 로고 — 앱 안 이동이 아니라 첫 화면을 통째로 다시 불러온다(navigate 를 안 거친다).
+//   그래서 마이페이지 「저장 안 한 변경」 확인을 여기서 따로 건다(2026-10-06 — 로고로는 그냥 나가지던 결함)
+function onGnbLogoClick() {
+  if (typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref('/')) return;
+  window.location.href = '/';
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -76,9 +83,13 @@ function navigate(page, pushHistory) {
   if (page.startsWith('messages-')) {
     pageName = 'messages';
   }
-  // inquiry-general — 일반 문의 대화(같은 #page-messages 재사용, 2026-09)
-  if (page === 'inquiry-general') {
+  // inquiry-general / inquiry-general-{대화id} — 서비스 문의 새 문의·대화(같은 #page-messages 재사용)
+  if (isInquiryGeneralHash(page)) {
     pageName = 'messages';
+  }
+  // faq-campaign / faq-service — 따로 떨어진 「よくある質問」 페이지(2026-10-07)
+  if (page.startsWith('faq-')) {
+    pageName = 'faq';
   }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
   //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
@@ -114,6 +125,11 @@ function navigate(page, pushHistory) {
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
   }
+  // 질문 페이지를 떠나면 그릴 자리를 대화 화면 오버레이로 되돌린다 — 안 하면 대화 화면의 질문이 빈 페이지에 그려진다
+  if (_prevActivePage && _prevActivePage.id === 'page-faq' && pageName !== 'faq'
+      && typeof cleanupFaqPage === 'function') {
+    cleanupFaqPage();
+  }
   // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
   // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
   if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
@@ -140,6 +156,16 @@ function navigate(page, pushHistory) {
       setTimeout(restoreActivityHash, 0);
       return false;
     }
+  }
+  // 마이페이지 폼에 저장 안 한 변경이 있는 채 떠나려 하면 묻는다(2026-10-06).
+  //   ⚠️ 목적지가 마이페이지여도 묻는다 — navigate('mypage') 는 loadMyPage 로 칸을 **서버 값으로 다시 채워**
+  //      고친 내용을 조용히 지운다(햄버거로 다른 폼에 갈 때가 이 경로).
+  //   ⚠️ 활동관리와 같은 이유로 false 를 돌려주고 주소를 되돌린다. 묻는 창은 비동기라
+  //      고른 뒤에 같은 이동을 다시 실행한다(resolveMypageLeave).
+  if (_prevActivePage && _prevActivePage.id === 'page-mypage'
+      && typeof mypageLeaveGuard === 'function' && !mypageLeaveGuard(page, pushHistory)) {
+    setTimeout(restoreMypageHash, 0);
+    return false;
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -277,8 +303,14 @@ window.addEventListener('popstate', function(e) {
   if (page === 'mypage' || page.startsWith('mypage-')) {
     // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
     //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
-    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (navigate('mypage', false) === false) {
+      // 마이페이지 저장 확인에 막힌 뒤로가기 — 고른 뒤 그 폼으로 가도록 목적지를 적어 둔다(안 적으면 응모이력으로 간다)
+      if (sub && typeof _mypageLeavePending !== 'undefined' && _mypageLeavePending && !_mypageLeavePending.sub) {
+        _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = false;
+      }
+      return;
+    }
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub) openMypageSub(sub, false); else closeMypageSub();
@@ -290,10 +322,14 @@ window.addEventListener('popstate', function(e) {
     if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
     else navigate('mypage', false);
   } else if (page === 'inquiry') {
-    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    // 대화에서 브라우저 뒤로가기로 돌아온 경우가 대부분이다 — 보던 탭을 유지한다('back')
+    if (typeof openInquiryPage === 'function') openInquiryPage('back', false);
     else navigate('home', false);
-  } else if (page === 'inquiry-general') {
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(page));
+    else navigate('home', false);
+  } else if (page.startsWith('faq-')) {
+    if (typeof openFaqPage === 'function') openFaqPage(page.replace('faq-', ''), false);
     else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
@@ -325,7 +361,13 @@ window.addEventListener('langchange', function() {
   }
   // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
   else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
-  else if (page === 'inquiry-general') {
+  // 질문 페이지 — 제목·목록을 새 언어로(목록은 처음 단계로)
+  else if (page.startsWith('faq-')) {
+    const _ft = document.getElementById('faqPageTitle');
+    if (_ft) _ft.textContent = t(page === 'faq-service' ? 'inquiry.faqPageTitleService' : 'inquiry.faqPageTitleCampaign');
+    if (typeof renderFaqCategories === 'function' && typeof _faqOnPage === 'function' && _faqOnPage()) renderFaqCategories();
+  }
+  else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
     const _tt = document.getElementById('msgModalTitle');
     if (_tt) _tt.textContent = t('inquiry.generalTitle');
   }
@@ -335,7 +377,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry', faq:'inquiry'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -346,7 +388,7 @@ function updateActiveNav(page) {
 // Pull-to-Refresh — 모바일 네이티브 앱처럼 페이지 최상단에서 아래로 당기면 새로고침
 //   #appShell 내부 .page.active(스크롤 컨테이너) 의 touch 이벤트로 작동.
 //   인증 페이지(login/signup/forgot/reset-pw)는 비활성. activity 등 기타 페이지 모두 허용.
-//   임계값 80px 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
+//   임계값 90px(저항 적용 후) 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
 // ══════════════════════════════════════
 function setupPTR() {
   const appShell = $('appShell');
@@ -363,12 +405,25 @@ function setupPTR() {
   const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
                               // — 실제 손가락 이동 거리 약 180px
   const MAX_PULL = 130;       // 최대 당김 거리 클램프
+  const DEAD_ZONE = 24;       // 이만큼(저항 적용 후) 당기기 전에는 아무것도 안 보인다 — 살짝 움직여도 아이콘이 비치던 결함(2026-10-07)
 
   let startY = 0;
   let pullY = 0;
   let pulling = false;
   let activePage = null;
+  let startTarget = null;     // 손가락을 댄 요소 — 페이지 안쪽 스크롤 상자(.mypage-view·.faq-page-body 등)를 다시 볼 때 쓴다
   let isRefreshing = false;
+
+  // 손가락 아래 요소부터 페이지까지 올라가며 하나라도 아래로 스크롤돼 있으면 참.
+  //   🔴 페이지 자체가 아니라 안쪽 상자가 스크롤되는 화면(마이페이지 하위 화면·자주 묻는 질문 페이지)은
+  //   page.scrollTop 이 늘 0 이라, 이것 없이 보면 목록 중간에서 위로 올리기만 해도 새로고침이 걸린다
+  const scrolledBetween = (el, page) => {
+    for (let n = el; n && n !== page.parentElement; n = n.parentElement) {
+      if ((n.scrollTop || 0) > 0) return true;
+      if (n === page) break;
+    }
+    return false;
+  };
 
   const reset = () => {
     indicator.style.transform = 'translate(-50%, -56px)';
@@ -380,6 +435,7 @@ function setupPTR() {
     }
     pulling = false;
     activePage = null;
+    startTarget = null;
     pullY = 0;
   };
 
@@ -390,8 +446,9 @@ function setupPTR() {
     if (PTR_BLOCKLIST.includes(page.id)) return;
     // 모달/오버레이 등 활성 페이지 바깥을 터치하면 PTR 비활성 — 모달 내부 스크롤과 충돌 방지
     if (!page.contains(e.target)) return;
-    if ((page.scrollTop || 0) > 0) return;
+    if (scrolledBetween(e.target, page)) return;
     activePage = page;
+    startTarget = e.target;
     startY = e.touches[0].clientY;
     pullY = 0;
     pulling = true;
@@ -402,11 +459,13 @@ function setupPTR() {
     const dy = e.touches[0].clientY - startY;
     if (dy < 0) { reset(); return; }
     // 컨테이너가 다시 스크롤된 상태로 바뀌면 PTR 종료
-    if ((activePage.scrollTop || 0) > 0) { reset(); return; }
+    if (scrolledBetween(startTarget, activePage)) { reset(); return; }
     pullY = dy;
     const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
-    indicator.style.transform = `translate(-50%, ${Math.min(adjusted - 16, 40)}px)`;
-    activePage.style.transform = `translateY(${adjusted}px)`;
+    const shown = Math.max(adjusted - DEAD_ZONE, 0);
+    // 아이콘은 화면 밖(-56px)에서 당긴 만큼 내려온다 — 고정 여백(DEAD_ZONE) 전에는 그대로 숨어 있다
+    indicator.style.transform = `translate(-50%, ${Math.min(shown - 56, 40)}px)`;
+    activePage.style.transform = shown ? `translateY(${shown}px)` : '';
     if (adjusted >= TRIGGER_AT) indicator.classList.add('active');
     else indicator.classList.remove('active');
   }, { passive: true });
@@ -414,7 +473,10 @@ function setupPTR() {
   appShell.addEventListener('touchend', () => {
     if (!pulling || !activePage || isRefreshing) return;
     const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
-    if (adjusted >= TRIGGER_AT) {
+    if (adjusted >= TRIGGER_AT && typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref(null)) {
+      // 마이페이지 폼에 저장 안 한 변경 — 새로고침하면 사라지므로 먼저 묻는다(고른 뒤 새로고침)
+      reset();
+    } else if (adjusted >= TRIGGER_AT) {
       // 새로고침 실행 — 인디케이터를 임계 위치에 고정하고 회전 애니메이션
       isRefreshing = true;
       indicator.style.transform = `translate(-50%, 24px)`;
@@ -671,9 +733,13 @@ async function init() {
     // 문의 갈래 화면 새로고침 복원 — 응모 목록을 다시 받아 그린다
     if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
     else navigate('home', false);
-  } else if (hash === 'inquiry-general') {
-    // 일반 문의 대화 새로고침 복원 — 뒤로가기 목적지는 홈
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(hash)) {
+    // 서비스 문의 새 문의·대화 새로고침 복원 — 뒤로가기 목적지는 서비스 탭 목록
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(hash));
+    else navigate('home', false);
+  } else if (hash && hash.startsWith('faq-')) {
+    // 질문 페이지 새로고침 복원
+    if (typeof openFaqPage === 'function') openFaqPage(hash.replace('faq-', ''), false);
     else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
@@ -732,7 +798,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
-    : initHash === 'inquiry-general' ? 'messages'
+    : isInquiryGeneralHash(initHash) ? 'messages'
+    : initHash.startsWith('faq-') ? 'faq'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'

@@ -130,6 +130,8 @@ function updateNavMsgBadge() {
     if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
     else b.classList.add('hidden');
   });
+  // 햄버거 「お問い合わせ」 숫자는 서비스 + 캠페인 합계 — 캠페인 값이 바뀌었으니 다시 그린다(messaging.js)
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();
 }
 
 function navItemHtml(it) {
@@ -273,7 +275,7 @@ async function openNotifModal() {
   if (!m) return;
   m.setAttribute('aria-hidden', 'false');
   const body = $('notifModalBody');
-  if (body) body.innerHTML = '<div class="notif-empty">' + t('common.loading') + '</div>';
+  if (body) body.innerHTML = stateLoadingHtml();
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
@@ -281,7 +283,7 @@ async function openNotifModal() {
     renderNotifModal(items);
   } catch(e) {
     logAppError('openNotifModal', e);
-    if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
+    if (body) body.innerHTML = stateErrorHtml(t('authError.serverError'), 'openNotifModal');
   }
 }
 
@@ -295,7 +297,7 @@ function renderNotifModal(items) {
   const markBtn = $('notifMarkAllBtn');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="notif-empty">' + t('notif.emptyUnread') + '</div>';
+    body.innerHTML = stateEmptyHtml('notifications_none', '', t('notif.emptyUnread'));
     if (markBtn) markBtn.disabled = true;
     return;
   }
@@ -308,7 +310,7 @@ function renderNotifModal(items) {
     const rt = _notifRecruitTypeMap[n.ref_id];
     const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
     const rtBadge = rtLabel
-      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      ? `<div class="apply-item-kicker">${esc(rtLabel)}</div>`
       : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
@@ -335,8 +337,10 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   closeNotifModal();
   // 일반 문의 답장 알림 → 일반 문의 대화. ⚠️ 종류가 응모건과 같은 message_received 라
   //   **표 이름으로 먼저 가른다**(아래 분기로 새면 회원 id 를 응모 id 자리에 들고 가 엉뚱한 화면이 된다).
+  //   505 부터 ref_id = 대화 id → 그 대화. 그 전 알림은 ref_id = 회원 id → 서비스 탭 목록(경우의 수 #6 하위 호환)
   if (refTable === 'general_inquiry' && currentUser) {
-    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif');
+    if (refId && refId !== currentUser.id && typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif', undefined, refId);
+    else if (typeof openInquiryPage === 'function') openInquiryPage('notif');
     refreshNotifBadge();
     return;
   }

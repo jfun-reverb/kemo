@@ -137,6 +137,10 @@ function friendlyError(msg) {
   //   (「rule row missing」 같은 원문이 일반 규칙에 먼저 걸리면 엉뚱한 안내가 뜬다)
   if (s.includes('payout_bundle_required')) return '송금 기록 방식이 바뀌었습니다. 화면을 새로 고친 뒤 다시 기록해 주세요. [ERR_PAYOUT_BUNDLE_REQUIRED]';
   if (s.includes('paid_at_owned_by_transfer')) return '이 건의 송금일은 「송금 내역」에서 송금 단위로 고칩니다. [ERR_PAID_AT_OWNED_BY_TRANSFER]';
+  // 마이그레이션 514·515·517 — 송금별 요율. ⚠️ 바로 아래 fee_rule_invalid 보다 **먼저**(bundle_fee_rule_invalid 가 그 글자를 품고 있다)
+  if (s.includes('bundle_fee_rule_incomplete')) return '요율과 고정액을 함께 넣어 주세요. [ERR_BUNDLE_FEE_RULE_INCOMPLETE]';
+  if (s.includes('bundle_fee_rule_invalid')) return '이 송금 요율 값이 올바르지 않습니다(요율 0~100%, 고정액 0엔 이상). [ERR_BUNDLE_FEE_RULE_INVALID]';
+  if (s.includes('bundle_fee_conflict')) return '수수료 금액과 요율을 함께 보낼 수 없습니다 — 한쪽만 정해 주세요. [ERR_BUNDLE_FEE_CONFLICT]';
   if (s.includes('fee_rule_invalid')) return '수수료 규칙 값이 올바르지 않습니다(비율 0~100%, 고정액 0엔 이상). [ERR_FEE_RULE_INVALID]';
   if (s.includes('transfer_item_missing')) return '송금 묶음 연결이 맞지 않아 정정할 수 없습니다. 관리자에게 알려 주세요. [ERR_TRANSFER_ITEM_MISSING]';
   if (s.includes('nothing_to_correct')) return '고칠 항목을 하나 이상 입력해 주세요. [ERR_NOTHING_TO_CORRECT]';
@@ -176,6 +180,8 @@ function switchAdminPane(pane, el, pushHistory) {
   if (typeof closeRichImageMenu === 'function') closeRichImageMenu();
   if (typeof closeMiniEditorImagePopover === 'function') closeMiniEditorImagePopover();
   if (typeof closeMiniEditorLinkPopover === 'function') closeMiniEditorLinkPopover();
+  // 메시지 화면 「자주 묻는 질문」 참고 창도 화면 고정이라 다른 페인으로 가면 닫는다
+  if (pane !== 'messages' && typeof closeInboxFaqPanel === 'function') closeInboxFaqPanel();
   // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
   //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
   const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
@@ -1399,10 +1405,36 @@ async function refreshChannelDriftIndicators() {
 var _stalledDraftCount = null;
 
 async function refreshStalledDraftIndicators() {
-  const ids = (typeof fetchStalledDraftApplications === 'function')
-    ? await fetchStalledDraftApplications() : null;
-  _stalledDraftCount = ids ? ids.size : null;
+  const rows = await fetchActionableStalledDrafts();
+  _stalledDraftCount = rows ? new Set(rows.map(r => r.application_id)).size : null;
   applyStalledDraftIndicators();
+}
+
+// 「올려두고 제출 안 한 건」 중 **안내가 필요한 응모만**(2026-10-06 사용자 결정).
+//   = 승인된 응모 + 인증 상태가 「미제출」·「인증샷 제출중」 — 목록의 「올려만 둠」 딱지가 붙는 바로 그 조건이다
+//     (`certStatusBadge` 가 그 두 상태에만 딱지를 붙인다). 그래서 건수 = 딱지 붙은 행 수.
+//   빼는 것: 반려·취소된 응모(「검수 불필요」) · 이미 「인증성공」인데 쓰지 않은 임시저장만 남은 응모.
+//   ⚠️ 인증 상태는 목록과 **같은 함수**(`buildDeliverableGroups`·`computeCertStatus`)로 센다 — 사본을 만들지 않는다.
+//   🔴 실패는 null — 0건(`[]`)과 구분한다(0으로 그리면 「없다」로 읽힌다).
+async function fetchActionableStalledDrafts() {
+  if (typeof fetchStalledDraftDetails !== 'function') return null;
+  const rows = await fetchStalledDraftDetails();
+  if (rows === null) return null;
+  const approved = rows.filter(r => r.applications?.status === 'approved');
+  if (approved.length === 0) return [];
+  if (typeof buildDeliverableGroups !== 'function' || typeof computeCertStatus !== 'function') return approved;
+  const campIds = [...new Set(approved.map(r => r.campaign_id).filter(Boolean))];
+  const delivs = await fetchDeliverablesByCampaignIds(campIds);
+  if (delivs === null) return null;
+  const campMap = new Map();
+  delivs.forEach(d => { if (d.campaigns && d.campaign_id) campMap.set(d.campaign_id, d.campaigns); });
+  const apps = [...new Map(approved.map(r => [r.application_id, r.applications])).values()];
+  const groups = buildDeliverableGroups(delivs, campMap, { includeApps: apps });
+  return approved.filter(r => {
+    const g = groups.get(r.application_id);
+    const s = g ? computeCertStatus(g) : 'none';
+    return s === 'none' || s === 'submitting';
+  });
 }
 
 // 캐시된 값으로 표시만 다시 입힌다(재조회 없음).
@@ -1440,9 +1472,11 @@ function openStalledDraftModal() {
   body.innerHTML = `
     <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--ink)">
       <div style="padding:12px 14px;background:#FFE4EC;border-left:3px solid #B91C5C;border-radius:8px;margin-bottom:14px">
-        <b>${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
+        <b id="stalledDraftCountText">${typeof n === 'number' ? esc(String(n)) : '—'}건</b>이 <b>올려만 두고 제출되지 않은</b> 상태입니다.<br>
         본인 화면에는 남아 있지만 <b>운영팀에는 전달되지 않았습니다</b> — 검수 대상도, 인증 성공 판정 대상도 아닙니다.
       </div>
+      <b>해당 응모</b>
+      <div id="stalledDraftList" style="margin:6px 0 14px;color:var(--muted)">불러오는 중…</div>
       <b>어디서 보나</b>
       <div style="margin:6px 0 14px">
         결과물 관리 목록의 「인증 상태」 칸에 <span class="badge badge-pink" style="font-size:10px;padding:1px 6px">올려만 둠</span> 딱지가 붙습니다.<br>
@@ -1451,13 +1485,61 @@ function openStalledDraftModal() {
       <b>지금 할 수 있는 것</b>
       <div style="margin:6px 0 14px">
         관리자가 대신 제출해 주는 기능은 <b>아직 없습니다.</b> 본인이 활동관리 화면에서 「제출하기」를 눌러야 합니다.<br>
-        해당 인플루언서에게 <b>응모건 메시지</b>로 안내해 주세요 — 목록 각 행의 메시지 버튼으로 바로 보낼 수 있습니다.
+        위 목록의 「메시지」로 해당 인플루언서에게 <b>응모건 메시지</b>를 보내 안내해 주세요.
       </div>
       <div style="color:var(--muted);font-size:12px">
         인플루언서 화면에는 안내 줄과 「미제출」 표시가 이미 들어가 있어, 앞으로 생기는 건은 줄어들 것으로 봅니다.
       </div>
     </div>`;
   overlay.classList.add('open');
+  loadStalledDraftList();
+}
+
+// 「해당 응모」 목록 — 응모 1건 = 1줄(한 응모에 임시저장이 여럿이면 「올려둔 것」에 모아 적는다)
+//   ⚠️ 조회 실패는 「불러오지 못함」으로 말한다 — 빈 목록으로 그리면 「없다」로 읽힌다
+const STALLED_DRAFT_KIND_LABEL = { receipt: '영수증', review_image: '인증샷', post: '게시물' };
+async function loadStalledDraftList() {
+  const box = document.getElementById('stalledDraftList');
+  if (!box) return;
+  const rows = await fetchActionableStalledDrafts();
+  if (!document.getElementById('stalledDraftModal')?.classList.contains('open')) return;
+  if (rows === null) { box.textContent = '목록을 불러오지 못했습니다. 창을 닫았다가 다시 열어 주세요.'; return; }
+  const byApp = new Map();
+  rows.forEach(r => {
+    if (!r.application_id) return;
+    const g = byApp.get(r.application_id) || { appId: r.application_id, campaignId: r.campaign_id, camp: r.campaigns, inf: r.influencers, items: [], last: r.updated_at };
+    const label = (STALLED_DRAFT_KIND_LABEL[r.kind] || r.kind) + (r.post_channel ? '(' + getChannelLabel(r.post_channel, 'ko') + ')' : '');
+    if (!g.items.includes(label)) g.items.push(label);
+    if (r.updated_at && (!g.last || r.updated_at > g.last)) g.last = r.updated_at;
+    byApp.set(r.application_id, g);
+  });
+  const groups = [...byApp.values()];
+  // 건수를 목록과 맞춘다 — 창을 연 뒤 새로 생기거나 제출된 건이 있으면 위 숫자도 따라간다
+  const cnt = document.getElementById('stalledDraftCountText');
+  if (cnt) cnt.textContent = groups.length + '건';
+  // 열 제목 옆 경고 단추의 건수도 같은 값으로(창을 연 사이 바뀌었을 수 있다)
+  _stalledDraftCount = groups.length;
+  applyStalledDraftIndicators();
+  if (groups.length === 0) { box.textContent = '지금은 해당하는 응모가 없습니다.'; return; }
+  box.style.color = '';
+  box.innerHTML = `
+    <div class="admin-table-wrap" style="max-height:none">
+      <table class="data-table" style="font-size:12px">
+        <thead><tr><th>인플루언서</th><th>캠페인</th><th>올려둔 것</th><th>마지막 저장</th><th></th></tr></thead>
+        <tbody>${groups.map(g => {
+          const infName = g.inf ? (g.inf.name_kanji || g.inf.name || g.inf.email || '—') : '—';
+          const campTitle = g.camp ? (g.camp.title || '—') : '—';
+          const campNo = g.camp?.campaign_no ? `<div style="color:var(--muted);font-size:11px">${esc(g.camp.campaign_no)}</div>` : '';
+          return `<tr>
+            <td>${esc(infName)}</td>
+            <td>${esc(campTitle)}${campNo}</td>
+            <td>${esc(g.items.join(', '))}</td>
+            <td style="white-space:nowrap">${g.last ? esc(formatDateTime(g.last)) : '—'}</td>
+            <td><button type="button" class="btn btn-ghost btn-xs" onclick="closeStalledDraftModal();openAdminMessageModal('${esc(g.appId)}','${esc(g.campaignId || '')}')">메시지</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
 }
 
 function closeStalledDraftModal() {
