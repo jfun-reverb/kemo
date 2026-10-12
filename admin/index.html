@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791797525';
+  var CURRENT_BUILD = 'v1791799084';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-12 18:32 · c8de911</span>
+          <span class="admin-build-text">2026-10-12 18:58 · f05128b</span>
         </div>
       </div>
     </aside>
@@ -5302,6 +5302,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>기간</label>
                 <select id="errFilterDays" class="admin-filter" style="width:auto" onchange="loadClientErrors()">
                   <option value="">전체</option>
+                  <option value="0">오늘</option>
                   <option value="7">최근 7일</option>
                   <option value="30">최근 30일</option>
                 </select>
@@ -44593,7 +44594,9 @@ async function loadClientErrors() {
   else if (expected === 'expected') filters.expected = true;
   if (days) {
     const d = new Date();
-    d.setDate(d.getDate() - parseInt(days, 10));
+    // 「오늘」(0) = 이 PC 날짜의 0시부터 — 지금 시각에서 0일을 빼면 「지금 이후」가 되어 0건이 된다
+    if (days === '0') d.setHours(0, 0, 0, 0);
+    else d.setDate(d.getDate() - parseInt(days, 10));
     filters.since = d.toISOString();
   }
 

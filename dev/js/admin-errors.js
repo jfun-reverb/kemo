@@ -148,7 +148,9 @@ async function loadClientErrors() {
   else if (expected === 'expected') filters.expected = true;
   if (days) {
     const d = new Date();
-    d.setDate(d.getDate() - parseInt(days, 10));
+    // 「오늘」(0) = 이 PC 날짜의 0시부터 — 지금 시각에서 0일을 빼면 「지금 이후」가 되어 0건이 된다
+    if (days === '0') d.setHours(0, 0, 0, 0);
+    else d.setDate(d.getDate() - parseInt(days, 10));
     filters.since = d.toISOString();
   }
 
