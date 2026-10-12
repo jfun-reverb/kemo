@@ -131,9 +131,12 @@ const HOME_CAMP_LIMIT = 10;
 
 function updateStats(camps) {
   const visible = visibleCamps(camps);
-  $('statCampaigns').textContent = visible.length;
-  $('campCount').textContent = visible.length;
-  $('statBrands').textContent = [...new Set(camps.map(c=>brandLabelInflu(c)))].length;
+  // 칸이 없으면 건너뛴다 — 운영 1회(2026-10-02) 이 칸이 없어 여기서 멈추고 채널 필터까지 안 그려졌다
+  //   (확장 프로그램이 홈 상단을 지운 것으로 추정). 아래 buildChannelFilters 와 같은 방식
+  const statCampaigns = $('statCampaigns'); if (statCampaigns) statCampaigns.textContent = visible.length;
+  const campCount = $('campCount'); if (campCount) campCount.textContent = visible.length;
+  const statBrands = $('statBrands');
+  if (statBrands) statBrands.textContent = [...new Set(camps.map(c=>brandLabelInflu(c)))].length;
   buildChannelFilters(visible);
 }
 
