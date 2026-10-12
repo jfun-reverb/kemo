@@ -880,6 +880,7 @@ window.I18N_KO = {
     pwMin8: '비밀번호는 8자 이상이어야 합니다',
     pwNoMatch: '비밀번호가 일치하지 않습니다',
     signupFailed: '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요',
+    sessionNotAttached: '로그인 상태를 확인하지 못했습니다. 번거로우시겠지만 다시 로그인해 주세요.',
   },
 
   channelLabel: {
