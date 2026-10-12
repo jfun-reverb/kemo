@@ -907,6 +907,7 @@ window.I18N_KO = {
     signupFailed: '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요',
     emailTypoVerify: '이메일 주소의 「@」 뒤가 「{typed}」로 되어 있습니다. 「{suggest}」 아닌가요? 틀리지 않았다면 「인증하기」를 한 번 더 눌러 주세요',
     alreadyRegisteredHint: '이미 가입하셨다면 로그인 화면의 「비밀번호를 잊으셨나요?」에서 진행해 주세요.',
+    sessionNotAttached: '로그인 상태를 확인하지 못했습니다. 번거로우시겠지만 다시 로그인해 주세요.',
   },
 
   channelLabel: {

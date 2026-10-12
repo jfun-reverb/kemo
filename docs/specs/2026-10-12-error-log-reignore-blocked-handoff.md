@@ -74,3 +74,8 @@
 - 표 구조·수집 함수(308)는 그대로(안 B 는 그 함수의 `ON CONFLICT` 를 함께 바꿔야 해서 택하지 않음).
 - 화면(`admin-errors.js`) 변경 없음 — 실패 자체가 없어져 실패 문구 구분은 하지 않았다.
 - ⚠️ 「함께 본 것」의 지문 충돌(`fp150i8sz` 메모의 `fetchCampaigns`)은 확인하지 않았다 — 합치기는 같은 지문이면 다른 오류여도 한 행으로 모은다(재발 기록이 원래도 같은 지문으로 쌓이던 것과 같은 성질).
+
+### 추가 ①·② 구현 결과 (2026-10-12 · 개발 세션)
+- **① 로그인 직후 프로필 삽입**(`dev/js/auth.js` `handleLogin`): 프로필 조회가 오류 없이 0건이면 삽입 전에 `db.auth.getSession()` 의 접근 토큰을 본다. 없으면 삽입하지 않고 `handleLogin.sessionNotAttached` 로 기록 → 이 기기의 로그인 정보만 지우고(`signOut({scope:'local'})`) 로그인 화면에 「다시 로그인」 안내(`authError.sessionNotAttached`, ja·ko). 토큰이 있으면 종전대로 삽입. 주석의 「401 이 0건으로 읽혀」는 「조회는 200·빈 결과, 401 은 삽입」으로 고쳤다. 세션이 안 붙는 원인은 이번 범위 밖(그대로).
+- **② `updateStats`**(`dev/js/campaign.js`): 세 칸에 존재 확인(`buildChannelFilters` 와 같은 방식).
+- **③** 조치 없음(위 판단 그대로).
