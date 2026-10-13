@@ -366,9 +366,10 @@
 
 ### 사용자 앱 에러 수집 (마이그레이션 165)
 > 인플루언서 앱 에러를 관리자가 모아 본다(실시간 아님). 개인정보 마스킹 필수.
-- `client_error_logs` — fingerprint 묶음. `fingerprint`+`status`(open/resolved/ignored) UNIQUE, 같은 에러는 `occurrence_count` 누적. `source`(influencer/admin)·`kind`(unhandled/rejection/handled)·`message`/`stack`/`page_hash`(마스킹)·`error_code`·`user_id`(influencers FK, anon 은 NULL)·`first/last_seen_at`·`resolved_by/at/note`. RLS SELECT `is_admin()` 만, 쓰기는 RPC 경유
+- `client_error_logs` — fingerprint 묶음. `fingerprint`+`status`(open/resolved/ignored) UNIQUE, 같은 에러는 `occurrence_count` 누적. `source`(influencer/admin)·`kind`(unhandled/rejection/handled)·`message`/`stack`/`page_hash`(마스킹)·`error_code`·`user_id`(influencers FK, anon 은 NULL · 둘 다 처음 발생 3개월 뒤 비움 — 아래 「보관 3개월」)·`first/last_seen_at`·`resolved_by/at/note`. RLS SELECT `is_admin()` 만, 쓰기는 RPC 경유
 - `report_client_error(...)` RPC — SECURITY DEFINER, **anon+authenticated**. 빈값·범위·길이 가드 + **서버측 2차 마스킹**(이메일·전화·우편번호 `\d{3}-\d{4}`·Bearer 토큰·PostgreSQL `(col)=(val)`) + open fingerprint UPSERT
 - `resolve_client_error(id, status, note)` RPC(현재 원본 **518**, 베이스 165) — `is_admin()` 가드(open 되돌리기 시 resolved_* 초기화). 🔴 표가 `UNIQUE(fingerprint, status)` 라 재발한 오류를 다시 무시·해결·되돌릴 때 **같은 지문·같은 목표 상태 행으로 합친다**(횟수 합·처음/마지막 발생·최근 원문, 지금 행 삭제). 제약을 좁히는 방법은 쓰지 않았다 — 수집 함수(308)의 `ON CONFLICT (fingerprint, status)` 가 그 제약에 기대고, 비로그인 수집 경로라 틀리면 조용히 멈춘다
+- **보관 3개월**(519): `purge_old_client_error_identity()` 가 매일(도쿄 03:30, `client-error-logs-identity-retention-daily`) **처음 발생 3개월 지난 행의 `user_agent`·`user_id` 만** 비운다(행·문구는 남김) — 개인정보처리방침 「자동 수집 3개월」. 🔴 기준이 `first_seen_at` 인 이유는 308 이 두 칸을 첫 발생 값으로 두기 때문 — 수집 함수가 `user_agent` 를 최근 값으로 갱신하게 바뀌면 이 함수도 `user_agent` 만 `last_seen_at` 기준으로 갈라야 한다
 - 클라: `dev/js/error-report.js`(`window.onerror`·`unhandledrejection` + `friendlyErrorJa` 훅 + 1차 마스킹·노이즈필터·60초 디바운스·throw 안 함), `storage.js` `reportClientError()`. 사양서 `docs/specs/2026-06-02-client-error-reporting.md`
 
 ### RLS·인증·세션
