@@ -140,4 +140,24 @@
 2. (결정됨 2026-10-13) 오류 로그 보관 기간은 방침 3개월에 맞춘다 — 519 로 적용 완료. 이 사양에서는 그 함수 기준만 함께 고친다(설계 ②)
 
 ## 구현 결과
-(개발 세션이 채울 것)
+**구현일:** 2026-10-13 · **작업표:** `docs/specs/2026-10-12-error-log-env-distribution-breakdown.md` · **반영:** 코드 작성·리뷰 완료, 개발서버 데이터베이스 적용 전
+
+### 만든 것
+- 마이그레이션 **521**(`client_error_daily` + `_client_error_env_label`) → **522**(도입일 표 `client_error_daily_settings` · `client_error_logs.identity_at` · `get_client_error_counts(p_from, p_to)` · `report_client_error`(베이스 308) · `resolve_client_error`(베이스 518) · `purge_old_client_error_identity`(베이스 519) 재정의, 한 트랜잭션). 분류 이름 목록은 521 머리말
+- 화면: `error-report.js`(지문 a/b/c — 우리 사이트 주소식 `OUR_SITE_RE` 를 잡음 규칙과 공유) · `storage.js` `fetchClientErrorCounts`(실패 `null`) + `fetchClientErrors` 기간 조건 제거 · `admin-errors.js` 목록·상세 · `dev/admin/index.html` 「직접 선택」 날짜 칸·횟수 머리글·도입일 안내 줄
+
+### 초안 대비 달라진 것 (선결 결정 — 사용자 2026-10-13)
+- **탈퇴 확정 판정**: 사양서의 「358 `login_blocked` 판정 함수」는 함수가 아니라 `get_my_withdrawal_state()` 반환 칸이었다 → 같은 뜻(`withdrawal_requests.status = 'done'`)을 수집 함수에 적었다. 예정일 경과까지 포함하는 `_withdrawal_account_blocked()` 는 쓰지 않는다(그 구간 회원은 탈퇴를 취소할 수 있다)
+- **도입일 표에 관리자 조회 정책을 둔다**(사양서는 정책 없음) — 같은 화면의 「못 읽는 표」 감지에 걸리지 않게
+- **「직접 선택」은 달력 한 칸 범위 선택**(결과물 관리 「최근 제출일」과 같은 방식). 경우의 수 ⑦ 의 「시작만 비움 / 끝만 비움」은 이 모양에서 성립하지 않아 규칙을 바꿨다: **두 날짜 = 그 기간 · 한 날짜 = 그 하루 · 비움 = 「전체」**
+- 기간 계산은 공용 `jstTodayStr()` + 화면 안 문자열 연산(`_visitDateTodayKst` 는 대시보드 전용이라 쓰지 않음)
+
+### 구현 중 기술 결정
+- 수집 함수의 날짜별 +1 은 부모 줄을 쓴 **뒤** 같은 트랜잭션에서, 실패해도 수집은 살리도록 예외 블록으로 감쌌다(그 1회는 「도입 이전」에 섞인다)
+- `user_id` 외래 키 방어 — `influencers` 에 행이 없는 로그인 계정이면 회원 아이디만 비운다. 탈퇴 판정이 예외를 내면 쌍을 비운다
+- `identity_at` 은 기존 줄을 `first_seen_at` 으로 채운 뒤 기본값 `now()` + 「비지 않음」 — 파기에서 영원히 빠지는 줄이 없게
+- 레퍼런스 문서(`CLAUDE.md` 오류 수집 절 · `.claude/rules/admin-tools.md`)의 「처음 발생 3개월」·「`user_agent` 만 `last_seen_at`」 서술을 고쳐 썼다(519 파일 머리말의 그 제안은 폐기 — 522 머리말에 명시)
+
+### 남은 것
+개발서버 적용(521 → 522) · 검증(작업표 V1) · 운영(P1) · Notion(N1) · 운영 1주 뒤 옛 줄 정리(H1, 사람)
+
