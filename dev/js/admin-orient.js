@@ -1217,7 +1217,7 @@ function osQuotePayload(s, historyIndex) {
       issued: { form_type: (d.issued && d.issued.form_type) || q.form_type || '', channel: (d.issued && d.issued.channel) || q.channel || '' },
     },
     // 지난 판은 무엇이 그때 값이고 무엇이 지금 값인지 밝힌다 — 뭉뚱그리면 브랜드에게 보내도 되는지 판단을 못 한다
-    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·판매 URL·수신처는 지금 저장된 값입니다.` : '',
+    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·Qoo10 상품 주소·수신처는 지금 저장된 값입니다.` : '',
   };
 }
 let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
@@ -1326,7 +1326,7 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
-    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
+    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('Qoo10 상품 주소', osLinkOrText(sale.url), true)
       + osField('판매가', sale.price_regular);
   }
   if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
