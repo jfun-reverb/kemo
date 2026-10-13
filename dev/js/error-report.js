@@ -102,21 +102,53 @@
     return 'fp' + (h >>> 0).toString(36);
   }
 
-  // fingerprint: 메시지 정규화(숫자·UUID 제거) + 스택 첫 위치 + 맥락(어느 기능인지)
-  //   ⚠️ 맥락을 넣는 이유 — 데이터 접근 계층이 오류를 「예외」가 아니라 「문자열 반환값」으로
-  //      넘기는 자리가 많다. 그런 값은 스택이 비어 있어, 서로 다른 기능에서 난 같은 문구가
-  //      한 행으로 뭉친다(어디서 났는지 영영 알 수 없음). 맥락이 그 자리를 대신한다.
-  //   ⚠️ 맥락이 없으면 계산식이 종전과 완전히 동일하다 — 기존에 쌓인 행과 계속 합쳐진다.
+  // 우리 사이트 코드를 가리키는 스택 줄인지 — 지문(b 갈래)과 잡음 2층 규칙이 **함께 쓴다**(사본 금지)
+  const OUR_SITE_RE = /globalreverb\.com|index\.html/i;
+
+  // 스택 한 줄에서 함수 이름만 꺼낸다. 이름이 없으면(익명) '' .
+  //   크롬·엣지 `    at async Object.updateStats (https://…:1:2)` → `updateStats`
+  //   사파리·파이어폭스 `async*updateStats@https://…:1:2` → `updateStats`
+  //   익명 `    at https://…` · `@https://…` · `global code@…` · `<anonymous>` → ''
+  function _frameFnName(line) {
+    let name = '';
+    const chrome = line.match(/^\s*at\s+(.+?)\s+\(/);     // 「at 이름 (주소)」 — 이름 없는 줄은 괄호가 없다
+    if (chrome) name = chrome[1];
+    else if (line.includes('@')) name = line.slice(0, line.indexOf('@'));
+    name = name.trim()
+      .replace(/^async[\s*]+/, '')                           // 크롬 `async ` · 파이어폭스 `async*`
+      .replace(/^new\s+/, '');
+    if (!name || /<anonymous>|^(global|eval|module) code$/.test(name)) return '';
+    const dot = name.lastIndexOf('.');                         // `Object.` · `HTMLButtonElement.` 같은 소유자 접두어
+    if (dot >= 0) name = name.slice(dot + 1);
+    return /^[A-Za-z_$][\w$]*$/.test(name) ? name : '';
+  }
+
+  // fingerprint — 사양서 2026-10-12-error-log-env-distribution 설계 ①
+  //   a. 맥락이 있음 → 문구 + 맥락 (스택은 보지 않는다 — 브라우저·경로에 따라 우리 줄이 있다 없다 해서 갈린다)
+  //   b. 맥락 없음 + 우리 사이트 줄 중 **첫 줄**이 이름 있는 함수 → 문구 + 그 함수 이름
+  //      (크롬·사파리 스택 모양이 달라도 같은 지문이 된다)
+  //   c. 그 밖 → **종전 계산 그대로**(스택 둘째 줄) — 기존에 쌓인 행과 계속 합쳐진다
+  //   ⚠️ 맥락을 넣는 이유 — 데이터 접근 계층이 오류를 「문자열 반환값」으로 넘기는 자리가 많아
+  //      스택이 비어 있다. 맥락이 어느 기능인지를 대신한다.
+  //   🔴 b 는 **빌드가 함수 이름을 그대로 둔다**는 전제다(dev/build.sh 는 이어붙이기만 한다).
+  //      압축(난독화)을 도입하면 배포마다 이름이 바뀌어 같은 오류가 매번 새 줄로 갈린다.
   function _fingerprint(msg, stack, context) {
     const norm = (msg || '')
       .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '#uuid#')
       .replace(/\d+/g, '#')
       .slice(0, 200);
-    const loc = ((stack || '').split('\n')[1] || '')
+    if (context) {
+      return _hash(norm + '|' + context);
+    }
+    const lines = (stack || '').split('\n');
+    const ours = lines.find((l) => OUR_SITE_RE.test(l) && (/^\s*at\s/.test(l) || l.includes('@')));
+    const fn = ours ? _frameFnName(ours) : '';
+    if (fn) return _hash(norm + '|fn:' + fn);
+    const loc = (lines[1] || '')
       .replace(/:\d+:\d+/g, '')
       .replace(/\d+/g, '#')
       .slice(0, 120);
-    return _hash(norm + '|' + loc + (context ? '|' + context : ''));
+    return _hash(norm + '|' + loc);
   }
 
   function _isNoise(msg, stack, kind) {
@@ -134,7 +166,7 @@
     //      「스택은 있는데 그 안에 우리 파일이 없다」일 때만 잡음으로 본다.
     if (kind === 'unhandled' || kind === 'rejection') {
       const st = String(stack || '').trim();
-      if (st && !/globalreverb\.com|index\.html/i.test(st)) return true;
+      if (st && !OUR_SITE_RE.test(st)) return true;
     }
     return false;
   }

@@ -5491,7 +5491,7 @@ async function fetchClientErrors(filters = {}) {
       let q = db.from('client_error_logs').select('*');
       if (filters.status) q = q.eq('status', filters.status);
       if (filters.source) q = q.eq('source', filters.source);
-      if (filters.since)  q = q.gte('last_seen_at', filters.since);
+      // ⚠️ 기간으로 줄을 고르지 않는다 — 기간 횟수는 날짜별 표가 정한다(fetchClientErrorCounts)
       // 마이그레이션 308 — 「미리 정의된 업무 거부」(마감 지남·정원 초과 등)를 갈라 본다.
       //   ⚠️ true/false 를 명시적으로 비교한다. `if (filters.expected)` 로 쓰면 false 가
       //      「필터 없음」으로 읽혀 「예상 못 한 오류만」 보기가 통째로 죽는다.
@@ -5501,6 +5501,23 @@ async function fetchClientErrors(filters = {}) {
       return q.order('last_seen_at', { ascending: false }).order('id');
     });
   } catch (e) { console.error('[fetchClientErrors]', e); return []; }
+}
+
+// 기간별 횟수·발생 환경 — get_client_error_counts (마이그레이션 522)
+//   from·to = 일본 표준시 날짜 'YYYY-MM-DD'. 빈 값이면 하한 없음 / 오늘까지.
+//   🔴 호출 실패 null · 성공 {introduced_on, rows}(기간에 0건이면 rows: []) — 실패를 0 으로 그리지 않는다
+async function fetchClientErrorCounts(from, to) {
+  if (!db) return null;
+  try {
+    let out = null;
+    await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('get_client_error_counts', { p_from: from || null, p_to: to || null });
+      if (error) throw error;
+      out = data;
+    });
+    if (!out || !Array.isArray(out.rows)) return null;
+    return out;
+  } catch (e) { console.error('[fetchClientErrorCounts]', e); return null; }
 }
 
 // 미해결(open) 오류 건수 — 사이드바 배지용
