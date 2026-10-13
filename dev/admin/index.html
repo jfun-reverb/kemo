@@ -2136,7 +2136,12 @@
                   <option value="0">오늘</option>
                   <option value="7">최근 7일</option>
                   <option value="30">최근 30일</option>
+                  <option value="custom">직접 선택</option>
                 </select>
+              </div>
+              <div class="admin-filter-group" id="errRangeGroup" style="display:none">
+                <label>날짜</label>
+                <input type="text" id="errFilterRange" class="admin-filter-search" readonly placeholder="기간 선택" title="두 날짜를 고르면 그 기간, 한 날짜만 고르면 그 하루입니다(일본 날짜 기준)." style="min-width:170px;cursor:pointer;background:#fff;padding:6px 10px">
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
@@ -2151,9 +2156,10 @@
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">오류 목록</span><span id="errTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
+            <div id="errPeriodNotice" style="display:none;font-size:12px;color:var(--muted);background:var(--surface-dim);padding:8px 12px;margin:0 16px 8px;border-radius:6px"></div>
             <div class="admin-table-wrap">
               <table class="data-table">
-                <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
+                <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th id="errCountHeader" style="width:90px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
                 <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
