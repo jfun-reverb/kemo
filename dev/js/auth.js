@@ -566,11 +566,28 @@ async function handleLogin(e) {
     } else {
       const {data:profile, error:profileErr} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile || null;
-      // 🔴 조회 실패와 0건을 가른다 — 2026-09-10 운영에서 로그인 직후 조회가 비로그인으로 나가
-      //    401 이 「0건」으로 읽혀 삽입까지 갔다(조사 문서 2026-09-10-signup-confirm-link-misrouted-to-reset).
-      //    실패면 삽입하지 않고 기록만 남긴 채 진행한다(정상 거부 아님 — 오류 로그 배지에 뜬다, 의도).
+      // 🔴 조회 실패와 0건을 가른다 — 실패면 삽입하지 않고 기록만 남긴 채 진행한다
+      //    (정상 거부 아님 — 오류 로그 배지에 뜬다, 의도).
+      // 🔴 0건이라도 바로 삽입하지 않는다 — 2026-09-10·09-13 운영에서 로그인 직후 요청이 비로그인으로 나가
+      //    조회는 「200 · 빈 결과」(행 보안 정책은 오류가 아니라 0건을 준다)였고 401 은 **삽입** 쪽에서 났다
+      //    (조사 문서 2026-09-10-signup-confirm-link-misrouted-to-reset · 인수인계 2026-10-12-error-log-reignore-blocked-handoff ①).
+      //    요청은 getSession() 의 접근 토큰으로 나가므로, 그것이 없으면 0건은 「프로필 없음」이 아니다.
+      let sessionAttached = true;
+      if (!profileErr && !profile) {
+        const {data: sess} = await db.auth.getSession();
+        // 다른 계정 세션이 남아 있는 경우도 「안 붙음」으로 본다
+        sessionAttached = !!sess?.session?.access_token && sess.session.user?.id === data.user.id;
+      }
       if (profileErr) {
         logAppError('handleLogin.profileFetch', profileErr);
+      } else if (!profile && !sessionAttached) {
+        // 세션이 왜 안 붙는지(기기 저장소 가설)는 기기 없이 확정 불가 — 기록하고 다시 로그인하게 한다
+        logAppError('handleLogin.sessionNotAttached', new Error('session not attached after signInWithPassword'));
+        currentUser = null; currentUserProfile = null;
+        try { await db.auth.signOut({scope: 'local'}); } catch(_) {}
+        updateGnb();
+        errEl.textContent = t('authError.sessionNotAttached'); errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = t('auth.login.btn'); return;
       } else if (!profile) {
       // 프로필이 없으면 기본 프로필 생성 (회원가입 시 RLS로 실패한 경우)
         try {
