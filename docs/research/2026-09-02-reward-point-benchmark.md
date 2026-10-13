@@ -16,7 +16,7 @@
 | | 최소 출금·교환 | 유효기간 | 수수료 | 지급 주기 |
 |---|---|---|---|---|
 | **wasabi10**(경쟁사) | **미공개** — 약관은 「회사가 정한 최소 리워드 이상」이라고만 | **5년**(출금·교환 이력 없으면 소멸) · 🔴 **탈퇴 시 즉시 소멸·환급 불가** | PayPal 송금 수수료·환율 변동 **이용자 부담 가능** · 기프트카드 교환 **3%** | 확인 불가 |
-| **ファンくる(팬쿠루)**(모니터, 회원 130만) | **5,000P = 500엔** | 🔴 **180일**(획득일 기준). **만료 통지 없음** | ファンくる→교환처는 무료. 그 뒤 현금화에서 유료 가능 | 즉일~7영업일 |
+| **ファンくる(팬쿠루)**(모니터, 회원 130만) | **5,000P = 500엔** | 🔴 **180일**(획득일 기준). **만료 통지 없음** | ファンくる(팬쿠루)→교환처는 무료. 그 뒤 현금화에서 유료 가능 | 즉일~7영업일 |
 | **モッピー(모피)**(포인트사이트, 회원 1,200만) | **300엔** | **180일간 「포인트 획득」이 없으면** 실효(로그인만으로는 연장 안 됨) | 0~165P | 실시간~7영업일 |
 | **ハピタス(하피타스)**(포인트사이트) | **300엔** | **180일간 획득 또는 로그인이 없으면** 실효 | 대부분 무료 | 즉시~7영업일 |
 
@@ -104,8 +104,8 @@ wasabi10·요즘스타 모두 **탈퇴 시 잔액 즉시 소멸·환급 불가**
 
 ## 출처
 
-- [ファンくる(팬쿠루) ポイント交換(포인트 교환)](https://fankuru250512.com/fankuru-point-exchange-recommendations/) · [ファンくる 検証記事(검증 기사)](https://pointactivity-maestro.com/fancrew-review/) — 5,000P·180일·통지 없음
-- [モッピー(모피) 解説(해설)](https://www.moneymore.jp/point-site/moppy/) · [モッピー vs ハピタス(하피타스)](https://www.moneymore.jp/point-site/moppy-vs-hapitas/) — 300엔·180일 실효 조건 차이
+- [ファンくる(팬쿠루) ポイント交換(포인트 교환)](https://fankuru250512.com/fankuru-point-exchange-recommendations/) · [ファンくる(팬쿠루) 検証記事(검증 기사)](https://pointactivity-maestro.com/fancrew-review/) — 5,000P·180일·통지 없음
+- [モッピー(모피) 解説(해설)](https://www.moneymore.jp/point-site/moppy/) · [モッピー(모피) vs ハピタス(하피타스)](https://www.moneymore.jp/point-site/moppy-vs-hapitas/) — 300엔·180일 실효 조건 차이
 - [케이뱅크·레뷰 제휴](https://www.asiaa.co.kr/news/articleView.html?idxno=160371) — 레뷰 1만P·건당 500원·케이뱅크 5천P
 - [요즘스타 이용약관](https://nowstar.co.kr/policy/service) — 5,000P·3년·탈퇴 시 소멸·3.3%
 - [블로그랩 포인트 안내](https://bloglab.kr/page.php?pg_code=pointivew) — 5,000P·매주 월요일
