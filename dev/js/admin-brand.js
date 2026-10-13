@@ -1792,7 +1792,7 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + ta('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점', 3)
         + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'
-          + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url, 'https://www.qoo10.jp/...')
+          + input('brandFormQoo10Url', 'Qoo10 상품 주소', b.official_qoo10_url, 'https://www.qoo10.jp/...')
           + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'

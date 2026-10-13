@@ -1750,7 +1750,7 @@ function cardHtml(id, card) {
         <div class="only-rp">
           <div class="field"><label>판매처</label>
             <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
-          <div class="field"><label>판매 URL<span class="req">*</span></label>
+          <div class="field"><label>Qoo10 상품 주소<span class="req">*</span></label>
             <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
             <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
           <div class="field"><label>판매가<span class="req">*</span></label>
@@ -1908,7 +1908,7 @@ function cardHtmlNew(id, card) {
           <div class="row-sale">
             <div class="field"><label>판매처</label>
               <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
-            <div class="field"><label>판매 URL<span class="req">*</span></label>
+            <div class="field"><label>Qoo10 상품 주소<span class="req">*</span></label>
               <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
               <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div>
               <div class="field-hint f-lookup-hint" style="display:none"></div></div>
@@ -2869,7 +2869,7 @@ function findInvalidField(mode) {
     if (!el) return { message: '화면을 새로고침해 주세요.', card: null, target: null };
     const c = collectCard(el);
     if (!c.product.name) return { message: '제품명을 입력해 주세요.', card: el, target: el.querySelector('.f-product-name') };
-    if (!c.sale.url) return { message: '판매 URL을 입력해 주세요.', card: el, target: el.querySelector('.f-sale-url') };
+    if (!c.sale.url) return { message: 'Qoo10 상품 주소를 입력해 주세요.', card: el, target: el.querySelector('.f-sale-url') };
     if (!c.sale.price_regular) return { message: '판매가를 입력해 주세요.', card: el, target: el.querySelector('.f-price-regular') };
     // [2026-09-16 §4-1] 구간·인원 — **세 경로 모두**에서 막는다(없으면 견적 계산 자체가 안 된다)
     //   ⚠️ 인원이 빈 채 구간만 남은 시트(옛 「직접 입력」 칸을 비워 둔 임시저장)도 여기서 걸린다 — 단추를 다시 누르면 채워진다
@@ -2909,7 +2909,7 @@ function findInvalidField(mode) {
     if (!c.product.name)
       return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
     if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.url)
-      return { message: `${n}번째 카드의 판매 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
+      return { message: `${n}번째 카드의 Qoo10 상품 주소를 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
     if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.price_regular)
       return { message: `${n}번째 카드의 판매가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
     // URL을 입력하고 「확인」을 누르지 않아 값이 저장되지 않은 행 방지
@@ -3091,7 +3091,7 @@ function renderPreviewCardNew(c, idx) {
   if (ft === 'seeding') rows += pvRow('게시 채널', CHANNEL_LABEL[ch] || ch);
   rows += pvRow('제품명', c.product.name);
   rows += pvRow('판매처', c.sale.market || 'Qoo10');
-  rows += pvRow('판매 URL', c.sale.url);
+  rows += pvRow('Qoo10 상품 주소', c.sale.url);
   rows += pvRow('판매가', c.sale.price_regular);
   if (ft === 'reviewer') rows += pvRow('배송비', c.sale.shipping_fee || '0 (별도 배송비 없음)');
   // [2026-09-16] 고른 구간 이름·추가 옵션·구매 가이드를 확인 화면에도 보여 준다 —
@@ -3136,7 +3136,7 @@ function renderPreviewCard(c, idx) {
   rows += pvRow('제품명', c.product.name);
   if (ft === 'reviewer' || ft === 'proxy_purchase' || ft === 'seeding') {
     rows += pvRow('판매처', c.sale.market || 'Qoo10');
-    rows += pvRow('판매 URL', c.sale.url);
+    rows += pvRow('Qoo10 상품 주소', c.sale.url);
     rows += pvRow('판매가', c.sale.price_regular);
   }
   rows += pvRow('카테고리', categoryLabel(c.product.category));
@@ -3438,7 +3438,7 @@ function renderQuoteDoc(q, data) {
     </div>
     <table class="quote-table">
       <tr><th style="width:96px">제품</th><td colspan="3">${escAttr((c.product && c.product.name) || '')}</td></tr>
-      <tr><th>판매 URL</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
+      <tr><th>Qoo10 상품 주소</th><td colspan="3" style="word-break:break-all">${escAttr((c.sale && c.sale.url) || '')}</td></tr>
       <tr><th>모집 형식</th><td colspan="3">${escAttr(ftLabel)}${chLabel ? ' · ' + escAttr(chLabel) : ''}</td></tr>
       <tr><th>모집 인원</th><td colspan="3">${escAttr(String(q.slots || ''))}건</td></tr>
     </table>
