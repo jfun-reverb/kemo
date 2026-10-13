@@ -182,8 +182,14 @@ function _setupErrRange() {
       el.classList.toggle('filter-active', !!_errRangeFrom);
       if (sel.length === 0 || sel.length === 2) loadClientErrors();
     },
-    onClose: function(sel) {
-      if (sel.length === 1) { _errRangeTo = _errRangeFrom; loadClientErrors(); }
+    onClose: function(sel, _str, inst) {
+      if (sel.length !== 1) return;
+      _errRangeTo = _errRangeFrom;
+      // ⚠️ 범위 달력은 닫힐 때 반쯤 고른 날짜를 스스로 지운다(칸이 빈칸으로 보인다) —
+      //    그 뒤에 같은 날을 시작·끝으로 다시 채워, 고른 날이 칸에 남게 한다(이벤트 없이)
+      const day = sel[0];
+      setTimeout(() => { if (_errRangeFrom) inst.setDate([day, day], false); }, 0);
+      loadClientErrors();
     }
   });
 }
