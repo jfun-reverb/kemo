@@ -2675,3 +2675,28 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #adminPane-settlements .btn.btn-sm{height:32px!important;padding:0 12px!important;font-size:13px!important;line-height:1;gap:4px}
 #adminPane-settlements .btn.btn-xs{height:28px!important;padding:0 10px!important;font-size:12px!important;line-height:1}
 #adminPane-settlements .btn .material-icons-round{font-size:16px!important;vertical-align:middle}
+/* ── 브랜드 상세 「브랜드 로그인 계정」 줄(브랜드 로그인 조각 10 — 개발서버에서만 그려진다) ──
+   담당자 표 바로 아래 한 줄. 상태 칩 색: 없음=회색 · 메일 대기=주황 · 메일 보냄=파랑 · 설정 완료=초록 · 확인 불가=빨강 */
+.brand-account-row{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#FAFAFA;font-size:12px;color:var(--ink)}
+.brand-account-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.brand-account-label{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.brand-account-label .material-icons-round{font-size:16px;color:var(--muted)}
+.brand-account-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#F0F0F0;color:#555}
+.brand-account-chip.is-pending{background:#FFF4E5;color:#B45309}
+.brand-account-chip.is-sent{background:#E8F0FE;color:#1D4ED8}
+.brand-account-chip.is-active{background:#E8F5E9;color:#2E7D32}
+.brand-account-chip.is-error{background:#FDECEA;color:#B3261E}
+.brand-account-email{font-variant-numeric:tabular-nums;word-break:break-all}
+.brand-account-muted{color:var(--muted)}
+.brand-account-main .btn{margin-left:auto}
+.brand-account-note{margin-top:6px;font-size:11px;color:var(--muted);line-height:1.5}
+.brand-account-note.is-warn{color:#B45309}
+.brand-account-notice{margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;line-height:1.5;background:#F0F0F0;color:var(--ink)}
+.brand-account-notice.is-success{background:#E8F5E9;color:#1B5E20}
+.brand-account-notice.is-warning{background:#FFF4E5;color:#8A4B00}
+.brand-account-notice.is-error{background:#FDECEA;color:#8C1D18}
+.brand-account-devlink{margin-top:8px;padding:8px 10px;border:1px dashed #F59E0B;border-radius:6px;background:#FFFBEB}
+.brand-account-devlink-title{display:flex;align-items:center;gap:4px;font-weight:700;color:#B45309;margin-bottom:6px}
+.brand-account-devlink-title .material-icons-round{font-size:15px}
+.brand-account-devlink-field{display:flex;gap:6px;align-items:center}
+.brand-account-devlink-field input{flex:1;min-width:0;font-size:12px}

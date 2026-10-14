@@ -549,9 +549,19 @@ async function init() {
       currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
       // 조회 실패(null+error)와 0건을 가른다 — 실패는 기록만(handleLogin 과 같은 원칙, 여기엔 삽입이 원래 없다)
-      const {data:profile, error:profileErr} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
-      if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
-      currentUserProfile = profile || null;
+      // 브랜드 계정 판정(조각 9)은 프로필 조회와 **동시에** 묻는다 — 부팅을 한 번 더 기다리게 하지 않는다.
+      //   운영 주소에서는 서버를 안 부르고 바로 'other'(storage.js). 🔴 null(판정 실패)은 아무것도 하지 않는다.
+      const [{data:profile, error:profileErr}, accountKind] = await Promise.all([
+        db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+        typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+      ]);
+      if (accountKind === 'brand') {
+        // 다른 경로(예: admin-setpw.html?mode=login)로 남은 브랜드 계정 세션 — 로그아웃 상태로 시작한다
+        await signOutBrandAccountSession();
+      } else {
+        if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
+        currentUserProfile = profile || null;
+      }
     }
   }
   updateGnb();
@@ -616,7 +626,28 @@ async function init() {
             currentUser._isAdmin = true;
             currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
           } else {
-            const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+            // 브랜드 계정 판정(조각 9) — 프로필 조회와 동시에.
+            //   로그인 화면이 판정 중(_handleLoginBusy)이어도 여기서 **판정은 한다** — 안 하면 브랜드 계정에게 알림 폴링·
+            //   약관 안내 창·초대 복귀가 먼저 돌아 버린다(supabase-expert 검토 2026-10-14). 다만 그때 **로그아웃은 로그인
+            //   화면에 맡긴다** — 같은 실패 문구를 보여 줘야 하고, 여기서 먼저 로그아웃하면 그쪽 판정이 실패(null)로 떨어진다.
+            const loginScreenBusy = typeof _handleLoginBusy !== 'undefined' && _handleLoginBusy;
+            const [{data:profile}, accountKind] = await Promise.all([
+              db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+              typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+            ]);
+            if (accountKind === 'brand') {
+              if (loginScreenBusy) {
+                // 로그인 화면이 곧 로그아웃·실패 문구를 띄운다 — 여기서는 화면 상태만 비우고 부수 동작 없이 끝낸다
+                currentUser = null;
+                currentUserProfile = null;
+                return;
+              }
+              // ⚠️ 기다리지 않는다 — 이 처리기 안에서 인증 호출을 기다리면 잠금이 엉킬 수 있다(탈퇴 로그아웃과 같은 방식).
+              //   currentUser 는 함수가 첫 await 전에 비운다. 알림 폴링·공지 팝업도 띄우지 않고 끝낸다.
+              //   🔴 null(판정 실패)은 이 갈래가 아니다 — 아무것도 하지 않고 아래로 진행한다.
+              signOutBrandAccountSession();
+              return;
+            }
             currentUserProfile = profile;
           }
           updateGnb();

@@ -190,6 +190,8 @@
 - **완료 정의**: 브랜드 계정 `/#login` → 실패 문구 + `influencers` 0건 · `admin-setpw.html?mode=login` 경로 → 로그아웃 상태 · 🔁 신규 가입 + sakura.test 로그인 · 🔁 두 탭 간섭
 - 🔴 판정 실패를 「차단」으로 처리하면 함수 없는 서버에서 전원 로그인 불가
 
+- ✅ **구현됨(2026-10-14)** — `handleLogin`(관리자 다음·프로필 전 판정, `'brand'` → 로컬 로그아웃 + `authError.checkCredentials` 같은 자리·같은 방식) · 부팅·로그인 이벤트(프로필 조회와 `Promise.all`) · 공용 `signOutBrandAccountSession()` · `_handleLoginBusy`(로그인 화면 판정 중 표시). 판정 실패(`null`)는 차단 아님 — **단 실패 + 프로필 0건**이면 자동 생성 대신 기존 「세션 안 붙음」 처리(로컬 로그아웃 + 다시 로그인 안내). 로그인 화면 판정 중 이벤트 처리기도 판정하되 로그아웃은 로그인 화면에 맡기고 부수 동작(알림 폴링·약관 안내·초대 복귀)을 건너뛴다(supabase-expert 검토). ⚠️ 개발 데이터베이스에 525 가 없으면 판정이 계속 실패 → 프로필 없는 옛 시험 계정이 로그인 거부 — **배포 순서 525 먼저**
+
 ### 조각 10 — 관리자 브랜드 상세 연동
 - 상세 열 때 `_brandFormPrimaryOriginal = {contactId, email}` 스냅샷(P-3 화면 방식이면)
 - `saveBrandDetail`: `updateBrand` 성공 → 「저장되었습니다」 → (캠페인 관리자 이상) `upsertBrandOwnerAccount` → `needs_mail` 이면 `sendBrandAccountSetupMail` → **결과별 별도 안내**(겹침 / 다른 브랜드 계정 / 로그인 이메일 안 바뀜 / 대표 옮김 경고 / 메일 실패 「브랜드는 저장됐지만…」)
@@ -198,6 +200,8 @@
 - 계정 줄 `#brandAccountStatusRow` 만 다시 그림(`renderBrandAccountRow`) — 🔴 편집 폼 본문 재그리기 금지 · 「다시 보내기」 `#brandAccountResendBtn`(설정 전에만, 매니저는 비활성 + 이유) · 개발서버 `#brandAccountDevLink`
 - 끝에 `refreshPane('brands')`
 - **완료 정의**: 새 브랜드 등록 → 계정 + `dev_link` · 같은 값 재저장 → `noop` · 설정 전 이메일 수정 → 옛 링크 무효·새 링크 동작 · 대표 옮김 → 경고·메일 없음 · 매니저 저장 안내 · 인플루언서 이메일 겹침 안내 · 다른 칸 값 유지
+
+- ✅ **구현됨(2026-10-14)** — 계정 줄 `#brandAccountStatusRow`(확인 불가 / 계정 없음 / 메일 대기 / 메일 보냄 날짜 / 설정 완료 날짜, 「계정 만들고 메일 보내기」·「다시 보내기」, 매니저는 비활성 + 이유) · 저장 뒤 결과별 별도 안내 · 개발서버 링크는 **복사 단추**(`#brandAccountDevLink`) · `friendlyError` 에 `brand_has_account_links`·`brand_account_email`. 🔴 **「새로·바뀔 때만」은 화면이 지킨다** — 526 은 활성 연결이 없으면 이전 값을 안 보고 `created` 를 내므로, 저장 뒤 계정 함수는 「대표 줄 id·이메일이 바뀌었거나 이미 계정이 있을 때」만 부른다(신청서가 넣은 미확인 이메일로 메일이 새지 않게). 계정 없는 기존 브랜드는 단추로만. ⚠️ 남은 구멍: 매니저가 대표 이메일을 바꾸면 로그인 이메일은 옛 주소로 남는다 — 계정 줄 경고만(이메일 바꾸기는 다음 작업)
 
 ### 조각 11 — 문서 마무리
 - CLAUDE.md 원본 번호(`handle_new_user`·`delete_brand`·`merge_brands`·새 함수) · 「supabase-js 9개 HTML」 · 자립형 목록 · 운영 보류 + 관문(P-7)

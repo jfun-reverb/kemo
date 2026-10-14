@@ -522,6 +522,25 @@ async function handleSignup(e) {
   if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
 }
 
+// 로그인 화면이 판정 중인지 — app.js 로그인 이벤트 처리기가 브랜드 계정 판정을 겹쳐 하지 않게 본다(조각 9).
+//   이 화면에서의 차단은 handleLogin 이 맡는다(같은 실패 문구를 보여 줘야 해서). 두 자리가 함께 로그아웃하면
+//   처리기가 먼저 세션을 지워 handleLogin 의 판정이 실패(null)로 떨어진다.
+let _handleLoginBusy = false;
+
+// 브랜드 계정 세션 정리 — 인플루언서 앱에서는 브랜드 계정을 로그인 상태로 두지 않는다(조각 9).
+//   🔴 `scope:'local'` — 기본값(global)은 같은 사용자의 다른 기기·브랜드 페이지 세션까지 끊는다.
+//   currentUser 는 **첫 await 전에** 비운다 — 로그인 이벤트 처리기가 기다리지 않고 불러도 바로 로그아웃 상태가 된다.
+async function signOutBrandAccountSession() {
+  currentUser = null;
+  currentUserProfile = null;
+  try {
+    await db?.auth?.signOut({scope: 'local'});
+  } catch (e) {
+    console.error('[signOutBrandAccountSession] signOut', e);
+  }
+  if (typeof updateGnb === 'function') updateGnb();
+}
+
 async function handleLogin(e) {
   e.preventDefault();
   const email = $('loginEmail').value.trim();
@@ -540,6 +559,7 @@ async function handleLogin(e) {
   // 메타 픽셀 새로고침 보류(흐름 6) — 로그인 요청 도중 픽셀 재조회가 먼저 끝나 새로고침하면 아래 관리자
   //   이동(/admin/)이 실행되지 못한다. 일반 회원으로 끝나는 갈래에서만 풀고, 오류 경로는 시간이 지나면 풀린다.
   if (typeof metaPixelHoldReload === 'function') metaPixelHoldReload();
+  _handleLoginBusy = true;
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
@@ -564,6 +584,19 @@ async function handleLogin(e) {
       toast(t('auth.toast.adminLogin'),'success'); updateGnb();
       window.location.href = '/admin/';
     } else {
+      // 브랜드 계정이면 인플루언서 앱 로그인을 막는다(조각 9). 운영 주소에서는 서버를 안 부르고 'other'(storage.js).
+      //   🔴 화면은 비밀번호가 틀렸을 때와 **완전히 같게** — 문구·자리·버튼 복구가 같아야 계정 종류가 드러나지 않는다.
+      //   ⚠️ 서버(마이그레이션 525)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
+      const accountKind = typeof fetchMyAccountKind === 'function' ? await fetchMyAccountKind() : 'other';
+      if (accountKind === 'brand') {
+        await signOutBrandAccountSession();
+        errEl.textContent=t('authError.checkCredentials'); errEl.style.display='block';
+        btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
+      }
+      // 🔴 판정 실패(null)는 차단이 아니다 — 함수가 없거나 통신이 끊긴 서버에서 전원 로그인 불가가 된다.
+      //    다만 아래 「프로필 0건이면 만든다」 갈래로는 보내지 않는다(브랜드 계정일 수도 있다).
+      const accountKindUnknown = accountKind === null;
+      if (accountKindUnknown) logAppError('handleLogin.accountKind', new Error('get_my_account_kind failed'));
       const {data:profile, error:profileErr} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile || null;
       // 🔴 조회 실패와 0건을 가른다 — 실패면 삽입하지 않고 기록만 남긴 채 진행한다
@@ -580,9 +613,12 @@ async function handleLogin(e) {
       }
       if (profileErr) {
         logAppError('handleLogin.profileFetch', profileErr);
-      } else if (!profile && !sessionAttached) {
+      } else if (!profile && (!sessionAttached || accountKindUnknown)) {
+        // 계정 종류를 못 확인한 채 프로필이 0건이면 만들지 않는다(조각 9) — 세션이 안 붙은 경우와 같은 처리:
+        //   기록 + 로컬 로그아웃 + 「다시 로그인」 안내. 프로필이 있는 보통 회원은 이 갈래에 오지 않는다.
         // 세션이 왜 안 붙는지(기기 저장소 가설)는 기기 없이 확정 불가 — 기록하고 다시 로그인하게 한다
-        logAppError('handleLogin.sessionNotAttached', new Error('session not attached after signInWithPassword'));
+        //   (계정 종류 판정 실패는 위에서 handleLogin.accountKind 로 이미 기록했다)
+        if (!sessionAttached) logAppError('handleLogin.sessionNotAttached', new Error('session not attached after signInWithPassword'));
         currentUser = null; currentUserProfile = null;
         try { await db.auth.signOut({scope: 'local'}); } catch(_) {}
         updateGnb();
@@ -614,6 +650,9 @@ async function handleLogin(e) {
   } catch(e) {
     logAppError('handleLogin', e);
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
+  } finally {
+    // 안쪽의 return 갈래도 모두 여기를 지난다
+    _handleLoginBusy = false;
   }
   btn.disabled=false; btn.textContent=t('auth.login.btn');
 }

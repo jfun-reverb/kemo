@@ -146,6 +146,9 @@ function friendlyError(msg) {
   if (s.includes('nothing_to_correct')) return '고칠 항목을 하나 이상 입력해 주세요. [ERR_NOTHING_TO_CORRECT]';
   if (s.includes('sent_at_in_future')) return '송금일이 미래입니다. 실제로 보낸 날짜를 넣어 주세요. [ERR_SENT_AT_IN_FUTURE]';
   if (/bundle_[a-z_]+/.test(s)) return '송금 묶음을 기록할 수 없습니다 — 화면을 새로 고친 뒤 다시 확인해 주세요. [ERR_BUNDLE_REJECTED]';
+  // 마이그레이션 527 — 브랜드 로그인 계정 가드(병합·관리자 초대). 영어 코드 문자열이라 아래 일반 규칙에 닿기 전에 바꾼다
+  if (s.includes('brand_has_account_links')) return '이 브랜드에 브랜드 계정이 연결돼 있어 병합할 수 없습니다. [ERR_BRAND_HAS_ACCOUNT_LINKS]';
+  if (s.includes('brand_account_email')) return '브랜드 계정 이메일이라 관리자로 초대할 수 없습니다. [ERR_BRAND_ACCOUNT_EMAIL]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
