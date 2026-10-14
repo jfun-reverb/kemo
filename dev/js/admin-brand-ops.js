@@ -1442,8 +1442,8 @@ function _scheduleStatsFor(list) {
     var infs = {}, rcpt = {};
     ds.forEach(function(d){
       // 반려·취소된 신청의 결과물은 세지 않는다(전수조사 3차 ⑥-7 — 「13/12」). 조건은 isCertExcluded 와 글자 그대로 같다.
-      //   ⚠️ 운영현황 브랜드 상세 미니카드의 「제출」 막대는 서버 값(deliv_submitted_inf, 259)이라 **여전히 센다** —
-      //      두 화면 숫자가 다를 수 있다(2026-10-01 사용자 결정: 이 화면만 고친다).
+      //   브랜드 상세 미니카드의 「제출」(서버 deliv_submitted_inf)도 마이그레이션 529 부터 같은 기준(반려·취소 신청 +
+      //   임시저장 제외)이다. 임시저장은 이 조회(storage.js 의 _queryDeliverables)가 이미 뺀다.
       var st = d.applications && d.applications.status;
       if (st === 'rejected' || st === 'cancelled') return;
       if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
