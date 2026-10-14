@@ -275,3 +275,6 @@ button, input { font-family: inherit; }
   .brand-actions .brand-sub-link { align-self: flex-start; }
   .brand-preview { left: 16px; right: 16px; width: auto; }
 }
+
+/* 임시 첫 화면(home) — 라벨처럼 보이는 글자(입력 칸이 아닌 묶음 제목) */
+.brand-field-label { font-size: 13px; color: var(--b-label); }

@@ -178,6 +178,12 @@
 - **완료 정의**: `dev_link` → 설정 → 첫 화면에 브랜드 이름 + 서버 시각 동의 기록 · 같은 링크 재사용 「쓸 수 없는 링크」 · 틀린 비밀번호·인플루언서 이메일 같은 실패 문구 · 🔁 두 탭 간섭 없음 · 콘솔 오류 0 · 600px 이하 입력 16px
 - **주의**: `#confirm=` 목적지는 현재 환경 프로젝트 주소 + `/auth/v1/verify` 정확 일치(`admin-setpw.html` 501~519행) · 메타 픽셀·방문자 집계·오류 수집 싣지 않음
 
+- ✅ **구현됨(2026-10-14, 개발서버 배포 전)** — 연결 둘(`brandDb`·`brandSetupDb`, 운영 주소에선 안 만듦) · 로그인 판정 갈래(ok→임시 첫 화면 / not_brand→w01-06 / no_active_brand→w01-06a / setup_incomplete→일반 실패 / 조회 실패→「확인하지 못했습니다」) · 비밀번호 찾기는 서버 함수만 · 링크 착지(`?link=&mode=` + `#confirm=`→w01-08 / `#access_token=`→해시 즉시 제거·`setSession` / `#error=`→w01-05) · 설정 완료→자동 로그인 · 재설정 완료→**모든 기기 로그아웃(`scope:'global'`)**·w01-07a · 새 화면 w01-06·06a·07·07a·08·「확인하지 못했어요」(다시 시도 + 로그아웃 탈출구) · 약관 판 `BRAND_TERMS_VERSION='dev-2026-10-14'`(P-7 확정 때 교체)
+- 리뷰 반영: 설정 재시도 막다른 길(같은 비밀번호면 저장 건너뛰고 완료 기록만 — 지문만 메모리) · 오류 코드 분류 · 새로고침 판정 실패 시 세션 보존 · 뒤로 가기 캐시 · 토큰 만료 `r.status===401`
+- 피그마와 다르게: w01-02 안내문에 브랜드 이름 없음(로그인 전에는 알 수 없다) · 임시 첫 화면은 기존 카드 부품
+- 🔴 **출시 주의**: `resolveSupabaseEnv` 는 `globalreverb.com`·`www` 만 운영 — 브랜드 페이지를 `brand.globalreverb.com` 같은 **새 주소로 운영에 내면 개발 데이터베이스에 붙는다**. 주소를 정할 때 이 정규식·`SUPABASE_ENVS` 를 함께
+- 개발서버에서 확인할 것: 실제 메일 링크 설정·재설정 끝까지 · 같은 링크 재사용 → w01-05 · 정상 로그인·새로고침 유지·로그아웃 · 인플루언서 이메일 → w01-06 · 인플루언서 탭·브랜드 탭 서로 안 끊김
+
 ### 조각 9 — 인플루언서 앱 차단
 - `handleLogin`: 관리자 확인(560행) 다음, 프로필 조회(567행) 전 `fetchMyAccountKind()` — `'brand'` → `signOut({scope:'local'})` + 실패 문구 + 종료 · `null` → 로그인 계속하되 594행 자동 생성으로 안 들어가게 + `logAppError('handleLogin.accountKind', …)`
 - `init()`·`SIGNED_IN`: 비관리자 + `'brand'` 면 `signOut({scope:'local'})` + `currentUser=null` + `updateGnb()`. `null` 이면 무동작
