@@ -156,6 +156,9 @@
 - `fetchMyAccountKind() → 'brand' | 'other' | null`
 - **완료 정의**: 관리자·인플루언서 빌드 성공 + 콘솔에서 넷 다 1회
 
+- ✅ **구현됨(2026-10-14)** — `storage.js` insertBrand 뒤. 🔴 운영 보류 판정은 `_brandAccountEnabled()`(= `IS_STAGING`) **한 곳** — 운영에서는 서버를 부르지 않는다(`fetchMyAccountKind` 는 `'other'`, 나머지는 `brand_account_disabled`/`null`). 출시 때 이 판정만 걷는다
+- 🔴 **부르는 쪽 주의 셋**(supabase-expert 검토): ①`upsertBrandOwnerAccount` 는 `ok:true` 여도 서버가 거부했을 수 있다 — **`data.result` 로 분기**, 메일은 **`data.needs_mail === true` 일 때만**(`created` 라도 해제된 기존 계정 재사용이면 `needs_mail=false`) ②`fetchBrandAccountStatus` 의 `null`(실패·운영) ≠ `{status:'none'}`(계정 없음) ③`fetchMyAccountKind` 는 로그인 뒤에만, `null` 을 차단으로 쓰지 않는다
+
 ### 조각 7 — 공용 연결 조건 + 브랜드 빌드 (핫스팟)
 - `supabase.js`: 전역 연결 두 개 생성 조건을 `if (window.supabase && !window.REVERB_SKIP_GLOBAL_DB)` 로
 - `dev/brand/index.html`: `supabase.js` 앞에 `window.REVERB_SKIP_GLOBAL_DB = true` + `@2.116.0/dist/umd/supabase.js`
