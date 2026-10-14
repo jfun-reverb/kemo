@@ -34,6 +34,14 @@
             "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/task-breakdown-reminder.js"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/figma-skill-reminder.js"
+          }
+        ]
       }
     ],
     "PreToolUse": [
