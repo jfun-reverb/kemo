@@ -251,7 +251,7 @@ async function process(rawEmail: unknown): Promise<void> {
     }
     // ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장은 supabase/functions/notify-brand-account-setup/index.ts 에도 같은 글자로 있다 — 고치면 두 곳을 함께 고친다
     const intro =
-      `REVERB 운영팀이 ${brandName} 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`;
+      `REVERB 운영팀이 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`;
     const tpl = TEMPLATES["brand-account-setup"].replace(/<!--[\s\S]*?-->/g, "");
     html = render(tpl, {
       brand_name: escapeHtml(brandName),
@@ -260,7 +260,7 @@ async function process(rawEmail: unknown): Promise<void> {
       intro: escapeHtml(intro),
       expires: escapeHtml(expiresNote),
     });
-    subject = `[REVERB] ${brandName} 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다`;
+    subject = `[REVERB] 「${brandName}」 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다`;
     text =
       `${contactName} 님\n\n` +
       `${intro}\n` +
