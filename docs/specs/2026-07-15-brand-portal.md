@@ -741,5 +741,10 @@
 - 계약: `POST {brand_id, mode:'setup'|'resend'}` + 관리자 토큰 → `{sent:true, recipient}` / 개발서버 `{sent:true, recipient, dev_link}` / `{sent:false, reason}`(no_account·password_already_set·no_active_brand·send_failed·forbidden 403·unauthorized 401·invalid_request 400·server_error 500)
 - 결정: 개발서버 링크 표시(`dev_link`) 때는 발송 기록을 남기지 않는다(관리자 화면이 거짓 「메일 보냄」을 그리지 않게) · `PUBLIC_BRAND_URL` 기본값 없음
 - 개발서버 배포·비밀값 등록 완료(2026-10-14, `PUBLIC_BRAND_URL`·`BRAND_SETUP_DEV_ECHO` — 개발서버만, 운영 비밀값 없음 확인). 확인: `OPTIONS` 200 + 허용 헤더 · 토큰 없음 401 · 계정 없는 브랜드 `no_account` · 시험 브랜드 `created` → `{sent:true, dev_link}`(주소 `/brand/?…&mode=setup#confirm=…/auth/v1/verify`) · 링크 상태 setup=valid / reset=invalid · 계정 줄 `mail_pending`(개발서버 링크 표시는 발송 기록 안 남김). 캠페인 매니저 403 은 매니저 로그인이 필요해 미확인(같은 역할 판정 코드)
+### 로그인 기능 — 조각 5 비밀번호 찾기 서버 함수 (2026-10-14)
+- `supabase/functions/brand-password-reset-request/` + 양식 `docs/email-templates/brand-password-reset.html`. 비로그인 · 늘 `200 {ok:true}` · 최소 2,500밀리초 · 요청 제한(526) · 설정 끝낸 계정 = 재설정(`mode=reset`) / 설정 전 = 설정 메일 재발송(`mode=setup`, 설정 메일 양식 그대로) / 그 밖 = 무동작
+- 🔴 개발서버 잠금은 **링크 번호 발급까지만** — 비로그인 공개 함수라 응답·로그에 링크를 싣지 않는다(실으면 누구나 남의 재설정 링크를 받는다). 확인은 데이터베이스의 링크 번호 교체로
+- ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장 사본이 두 함수에 있다(양쪽 주석으로 표시)
+- 열린 항목(리뷰 권고): ①설정 전 계정에 남이 비밀번호 찾기를 누르면 운영팀이 보낸 설정 링크가 무효가 된다(5분 1회·하루 5회 제한, 링크 번호 규칙상 의도) ②본인이 요청한 재발송인데 소개문이 「REVERB 운영팀이 다시 보내 드립니다」·만료 안내가 「운영팀에 다시 요청」 — 문구 결정 필요(조각 8 문구 정리 때)
 - 🧪 **개발서버 시험 데이터(남겨 둠 — 조각 8 로그인 흐름 시험용)**: 브랜드 `zz-브랜드로그인-시험` + 대표 계정 `zz-brand-owner@example.com`(비밀번호 미설정). 정리할 때는 527 가드 때문에 연결부터 SQL 로 지운다
 - 남은 일: 규칙 파일 `.claude/rules/mail-webhooks.md` 의 `paths:`·안전 점검 목록에 이 함수 추가(고문 세션 몫)

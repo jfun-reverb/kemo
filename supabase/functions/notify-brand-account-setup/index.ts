@@ -244,6 +244,7 @@ Deno.serve(async (req: Request) => {
 
     // 6) 메일 발송
     const contactName = String(issued.name || acct.name || "").trim() || "담당자";
+    // ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장은 supabase/functions/brand-password-reset-request/index.ts 에도 같은 글자로 있다 — 고치면 두 곳을 함께 고친다
     const intro = isResend
       ? `REVERB 운영팀이 ${brandName} 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`
       : `REVERB 운영팀이 ${brandName} 브랜드 계정을 만들었습니다. ${brandName} 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.`;
