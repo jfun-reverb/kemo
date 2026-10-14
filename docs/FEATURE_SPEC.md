@@ -2334,3 +2334,11 @@ SELECT
 - 인플루언서 표에 브랜드 계정 행 삽입 거부(`brand_account_not_influencer`) · 판정 함수 `get_my_account_kind()`
 - 화면 변경 없음(다음 조각에서). 개발서버 확인: 표·정책·실행 권한 · 되돌림 시험 · 인플루언서 신규 가입 · 관리자 초대 회귀 통과
 
+## 59. 브랜드 계정 — 데이터베이스 함수 — 2026-10-14 (마이그레이션 526, 개발서버만 · 운영 보류)
+
+- 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` 조각 2 (+ 「🎨 피그마 설명 반영」 F-2)
+- 관리자: 대표 계정 만들기·바꾸기(`admin_upsert_brand_owner_account` — created·noop·email_replaced·password_already_set·primary_moved·conflict_influencer/admin/brand·no_primary_email·invalid_email·brand_not_found·brand_archived·forbidden) · 계정 상태(`admin_get_brand_account_status` — none·mail_pending·mail_sent·active)
+- 브랜드 화면: 링크 상태(`get_brand_link_state`) · 설정 완료(`complete_brand_account_setup` — 동의 시각은 서버 시각) · 재설정 완료(`complete_brand_password_reset`) · 로그인 판정(`get_my_brand_login_state` — ok·not_brand·setup_incomplete·no_active_brand)
+- 서버 메일 함수용(서비스 키 전용): 링크 번호 발급·발송 기록·비밀번호 찾기 요청 제한(관리자와 같은 3층) + 30일 정리 예약
+- 화면 변경 없음. 개발서버 확인: 실행 권한 · 함수 13개 단독 호출 · 판정 10가지 · 링크·설정 완료 14가지 · 로그인한 관리자 화면 호출 — 모두 통과
+
