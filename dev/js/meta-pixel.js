@@ -242,6 +242,10 @@ function initMetaPixel() {
     _metaPixelUserId = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) || null;
     if (_metaPixelState === 'off') { _metaPixelSetOff(); return; } // 흐름 1(미리보기)
     if (metaPixelUrlHasSensitiveValue()) { _metaPixelSetOff(); return; }
+    // 🔴 iOS 앱(웹뷰) 안에서는 픽셀을 켜지 않는다 — 앱 추적 투명성(ATT) 동의 없이 추적하면 심사 거절
+    //   사유가 된다(전수조사 3차 ⑦-2). 앱도 이 파일을 그대로 싣는다(ios-app/sync-ios.sh 가 산출물을 복사).
+    //   판정은 앱 코드(feature/ios-app)가 쓰는 것과 같은 식이다.
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) { _metaPixelSetOff(); return; }
     if (typeof fetchPublicMetaPixelId !== 'function') { _metaPixelSetOff(); return; }
     _metaPixelFetch('boot');
   } catch (e) {
