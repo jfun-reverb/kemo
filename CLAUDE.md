@@ -208,7 +208,7 @@
 - `create_orient_sheet` — **490**(5인자 `CREATE OR REPLACE` — 권한 `authenticated` 보존. 465 의 「`DROP` 후 재생성」 표기는 틀렸다)
 - `get_orient_tier_fees` — **489**
 - `_orient_apply_issued_rules` — **445**
-- `submit_orient_sheet` — **461**
+- `submit_orient_sheet` · `save_orient_draft` · `get_orient_sheet` — **524**(베이스 461·425·187 — 🔴 제출된 시트의 임시저장은 `data` 가 아니라 작성본 `draft_data` 에 간다. 관리자 화면은 작성본 내용을 안 받는다(화면 기준 — 서버 정책은 칸 단위로 안 막는다) — `fetchOrientSheetById` 에 `select('*')` 금지)
 - `_orient_compute_quote` — **463**
 - `link_orient_card_to_campaign` — **464**(베이스 237)
 
