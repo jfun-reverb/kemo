@@ -4,12 +4,12 @@
 
 ## 이 저장소의 흐름 (단축키)
 
-1. **시작** — 메인 폴더(`~/Documents/projects/reverb-jp`)에서 `/새세션 작업이름` → `~/Documents/projects/reverb-jp-{작업이름}` + `feature/{작업이름}` 생성·진입
+1. **시작** — 메인 폴더에서 `/새세션 작업이름` → 메인 폴더 **옆**에 `{메인 폴더 이름}-{작업이름}` + `feature/{작업이름}` 생성·진입. 메인 폴더 위치는 컴퓨터마다 달라(예: `~/Documents/projects/reverb-jp` / `~/kemo`) 명령이 git 에게 물어서 정한다 — 경로를 적어 두지 않는다
 2. **작업** — 수정·`bash dev/build.sh`·커밋·push 모두 그 worktree 안에서, push 는 `feature/…` 로만
 3. **종료** — `/세션종료` → reviewer·빌드·커밋·push·PR 생성
 4. **머지·정리** — 운영(`main`)·미검증 PR 은 사용자가 머지. ⚠️ **검증이 끝난 `dev` PR 은 예외 — Claude 가 머지**(reviewer GO + 빌드 + 충돌 해소 뒤, [`git.md`](git.md) 「개발서버 배포는 위임」). 머지 뒤 메인 폴더에서:
    ```bash
-   git worktree remove ../reverb-jp-{작업이름} && git branch -D feature/{작업이름} && git pull origin dev
+   git worktree remove ../{메인 폴더 이름}-{작업이름} && git branch -D feature/{작업이름} && git pull origin dev
    ```
 - 운영(`main`)은 `dev → main` PR 을 따로 만든다. 사용자 명시 지시 없이 `/세션종료` 에서 운영까지 가지 않는다.
 - worktree 안에서 시작하면 위치·브랜치·「끝나면 `/세션종료`」 한 줄을 안내한다(전역 「세션 시작 시 자동 점검」).
