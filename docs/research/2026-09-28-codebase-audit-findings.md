@@ -119,7 +119,7 @@
 
 ### ⑧ 문서
 - ⑧-4 ✅ `brand_memos`(466)·`merge_brands` 현재 원본 467 — CLAUDE.md 에 추가
-- ⑧-5 홍보 메일 「클릭하면 제외」가 실제로 동작 안 함 — `track_promo_click` 부르는 곳 0(기존 메모리와 일치)
+- ⑧-5 홍보 메일 「클릭하면 제외」가 실제로 동작 안 함 — `track_promo_click` 부르는 곳 0(기존 메모리와 일치) — ➡️ 기획 요청서 `docs/specs/2026-10-14-promo-mail-click-exclusion.md`(2026-10-14, 운영 클릭 기록 0건 확정)
 - ⑧-6 ✅ `fetchMySettlements` 목록에서 제거
 - ⑧-7 ✅ 메타 픽셀 상태 — 운영 조회(켜짐·시행일 09-18)로 세 자리 정정
 - ⑧-8 CLAUDE.md **181,111자**(한도 150,000)
