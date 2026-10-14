@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791950686';
+  var CURRENT_BUILD = 'v1791960267';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3236,6 +3236,31 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #adminPane-settlements .btn.btn-sm{height:32px!important;padding:0 12px!important;font-size:13px!important;line-height:1;gap:4px}
 #adminPane-settlements .btn.btn-xs{height:28px!important;padding:0 10px!important;font-size:12px!important;line-height:1}
 #adminPane-settlements .btn .material-icons-round{font-size:16px!important;vertical-align:middle}
+/* ── 브랜드 상세 「브랜드 로그인 계정」 줄(브랜드 로그인 조각 10 — 개발서버에서만 그려진다) ──
+   담당자 표 바로 아래 한 줄. 상태 칩 색: 없음=회색 · 메일 대기=주황 · 메일 보냄=파랑 · 설정 완료=초록 · 확인 불가=빨강 */
+.brand-account-row{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#FAFAFA;font-size:12px;color:var(--ink)}
+.brand-account-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.brand-account-label{display:inline-flex;align-items:center;gap:4px;font-weight:700}
+.brand-account-label .material-icons-round{font-size:16px;color:var(--muted)}
+.brand-account-chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#F0F0F0;color:#555}
+.brand-account-chip.is-pending{background:#FFF4E5;color:#B45309}
+.brand-account-chip.is-sent{background:#E8F0FE;color:#1D4ED8}
+.brand-account-chip.is-active{background:#E8F5E9;color:#2E7D32}
+.brand-account-chip.is-error{background:#FDECEA;color:#B3261E}
+.brand-account-email{font-variant-numeric:tabular-nums;word-break:break-all}
+.brand-account-muted{color:var(--muted)}
+.brand-account-main .btn{margin-left:auto}
+.brand-account-note{margin-top:6px;font-size:11px;color:var(--muted);line-height:1.5}
+.brand-account-note.is-warn{color:#B45309}
+.brand-account-notice{margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;line-height:1.5;background:#F0F0F0;color:var(--ink)}
+.brand-account-notice.is-success{background:#E8F5E9;color:#1B5E20}
+.brand-account-notice.is-warning{background:#FFF4E5;color:#8A4B00}
+.brand-account-notice.is-error{background:#FDECEA;color:#8C1D18}
+.brand-account-devlink{margin-top:8px;padding:8px 10px;border:1px dashed #F59E0B;border-radius:6px;background:#FFFBEB}
+.brand-account-devlink-title{display:flex;align-items:center;gap:4px;font-weight:700;color:#B45309;margin-bottom:6px}
+.brand-account-devlink-title .material-icons-round{font-size:15px}
+.brand-account-devlink-field{display:flex;gap:6px;align-items:center}
+.brand-account-devlink-field input{flex:1;min-width:0;font-size:12px}
 
 </style>
 </head>
@@ -3336,7 +3361,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-14 13:04 · 2d71f3a</span>
+          <span class="admin-build-text">2026-10-14 15:44 · 44b5443</span>
         </div>
       </div>
     </aside>
@@ -7988,9 +8013,15 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 // 디버깅용 전역 노출
 window.__REVERB_ENV__ = SUPABASE_ENV;
 
+// 브랜드 화면(dev/brand/index.html)은 이 파일을 싣되 전역 연결을 만들지 않는다 — window.REVERB_SKIP_GLOBAL_DB = true.
+//   전역 db 는 기본 저장 칸 + detectSessionInUrl:true 라, 브랜드 화면에서 만들어지면 ①인플루언서 세션과 저장 칸을 섞고
+//   ②메일 링크 주소의 인증 값을 먼저 가로챈다. 브랜드 화면은 자기 연결(저장 칸 'reverb.brandAuth')을 따로 만든다.
+//   ⚠️ 인플루언서·관리자 화면은 이 표시를 두지 않는다 — 두면 그 화면의 db 가 null 이 된다.
+const REVERB_SKIP_GLOBAL_DB = window.REVERB_SKIP_GLOBAL_DB === true;
+
 let db = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'pkce',
@@ -8011,7 +8042,7 @@ try {
 //   ※ 메일을 「받은 뒤」의 검증(verifyOtp)은 pkce 여부와 무관한 별개 경로라 전역 db 를 그대로 쓴다.
 let dbAuthRequest = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     dbAuthRequest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'implicit',      // 브라우저 종속 토큰(pkce_) 발급 방지 — 핵심
@@ -13877,6 +13908,80 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
+// 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
+function _brandAccountEnabled() {
+  return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
+}
+
+// 대표 담당자 계정 만들기·바꾸기. 화면은 상세를 연 시점의 대표 줄 id·이메일을 넘긴다(P-3 — 안 넘기면 이메일 변경으로 본다).
+// 반환 {ok:true, data:{result, needs_mail, email, account_email, auth_id, brand_id}} | {ok:false, error}
+//       운영(보류)에서는 {ok:false, error:'brand_account_disabled'} — 부르는 쪽은 조용히 건너뛴다.
+async function upsertBrandOwnerAccount(brandId, prevContactId, prevEmail) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!_brandAccountEnabled()) return {ok:false, error:'brand_account_disabled'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_upsert_brand_owner_account', {
+        p_brand_id: brandId,
+        p_prev_contact_id: prevContactId || null,
+        p_prev_email: prevEmail || null,
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertBrandOwnerAccount]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 설정 메일 보내기(mode 'setup'|'resend'). sendAdminInviteMail 과 같은 모양:
+// {sent:true, recipient[, dev_link]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_link 가 온다.
+async function sendBrandAccountSetupMail(brandId, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-account-setup', {
+      body: { brand_id: brandId, mode: mode === 'resend' ? 'resend' : 'setup' }
+    });
+    if (error) {
+      // 401·403 등은 응답 본문(reason)이 error.context 에 담긴다
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 브랜드 상세 「계정」 줄 상태. 🔴 실패는 null, 계정 없음은 {status:'none'} — 실패를 「계정 없음」으로 그리지 않는다.
+// 운영(보류)에서는 null(줄을 그리지 않는다).
+async function fetchBrandAccountStatus(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const {data, error} = await db.rpc('admin_get_brand_account_status', { p_brand_id: brandId });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
+}
+
+// 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
+// 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
+// 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.
+async function fetchMyAccountKind() {
+  if (!db) return null;
+  if (!_brandAccountEnabled()) return 'other';
+  try {
+    const {data, error} = await db.rpc('get_my_account_kind');
+    if (error) throw error;
+    return data === 'brand' ? 'brand' : 'other';
+  } catch(e) { console.error('[fetchMyAccountKind]', e); return null; }
+}
+
 // ── companies 마스터 (migration 118) ────────────────────────
 
 // 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)
@@ -19381,6 +19486,9 @@ function friendlyError(msg) {
   if (s.includes('nothing_to_correct')) return '고칠 항목을 하나 이상 입력해 주세요. [ERR_NOTHING_TO_CORRECT]';
   if (s.includes('sent_at_in_future')) return '송금일이 미래입니다. 실제로 보낸 날짜를 넣어 주세요. [ERR_SENT_AT_IN_FUTURE]';
   if (/bundle_[a-z_]+/.test(s)) return '송금 묶음을 기록할 수 없습니다 — 화면을 새로 고친 뒤 다시 확인해 주세요. [ERR_BUNDLE_REJECTED]';
+  // 마이그레이션 527 — 브랜드 로그인 계정 가드(병합·관리자 초대). 영어 코드 문자열이라 아래 일반 규칙에 닿기 전에 바꾼다
+  if (s.includes('brand_has_account_links')) return '이 브랜드에 브랜드 계정이 연결돼 있어 병합할 수 없습니다. [ERR_BRAND_HAS_ACCOUNT_LINKS]';
+  if (s.includes('brand_account_email')) return '브랜드 계정 이메일이라 관리자로 초대할 수 없습니다. [ERR_BRAND_ACCOUNT_EMAIL]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
@@ -24890,6 +24998,11 @@ async function openBrandDetail(id, from) {
   _brandDetailFrom = (from === 'brand-ops' || from === 'brand-applications') ? from : 'brands';
   _brandDetailStale = false;
   _brandDetailSheetsReq++;   // 앞 브랜드의 구역 다시 그리기가 도는 중이면 버리게
+  // 브랜드 로그인 계정 줄(조각 10) — 앞 브랜드의 스냅샷·안내가 남지 않게 먼저 비운다
+  _brandFormPrimaryOriginal = { contactId: null, email: null };
+  _brandAccountNotice = null;
+  _brandAccountLastStatus = undefined;
+  _brandAccountRowReq++;
   clearBrandModalBody();
   var titleEl = $('brandDetailPaneHeader');
   var bodyEl = $('brandDetailPaneBody');
@@ -24922,8 +25035,11 @@ async function openBrandDetail(id, from) {
   if (_brandsCurrentId !== id) return;
   _brandFormCompanies = companies || [];
   _brandDetailSurveyCount = surveyCount;
+  // 🔴 연 시점의 대표 줄(P-3) — 저장 뒤 계정 함수에 「이전 값」으로 넘긴다. 데이터베이스 값(b.contacts)에서만 잡는다.
+  _brandFormPrimaryOriginal = _brandPrimarySnapshotFromContacts(b.contacts);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
+  renderBrandAccountRow(id);   // 계정 줄만 따로 받는다(본문은 기다리지 않는다)
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
   // 🔴 삭제 판정은 **두 단계**다. ㉠셋(시트·서베이·캠페인) 중 하나라도 조회 실패면 **버튼을 아예 안 그리고**
@@ -25132,7 +25248,12 @@ async function doBrandMerge(sourceId) {
   if (!targetId) { toast('대상 브랜드를 선택하세요', 'warn'); return; }
   if (!confirm('정말 병합할까요?\n캠페인·신청 번호가 재발급되며 되돌릴 수 없습니다.')) return;
   var result = await mergeBrands(sourceId, targetId);
-  if (!result.ok) { toast('병합 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  if (!result.ok) {
+    // 528 — 원본에 브랜드 계정 연결이 있으면 코드 문자열로 거부한다(다른 거부는 한국어 문구라 그대로 싣는다)
+    var mergeErr = result.error || '';
+    toast('병합 실패: ' + (mergeErr.indexOf('brand_has_account_links') >= 0 ? friendlyError(mergeErr) : (mergeErr || '알 수 없는 오류')), 'error');
+    return;
+  }
   var d = result.data || {};
   // ⚠️ 서버가 돌려주는 건수를 그대로 읽는다 — 오리엔시트·메모는 각각 328·467 에서 더해졌다.
   //    옛 서버(그 마이그레이션 전)에서는 키가 없어 0 으로 보인다.
@@ -25472,6 +25593,11 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + '<div></div>'
         + '</div>'
         + '<div id="brandContactsWrap"></div>'
+        // 브랜드 로그인 계정 줄(조각 10) — 기존 브랜드 + 개발서버에서만. 🔴 운영 주소에서는 아예 안 그린다(P-1).
+        //   ⚠️ 이 줄만 `renderBrandAccountRow` 가 다시 그린다 — 편집 폼 본문은 다시 그리지 않는다.
+        + ((b && b.id && _brandAccountFeatureOn())
+            ? '<div id="brandAccountStatusRow" class="brand-account-row"><span class="brand-account-muted">브랜드 로그인 계정 상태를 불러오는 중…</span></div>'
+            : '')
       )
     // § 브랜드 콘텐츠
     + section('브랜드 콘텐츠 (오리엔시트용)', '',
@@ -25914,9 +26040,10 @@ function _collectBrandFormPatch() {
 
 async function saveBrandDetail() {
   if (!_brandsCurrentId) return;
+  var savedId = _brandsCurrentId;   // 저장하는 사이 다른 브랜드로 옮겨도 계정 처리는 저장한 브랜드에
   var patch = _collectBrandFormPatch();
   if (!patch.name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
-  var result = await updateBrand(_brandsCurrentId, patch);
+  var result = await updateBrand(savedId, patch);
   if (!result.ok) {
     var em = result.error || '';
     if (em.indexOf('duplicate') >= 0 || em.indexOf('unique') >= 0 || em.indexOf('name_normalized') >= 0) {
@@ -25933,6 +26060,8 @@ async function saveBrandDetail() {
   { var nameEl = $('brandDetailPaneHeader') && $('brandDetailPaneHeader').querySelector('[data-brand-name]');
     if (nameEl && patch.name) nameEl.textContent = patch.name;
     syncBrandDetailTabOffset(); }
+  // 브랜드 로그인 계정(조각 10) — 브랜드 저장과 **별개의** 안내. 운영 주소에서는 아무것도 안 한다.
+  await _brandAccountAfterBrandSave(savedId, patch.contacts, 'save');
   // 목록은 뒤에서 새로 받는다 — 안 받으면 돌아갔을 때 옛 이름이 남는다.
   await refreshPane('brands');
 }
@@ -25949,6 +26078,7 @@ async function openNewBrandModal(callbackPrefix) {
   _newBrandCallbackPrefix = NEW_BRAND_CALLBACKS.indexOf(callbackPrefix) >= 0 ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
+  _brandFormPrimaryOriginal = { contactId: null, email: null };   // 새 브랜드 — 이전 대표 없음
   var modal = $('brandDetailModal');
   var titleEl = $('brandDetailTitle');
   var bodyEl = $('brandDetailBody');
@@ -25981,6 +26111,8 @@ async function submitNewBrand() {
   }
   toast('브랜드가 등록되었습니다.');
   closeBrandDetailModal();
+  // 브랜드 로그인 계정(조각 10) — 이전 대표 없음. 창이 닫혔으므로 안내는 토스트만(개발서버 링크는 상세 화면 계정 줄에 남긴다).
+  if (result.data?.id) await _brandAccountAfterBrandSave(result.data.id, patch.contacts, 'new');
   // 캠페인 폼에서 호출됐으면 해당 폼의 brand select 갱신 + 신규 brand 자동 선택
   if (_newBrandCallbackPrefix && result.data?.id) {
     var prefix = _newBrandCallbackPrefix;
@@ -25996,6 +26128,312 @@ async function submitNewBrand() {
   } else {
     await refreshPane('brands');
   }
+}
+
+// ══ 브랜드 로그인 계정 — 관리자 브랜드 상세 연동(브랜드 로그인 조각 10) ═══════════════════════
+//   작업표 docs/specs/2026-10-14-brand-login-breakdown.md 「조각 10」 · 사양서 docs/specs/2026-07-15-brand-portal.md §16-6
+//   서버: admin_upsert_brand_owner_account · admin_get_brand_account_status(마이그레이션 527) · 서버 함수 notify-brand-account-setup
+//   🔴 운영 반영 보류(P-1) — 판정은 storage.js `_brandAccountEnabled()` 한 곳. 운영 주소에서는 계정 줄을 아예 안 그리고
+//      저장 뒤 계정 처리도 조용히 건너뛴다(storage 의 네 함수가 운영에서는 서버를 부르지 않는다).
+//   🔴 부르는 쪽 주의(작업표 조각 6): ①upsert 는 ok:true 여도 서버가 거부했을 수 있다 — `data.result` 로 가르고,
+//      메일은 `data.needs_mail === true` 일 때만 ②상태 조회의 null(실패) ≠ {status:'none'}(계정 없음)
+//   🔴 이 화면이 다시 그리는 것은 계정 줄(`#brandAccountStatusRow`) **하나뿐**이다 — 상세는 편집 폼이라
+//      본문을 다시 그리면 고치던 값이 경고 없이 사라진다(brand-admin 규칙).
+var _brandFormPrimaryOriginal = { contactId: null, email: null };   // 상세를 연(또는 마지막으로 저장한) 시점의 대표 줄 — P-3
+var _brandAccountNotice = null;          // {brandId, level, text} — 계정 줄 아래 남는 안내(토스트는 3초 뒤 사라진다)
+var _brandAccountLastStatus = undefined; // 마지막으로 그린 상태 — undefined 아직 / null 조회 실패 / 객체
+var _brandAccountRowReq = 0;             // 늦게 온 조회 결과를 버리는 번호
+var _brandAccountBusy = false;           // 단추 처리 중 잠금
+var _brandAccountDevLinks = {};          // {brandId: 링크} — 개발서버 「메일 대신 링크」. 새 브랜드 등록 뒤 상세에 들어가도 보이게 브랜드별로 둔다
+
+function _brandAccountFeatureOn() {
+  return typeof _brandAccountEnabled === 'function' && _brandAccountEnabled();
+}
+function _brandAccountIsAdm() {
+  return typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+}
+function _brandAccountNormEmail(v) { return String(v || '').trim().toLowerCase(); }
+
+// 대표 줄 스냅샷 — `is_primary` 줄만 본다(서버도 그 줄만 본다 — 마이그레이션 527 머리말 B).
+function _brandPrimarySnapshotFromContacts(contacts) {
+  var list = Array.isArray(contacts) ? contacts : [];
+  var p = list.find(function(c){ return c && c.is_primary; });
+  if (!p) return { contactId: null, email: null };
+  return { contactId: p.id || null, email: (String(p.email || '').trim() || null) };
+}
+
+// 안내 — 토스트 + (상세 화면이면) 계정 줄 아래에 남긴다. 저장 안내를 덮어쓰지 않게 앞에 붙인다.
+function _brandAccountSetNotice(brandId, level, text, ctx) {
+  var prefix = ctx === 'save' ? '저장되었습니다. ' : (ctx === 'new' ? '브랜드가 등록되었습니다. ' : '');
+  toast(prefix + text, level);
+  if (ctx !== 'new') {
+    _brandAccountNotice = { brandId: brandId, level: level, text: text };
+    _brandAccountRedrawFromCache(brandId);
+  }
+}
+
+// 받아 둔 상태로 줄만 다시 그린다(조회 없이) — 잠금·안내 표시용
+function _brandAccountRedrawFromCache(brandId) {
+  if (brandId !== _brandsCurrentId || _brandAccountLastStatus === undefined) return;
+  var el = $('brandAccountStatusRow');
+  if (el) el.innerHTML = _brandAccountRowHtml(brandId, _brandAccountLastStatus);
+}
+
+// 계정 줄 — 상태를 받아 그 줄만 다시 그린다.
+async function renderBrandAccountRow(brandId) {
+  if (!brandId || !_brandAccountFeatureOn()) return;   // 운영 주소 — 줄 자체가 없다
+  if (!$('brandAccountStatusRow')) return;
+  var req = ++_brandAccountRowReq;
+  var st = await fetchBrandAccountStatus(brandId);
+  if (req !== _brandAccountRowReq || _brandsCurrentId !== brandId) return;   // 그사이 다른 브랜드를 열었다
+  var el = $('brandAccountStatusRow');
+  if (!el) return;
+  _brandAccountLastStatus = st;
+  if (st && st.status === 'active') delete _brandAccountDevLinks[brandId];   // 설정이 끝났으면 링크는 쓸모없다
+  el.innerHTML = _brandAccountRowHtml(brandId, st);
+}
+
+function _brandAccountRowHtml(brandId, st) {
+  var isAdm = _brandAccountIsAdm();
+  var idArg = '\'' + esc(brandId) + '\'';
+  var chip = function(cls, label) { return '<span class="brand-account-chip' + (cls ? ' ' + cls : '') + '">' + esc(label) + '</span>'; };
+  var html = '<div class="brand-account-main">'
+    + '<span class="brand-account-label"><span class="material-icons-round notranslate" translate="no">badge</span>브랜드 로그인 계정</span>';
+  var notes = '';
+  if (!st) {
+    // 🔴 실패를 「계정 없음」으로 그리지 않는다 — 없다고 믿고 계정을 또 만들게 된다
+    html += chip('is-error', '확인 불가')
+      + '<span class="brand-account-muted">계정 상태를 불러오지 못했습니다</span>'
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="renderBrandAccountRow(' + idArg + ')">다시 불러오기</button>';
+  } else {
+    var s = st.status;
+    var btn = '';
+    var mkBtn = function(id, label) {
+      var dis = (!isAdm || _brandAccountBusy) ? ' disabled' : '';
+      return '<button type="button" id="' + id + '" class="btn btn-ghost btn-xs"' + dis
+        + ' onclick="brandAccountSendMail(' + idArg + ')" style="display:inline-flex;align-items:center;gap:3px">'
+        + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">mail</span>'
+        + esc(_brandAccountBusy ? '보내는 중…' : label) + '</button>';
+    };
+    if (s === 'none') {
+      html += chip('', '계정 없음');
+      btn = mkBtn('brandAccountCreateBtn', '계정 만들고 메일 보내기');
+    } else if (s === 'mail_pending') {
+      html += chip('is-pending', '메일 대기');
+      btn = mkBtn('brandAccountResendBtn', '다시 보내기');
+    } else if (s === 'mail_sent') {
+      html += chip('is-sent', '메일 보냄' + (st.setup_mail_sent_at ? ' ' + formatDate(st.setup_mail_sent_at) : ''));
+      btn = mkBtn('brandAccountResendBtn', '다시 보내기');
+    } else if (s === 'active') {
+      html += chip('is-active', '설정 완료' + (st.password_set_at ? ' ' + formatDate(st.password_set_at) : ''));
+    } else {
+      html += chip('is-error', '알 수 없는 상태');
+    }
+    if (st.email) html += '<span class="brand-account-email">' + esc(st.email) + '</span>';
+    html += btn;
+    // 매니저 — 숨기지 않고 비활성 + 이유(규칙: 버튼을 보고 눌렀다가 오류를 보는 일을 막는다)
+    if (btn && !isAdm) notes += '<div class="brand-account-note">계정 메일은 캠페인 관리자 이상이 보냅니다.</div>';
+    if (s === 'mail_pending') notes += '<div class="brand-account-note">아직 설정 메일을 보낸 기록이 없습니다(개발서버는 메일 대신 링크만 만들고 기록을 남기지 않습니다).</div>';
+    // 로그인 이메일 ≠ 저장된 대표 이메일 — 서버는 이 경우를 다시 안내하지 않는다(527 머리말 B ②). 메일은 로그인 이메일로 간다
+    var savedPrimary = _brandAccountNormEmail(_brandFormPrimaryOriginal && _brandFormPrimaryOriginal.email);
+    if (s !== 'none' && st.email && savedPrimary && savedPrimary !== _brandAccountNormEmail(st.email)) {
+      notes += '<div class="brand-account-note is-warn">로그인 이메일(' + esc(st.email) + ')이 저장된 대표 담당자 이메일(' + esc(_brandFormPrimaryOriginal.email) + ')과 다릅니다. '
+        + (s === 'active' ? '비밀번호를 이미 정한 계정이라 로그인 이메일은 바뀌지 않습니다.' : '계정 메일은 로그인 이메일로 갑니다.') + '</div>';
+    }
+    // 개발서버 「메일 대신 링크」 — 설정이 끝나지 않았을 때만
+    var dev = _brandAccountDevLinks[brandId];
+    if (dev && s !== 'active') {
+      notes += '<div id="brandAccountDevLink" class="brand-account-devlink">'
+        + '<div class="brand-account-devlink-title"><span class="material-icons-round notranslate" translate="no">science</span>개발서버 전용 — 메일 대신 링크</div>'
+        + '<div class="brand-account-devlink-field">'
+          + '<input type="text" class="admin-filter" readonly value="' + esc(dev) + '" onclick="this.select()">'
+          + '<button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandAccountDevLink(' + idArg + ')" style="display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">content_copy</span>복사</button>'
+        + '</div>'
+        + '<div class="brand-account-note">실제 메일은 보내지 않았습니다. 복사해서 <b>시크릿 창</b>에 붙여 넣어 여세요. '
+          + '링크를 여는 것만으로는 쓰이지 않고, 열린 화면의 「계속하기」를 누르는 순간 한 번 쓰입니다. '
+          + '1시간이 지나거나 「다시 보내기」를 누르면 이 링크는 쓸 수 없습니다.</div>'
+      + '</div>';
+    }
+  }
+  html += '</div>';
+  var n = _brandAccountNotice;
+  if (n && n.brandId === brandId) {
+    notes += '<div class="brand-account-notice is-' + esc(n.level || 'info') + '">' + esc(n.text) + '</div>';
+  }
+  return html + notes;
+}
+
+function copyBrandAccountDevLink(brandId) {
+  var link = _brandAccountDevLinks[brandId];
+  if (!link) return;
+  copyTextToClipboard(link, '링크를 복사했습니다 — 시크릿 창에 붙여 넣어 여세요');
+}
+
+// 메일 결과 → 안내 문구. kind: 'created' | 'email_replaced' | 'resend'
+function _brandAccountMailOutcome(brandId, mail, kind, ctx) {
+  if (mail && mail.sent) {
+    if (mail.dev_link) {
+      _brandAccountDevLinks[brandId] = mail.dev_link;
+      var pre = kind === 'created' ? '브랜드 계정을 만들었습니다. '
+              : (kind === 'email_replaced' ? '로그인 이메일을 새 대표 이메일로 바꿨습니다. ' : '');
+      return { level: 'success', text: pre + '개발서버라 메일 대신 비밀번호 설정 링크를 만들었습니다 — '
+        + (ctx === 'new' ? '이 브랜드의 상세 화면 계정 줄에서' : '계정 줄 아래에서') + ' 복사하세요.' };
+    }
+    delete _brandAccountDevLinks[brandId];
+    var to = mail.recipient ? ' (' + mail.recipient + ')' : '';
+    if (kind === 'created') return { level: 'success', text: '브랜드 계정을 만들고 비밀번호 설정 메일을 보냈습니다' + to + '.' };
+    if (kind === 'email_replaced') return { level: 'success', text: '로그인 이메일을 새 대표 이메일로 바꾸고 비밀번호 설정 메일을 보냈습니다' + to + ' — 앞서 보낸 링크는 쓸 수 없습니다.' };
+    return { level: 'success', text: '비밀번호 설정 메일을 다시 보냈습니다' + to + ' — 앞서 보낸 링크는 쓸 수 없습니다.' };
+  }
+  var reason = String((mail && (mail.reason || mail.error)) || 'unknown');
+  if (reason === 'password_already_set') return { level: 'warning', text: '이미 비밀번호를 정한 계정이라 설정 메일을 보내지 않았습니다.' };
+  if (reason === 'no_account') return { level: 'error', text: '브랜드 계정이 없어 메일을 보내지 못했습니다. 계정 줄을 다시 확인해 주세요.' };
+  if (reason === 'no_active_brand') return { level: 'error', text: '이 계정이 연결된 활성 브랜드가 없어 메일을 보내지 못했습니다.' };
+  if (reason === 'forbidden') return { level: 'error', text: '계정 메일은 캠페인 관리자 이상이 보냅니다.' };
+  var tail = ' [' + reason + ']';
+  if (kind === 'resend') return { level: 'error', text: '계정 메일을 보내지 못했습니다 — 잠시 뒤 「다시 보내기」로 다시 시도해 주세요.' + tail };
+  if (ctx === 'button') return { level: 'error', text: '계정은 만들었지만 메일을 보내지 못했습니다 — 「다시 보내기」로 다시 시도해 주세요.' + tail };
+  return { level: 'error', text: '브랜드는 저장됐지만 계정 메일을 보내지 못했습니다 — 브랜드 상세 계정 줄의 「다시 보내기」로 다시 시도해 주세요.' + tail };
+}
+
+// 계정 만들기·바꾸기 → (필요하면) 메일 → 결과별 안내. 반환 {failed} — 호출 자체가 실패했는지(스냅샷 되돌림 판단용)
+async function _brandAccountRunUpsert(brandId, prev, ctx) {
+  var res = await upsertBrandOwnerAccount(brandId, prev.contactId, prev.email);
+  if (!res || !res.ok) {
+    if (res && res.error === 'brand_account_disabled') return { failed: false };   // 운영 — 조용히
+    _brandAccountSetNotice(brandId, 'error',
+      (ctx === 'button' ? '계정을 만들지 못했습니다: ' : '브랜드 계정 처리를 하지 못했습니다: ') + friendlyError(res && res.error), ctx);
+    return { failed: true };
+  }
+  var d = res.data || {};
+  var r = d.result;
+  var em = d.email || '';
+  var acc = d.account_email || '';
+  var msg = null;
+  switch (r) {
+    case 'created':
+    case 'email_replaced':
+      // 이메일을 바꾸면 서버가 옛 링크 번호를 비운다 — 개발서버 링크도 죽은 것이다
+      if (r === 'email_replaced') delete _brandAccountDevLinks[brandId];
+      if (d.needs_mail === true) {
+        var mail = await sendBrandAccountSetupMail(brandId, 'setup');
+        msg = _brandAccountMailOutcome(brandId, mail, r, ctx);
+      } else if (r === 'created') {
+        // 해제됐던 기존 계정(비밀번호 설정 완료)을 다시 연결 — 서버가 메일이 필요 없다고 했다
+        msg = { level: 'info', text: '이미 비밀번호를 정한 브랜드 계정(' + (acc || em) + ')을 이 브랜드에 연결했습니다 — 메일은 보내지 않았습니다.' };
+      } else {
+        msg = { level: 'info', text: '로그인 이메일을 ' + em + ' 로 바꿨습니다 — 메일은 보내지 않았습니다.' };
+      }
+      break;
+    case 'noop':
+      msg = (ctx === 'button') ? { level: 'info', text: '이미 브랜드 계정이 있습니다.' } : null;
+      break;
+    case 'password_already_set':
+      msg = { level: 'warning', text: '로그인 이메일은 바뀌지 않았습니다 — 이미 비밀번호를 정한 계정이라 기존 로그인 이메일' + (acc ? '(' + acc + ')' : '') + '을 그대로 씁니다.' };
+      break;
+    case 'primary_moved':
+      msg = { level: 'warning', text: '대표 담당자를 바꿨지만 브랜드 계정은 이전 대표' + (acc ? '(' + acc + ')' : '') + '에게 그대로 있습니다 — 새 대표에게는 메일을 보내지 않았습니다.' };
+      break;
+    case 'conflict_influencer':
+    case 'conflict_admin':
+      msg = { level: 'warning', text: '대표 담당자 이메일' + (em ? '(' + em + ')' : '') + '은 이미 다른 용도로 쓰는 이메일입니다 — 브랜드 계정을 만들지 않았습니다.' };
+      break;
+    case 'conflict_brand':
+      msg = { level: 'warning', text: '대표 담당자 이메일' + (em ? '(' + em + ')' : '') + '은 다른 브랜드 계정이 쓰는 이메일입니다 — 브랜드 계정을 만들지 않았습니다.' };
+      break;
+    case 'no_primary_email':
+      // 저장 경로는 안내하지 않는다(대표 이메일이 없을 뿐). 단추로 눌렀으면 이유를 말한다
+      msg = (ctx === 'button') ? { level: 'warning', text: '대표 담당자 이메일이 없어 계정을 만들 수 없습니다 — 담당자에 이메일을 넣고 저장해 주세요.' } : null;
+      break;
+    case 'invalid_email':
+      msg = { level: 'warning', text: '대표 담당자 이메일 형식이 올바르지 않습니다 — 브랜드 계정을 만들지 않았습니다.' };
+      break;
+    case 'brand_archived':
+      msg = { level: 'warning', text: '비활성 브랜드라 브랜드 계정을 만들지 않았습니다.' };
+      break;
+    case 'brand_not_found':
+      msg = { level: 'error', text: '브랜드를 찾지 못해 브랜드 계정을 만들지 않았습니다.' };
+      break;
+    case 'forbidden':
+      msg = { level: 'warning', text: '계정 메일은 캠페인 관리자 이상이 보냅니다.' };
+      break;
+    default:
+      msg = { level: 'error', text: '브랜드 계정 처리 결과를 알 수 없습니다 [' + String(r || 'empty') + ']' };
+  }
+  if (msg) _brandAccountSetNotice(brandId, msg.level, msg.text, ctx);
+  return { failed: false };
+}
+
+// 브랜드 저장·등록 뒤 계정 처리. ctx: 'save'(상세 저장) | 'new'(새 브랜드 등록 — 이전 대표 없음)
+//   🔴 「새로 생기거나 바뀐 경우만」(§16-6) — 서버는 계정이 없는 브랜드면 이전 값을 보지 않고 바로 만든다(527 머리말 B (1)).
+//      그래서 **계정 없는 브랜드를 같은 값으로 저장할 때는 화면이 부르지 않는다** — 안 막으면 광고주 신청서가 넣어 둔
+//      확인 안 된 대표 이메일로, 이름만 고쳐 저장해도 설정 메일이 나간다(§16-6 「사실 정정」). 계정 없는 기존 브랜드는 P-2 단추로.
+async function _brandAccountAfterBrandSave(brandId, contacts, ctx) {
+  if (!brandId) return;
+  var prev = (ctx === 'new') ? { contactId: null, email: null }
+    : { contactId: _brandFormPrimaryOriginal.contactId, email: _brandFormPrimaryOriginal.email };
+  var next = _brandPrimarySnapshotFromContacts(contacts);
+  // 스냅샷은 저장이 성공한 순간 새 값으로 — 두 번 연달아 저장해도 옛 값을 다시 넘기지 않게
+  if (ctx === 'save' && _brandsCurrentId === brandId) _brandFormPrimaryOriginal = next;
+  if (!_brandAccountFeatureOn()) return;   // 운영 주소 — 조용히 건너뛴다
+  var emailChanged = _brandAccountNormEmail(prev.email) !== _brandAccountNormEmail(next.email);
+  var changed = emailChanged || (prev.contactId !== next.contactId);
+  if (!_brandAccountIsAdm()) {
+    if (emailChanged && next.email) {
+      _brandAccountSetNotice(brandId, 'warning', '계정 메일은 캠페인 관리자 이상이 보냅니다 — 대표 담당자 이메일은 저장됐지만 브랜드 로그인 계정에는 반영하지 않았습니다.', ctx);
+    }
+    return;
+  }
+  if (!next.email) return;   // 대표 이메일이 없으면 서버도 no_primary_email — 부르지 않는다
+  var last = (ctx === 'save' && _brandsCurrentId === brandId) ? _brandAccountLastStatus : null;
+  var hasAccount = !!(last && last.status && last.status !== 'none');
+  if (!changed && !hasAccount) return;
+  var out = await _brandAccountRunUpsert(brandId, prev, ctx);
+  // 호출 자체가 실패했으면 스냅샷을 되돌린다 — 안 되돌리면 다음 저장이 「안 바뀜」(noop)으로 보여 이메일 변경이 사라진다
+  if (out.failed && ctx === 'save' && _brandsCurrentId === brandId && _brandFormPrimaryOriginal === next) _brandFormPrimaryOriginal = prev;
+  if (ctx === 'save') await renderBrandAccountRow(brandId);
+}
+
+// 「계정 만들고 메일 보내기」(계정 없음 — P-2) · 「다시 보내기」(메일 대기·메일 보냄)
+async function brandAccountSendMail(brandId) {
+  if (_brandAccountBusy || !brandId || brandId !== _brandsCurrentId || !_brandAccountFeatureOn()) return;
+  if (!_brandAccountIsAdm()) { toast('계정 메일은 캠페인 관리자 이상이 보냅니다', 'warning'); return; }
+  var st = _brandAccountLastStatus;
+  if (!st) return;
+  var isCreate = st.status === 'none';
+  var saved = _brandFormPrimaryOriginal;
+  if (isCreate) {
+    // 서버는 **저장된** 대표 담당자로 만든다 — 폼에서 고치고 저장 안 했으면 엉뚱한 사람에게 간다
+    var now = _brandPrimarySnapshotFromContacts(_collectBrandFormPatch().contacts);
+    if (now.contactId !== saved.contactId || _brandAccountNormEmail(now.email) !== _brandAccountNormEmail(saved.email)) {
+      _brandAccountSetNotice(brandId, 'warning', '대표 담당자를 고친 뒤 아직 저장하지 않았습니다 — 먼저 「저장」을 눌러 주세요. 계정은 저장된 대표 담당자로 만듭니다.', 'button');
+      return;
+    }
+    if (!saved.email) {
+      _brandAccountSetNotice(brandId, 'warning', '대표 담당자 이메일이 없어 계정을 만들 수 없습니다 — 담당자에 이메일을 넣고 저장해 주세요.', 'button');
+      return;
+    }
+    if (!confirm('대표 담당자(' + saved.email + ')로 브랜드 로그인 계정을 만들고 비밀번호 설정 메일을 보낼까요?')) return;
+  } else if (st.status === 'mail_pending' || st.status === 'mail_sent') {
+    if (!confirm('비밀번호 설정 메일을 ' + (st.email || '로그인 이메일') + ' 로 다시 보낼까요?\n앞서 보낸 링크는 더 이상 쓸 수 없게 됩니다.')) return;
+  } else {
+    return;
+  }
+  _brandAccountBusy = true;
+  _brandAccountRedrawFromCache(brandId);
+  try {
+    if (isCreate) {
+      await _brandAccountRunUpsert(brandId, { contactId: saved.contactId, email: saved.email }, 'button');
+    } else {
+      var mail = await sendBrandAccountSetupMail(brandId, 'resend');
+      var m = _brandAccountMailOutcome(brandId, mail, 'resend', 'button');
+      _brandAccountSetNotice(brandId, m.level, m.text, 'button');
+    }
+  } finally {
+    _brandAccountBusy = false;
+  }
+  // 처리 중에 다른 브랜드로 옮겼으면 그 브랜드 줄(잠긴 채 그려졌다)을 다시 그린다
+  await renderBrandAccountRow(_brandsCurrentId === brandId ? brandId : _brandsCurrentId);
 }
 
 // [perf 2026-05-15] 동시 진행 중 중복 호출 차단 — 페인 진입 시 fetch 가 2번 발생하는 회귀 방어.

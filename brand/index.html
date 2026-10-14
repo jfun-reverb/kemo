@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>브랜드 로그인 · REVERB JP</title>
+<!-- v0 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<style>
+/* 브랜드 페이지 — 로그인 전 화면 (Figma 「[1차] 01 로그인」 섹션, 노드 34:1153)
+   ⚠️ 관리자·인플루언서 공용 CSS(base.css·components.css)를 싣지 않는 독립 화면이다.
+      색·크기는 Figma 값을 그대로 옮긴 아래 변수에서만 고친다. */
+
+:root {
+  --b-bg: #ececee;          /* 화면 바탕 */
+  --b-surface: #ffffff;     /* 카드 */
+  --b-ink: #1a1a1a;         /* 제목·본문·주 버튼 */
+  --b-label: #3f3f46;       /* 입력 칸 이름 */
+  --b-muted: #71717a;       /* 설명 문구 */
+  --b-guide: #52525c;       /* 안내 상자 글자 */
+  --b-faint: #a1a1aa;       /* 자리 표시 글자·보조 링크 */
+  --b-line: #e4e4e7;        /* 입력 칸 테두리·구분선 */
+  --b-soft: #fafafa;        /* 안내 상자 바탕 */
+  --b-agree-bg: #f9f9f9;    /* 약관 동의 상자 바탕 */
+  --b-disabled-bg: #f4f4f5; /* 잠긴 칸 바탕 */
+  --b-disabled-btn: #d4d4d8;/* 잠긴 버튼 */
+  --b-error: #ed1e1e;
+  --b-error-bg: #fff0f0;
+  --b-info: #2b59c3;
+  --b-info-bg: #eef4ff;
+  --b-radius-card: 16px;
+  --b-radius: 8px;
+  --b-font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--b-bg);
+  color: var(--b-ink);
+  font-family: var(--b-font);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+[hidden] { display: none !important; }
+button, input { font-family: inherit; }
+
+/* ── 모바일 머리 띠 (m01-00) — 좁은 화면에서만 */
+.brand-topbar {
+  display: none;
+  height: 45px;
+  padding: 0 12px;
+  align-items: center;
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* ── 가운데 카드 */
+.brand-stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 16px;
+}
+.brand-card {
+  width: 418px;
+  max-width: 100%;
+  background: var(--b-surface);
+  border-radius: var(--b-radius-card);
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* 로고 */
+.brand-logo { display: flex; align-items: center; gap: 8px; }
+.brand-logo-mark {
+  width: 26px; height: 26px;
+  border-radius: var(--b-radius);
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-logo-text { font-size: 14px; font-weight: 700; color: var(--b-ink); }
+
+/* 제목·설명 */
+.brand-head { display: flex; flex-direction: column; gap: 8px; }
+.brand-head h1 { margin: 0; font-size: 18px; font-weight: 700; color: var(--b-ink); }
+.brand-head p { margin: 0; font-size: 13px; color: var(--b-muted); line-height: 1.25; }
+
+/* 폼 */
+.brand-form { display: flex; flex-direction: column; gap: 32px; margin: 0; }
+.brand-fields { display: flex; flex-direction: column; gap: 16px; }
+.brand-field { display: flex; flex-direction: column; gap: 8px; }
+.brand-field label { font-size: 13px; color: var(--b-label); }
+
+.brand-input {
+  width: 100%;
+  height: 45px;
+  padding: 0 12px;
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  background: var(--b-surface);
+  color: var(--b-ink);
+  font-size: 14px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.brand-input::placeholder { color: var(--b-faint); }
+/* 입력 중 — Figma ④·⑦ 의 1.5px 진한 테두리 */
+.brand-input:focus { border: 1.5px solid var(--b-ink); padding: 0 11.5px; }
+/* 오류 — Figma ②·③ 의 1.5px 빨간 테두리 */
+.brand-input.is-error { border: 1.5px solid var(--b-error); padding: 0 11.5px; }
+/* 잠김 — Figma ⑤ 로그인 중, 읽기 전용 칸 */
+.brand-input:disabled,
+.brand-input[readonly] { background: var(--b-disabled-bg); color: var(--b-faint); }
+/* 읽기 전용(바꿀 수 없는 이메일)은 잠김보다 진하게 — Figma w01-02 #52525b */
+.brand-input[readonly]:not(:disabled) { color: var(--b-guide); }
+.brand-input[readonly]:focus { border: 1px solid var(--b-line); padding: 0 12px; }
+
+.brand-field-error { margin: 0; font-size: 12px; color: var(--b-error); line-height: 1.25; }
+
+/* 비밀번호 보기 단추 */
+.brand-pw-wrap { position: relative; }
+.brand-pw-wrap .brand-input { padding-right: 40px; }
+.brand-pw-wrap .brand-input:focus,
+.brand-pw-wrap .brand-input.is-error { padding-right: 39.5px; }
+.brand-pw-toggle {
+  position: absolute; top: 0; right: 0;
+  width: 40px; height: 45px;
+  border: 0; background: none; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--b-ink);
+  cursor: pointer;
+}
+.brand-pw-toggle .material-icons-round { font-size: 16px; }
+.brand-pw-toggle:disabled { color: var(--b-faint); cursor: default; }
+
+/* 안내 띠 — 오류(④·⑥)·알림(⑦) */
+.brand-notice {
+  padding: 12px 14px;
+  border-radius: var(--b-radius);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.brand-notice-error { background: var(--b-error-bg); color: var(--b-error); }
+.brand-notice-info { background: var(--b-info-bg); color: var(--b-info); }
+/* 폼 안에서는 칸 묶음과 버튼 사이 간격(32px)을 반으로 */
+.brand-form .brand-notice { margin: -16px 0; }
+
+/* 안내 상자 (w01-01a·w01-05) */
+.brand-guide {
+  margin: 0;
+  padding: 14px 16px;
+  list-style: none;
+  background: var(--b-soft);
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 12px; color: var(--b-guide); line-height: 1.25;
+}
+.brand-guide li::before { content: '· '; }
+
+/* 버튼·보조 링크 */
+.brand-actions { display: flex; flex-direction: column; gap: 16px; }
+.brand-btn {
+  width: 100%;
+  height: 45px;
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.brand-btn:disabled { background: var(--b-disabled-btn); border-color: var(--b-disabled-btn); cursor: default; }
+.brand-btn:focus-visible,
+.brand-sub-link:focus-visible,
+.brand-agree-view:focus-visible,
+.brand-pw-toggle:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-sub-link {
+  align-self: center;
+  font-size: 12px; color: var(--b-faint);
+  text-decoration: none;
+}
+.brand-sub-link:hover { color: var(--b-muted); text-decoration: underline; }
+.brand-sub-text { margin: 0; font-size: 12px; color: var(--b-faint); text-align: center; line-height: 1.25; }
+.brand-sub-text a { color: var(--b-faint); }
+
+/* 약관 동의 상자 (w01-02) */
+.brand-agree {
+  background: var(--b-agree-bg);
+  border-radius: var(--b-radius);
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.brand-agree.is-error { box-shadow: inset 0 0 0 1.5px var(--b-error); }
+.brand-agree-line { height: 1px; background: var(--b-line); }
+.brand-agree-row { display: flex; align-items: center; gap: 8px; }
+.brand-check {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  font-size: 13px; color: var(--b-ink);
+  cursor: pointer;
+}
+.brand-check-all { font-weight: 600; }
+.brand-check input {
+  -webkit-appearance: none; appearance: none;
+  flex-shrink: 0;
+  width: 16px; height: 16px; margin: 0;
+  border: 1px solid var(--b-faint);
+  border-radius: 4px;
+  background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.brand-check input:checked { background: var(--b-ink); border-color: var(--b-ink); }
+.brand-check input:checked::after {
+  content: '';
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+.brand-check input:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-agree-view {
+  flex-shrink: 0;
+  border: 0; background: none; padding: 0;
+  font-size: 12px; color: var(--b-muted);
+  cursor: pointer;
+}
+.brand-agree-view:hover { text-decoration: underline; }
+
+/* 약관 「보기」 창 */
+.brand-modal {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(26, 26, 26, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.brand-modal-box {
+  width: 360px; max-width: 100%;
+  background: var(--b-surface);
+  border-radius: var(--b-radius-card);
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.brand-modal-box h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.brand-modal-box p { margin: 0; font-size: 13px; color: var(--b-muted); line-height: 1.4; }
+
+/* 개발서버 전용 화면 미리보기 막대 */
+.brand-preview {
+  position: fixed; right: 16px; bottom: 16px; z-index: 40;
+  width: 280px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: var(--b-radius);
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: 12px; color: #7c2d12;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+}
+.brand-preview-title { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.brand-preview-title .material-icons-round { font-size: 16px; }
+.brand-preview-row { display: flex; align-items: center; gap: 8px; }
+.brand-preview-row > label:first-child:not(.brand-preview-check) { width: 64px; flex-shrink: 0; }
+.brand-preview-row select { flex: 1; min-width: 0; height: 28px; font-size: 12px; font-family: inherit; }
+.brand-preview-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* ── 좁은 화면 (m01-00) */
+@media (max-width: 600px) {
+  .brand-topbar { display: flex; }
+  .brand-stage { min-height: calc(100vh - 45px); padding: 40px 25px; align-items: flex-start; }
+  .brand-card { width: 100%; padding: 24px 16px; }
+  /* iOS 는 16px 미만 입력 칸에 초점이 가면 화면을 확대한다 — Figma 14px 대신 16px */
+  .brand-input { font-size: 16px; }
+  .brand-actions .brand-sub-link { align-self: flex-start; }
+  .brand-preview { left: 16px; right: 16px; width: auto; }
+}
+
+/* 임시 첫 화면(home) — 라벨처럼 보이는 글자(입력 칸이 아닌 묶음 제목) */
+.brand-field-label { font-size: 13px; color: var(--b-label); }
+
+</style>
+</head>
+<body>
+
+<!-- 모바일 머리 띠 (m01-00) — 좁은 화면에서만 보인다 -->
+<header class="brand-topbar" aria-hidden="true">Reverb</header>
+
+<main class="brand-stage" id="brandStage">
+
+  <!-- 운영 주소 막음 — 로그인 연결 전까지 운영(globalreverb.com)에서는 이 카드만 보인다 -->
+  <section class="brand-card" data-screen="closed" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>브랜드 페이지 준비 중입니다</h1>
+      <p>지금은 이용할 수 없어요. 문의는 REVERB 운영팀으로 연락해 주세요.</p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-00 · m01-00 로그인 (+ w01-91 입력 상태) -->
+  <section class="brand-card" data-screen="login" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-notice brand-notice-info" id="loginExpiredNotice" role="status" hidden>로그인 시간이 지났습니다. 다시 로그인해 주세요.</div>
+    <div class="brand-head">
+      <h1>브랜드 로그인</h1>
+      <p>REVERB JP 브랜드 페이지에 로그인합니다.</p>
+    </div>
+    <form class="brand-form" id="loginForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="loginEmail">이메일</label>
+          <input type="email" id="loginEmail" class="brand-input" placeholder="이메일" autocomplete="username" inputmode="email">
+          <p class="brand-field-error" id="loginEmailError" hidden></p>
+        </div>
+        <div class="brand-field">
+          <label for="loginPw">비밀번호</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="loginPw" class="brand-input" placeholder="비밀번호" autocomplete="current-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="loginPw" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="loginPwError" hidden></p>
+        </div>
+      </div>
+      <div class="brand-notice brand-notice-error" id="loginError" role="alert" hidden></div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="loginSubmit">로그인</button>
+        <a class="brand-sub-link" href="#forgot">비밀번호를 잊으셨나요?</a>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-01 비밀번호 찾기 -->
+  <section class="brand-card" data-screen="forgot" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>비밀번호 찾기</h1>
+      <p>가입한 이메일을 입력하면 비밀번호 재설정 링크를 보내 드립니다.</p>
+    </div>
+    <form class="brand-form" id="forgotForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="forgotEmail">이메일</label>
+          <input type="email" id="forgotEmail" class="brand-input" placeholder="이메일" autocomplete="username" inputmode="email">
+          <p class="brand-field-error" id="forgotEmailError" hidden></p>
+        </div>
+      </div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="forgotSubmit">재설정 메일 보내기</button>
+        <a class="brand-sub-link" href="#login">로그인 화면으로 돌아가기</a>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-01a 비밀번호 찾기 — 메일 발송 -->
+  <section class="brand-card" data-screen="forgot-sent" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>메일을 확인해 주세요</h1>
+      <p>입력하신 이메일이 등록된 계정이라면<br>비밀번호 재설정 메일을 보냈습니다.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>메일 속 링크를 누르면 새 비밀번호를 정할 수 있습니다.</li>
+      <li>받은편지함에 없으면 스팸함을 확인해 주세요.</li>
+      <li>그래도 없으면 REVERB 운영팀에 문의해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+      <a class="brand-sub-link" href="#forgot">메일이 오지 않았나요? 다시 보내기</a>
+    </div>
+  </section>
+
+  <!-- 1차 w01-02 비밀번호 설정 (메일 링크로 들어옴) · w01-02b 초대받은 멤버 -->
+  <section class="brand-card" data-screen="setpw" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>비밀번호 설정</h1>
+      <p id="setpwDesc"></p>
+    </div>
+    <form class="brand-form" id="setpwForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="setpwEmail">이메일 (바꿀 수 없어요)</label>
+          <input type="email" id="setpwEmail" class="brand-input" readonly>
+        </div>
+        <div class="brand-field" data-member-only>
+          <label for="setpwName">이름 *</label>
+          <input type="text" id="setpwName" class="brand-input" placeholder="이름을 입력해 주세요" autocomplete="name" maxlength="40">
+          <p class="brand-field-error" id="setpwNameError" hidden></p>
+        </div>
+        <div class="brand-field" data-member-only>
+          <label for="setpwPhone">연락처 (선택)</label>
+          <input type="tel" id="setpwPhone" class="brand-input" placeholder="010-0000-0000" autocomplete="tel" inputmode="tel" maxlength="20">
+        </div>
+        <div class="brand-field">
+          <label for="setpwPw">비밀번호</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="setpwPw" class="brand-input" placeholder="8자 이상 · 영문 소문자와 기호 포함" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="setpwPw" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="setpwPwError" hidden></p>
+        </div>
+        <div class="brand-field">
+          <label for="setpwPw2">비밀번호 확인</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="setpwPw2" class="brand-input" placeholder="한 번 더 입력해 주세요" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="setpwPw2" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="setpwPw2Error" hidden></p>
+        </div>
+        <div class="brand-agree" id="setpwAgree" role="group" aria-label="약관 동의" aria-describedby="setpwAgreeError">
+          <label class="brand-check brand-check-all">
+            <input type="checkbox" id="agreeAll">
+            <span>전체 동의</span>
+          </label>
+          <div class="brand-agree-line"></div>
+          <div class="brand-agree-row">
+            <label class="brand-check">
+              <input type="checkbox" class="agree-item" id="agreeTerms">
+              <span>[필수] 이용약관에 동의합니다</span>
+            </label>
+            <button type="button" class="brand-agree-view" data-legal="terms">보기</button>
+          </div>
+          <div class="brand-agree-row">
+            <label class="brand-check">
+              <input type="checkbox" class="agree-item" id="agreePrivacy">
+              <span>[필수] 개인정보처리방침에 동의합니다</span>
+            </label>
+            <button type="button" class="brand-agree-view" data-legal="privacy">보기</button>
+          </div>
+        </div>
+        <p class="brand-field-error" id="setpwAgreeError" role="alert" hidden></p>
+      </div>
+      <div class="brand-notice brand-notice-info" id="setpwResult" role="status" hidden></div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="setpwSubmit">비밀번호 설정하고 시작하기</button>
+        <p class="brand-sub-text">동의하지 않으면 계정을 쓸 수 없어요. 모르는 메일이라면 이 화면을 닫아 주세요.</p>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-07 새 비밀번호 정하기 (재설정 메일 링크로 들어옴 — 약관 칸 없음, 피그마 F-1) -->
+  <section class="brand-card" data-screen="resetpw" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>새 비밀번호 정하기</h1>
+      <p>새로 쓸 비밀번호를 정해 주세요. 바꾸고 나면 새 비밀번호로 다시 로그인해요.</p>
+    </div>
+    <form class="brand-form" id="resetpwForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="resetpwEmail">이메일 (바꿀 수 없어요)</label>
+          <input type="email" id="resetpwEmail" class="brand-input" readonly>
+        </div>
+        <div class="brand-field">
+          <label for="resetpwPw">비밀번호</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="resetpwPw" class="brand-input" placeholder="8자 이상 · 영문 소문자와 기호 포함" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="resetpwPw" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="resetpwPwError" hidden></p>
+        </div>
+        <div class="brand-field">
+          <label for="resetpwPw2">비밀번호 확인</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="resetpwPw2" class="brand-input" placeholder="한 번 더 입력해 주세요" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="resetpwPw2" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="resetpwPw2Error" hidden></p>
+        </div>
+      </div>
+      <div class="brand-notice brand-notice-error" id="resetpwResult" role="alert" hidden></div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="resetpwSubmit">비밀번호 바꾸기</button>
+        <p class="brand-sub-text">모르는 메일이라면 이 화면을 닫아 주세요. 비밀번호는 바뀌지 않아요.</p>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-07a 비밀번호 바꾸기 완료 — 로그아웃 상태로 끝난다(자동 로그인 안 함, 피그마 F-1) -->
+  <section class="brand-card" data-screen="reset-done" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>비밀번호를 바꿨어요</h1>
+      <p>새 비밀번호로 다시 로그인해 주세요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>보안을 위해 이 화면에서는 로그아웃했어요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+    </div>
+  </section>
+
+  <!-- 1차 w01-08 링크 확인 「계속하기」 (메일 링크 공통 — 제목만 메일 종류별, 피그마 F-6)
+       메일 프로그램이 링크를 미리 열어도 인증 링크가 소진되지 않게, 직접 누를 때만 인증 서비스로 넘긴다 -->
+  <section class="brand-card" data-screen="confirm" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1 id="confirmTitle">비밀번호를 설정할까요?</h1>
+      <p>아래 「계속하기」를 누르면 비밀번호 설정 화면으로 넘어가요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>이 한 단계가 있는 이유: 메일 프로그램이 링크를 미리 열어 보면 링크가 이미 쓴 것으로 처리될 수 있어요.</li>
+      <li>직접 누르셨을 때만 다음 화면으로 넘어가요.</li>
+    </ul>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="confirmBtn">계속하기</button>
+    </div>
+  </section>
+
+  <!-- 1차 w01-03 초대 수락 (이미 브랜드 계정이 있는 사람) -->
+  <section class="brand-card" data-screen="invite" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>브랜드 초대</h1>
+      <p id="inviteDesc"></p>
+    </div>
+    <div class="brand-fields">
+      <div class="brand-field">
+        <label for="inviteEmail">초대받은 계정</label>
+        <input type="email" id="inviteEmail" class="brand-input" readonly>
+      </div>
+    </div>
+    <div class="brand-notice brand-notice-info" id="inviteResult" role="status" hidden></div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="inviteSubmit">초대 수락</button>
+      <p class="brand-sub-text">수락하면 좌측 위에서 브랜드를 바꿔 쓸 수 있어요 · <a href="#login">나중에</a></p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-04 이메일 변경 확인 (메일 링크로 들어옴) -->
+  <section class="brand-card" data-screen="email-change" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>로그인 이메일 바꾸기</h1>
+      <p>레버브 운영팀이 회원님의 로그인 이메일을 바꾸도록 요청했어요. 「확인」을 누르면 바로 바뀌어요.</p>
+    </div>
+    <div class="brand-fields">
+      <div class="brand-field">
+        <label for="emailChangeNew">새 로그인 이메일</label>
+        <input type="email" id="emailChangeNew" class="brand-input" readonly>
+      </div>
+    </div>
+    <div class="brand-notice brand-notice-info" id="emailChangeResult" role="status" hidden></div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="emailChangeSubmit">확인</button>
+      <p class="brand-sub-text" id="emailChangeNote"></p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-05 쓸 수 없는 링크 (비밀번호 설정·초대·이메일 변경 공용) -->
+  <section class="brand-card" data-screen="link-invalid" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>링크를 쓸 수 없어요</h1>
+      <p>기한이 지났거나, 이미 사용됐거나, 새 메일이 다시 왔거나, 메일을 보낸 뒤 계정 상태가 바뀐 링크예요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>운영팀이 보낸 메일(계정 만들기)이면 레버브 운영팀에 다시 보내 달라고 요청해 주세요.</li>
+      <li>동료의 초대 메일이면 초대한 대표 담당자에게 다시 보내 달라고 요청해 주세요.</li>
+      <li>비밀번호 재설정 메일이면 「비밀번호 찾기」에서 다시 요청해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+    </div>
+  </section>
+
+  <!-- 1차 w01-06 브랜드 계정이 아님 — 비밀번호가 맞은 뒤에만 온다(틀렸으면 w01-91 공통 실패 문구, 피그마 F-3) -->
+  <section class="brand-card" data-screen="not-brand" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>브랜드 계정이 아니에요</h1>
+      <p>이 이메일은 REVERB 인플루언서 또는 운영팀 계정이에요. 브랜드 페이지는 브랜드 담당자 계정으로만 쓸 수 있어요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>브랜드 담당자라면 받은 메일로 만든 브랜드 계정으로 로그인해 주세요.</li>
+      <li>계정이 없다면 브랜드의 대표 담당자나 REVERB 운영팀에 요청해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login" data-clear-login>다른 계정으로 로그인</a>
+    </div>
+  </section>
+
+  <!-- 1차 w01-06a 연결된 브랜드가 없음 (모든 브랜드에서 해제된 계정, 피그마 F-4) -->
+  <section class="brand-card" data-screen="no-brand" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>연결된 브랜드가 없어요</h1>
+      <p>이 계정은 쓰던 브랜드에서 모두 해제됐어요. 지금은 브랜드 페이지를 쓸 수 없어요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>다시 쓰려면 브랜드의 대표 담당자에게 초대를 요청해 주세요.</li>
+      <li>대표 담당자가 없거나 연락이 어렵다면 REVERB 운영팀에 문의해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+    </div>
+  </section>
+
+  <!-- 새로고침 때 로그인 판정을 못 받음 — 세션은 지우지 않고 다시 시도하게 한다(판정 결과가 나왔을 때만 로그아웃) -->
+  <section class="brand-card" data-screen="check-fail" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>로그인을 확인하지 못했어요</h1>
+      <p>잠시 후 다시 시도해 주세요.</p>
+    </div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="checkRetryBtn">다시 시도</button>
+      <!-- 조회가 계속 실패할 때 빠져나갈 길 — 이 기기에서 로그아웃하고 로그인 화면으로 -->
+      <a class="brand-sub-link" href="#login" id="checkLogoutBtn">로그아웃하고 다른 계정으로 로그인</a>
+    </div>
+  </section>
+
+  <!-- 로그인 뒤 임시 첫 화면 — 오리엔시트 목록(w04-00)이 생기면 바꾼다(피그마 F-7, 이번 범위 밖) -->
+  <section class="brand-card" data-screen="home" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1 id="homeTitle">로그인했어요</h1>
+      <p>브랜드 페이지의 다른 화면은 준비 중이에요.</p>
+    </div>
+    <div class="brand-fields">
+      <div class="brand-field">
+        <label for="homeEmail">로그인 이메일</label>
+        <input type="email" id="homeEmail" class="brand-input" readonly>
+      </div>
+      <div class="brand-field">
+        <span class="brand-field-label">연결된 브랜드</span>
+        <ul class="brand-guide" id="homeBrands"></ul>
+      </div>
+    </div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="logoutBtn">로그아웃</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- 약관 「보기」 — 브랜드용 약관이 아직 없어 안내만 띄운다 -->
+<div class="brand-modal" id="legalModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" hidden>
+  <div class="brand-modal-box">
+    <h2 id="legalModalTitle"></h2>
+    <p>브랜드용 문서는 준비 중입니다. 정식 운영 전에 이 자리에서 볼 수 있게 됩니다.</p>
+    <button type="button" class="brand-btn" id="legalModalClose">닫기</button>
+  </div>
+</div>
+
+<!-- 개발서버 전용 화면 미리보기 막대 — 운영 주소에서는 그리지 않는다(brand-app.js) -->
+<div class="brand-preview" id="brandPreview" hidden>
+  <div class="brand-preview-title">
+    <span class="material-icons-round notranslate" translate="no">science</span>
+    화면 미리보기 — 개발서버 전용, 모양만 봅니다(저장 안 됨)
+  </div>
+  <div class="brand-preview-row">
+    <label for="previewScreen">화면</label>
+    <select id="previewScreen"></select>
+  </div>
+  <div class="brand-preview-row" data-preview-for="login">
+    <label class="brand-preview-check"><input type="checkbox" id="previewExpired"> ⑦ 로그인 시간 만료 안내</label>
+  </div>
+  <div class="brand-preview-row" data-preview-for="setpw">
+    <label for="previewSetpwKind">계정 종류</label>
+    <select id="previewSetpwKind">
+      <option value="owner">w01-02 운영팀이 만든 계정</option>
+      <option value="member">w01-02b 초대받은 멤버</option>
+    </select>
+  </div>
+  <div class="brand-preview-row" data-preview-for="confirm">
+    <label for="previewConfirmKind">메일 종류</label>
+    <select id="previewConfirmKind">
+      <option value="setup">계정 만들기(설정)</option>
+      <option value="reset">비밀번호 재설정</option>
+    </select>
+  </div>
+</div>
+
+<!-- supabase.js 는 도메인 판정(IS_STAGING)·주소 상수를 위해 싣는다. 전역 연결은 아래 표시로 생략하고, 브랜드 화면 연결은 brand-core.js 가 따로 만든다 -->
+<!-- 전역 연결(db)을 만들지 않는다 — 브랜드 화면은 자기 연결을 따로 만든다(dev/lib/supabase.js 머리 주석) -->
+<script>window.REVERB_SKIP_GLOBAL_DB = true;</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
+
+<script>
+// ══════════════════════════════════════
+// CONFIG — Supabase 연결 설정 (환경별 자동 분기)
+// ══════════════════════════════════════
+// production: globalreverb.com / www.globalreverb.com
+// staging:    dev.globalreverb.com, *.vercel.app, localhost, 127.0.0.1, file://
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+
+// 정규식은 globalreverb.com / www.globalreverb.com만 엄격히 매칭.
+// 다른 서브도메인(dev, staging, preview 등)이 실수로 production DB에 접근하는 것을 방지.
+function resolveSupabaseEnv(hostname) {
+  if (/^(www\.)?globalreverb\.com$/.test(hostname)) return 'production';
+  return 'staging';
+}
+
+const SUPABASE_ENV = resolveSupabaseEnv(location.hostname);
+const SUPABASE_URL = SUPABASE_ENVS[SUPABASE_ENV].url;
+const SUPABASE_ANON_KEY = SUPABASE_ENVS[SUPABASE_ENV].key;
+const IS_STAGING = SUPABASE_ENV === 'staging';
+const ADMIN_EMAIL = 'admin@kemo.jp';
+
+// 디버깅용 전역 노출
+window.__REVERB_ENV__ = SUPABASE_ENV;
+
+// 브랜드 화면(dev/brand/index.html)은 이 파일을 싣되 전역 연결을 만들지 않는다 — window.REVERB_SKIP_GLOBAL_DB = true.
+//   전역 db 는 기본 저장 칸 + detectSessionInUrl:true 라, 브랜드 화면에서 만들어지면 ①인플루언서 세션과 저장 칸을 섞고
+//   ②메일 링크 주소의 인증 값을 먼저 가로챈다. 브랜드 화면은 자기 연결(저장 칸 'reverb.brandAuth')을 따로 만든다.
+//   ⚠️ 인플루언서·관리자 화면은 이 표시를 두지 않는다 — 두면 그 화면의 db 가 null 이 된다.
+const REVERB_SKIP_GLOBAL_DB = window.REVERB_SKIP_GLOBAL_DB === true;
+
+let db = null;
+try {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    });
+  }
+} catch(e) {}
+
+// 비밀번호 찾기 「요청」 전용 보조 클라이언트 (2026-07-20)
+//   전역 db 는 flowType:'pkce' 라, 재설정 메일 토큰이 요청한 그 브라우저에서만 검증 가능한
+//   형태(pkce_...)로 발급된다 → PC 에서 요청하고 폰에서 메일을 열면 실패한다.
+//   인플루언서는 폰으로 메일을 보는 비율이 높아 이 조합이 실패의 주원인.
+//   ⚠️ 전역 db 설정은 절대 바꾸지 않는다 — 로그인·세션 유지·회원가입 확인이 전부 거기 얹혀 있다.
+//   저장소에 아무것도 쓰지 않는 인스턴스라 전역 세션과 섞이지 않는다.
+//   ※ 메일을 「받은 뒤」의 검증(verifyOtp)은 pkce 여부와 무관한 별개 경로라 전역 db 를 그대로 쓴다.
+let dbAuthRequest = null;
+try {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
+    dbAuthRequest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        flowType: 'implicit',      // 브라우저 종속 토큰(pkce_) 발급 방지 — 핵심
+        persistSession: false,     // 저장소에 세션을 쓰지 않음
+        autoRefreshToken: false,
+        detectSessionInUrl: false, // 주소의 인증 값을 이 인스턴스가 가로채지 않게
+        storageKey: 'reverb.authRequest'  // 저장 칸 분리(안전장치 — 위 설정만으로도 저장은 없음)
+      }
+    });
+  }
+} catch(e) {}
+
+// 브랜드 페이지 공용 — 화면 전환·입력 칸 오류 표시·검사 규칙
+//   ⚠️ 관리자·인플루언서 빌드에 들어가지 않는 독립 화면(dev/brand/index.html) 전용이다.
+//   ⚠️ ui.js 를 싣지 않는다 — 전역 키보드·클릭·끌어놓기 처리기가 함께 붙기 때문.
+
+// 로그인 저장 칸 이름. supabase-js 기본값(sb-…-auth-token)을 쓰면
+// 같은 주소의 인플루언서·관리자 로그인과 세션이 섞인다 — 브랜드는 반드시 이 이름으로 분리한다.
+const BRAND_AUTH_STORAGE_KEY = 'reverb.brandAuth';
+// 메일 링크로 생기는 임시 세션 칸 이름 — persistSession:false 라 실제로는 쓰지 않는다(안전장치)
+const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
+
+const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'home', 'check-fail'];
+
+// ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
+//   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
+//   brandSetupDb : 메일 링크(설정·재설정) 전용 임시 연결. implicit — 서버 발급 링크는 #access_token=… 으로 돌아오므로
+//                  pkce 면 못 읽는다(admin-setpw.html 399행과 같은 이유). 저장하지 않고, 토큰은 화면이 직접 setSession 한다.
+//   🔴 운영 주소(IS_STAGING=false)에서는 만들지 않는다 — 운영은 「준비 중」 카드만(사용자 결정 P-1).
+let brandDb = null;
+let brandSetupDb = null;
+function initBrandClients() {
+  if (typeof IS_STAGING === 'undefined' || !IS_STAGING) return false;
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') return false;
+  try {
+    brandDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        storageKey: BRAND_AUTH_STORAGE_KEY,
+        flowType: 'pkce',
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false
+      }
+    });
+    brandSetupDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        storageKey: BRAND_SETUP_STORAGE_KEY,
+        flowType: 'implicit',
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
+  } catch (e) {
+    brandDb = null; brandSetupDb = null;
+    return false;
+  }
+  return true;
+}
+
+// 접근 토큰이 만료돼 거절된 오류인지 — storage.js 의 retryWithRefresh 와 같은 판정(이 화면은 storage.js 를 싣지 않는다)
+function isBrandJwtError(err) {
+  if (!err) return false;
+  const msg = String(err.message || '');
+  return err.code === 'PGRST301' || err.status === 401 || /jwt|token is expired/i.test(msg);
+}
+
+// 로그인 연결로 원격 호출 — 토큰 만료면 한 번 갱신하고 다시 부른다. 실패면 { data:null, error }
+async function brandRpc(name, args) {
+  if (!brandDb) return { data: null, error: new Error('no_client') };
+  let r;
+  try { r = await brandDb.rpc(name, args || {}); } catch (e) { return { data: null, error: e }; }
+  // postgrest 는 상태 코드를 응답 최상위(r.status)에 둔다 — 오류 객체만 보면 401 을 놓친다
+  if (r.error && (isBrandJwtError(r.error) || r.status === 401)) {
+    try {
+      const { error: refErr } = await brandDb.auth.refreshSession();
+      if (!refErr) r = await brandDb.rpc(name, args || {});
+    } catch (e) { /* 아래에서 실패로 돌려준다 */ }
+  }
+  return r;
+}
+
+// 로그아웃 — 🔴 scope:'local'(기본 global 은 같은 사용자의 다른 기기 세션까지 끊는다).
+//   우리가 스스로 끊을 때 나는 SIGNED_OUT 을 「로그인 시간 만료」로 읽지 않게 표시를 세운다(brand-app.js).
+let _brandSigningOut = false;
+async function brandSignOutLocal() {
+  if (!brandDb) return;
+  _brandSigningOut = true;
+  try { await brandDb.auth.signOut({ scope: 'local' }); } catch (e) { /* 저장 칸만 비면 된다 */ }
+  finally { _brandSigningOut = false; }
+}
+async function brandSetupSignOutLocal() {
+  if (!brandSetupDb) return;
+  try { await brandSetupDb.auth.signOut({ scope: 'local' }); } catch (e) { /* 메모리 세션뿐이라 무시 */ }
+}
+
+function brandEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showBrandScreen(name) {
+  document.querySelectorAll('.brand-card[data-screen]').forEach(el => {
+    el.hidden = el.dataset.screen !== name;
+  });
+  const titles = {
+    closed: '브랜드 페이지', login: '브랜드 로그인', forgot: '비밀번호 찾기', 'forgot-sent': '메일을 확인해 주세요',
+    setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨어요', confirm: '링크 확인',
+    invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없어요',
+    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요', home: '브랜드 페이지',
+    'check-fail': '로그인을 확인하지 못했어요'
+  };
+  document.title = (titles[name] || '브랜드') + ' · REVERB JP';
+}
+
+// 칸 아래 오류 문구 + 빨간 테두리. msg 가 비면 지운다.
+function setFieldError(inputId, msg) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(inputId + 'Error');
+  if (input) {
+    input.classList.toggle('is-error', !!msg);
+    if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    if (err) {
+      if (msg) input.setAttribute('aria-describedby', err.id); else input.removeAttribute('aria-describedby');
+    }
+  }
+  if (err) { err.textContent = msg || ''; err.hidden = !msg; }
+}
+
+function clearFormErrors(form) {
+  form.querySelectorAll('.brand-input').forEach(el => { if (el.id) setFieldError(el.id, ''); });
+}
+
+function setNotice(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg || '';
+  el.hidden = !msg;
+}
+
+// 이메일 형식 — 화면에서만 본다(가입 여부와 무관). 「@」 뒤에 「.」이 있어야 통과.
+function isEmailFormat(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+// 비밀번호 규칙 — 8자 + 영문 소문자 + 기호.
+//   ⚠️ 같은 규칙의 사본이 셋이다: ui.js passwordPolicyIssue · admin-setpw.html validateAdminPassword · 여기.
+//      규칙을 바꾸면 셋을 함께 고친다. (ui.js 를 싣지 않아 사본을 둔다 — 파일 머리말 참고)
+function brandPasswordIssue(pw) {
+  if (!pw || pw.length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
+  if (!/[a-z]/.test(pw)) return '영문 소문자를 하나 이상 넣어 주세요.';
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return '기호(! @ # 같은 글자)를 하나 이상 넣어 주세요.';
+  return '';
+}
+
+// 비밀번호 「보기」 단추 — data-pw-toggle="입력칸 id"
+function bindPasswordToggles() {
+  document.querySelectorAll('[data-pw-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.pwToggle);
+      if (!input) return;
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', String(show));
+      btn.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+      const icon = btn.querySelector('.material-icons-round');
+      if (icon) icon.textContent = show ? 'visibility_off' : 'visibility';
+    });
+  });
+}
+
+// 「보기」로 글자를 보이게 해 둔 칸을 다시 가린다 (화면을 다시 채울 때)
+function resetPasswordToggles(scope) {
+  scope.querySelectorAll('[data-pw-toggle]').forEach(btn => {
+    const input = document.getElementById(btn.dataset.pwToggle);
+    if (input) input.type = 'password';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', '비밀번호 보기');
+    const icon = btn.querySelector('.material-icons-round');
+    if (icon) icon.textContent = 'visibility';
+  });
+}
+
+// 폼 칸·버튼 잠금 (Figma ⑤ 로그인 중)
+function setFormBusy(form, busy) {
+  form.querySelectorAll('input, button').forEach(el => { el.disabled = busy; });
+}
+
+// 브랜드 페이지 — 로그인·비밀번호 찾기·메일 링크(설정·재설정) 화면 동작
+//   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
+//   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
+//   ⚠️ 초대 수락(w01-03)·이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
+
+const BRAND_MSG = {
+  emailEmpty: '이메일을 입력해 주세요.',
+  emailFormat: '이메일 형식이 올바르지 않습니다. 「@」 뒤에 「company.com」처럼 「.(점)」까지 입력해 주세요.',
+  pwEmpty: '비밀번호를 입력해 주세요.',
+  // ④ 계정 열거 방지 — 「없는 이메일」·「틀린 비밀번호」를 나누지 않는다 (.claude/rules/security.md)
+  loginFail: '이메일 또는 비밀번호가 올바르지 않습니다. 비밀번호가 기억나지 않으면 아래 「비밀번호를 잊으셨나요?」를 눌러 주세요.',
+  tooMany: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+  // 비밀번호는 맞았는데 로그인 뒤 판정을 못 받았을 때 / 연결이 끊겼을 때 — 일반 실패와 구분한다
+  checkFail: '로그인을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  nameEmpty: '이름을 입력해 주세요.',
+  pw2Empty: '비밀번호를 한 번 더 입력해 주세요.',
+  pwMismatch: '두 비밀번호가 같지 않습니다.',
+  agreeRequired: '필수 약관 두 개에 모두 동의해 주세요.',
+  samePassword: '지금 쓰는 비밀번호와 다른 비밀번호로 정해 주세요.',
+  weakPassword: '쓸 수 없는 비밀번호입니다. 8자 이상, 영문 소문자와 기호를 넣어 다른 비밀번호로 정해 주세요.',
+  saveFail: '비밀번호를 저장하지 못했습니다. 잠시 후 다시 눌러 주세요.',
+  setupFinishFail: '비밀번호 설정을 마치지 못했습니다. 잠시 후 「비밀번호 설정하고 시작하기」를 다시 눌러 주세요.',
+  setupDoneRelogin: '비밀번호를 설정했어요. 새 비밀번호로 로그인해 주세요.',
+  previewOnly: '미리보기 화면이라 저장하지 않습니다. 실제 설정은 메일 속 링크로 들어와야 합니다.'
+};
+
+// 약관 판 문자열 — 🔴 개발서버 임시 판. 브랜드용 약관이 확정되면(선결 조건 P-7) 실제 판으로 바꾼다.
+const BRAND_TERMS_VERSION = 'dev-2026-10-14';
+
+// 미리보기 화면에 채우는 예시 값 (Figma 화면의 예시 그대로)
+const BRAND_SAMPLE = {
+  setpwOwner: { email: 'manager@company.com', desc: '레버브 운영팀이 「레버브」 브랜드 계정을 만들었어요. 비밀번호를 정하면 바로 시작할 수 있어요.' },
+  setpwMember: { email: 'park@harudam.co.kr', desc: '「하루담」 브랜드의 김대표님이 회원님을 멤버로 초대했어요. 이름과 비밀번호를 정하면 바로 시작할 수 있어요.' },
+  invite: { email: 'manager@company.com', desc: '「하루담」 브랜드의 대표 담당자 김대표님이 회원님을 멤버로 초대했어요.' },
+  emailChange: { next: 'kim@harudam.co.kr', current: 'ceo@harudam.co.kr' },
+  resetEmail: 'manager@company.com'
+};
+// 실제 설정 화면 설명 — 로그인 전이라 브랜드 이름을 알 수 없어(링크 판정 함수는 유효 여부만 돌려준다) 이름 없이 쓴다
+const BRAND_SETPW_REAL_DESC = 'REVERB 운영팀이 브랜드 계정을 만들었어요. 비밀번호를 정하면 바로 시작할 수 있어요.';
+
+// 아직 서버와 연결하지 않은 화면(초대 수락·이메일 변경) 미리보기 전용
+function brandFakeRequest(result) {
+  return new Promise(resolve => setTimeout(() => resolve(result), 700));
+}
+
+function validateEmailField(id) {
+  const v = document.getElementById(id).value.trim();
+  if (!v) { setFieldError(id, BRAND_MSG.emailEmpty); return false; }
+  if (!isEmailFormat(v)) { setFieldError(id, BRAND_MSG.emailFormat); return false; }
+  setFieldError(id, '');
+  return true;
+}
+
+// 메일 링크 착지 맥락 — brand-app.js handleBrandLinkLanding 이 채운다.
+//   { linkId, mode:'setup'|'reset', email, hasSession }  · 없으면 null(미리보기 화면)
+let brandLinkCtx = null;
+let _brandConfirmTarget = null;
+
+// 로그인 오류를 화면 문구로 — 서버의 영어 문구는 그대로 보여 주지 않는다
+function brandSignInErrorMsg(err) {
+  const msg = String((err && err.message) || '');
+  if ((err && err.status === 429) || /rate limit|too many/i.test(msg)) return BRAND_MSG.tooMany;
+  // 연결 끊김(응답 없음)은 비밀번호 문제가 아니다
+  if (err && (err.status === 0 || err.name === 'AuthRetryableFetchError')) return BRAND_MSG.checkFail;
+  return BRAND_MSG.loginFail;
+}
+
+// 로그인 직후 판정 — 결과: { state, name, email, brands } 또는 null(호출 실패)
+async function fetchBrandLoginState() {
+  const { data, error } = await brandRpc('get_my_brand_login_state');
+  if (error || !data || typeof data !== 'object' || !data.state) return null;
+  return data;
+}
+
+// 판정 결과에 따라 화면을 정한다. ok 가 아니면 세션을 남기지 않는다(로그아웃 후 안내).
+//   loginError 문구는 로그인 화면으로 돌아갈 때만 쓴다.
+async function applyBrandLoginState(state) {
+  if (state && state.state === 'ok') {
+    setBrandAuthed(state);
+    return 'ok';
+  }
+  await brandSignOutLocal();
+  setBrandAuthed(null);
+  const kind = state ? state.state : null;
+  if (kind === 'not_brand') { goBrandScreen('not-brand'); return kind; }
+  if (kind === 'no_active_brand') { goBrandScreen('no-brand'); return kind; }
+  // setup_incomplete — 비밀번호가 비어 실제로는 로그인 자체가 실패하는 상태라 일반 실패 문구
+  goBrandScreen('login');
+  setNotice('loginError', kind === 'setup_incomplete' ? BRAND_MSG.loginFail : BRAND_MSG.checkFail);
+  return kind || 'error';
+}
+
+// ── w01-00 로그인
+function initLoginForm() {
+  const form = document.getElementById('loginForm');
+  const btn = document.getElementById('loginSubmit');
+  let busy = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setNotice('loginError', '');
+    // ② 빈 칸 · ③ 형식 오류 — 화면에서만 검사하고 서버에는 묻지 않는다
+    const emailOk = validateEmailField('loginEmail');
+    const pwInput = document.getElementById('loginPw');
+    const pwOk = !!pwInput.value;
+    setFieldError('loginPw', pwOk ? '' : BRAND_MSG.pwEmpty);
+    if (!emailOk || !pwOk) {
+      (emailOk ? pwInput : document.getElementById('loginEmail')).focus();
+      return;
+    }
+    const email = document.getElementById('loginEmail').value.trim();
+    // ⑤ 로그인 중 — 두 번 눌리지 않게 잠근다
+    busy = true;
+    setFormBusy(form, true);
+    btn.textContent = '로그인 중…';
+    let failMsg = '';
+    try {
+      let signErr = null;
+      try {
+        const { error } = await brandDb.auth.signInWithPassword({ email, password: pwInput.value });
+        signErr = error;
+      } catch (ex) { signErr = ex || new Error('sign_in_failed'); }
+      if (signErr) {
+        failMsg = brandSignInErrorMsg(signErr);
+      } else {
+        const state = await fetchBrandLoginState();
+        const result = await applyBrandLoginState(state);
+        if (result === 'ok') {
+          setNotice('loginExpiredNotice', '');
+          pwInput.value = '';
+          goBrandScreen('home');
+        } else {
+          pwInput.value = '';
+        }
+        return;
+      }
+    } finally {
+      busy = false;
+      setFormBusy(form, false);
+      btn.textContent = '로그인';
+    }
+    // ④ 실패 · ⑥ 시도 과다 — 이메일은 남기고 비밀번호 칸만 비운다
+    setNotice('loginError', failMsg);
+    pwInput.value = '';
+    pwInput.focus();
+  });
+  ['loginEmail', 'loginPw'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => setFieldError(id, ''));
+  });
+}
+
+// ── w01-01 비밀번호 찾기 → w01-01a 메일 발송
+//   🔴 brandDb.auth.resetPasswordForEmail 을 쓰지 않는다 — pkce 검증값이 요청한 브라우저에 묶여
+//      다른 기기에서 메일을 열면 실패하고, 인플루언서 메일 양식과 섞인다. 서버 함수만 부른다(조각 5).
+//   서버 함수는 계정이 있든 없든 같은 응답(최소 2.5초)이라 결과를 보지 않고 다음 화면으로 간다.
+async function requestBrandPasswordReset(email) {
+  try {
+    await fetch(SUPABASE_URL + '/functions/v1/brand-password-reset-request', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ email })
+    });
+  } catch (e) { /* 계정 존재 비노출 — 실패여도 같은 화면 */ }
+}
+
+function initForgotForm() {
+  const form = document.getElementById('forgotForm');
+  const btn = document.getElementById('forgotSubmit');
+  let busy = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    if (!validateEmailField('forgotEmail')) { document.getElementById('forgotEmail').focus(); return; }
+    busy = true;
+    setFormBusy(form, true);
+    btn.textContent = '보내는 중…';
+    try {
+      await requestBrandPasswordReset(document.getElementById('forgotEmail').value.trim());
+    } finally {
+      busy = false;
+      setFormBusy(form, false);
+      btn.textContent = '재설정 메일 보내기';
+    }
+    // 계정이 있든 없든 같은 화면으로 간다 (계정 존재 비노출)
+    goBrandScreen('forgot-sent');
+  });
+  document.getElementById('forgotEmail').addEventListener('input', () => setFieldError('forgotEmail', ''));
+}
+
+// ── w01-08 「계속하기」 — 메일 링크의 #confirm= 에 담긴 인증 서비스 주소로 직접 누를 때만 넘긴다
+//   ★목적지는 현재 환경 프로젝트 주소 + /auth/v1/verify 정확 일치(admin-setpw.html readConfirmTarget 과 같은 방식).
+//     *.supabase.co 를 통짜로 허용하면 남의 프로젝트를 거쳐 피싱 사이트로 넘어갈 수 있다.
+function readBrandConfirmTarget(raw) {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    const expectedHost = new URL(SUPABASE_URL).hostname;
+    if (u.protocol !== 'https:') return null;
+    if (u.hostname !== expectedHost) return null;
+    if (u.pathname !== '/auth/v1/verify') return null;
+    return u.toString();
+  } catch (e) { return null; }
+}
+
+function fillConfirmScreen(mode, target) {
+  document.getElementById('confirmTitle').textContent =
+    mode === 'reset' ? '비밀번호를 다시 정할까요?' : '비밀번호를 설정할까요?';
+  _brandConfirmTarget = target || null;
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = false; btn.textContent = '계속하기';
+}
+
+function initConfirm() {
+  const btn = document.getElementById('confirmBtn');
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    if (!_brandConfirmTarget) { showBrandLinkInvalid(); return; }
+    btn.disabled = true;
+    btn.textContent = '이동하는 중…';
+    window.location.href = _brandConfirmTarget;
+  });
+}
+
+// ── w01-02 비밀번호 설정 · w01-02b 초대받은 멤버
+//   실제(메일 링크로 들어옴)면 brandLinkCtx.mode==='setup', 아니면 미리보기 예시 값
+function resetSetpwForm() {
+  const form = document.getElementById('setpwForm');
+  form.reset();
+  clearFormErrors(form);
+  resetPasswordToggles(form);
+  setNotice('setpwAgreeError', '');
+  document.getElementById('setpwAgree').classList.remove('is-error');
+  setNotice('setpwResult', '');
+}
+
+function fillSetpwScreen(kind) {
+  const isMember = kind === 'member';
+  const s = isMember ? BRAND_SAMPLE.setpwMember : BRAND_SAMPLE.setpwOwner;
+  document.querySelectorAll('#setpwForm [data-member-only]').forEach(el => { el.hidden = !isMember; });
+  resetSetpwForm();
+  document.getElementById('setpwDesc').textContent = s.desc;
+  document.getElementById('setpwEmail').value = s.email;
+}
+
+function fillSetpwReal(email) {
+  document.querySelectorAll('#setpwForm [data-member-only]').forEach(el => { el.hidden = true; });
+  resetSetpwForm();
+  document.getElementById('setpwDesc').textContent = BRAND_SETPW_REAL_DESC;
+  document.getElementById('setpwEmail').value = email || '';
+}
+
+function syncAgreeAll() {
+  const items = document.querySelectorAll('#setpwAgree .agree-item');
+  document.getElementById('agreeAll').checked = Array.from(items).every(i => i.checked);
+}
+
+// updateUser 오류 분류 — 인증 서비스의 오류 코드(err.code)로 가른다. 문구 정규식은 코드가 없을 때의 보조.
+//   반환: 'link'(→ 쓸 수 없는 링크) | 'same'(지금 비밀번호와 같음) | 화면 문구
+//   reauthentication_needed 는 이 화면에서 재인증할 길이 없어 막다른 길이 되므로 쓸 수 없는 링크로 보낸다.
+const BRAND_PW_LINK_CODES = ['session_not_found', 'session_expired', 'bad_jwt', 'no_authorization', 'reauthentication_needed'];
+function brandUpdatePwErrorKind(err) {
+  const code = (err && err.code) || '';
+  const msg = String((err && err.message) || '');
+  if (BRAND_PW_LINK_CODES.includes(code) || (err && err.name === 'AuthSessionMissingError')) return 'link';
+  if (code === 'same_password') return 'same';
+  if (code === 'weak_password') return BRAND_MSG.weakPassword;
+  // 보조 — 코드가 비어 오는 옛 응답
+  if (!code) {
+    if (/different from the old password/i.test(msg)) return 'same';
+    if ((err && err.status === 401) || /session missing|jwt|not authenticated/i.test(msg)) return 'link';
+  }
+  return BRAND_MSG.saveFail;
+}
+
+// 입력한 비밀번호를 같은 화면 안에서 비교하기 위한 지문(원문은 남기지 않는다). 해시 기능이 없으면 null
+async function brandPwFingerprint(pw) {
+  try {
+    if (!(window.crypto && crypto.subtle)) return null;
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) { return null; }
+}
+
+const _brandSleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// 설정 완료 기록 — password_not_set 이면 최대 2회 더 시도. 반환: 결과 문자열 또는 null(호출 실패)
+async function completeBrandSetup(linkId) {
+  for (let i = 0; i < 3; i++) {
+    let r;
+    try {
+      r = await brandSetupDb.rpc('complete_brand_account_setup', { p_link_id: linkId, p_terms_version: BRAND_TERMS_VERSION });
+    } catch (e) { r = { data: null, error: e }; }
+    if (r.error || typeof r.data !== 'string') {
+      if (i < 2) { await _brandSleep(600); continue; }
+      return null;
+    }
+    if (r.data !== 'password_not_set') return r.data;
+    if (i < 2) await _brandSleep(600);
+  }
+  return 'password_not_set';
+}
+
+async function submitSetpwReal(pw) {
+  const ctx = brandLinkCtx;
+  // 🔴 재시도 막다른 길 방지 — 비밀번호 저장은 됐는데 완료 기록이 실패해 다시 누른 경우,
+  //   같은 비밀번호로 updateUser 를 또 부르면 same_password 로 거절돼 영영 못 끝낸다.
+  //   그래서 저장에 성공한 입력의 지문을 이 화면의 메모리(brandLinkCtx)에만 두고, 같은 입력이면 저장을 건너뛰고 완료 기록만 다시 부른다.
+  const fp = await brandPwFingerprint(pw);
+  const alreadyApplied = !!(ctx.pwAppliedFp && fp && ctx.pwAppliedFp === fp);
+  if (!alreadyApplied) {
+    const { error: upErr } = await brandSetupDb.auth.updateUser({ password: pw });
+    if (upErr) {
+      const kind = brandUpdatePwErrorKind(upErr);
+      // 이미 한 번 바꾼 상태에서 same_password = 지금 비밀번호가 곧 이 입력 → 저장된 것으로 보고 진행
+      if (!(kind === 'same' && ctx.pwAppliedFp)) {
+        if (kind === 'link') { await showBrandLinkInvalid(); return; }
+        setNotice('setpwResult', kind === 'same' ? BRAND_MSG.samePassword : kind);
+        return;
+      }
+    }
+    ctx.pwAppliedFp = fp || 'applied';
+  }
+  const result = await completeBrandSetup(ctx.linkId);
+  if (result === 'link_mismatch' || result === 'already_set') { await showBrandLinkInvalid(); return; }
+  if (result === 'not_brand') {
+    await brandSetupSignOutLocal();
+    endBrandLinkFlow();
+    goBrandScreen('not-brand');
+    return;
+  }
+  if (result !== 'ok') { setNotice('setpwResult', BRAND_MSG.setupFinishFail); return; }
+
+  // 설정 완료 — 임시 세션을 정리하고 로그인 연결로 새 비밀번호 로그인(설정은 로그인된 채 첫 화면, 피그마 F-1)
+  const email = ctx.email;
+  await brandSetupSignOutLocal();
+  endBrandLinkFlow();
+  let signErr = null;
+  try {
+    const { error } = await brandDb.auth.signInWithPassword({ email, password: pw });
+    signErr = error;
+  } catch (ex) { signErr = ex || new Error('sign_in_failed'); }
+  if (signErr) {
+    goBrandScreen('login');
+    document.getElementById('loginEmail').value = email || '';
+    setNotice('loginExpiredNotice', BRAND_MSG.setupDoneRelogin);
+    return;
+  }
+  const state = await fetchBrandLoginState();
+  const r2 = await applyBrandLoginState(state);
+  if (r2 === 'ok') goBrandScreen('home');
+}
+
+function initSetpwForm() {
+  const form = document.getElementById('setpwForm');
+  const btn = document.getElementById('setpwSubmit');
+  const agreeBox = document.getElementById('setpwAgree');
+  let busy = false;
+  document.getElementById('agreeAll').addEventListener('change', (e) => {
+    agreeBox.querySelectorAll('.agree-item').forEach(i => { i.checked = e.target.checked; });
+    setNotice('setpwAgreeError', ''); agreeBox.classList.remove('is-error');
+  });
+  agreeBox.querySelectorAll('.agree-item').forEach(i => i.addEventListener('change', () => {
+    syncAgreeAll();
+    setNotice('setpwAgreeError', ''); agreeBox.classList.remove('is-error');
+  }));
+  ['setpwName', 'setpwPw', 'setpwPw2'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => setFieldError(id, ''));
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setNotice('setpwResult', '');
+    const isReal = !!(brandLinkCtx && brandLinkCtx.mode === 'setup' && brandLinkCtx.hasSession);
+    let firstBad = null;
+    const isMember = !isReal && brandPreviewState.setpwKind === 'member';
+    if (isMember) {
+      const name = document.getElementById('setpwName').value.trim();
+      setFieldError('setpwName', name ? '' : BRAND_MSG.nameEmpty);
+      if (!name) firstBad = firstBad || 'setpwName';
+    }
+    const pw = document.getElementById('setpwPw').value;
+    const pw2 = document.getElementById('setpwPw2').value;
+    const pwIssue = brandPasswordIssue(pw);
+    setFieldError('setpwPw', pwIssue);
+    if (pwIssue) firstBad = firstBad || 'setpwPw';
+    const pw2Issue = !pw2 ? BRAND_MSG.pw2Empty : (pw2 !== pw ? BRAND_MSG.pwMismatch : '');
+    setFieldError('setpwPw2', pw2Issue);
+    if (pw2Issue) firstBad = firstBad || 'setpwPw2';
+    const agreed = document.getElementById('agreeTerms').checked && document.getElementById('agreePrivacy').checked;
+    setNotice('setpwAgreeError', agreed ? '' : BRAND_MSG.agreeRequired);
+    agreeBox.classList.toggle('is-error', !agreed);
+    if (!agreed) firstBad = firstBad || 'agreeTerms';
+    if (firstBad) { document.getElementById(firstBad).focus(); return; }
+
+    if (!isReal) { setNotice('setpwResult', BRAND_MSG.previewOnly); return; }
+
+    busy = true;
+    setFormBusy(form, true);
+    btn.textContent = '설정하는 중…';
+    try {
+      await submitSetpwReal(pw);
+    } catch (ex) {
+      setNotice('setpwResult', BRAND_MSG.saveFail);
+    } finally {
+      busy = false;
+      setFormBusy(form, false);
+      btn.textContent = '비밀번호 설정하고 시작하기';
+    }
+  });
+}
+
+// ── w01-07 새 비밀번호 정하기(재설정) → w01-07a 완료
+function fillResetpwScreen(email) {
+  const form = document.getElementById('resetpwForm');
+  form.reset();
+  clearFormErrors(form);
+  resetPasswordToggles(form);
+  setNotice('resetpwResult', '');
+  document.getElementById('resetpwEmail').value = email || '';
+}
+
+function initResetpwForm() {
+  const form = document.getElementById('resetpwForm');
+  const btn = document.getElementById('resetpwSubmit');
+  let busy = false;
+  ['resetpwPw', 'resetpwPw2'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => setFieldError(id, ''));
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setNotice('resetpwResult', '');
+    const pw = document.getElementById('resetpwPw').value;
+    const pw2 = document.getElementById('resetpwPw2').value;
+    let firstBad = null;
+    const pwIssue = brandPasswordIssue(pw);
+    setFieldError('resetpwPw', pwIssue);
+    if (pwIssue) firstBad = 'resetpwPw';
+    const pw2Issue = !pw2 ? BRAND_MSG.pw2Empty : (pw2 !== pw ? BRAND_MSG.pwMismatch : '');
+    setFieldError('resetpwPw2', pw2Issue);
+    if (pw2Issue) firstBad = firstBad || 'resetpwPw2';
+    if (firstBad) { document.getElementById(firstBad).focus(); return; }
+
+    const ctx = brandLinkCtx;
+    if (!(ctx && ctx.mode === 'reset' && ctx.hasSession)) { setNotice('resetpwResult', BRAND_MSG.previewOnly); return; }
+
+    busy = true;
+    setFormBusy(form, true);
+    btn.textContent = '바꾸는 중…';
+    try {
+      const { error: upErr } = await brandSetupDb.auth.updateUser({ password: pw });
+      if (upErr) {
+        const kind = brandUpdatePwErrorKind(upErr);
+        if (kind === 'link') { await showBrandLinkInvalid(); return; }
+        setNotice('resetpwResult', kind === 'same' ? BRAND_MSG.samePassword : kind);
+        return;
+      }
+      let r;
+      try { r = await brandSetupDb.rpc('complete_brand_password_reset', { p_link_id: ctx.linkId }); }
+      catch (ex) { r = { data: null, error: ex }; }
+      if (r.data === 'link_mismatch') { await showBrandLinkInvalid(); return; }
+      // 비밀번호는 이미 바뀌었다 — 번호 비우기가 실패해도(not_brand·호출 실패) 완료 화면으로 간다.
+      //   남은 링크 번호는 같은 메일 링크를 다시 열어도 인증 서비스 쪽 일회용 값이 이미 소진돼 쓸 수 없다.
+      const resetUserId = ctx.userId;
+      // 🔴 재설정 경로만 scope:'global' — 비밀번호를 다시 정하는 사람은 계정 탈취를 의심했을 수 있어,
+      //   같은 사용자의 다른 기기 세션(갱신 토큰)까지 폐기한다. 설정(setup) 경로는 처음 쓰는 계정이라 local 유지.
+      //   ⚠️ 한계: 이미 발급된 접근 토큰은 폐기되지 않아 만료(최대 1시간)까지는 유효하다 — 갱신만 막힌다.
+      let globalErr = null;
+      try { ({ error: globalErr } = await brandSetupDb.auth.signOut({ scope: 'global' })); }
+      catch (ex) { globalErr = ex || new Error('sign_out_failed'); }
+      if (globalErr) await brandSetupSignOutLocal(); // 서버 폐기가 실패해도 이 화면의 임시 세션은 지운다
+      // 같은 사람이 이 브라우저에 로그인돼 있었다면 그 세션도 끊는다(「이 화면에서는 로그아웃했어요」)
+      try {
+        const { data } = await brandDb.auth.getSession();
+        if (data && data.session && data.session.user && data.session.user.id === resetUserId) {
+          await brandSignOutLocal();
+          setBrandAuthed(null);
+        }
+      } catch (ex) { /* 무시 */ }
+      endBrandLinkFlow('reset-done');
+    } catch (ex) {
+      setNotice('resetpwResult', BRAND_MSG.saveFail);
+    } finally {
+      busy = false;
+      setFormBusy(form, false);
+      btn.textContent = '비밀번호 바꾸기';
+    }
+  });
+}
+
+// ── 임시 첫 화면(home)
+function fillHomeScreen(state) {
+  const s = state || {};
+  document.getElementById('homeTitle').textContent = s.name ? (s.name + '님, 로그인했어요') : '로그인했어요';
+  document.getElementById('homeEmail').value = s.email || '';
+  const brands = Array.isArray(s.brands) ? s.brands : [];
+  document.getElementById('homeBrands').innerHTML = brands.length
+    ? brands.map(b => '<li>' + brandEsc(b.name) + ' (' + (b.role === 'owner' ? '대표 담당자' : '멤버') + ')</li>').join('')
+    : '<li>연결된 브랜드가 없어요</li>';
+}
+
+function initHome() {
+  const btn = document.getElementById('logoutBtn');
+  btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      await brandSignOutLocal();
+      setBrandAuthed(null);
+      goBrandScreen('login');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+// ── w01-03 초대 수락
+function fillInviteScreen() {
+  document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
+  document.getElementById('inviteEmail').value = BRAND_SAMPLE.invite.email;
+  setNotice('inviteResult', '');
+  const btn = document.getElementById('inviteSubmit');
+  btn.disabled = false; btn.textContent = '초대 수락';
+}
+
+function initInvite() {
+  const btn = document.getElementById('inviteSubmit');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = '수락하는 중…';
+    await brandFakeRequest('ok');
+    btn.textContent = '수락했어요';
+    setNotice('inviteResult', '미리보기: 「하루담」 브랜드가 계정에 연결됐다고 가정합니다.');
+  });
+}
+
+// ── w01-04 이메일 변경 확인
+function fillEmailChangeScreen() {
+  document.getElementById('emailChangeNew').value = BRAND_SAMPLE.emailChange.next;
+  document.getElementById('emailChangeNote').textContent =
+    '요청하지 않았다면 이 화면을 닫아 주세요. 지금 이메일(' + BRAND_SAMPLE.emailChange.current + ')은 그대로예요.';
+  setNotice('emailChangeResult', '');
+  const btn = document.getElementById('emailChangeSubmit');
+  btn.disabled = false; btn.textContent = '확인';
+}
+
+function initEmailChange() {
+  const btn = document.getElementById('emailChangeSubmit');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = '바꾸는 중…';
+    await brandFakeRequest('ok');
+    btn.textContent = '바꿨어요';
+    setNotice('emailChangeResult', '로그인 이메일이 ' + BRAND_SAMPLE.emailChange.next + ' 로 바뀌었어요. 다음부터 이 이메일로 로그인해 주세요.');
+  });
+}
+
+// ── 약관 「보기」 창
+let _legalReturnFocus = null;
+function openLegalModal(kind) {
+  const modal = document.getElementById('legalModal');
+  document.getElementById('legalModalTitle').textContent = kind === 'privacy' ? '개인정보처리방침' : '이용약관';
+  _legalReturnFocus = document.activeElement;
+  modal.hidden = false;
+  document.getElementById('legalModalClose').focus();
+}
+function closeLegalModal() {
+  document.getElementById('legalModal').hidden = true;
+  if (_legalReturnFocus) _legalReturnFocus.focus();
+}
+function initLegalModal() {
+  document.querySelectorAll('[data-legal]').forEach(b => b.addEventListener('click', () => openLegalModal(b.dataset.legal)));
+  document.getElementById('legalModalClose').addEventListener('click', closeLegalModal);
+  const modal = document.getElementById('legalModal');
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeLegalModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeLegalModal(); });
+}
+
+function initBrandLoginScreens() {
+  bindPasswordToggles();
+  initLoginForm();
+  initForgotForm();
+  initConfirm();
+  initSetpwForm();
+  initResetpwForm();
+  initHome();
+  initInvite();
+  initEmailChange();
+  initLegalModal();
+}
+
+// 브랜드 페이지 — 부팅·화면 주소(#해시) 전환·메일 링크 착지·개발서버 미리보기 막대. 맨 마지막에 싣는다.
+//   운영 주소(IS_STAGING=false — dev/lib/supabase.js 의 도메인 판정)에서는 「준비 중」 카드만 보이고
+//   연결을 만들지 않으며 다른 화면·미리보기 막대도 그리지 않는다(사용자 결정 P-1).
+
+const BRAND_EXPIRED_MSG = '로그인 시간이 지났습니다. 다시 로그인해 주세요.';
+
+// 미리보기 막대에서 고른 값 — brand-login.js 가 읽는다(서버와 연결 안 된 화면 전용)
+const brandPreviewState = {
+  setpwKind: 'owner',    // 'owner'(운영팀이 만든 계정) | 'member'(초대받은 멤버)
+  confirmKind: 'setup'   // w01-08 제목 — 'setup' | 'reset'
+};
+
+// 미리보기 목록 — 로그인 뒤 첫 화면(home)은 세션이 있어야 해서 넣지 않는다.
+//   w01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
+const BRAND_PREVIEW_SCREENS = [
+  { hash: 'login', label: 'w01-00 로그인' },
+  { hash: 'forgot', label: 'w01-01 비밀번호 찾기' },
+  { hash: 'forgot-sent', label: 'w01-01a 메일 발송' },
+  { hash: 'setpw', label: 'w01-02 비밀번호 설정' },
+  { hash: 'invite', label: 'w01-03 초대 수락' },
+  { hash: 'link-invalid', label: 'w01-05 쓸 수 없는 링크' },
+  { hash: 'not-brand', label: 'w01-06 브랜드 계정이 아님' },
+  { hash: 'no-brand', label: 'w01-06a 연결된 브랜드 없음' },
+  { hash: 'resetpw', label: 'w01-07 새 비밀번호 정하기' },
+  { hash: 'reset-done', label: 'w01-07a 비밀번호 바꾸기 완료' },
+  { hash: 'confirm', label: 'w01-08 계속하기' }
+];
+
+// 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
+let brandAuthed = null;
+function setBrandAuthed(state) {
+  brandAuthed = state || null;
+  if (brandAuthed) fillHomeScreen(brandAuthed);
+  updatePreviewVisibility();
+}
+
+function currentBrandScreen() {
+  const h = location.hash.replace(/^#/, '');
+  return BRAND_SCREENS.includes(h) ? h : 'login';
+}
+
+// 해시로 화면을 바꾼다 — 이미 그 해시면 hashchange 가 안 나므로 직접 그린다
+function goBrandScreen(name) {
+  if (location.hash === '#' + name) routeBrand();
+  else location.hash = '#' + name;
+}
+
+function routeBrand() {
+  // 메일 링크 화면(설정·재설정·계속하기)에 있다가 주소가 바뀌면(뒤로 가기·직접 입력) 그 흐름을 끝낸다
+  if (brandLinkCtx) {
+    brandSetupSignOutLocal();
+    brandLinkCtx = null;
+    _brandConfirmTarget = null;
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+  _brandCheckPending = false;
+  let name = currentBrandScreen();
+  // 로그인돼 있으면 첫 화면만 / 로그인 안 했으면 첫 화면으로 못 간다
+  if (brandAuthed) name = 'home';
+  else if (name === 'home') name = 'login';
+
+  // 들어올 때마다 그 화면을 처음 상태로 채운다(미리보기 예시 값 — 실제 링크 흐름은 showBrandFlowScreen)
+  if (name === 'setpw') fillSetpwScreen(brandPreviewState.setpwKind);
+  if (name === 'resetpw') fillResetpwScreen(BRAND_SAMPLE.resetEmail);
+  if (name === 'confirm') fillConfirmScreen(brandPreviewState.confirmKind, null);
+  if (name === 'invite') fillInviteScreen();
+  if (name === 'email-change') fillEmailChangeScreen();
+  if (name === 'forgot') {
+    // 로그인 칸에 넣던 이메일을 이어받는다
+    const f = document.getElementById('forgotEmail');
+    if (!f.value) f.value = document.getElementById('loginEmail').value.trim();
+  }
+  if (name !== 'login') setNotice('loginError', '');
+  paintBrandScreen(name);
+}
+
+function paintBrandScreen(name) {
+  showBrandScreen(name);
+  updatePreviewBar(name);
+  updatePreviewVisibility();
+  window.scrollTo(0, 0);
+  // 숨겨진 칸(멤버 전용 이름·연락처 등)은 건너뛰고 보이는 첫 칸에 초점
+  const firstInput = Array.from(document.querySelectorAll('.brand-card[data-screen="' + name + '"] .brand-input:not([readonly])'))
+    .find(el => el.offsetParent !== null);
+  if (firstInput && window.matchMedia('(min-width: 601px)').matches) firstInput.focus();
+}
+
+// 메일 링크 흐름 화면 — 주소 해시를 쓰지 않는다(해시를 바꾸면 routeBrand 가 흐름을 끝낸다).
+//   주소에는 ?link=…&mode=… 만 남는다. 새로고침하면 토큰이 없어 「쓸 수 없는 링크」로 간다(임시 세션은 저장하지 않는다).
+function showBrandFlowScreen(name) {
+  paintBrandScreen(name);
+}
+
+// 링크 흐름을 끝내고 주소에서 쿼리를 걷는다. next 가 있으면 그 화면으로.
+function endBrandLinkFlow(next) {
+  brandLinkCtx = null;
+  _brandConfirmTarget = null;
+  history.replaceState(null, '', location.pathname + (next ? '#' + next : ''));
+  if (next) routeBrand();
+}
+
+async function showBrandLinkInvalid() {
+  await brandSetupSignOutLocal();
+  endBrandLinkFlow('link-invalid');
+}
+
+const BRAND_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 링크 유효 판정 — 'valid' | 'invalid' | null(호출 실패)
+async function fetchBrandLinkState(client, linkId, mode) {
+  try {
+    const { data, error } = await client.rpc('get_brand_link_state', { p_link_id: linkId, p_kind: mode });
+    if (error || (data !== 'valid' && data !== 'invalid')) return null;
+    return data;
+  } catch (e) { return null; }
+}
+
+// ── 메일 링크 착지 (?link=<번호>&mode=setup|reset)
+//   메일 링크: …/brand/?link=<번호>&mode=…#confirm=<인증 서비스 verify 주소>
+//   verify 뒤 돌아옴: …/brand/?link=<번호>&mode=…#access_token=…&refresh_token=…&type=recovery
+//   실패로 돌아옴: …#error=…&error_code=otp_expired (쿼리로 올 수도 있다)
+async function handleBrandLinkLanding(params) {
+  const linkId = params.get('link') || '';
+  const mode = params.get('mode');
+  const rawHash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+  const hp = new URLSearchParams(rawHash);
+
+  if (!BRAND_UUID_RE.test(linkId) || (mode !== 'setup' && mode !== 'reset')) { await showBrandLinkInvalid(); return; }
+  if (hp.get('error') || hp.get('error_code') || params.get('error') || params.get('error_code')) {
+    await showBrandLinkInvalid();
+    return;
+  }
+
+  // b) verify 뒤 돌아옴 — 🔴 토큰을 꺼낸 즉시 주소에서 지운다(주소창·방문 기록에 남지 않게, 성공·실패 무관)
+  if (hp.get('access_token')) {
+    const at = hp.get('access_token');
+    const rt = hp.get('refresh_token') || '';
+    history.replaceState(null, '', location.pathname + location.search);
+    let session = null;
+    try {
+      const { data, error } = await brandSetupDb.auth.setSession({ access_token: at, refresh_token: rt });
+      if (!error && data && data.session) session = data.session;
+    } catch (e) { /* 아래에서 실패 처리 */ }
+    if (!session) { await showBrandLinkInvalid(); return; }
+
+    // 링크 번호가 아직 유효한지 다시 본다. 호출 실패(null)는 막지 않는다 — 완료 함수가 같은 번호를 다시 확인한다
+    const st = await fetchBrandLinkState(brandSetupDb, linkId, mode);
+    if (st === 'invalid') { await showBrandLinkInvalid(); return; }
+
+    const email = (session.user && session.user.email) || '';
+    brandLinkCtx = { linkId, mode, email, userId: session.user && session.user.id, hasSession: true };
+    if (mode === 'setup') { fillSetpwReal(email); showBrandFlowScreen('setpw'); }
+    else { fillResetpwScreen(email); showBrandFlowScreen('resetpw'); }
+    return;
+  }
+
+  // a) 메일 링크를 처음 엶 — 열기만 해서는 아무것도 소진하지 않는다(「계속하기」를 눌러야 인증 서비스로 간다)
+  if (hp.has('confirm')) {
+    const target = readBrandConfirmTarget(hp.get('confirm'));
+    const st = await fetchBrandLinkState(brandSetupDb, linkId, mode);
+    if (st === 'invalid' || !target) { await showBrandLinkInvalid(); return; }
+    // 호출 실패(null)면 막지 않고 진행 — 돌아온 뒤 다시 판정한다(일시 오류로 멀쩡한 링크를 죽이지 않게)
+    brandLinkCtx = { linkId, mode, email: '', hasSession: false };
+    fillConfirmScreen(mode, target);
+    showBrandFlowScreen('confirm');
+    return;
+  }
+
+  // 토큰도 확인 주소도 없음 — 설정 화면에서 새로고침한 경우 등(임시 세션은 저장하지 않아 이어 갈 수 없다)
+  await showBrandLinkInvalid();
+}
+
+// ── 새로고침 때 로그인 연결의 세션 복원
+async function restoreBrandSession() {
+  let hadStored = false;
+  try { hadStored = !!localStorage.getItem(BRAND_AUTH_STORAGE_KEY); } catch (e) { /* 저장소 막힘 */ }
+  let session = null;
+  try {
+    const { data } = await brandDb.auth.getSession();
+    session = data && data.session;
+  } catch (e) { session = null; }
+  if (!session) {
+    // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료)
+    if (hadStored) setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+    routeBrand();
+    return;
+  }
+  const state = await fetchBrandLoginState();
+  // 판정 호출 실패(null)는 일시 오류일 수 있다 — 세션을 지우지 않고 「다시 시도」 화면.
+  //   로그아웃은 판정 결과(not_brand 등)가 나왔을 때만 한다(로그인 직후의 실패는 applyBrandLoginState 가 로그아웃 — 그쪽은 세션이 방금 생긴 것).
+  if (state === null) {
+    _brandCheckPending = true;
+    paintBrandScreen('check-fail');
+    return;
+  }
+  _brandCheckPending = false;
+  const result = await applyBrandLoginState(state);
+  if (result === 'ok') routeBrand();
+}
+
+function updatePreviewBar(name) {
+  const sel = document.getElementById('previewScreen');
+  if (sel) sel.value = BRAND_PREVIEW_SCREENS.some(s => s.hash === name) ? name : '';
+  document.querySelectorAll('[data-preview-for]').forEach(row => {
+    row.hidden = row.dataset.previewFor !== name;
+  });
+}
+
+// 미리보기 막대는 로그인 중·메일 링크 흐름 중에는 감춘다(실제 화면을 덮어쓰지 않게)
+let _brandPreviewReady = false;
+let _brandCheckPending = false;   // 새로고침 판정 실패 화면(check-fail)에 있는 동안
+function updatePreviewVisibility() {
+  const bar = document.getElementById('brandPreview');
+  if (!bar) return;
+  bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending;
+}
+
+function initPreviewBar() {
+  const sel = document.getElementById('previewScreen');
+  sel.innerHTML = BRAND_PREVIEW_SCREENS
+    .map(s => '<option value="' + brandEsc(s.hash) + '">' + brandEsc(s.label) + '</option>').join('');
+  sel.addEventListener('change', () => { location.hash = '#' + sel.value; });
+
+  document.getElementById('previewExpired').addEventListener('change', (e) => {
+    setNotice('loginExpiredNotice', e.target.checked ? BRAND_EXPIRED_MSG : '');
+  });
+  document.getElementById('previewSetpwKind').addEventListener('change', (e) => {
+    brandPreviewState.setpwKind = e.target.value;
+    fillSetpwScreen(brandPreviewState.setpwKind);
+  });
+  document.getElementById('previewConfirmKind').addEventListener('change', (e) => {
+    brandPreviewState.confirmKind = e.target.value;
+    fillConfirmScreen(brandPreviewState.confirmKind, null);
+  });
+  _brandPreviewReady = true;
+  updatePreviewVisibility();
+}
+
+function initBrandAuthEvents() {
+  // ⚠️ 이 콜백 안에서 인증 연결을 await 하지 않는다(라이브러리 잠금과 엇갈린다)
+  brandDb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
+      // 우리가 스스로 로그아웃한 것(로그아웃 단추·판정 뒤 정리)은 무시
+      if (_brandSigningOut) return;
+      // 그 밖 = 토큰 갱신 실패 등으로 세션이 끊김 → 로그인 시간 만료 안내
+      if (brandAuthed) {
+        setBrandAuthed(null);
+        setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+        goBrandScreen('login');
+      }
+    }
+    // TOKEN_REFRESHED: 라이브러리가 저장 칸('reverb.brandAuth')을 갱신한다 — 화면은 할 일 없음
+  });
+  // 판정 실패 화면 「다시 시도」 — 세션 복원부터 다시
+  const retryBtn = document.getElementById('checkRetryBtn');
+  retryBtn.addEventListener('click', async () => {
+    if (retryBtn.disabled) return;
+    retryBtn.disabled = true; retryBtn.textContent = '확인하는 중…';
+    try { await restoreBrandSession(); }
+    finally { retryBtn.disabled = false; retryBtn.textContent = '다시 시도'; }
+  });
+  // 「계속하기」로 인증 서비스에 다녀온 뒤 뒤로 가기 — 브라우저가 멈춰 둔 화면(bfcache)이 잠긴 단추 그대로 돌아온다.
+  //   그 링크는 한 번 쓰면 소진되므로 쓸 수 없는 링크 화면으로 보낸다.
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted || !brandLinkCtx) return;
+    const btn = document.getElementById('confirmBtn');
+    const onConfirm = !document.querySelector('.brand-card[data-screen="confirm"]').hidden;
+    if (onConfirm && btn.disabled) showBrandLinkInvalid();
+  });
+  // 「확인하지 못했어요」 화면의 탈출구 — 세션을 이 기기에서만 지우고 로그인 화면으로
+  const checkLogoutBtn = document.getElementById('checkLogoutBtn');
+  if (checkLogoutBtn) checkLogoutBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await brandSignOutLocal();
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPw').value = '';
+    goBrandScreen('login');
+  });
+  // 「다른 계정으로 로그인」 — 앞서 넣은 이메일·비밀번호를 비운다
+  document.querySelectorAll('[data-clear-login]').forEach(a => a.addEventListener('click', () => {
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPw').value = '';
+  }));
+}
+
+async function bootBrand() {
+  if (typeof IS_STAGING === 'undefined' || !IS_STAGING || !initBrandClients()) {
+    showBrandScreen('closed');
+    return;
+  }
+  initBrandLoginScreens();
+  initBrandAuthEvents();
+  initPreviewBar();
+  window.addEventListener('hashchange', routeBrand);
+
+  // 메일 링크 착지가 해시 라우팅보다 먼저다(해시가 #access_token=… 이면 routeBrand 는 login 으로 떨어진다 — stale 3)
+  const params = new URLSearchParams(location.search);
+  if (params.has('link') || params.has('mode')) {
+    await handleBrandLinkLanding(params);
+    return;
+  }
+  await restoreBrandSession();
+}
+
+bootBrand();
+
+</script>
+<!-- v1791960267 -->
+</body>
+</html>

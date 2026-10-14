@@ -11,7 +11,7 @@
 - Backend: Supabase (Auth + Database + Storage) + localStorage 폴백
 - Deployment: Vercel Pro (Team 플랜)
 - Package Manager: 없음 (CDN 기반)
-  - 🔴 **supabase-js 는 CDN 에서 `@2.116.0/dist/umd/supabase.js` 로 버전을 고정**(8개 HTML — 인플·관리자·`admin-setpw`·`event-scan`·`report`·sales 3종). `@2` 로 두면 배포 없이 라이브러리가 바뀐다. 올릴 때는 **여덟 줄을 같은 문자열로** 함께 올린다
+  - 🔴 **supabase-js 는 CDN 에서 `@2.116.0/dist/umd/supabase.js` 로 버전을 고정**(9개 HTML — 인플·관리자·`admin-setpw`·`event-scan`·`report`·**브랜드(`dev/brand/index.html`)**·sales 3종). `@2` 로 두면 배포 없이 라이브러리가 바뀐다. 올릴 때는 **아홉 줄을 같은 문자열로** 함께 올린다
 
 ## Key URLs
 - 운영 (인플루언서): https://globalreverb.com
@@ -50,6 +50,8 @@
 - 웹훅 메일(광고주 접수·오리엔시트 제출 과다 발송 게이트 2단·🔴 알림 1건 = 메일 1통은 「선점 먼저」·요청 본문을 믿지 않는다·같은 호출자 검사 본문 12개) — 상세 `.claude/rules/mail-webhooks.md`
 - 캠페인 홍보 메일(🔴 채널 문지기는 네 채널만 — Qoo10·LIPS·@cosme 만 쓰는 캠페인은 대상 아님, 결정 · 실행 권한 회수 순서는 부여 먼저) — 상세 `.claude/rules/promo-mail.md`
 - **약관·방침 개정 통지 메일**(`notify-policy-change`, **수동 1회 호출**. 전 회원 1인 1통, 수신 동의 무관): 🔴 **통지마다 갈아 끼울 자리가 넷** — ①`docs/email-templates/policy-change-notice.html`(→ 동기화 스크립트가 `_templates/` 와 **`templates.ts`** 생성, 함수는 `templates.ts` 를 읽는다) ②`CURRENT_NOTICE`(키·시행일) ③제목 ④텍스트 판 — **뒤 셋은 `index.ts` 에 박혀** 템플릿만 바꾸면 옛 제목으로 나간다. **탈퇴 확정 회원**(`@deleted.reverbjp.invalid`)은 `skipped`/`withdrawn`(진행 중 회원은 받는다). `noticeKey`·`effectiveDate` 가 `CURRENT_NOTICE` 와 다르면 **시험 발송까지 거부**(`notice_mismatch`) — 옛 키면 받은 회원이 「이미 받음」으로 빠진다. ⚠️ 짝인 **앱 안 공지**는 `POLICY_NOTICE`(shared.js) + `policyNotice.*`(ja·ko) — `id` 도 통지마다 새 값(옛 값이면 공지를 닫은 회원에게 안 뜬다). 메일 템플릿에 지금 든 것 = 개인정보처리방침 개정(메타 픽셀, 시행 2026-10-17). ⚠️ **앱 안 공지는 일반 문의 창구 공지(`inquiryDesk2026`, 시행 2026-10-06, 메일 통지 없음)로 바뀌어 메일과 짝이 아니다** — 공지 틀이 하나뿐이라 픽셀 공지를 대체했다(사용자 결정). 사양서 `docs/specs/2026-09-17-meta-pixel-policy-notice.md`
+- **브랜드 계정 설정 메일**(`notify-brand-account-setup`, 관리자 화면이 브라우저에서 직접 부름 — CORS 있음·공개 키 거부 없음, 캠페인 관리자 이상, 받는 사람은 서버가 `brand_id` 로 다시 읽음 · 🔴 **개발서버 두 겹 잠금** `BRAND_SETUP_DEV_ECHO=1` **그리고** 개발 프로젝트 주소일 때만 메일 대신 응답에 `dev_link` — 하나라도 지우면 운영에서 링크가 응답에 실린다. 🔴 **운영에 `BRAND_SETUP_DEV_ECHO` 를 넣지 않는다** · 비밀값 `PUBLIC_BRAND_URL` 기본값 없음 · 링크 번호를 발송 **전에** 교체하므로 발송 실패면 옛 링크도 무효 — 「다시 보내기」로 복구) — 개발서버만, 운영 보류
+- **브랜드 비밀번호 찾기**(`brand-password-reset-request`, 비로그인 공개 — 늘 `200 {ok:true}`·최소 2.5초) · 🔴 **실제 처리는 `EdgeRuntime.waitUntil` 로 응답 뒤에** — 기다렸다 응답하면 걸린 시간으로 브랜드 계정 여부가 드러난다 · 🔴 개발서버 잠금이어도 **응답·로그에 링크를 싣지 않는다**(공개 함수라 누구나 남의 재설정 링크를 받게 된다) · 설정 메일 「다시 보냄」 문구 사본이 `notify-brand-account-setup` 과 두 벌 — 개발서버만, 운영 보류
 - **공통 패턴**: ①인플 대상 메일은 **4줄 푸터 필수**(自動送信 안내·LINE @reverb.jp·© JFUN·사이트 URL, 글자색 #999) — 신규 인플 메일 추가 시 의무 ②관리자 일괄 발송은 **1명당 1통 분리**(To 헤더 노출 차단) ③부분 실패는 `status='sent'`+실패 명단 누적(전원 실패만 `failed`)
 - **메일 템플릿**: `docs/email-templates/` 가 source of truth(카탈로그 `index.html`). Edge Function 은 `_templates/` 미러를 `render({{key}})` 로 읽음 — 배포 전 `scripts/sync-email-templates.sh` 동기화 필수
 
@@ -81,7 +83,8 @@
 - 인플루언서 앱: `dev/index.html` (모바일 480px, GNB + 우측 슬라이드 햄버거 메뉴)
 - 관리자 앱: `dev/admin/index.html` (PC 전체폭, 별도 페이지, **2단 고정 레이아웃** — 사이드바/메인 독립 스크롤, 상단 GNB 없음)
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — **별도 Vercel 프로젝트 `reverb-sales`**(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com`. anon 이 `submit_brand_application` 을 거쳐 `brand_applications` 에 넣는다. `cleanUrls`+catch-all rewrite 로 `/reviewer` → `reviewer.html`. **파일 업로드 없음**. ⚠️ 배포 대상이 달라 **커밋 머지 ≠ 페이지 반영**
-- 배포용 산출물: 루트 `index.html`·`admin/index.html` (`dev/build.sh` 가 생성 — **직접 수정 금지**)
+- 배포용 산출물: 루트 `index.html`·`admin/index.html`·`brand/index.html` (`dev/build.sh` 가 생성 — **직접 수정 금지**)
+- **브랜드 페이지**(`dev/brand/index.html` → 루트 `brand/index.html`, 개발서버만 · 운영은 「준비 중」): **자립형 화면**(`storage.js`·`ui.js` 안 실음). 🔴 `window.REVERB_SKIP_GLOBAL_DB = true` 를 `lib/supabase.js` 보다 **앞**에 두어 전역 `db`·`dbAuthRequest` 를 만들지 않는다(기본 저장 칸·주소 인증 값 가로채기 방지) — **인플루언서·관리자 화면에 이 표시를 두면 그 화면의 `db` 가 `null` 이 된다**. 빌드는 `BRAND_*_FILES` + 원본 태그 정규식 **두 곳**
 - **폴더 구조는 `ls dev/js/`·`dev/lib/`·`dev/css/` 로 본다**(목록을 베껴 적지 않는다). 빌드 목록 단일 소스는 **`dev/build.sh` 의 `CLIENT_JS_FILES`·`ADMIN_JS_FILES`**
 - **회원 앱 공용 부품은 `dev/css/member-ui.css`**(회원 빌드 맨 끝 — 관리자 빌드엔 없다) + 상태 안내 헬퍼 `stateEmptyHtml`·`stateLoadingHtml`·`stateErrorHtml`(`ui.js`, 🔴 조회 실패 `null` 은 오류 · 0건 `[]` 은 빈 상태). 🔴 `base.css`·`components.css`·`ui.js` 는 관리자와 공유라 **기존 값을 고치지 않는다** — 회원 앱 값은 `member-ui.css` 에서 **전역으로** 덮어쓴다(2026-10-06 마무리에서 화면별 선택자를 합침 · ⚠️ 약관 창·정책 통지 창은 공유 파일이 창 아이디로 정의해 같은 아이디가 필요)(사양서 `docs/specs/2026-09-29-member-app-style-unification.md`)
 - 🔴 **빌드는 ES 모듈이 아니라 단순 이어붙이기(concat)라 전역 스코프가 하나다** — `admin-core.js` 가 다른 `admin-*` 보다 **앞**, `admin.js` 가 페인 파일들보다 **뒤**, `admin/app.js` 가 **맨 마지막**(`dev/build.sh` 의 순서). 인플루언서 쪽은 `lib/*` 가 `js/*` 보다 앞, `js/app.js` 가 맨 마지막
@@ -90,7 +93,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- 가입 트리거(폼 값 저장) — **420**(382 → 420) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
+- 가입 트리거(폼 값 저장) `handle_new_user` — **526**(382 → 420 → 526 — 526 는 맨 앞 브랜드 계정 분기만 더함. 🔴 420 을 베이스로 잡으면 브랜드 계정에 인플루언서 행이 생긴다) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
 
 > ⚠️ **아직 안 한 것**: 「올려두고 제출 안 함」 재발 방지의 관리자 대신 제출 기록(작업 9)·일일 메일 안내(작업 11)는 범위 밖, 자주 묻는 질문 노드(작업 12)는 작업 2·5 운영 배포 뒤에만
 
@@ -129,7 +132,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `merge_brands` — **467**(175 → 328 → 467, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이 사라진다)
+- `merge_brands` — **528**(175 → 328 → 467 → 528, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **528**(174 → 191 → 325 → 528, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 528 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 526 → 527 → 528 한 묶음, 528 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
 
 - 오리엔시트 발급·조회 페인(신규 발급 창의 신청 연결 칸은 잠김 · 발급 메일 수신자는 서버가 정함 · ⚠️ 재발송 버튼·발송 이력은 없다)·발급 목록 삭제 — 상세 `.claude/rules/orient-sheet.md`
 - 브랜드 상세 모달(🔴 편집 폼이라 탭 전환은 `display` 토글만)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
@@ -150,7 +153,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `invite_admin` — **417**(베이스 245)
+- `invite_admin` — **528**(245 → 417 → 528 — 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 528 은 개발서버만, 운영 원본은 417)
 - `get_admin_last_sign_in` — **437**(🔴 반환 칸을 바꾸려면 `DROP` 후 `CREATE` 라 **실행 권한 회수를 다시 걸어야 한다**)
 
 > 🔴 **광고 추적(메타 픽셀)은 운영에서 켜져 있다**(시행일 `2026-09-18` — 방침·앱 공지·메일의 10-17 은 사용자 결정으로 그대로). 관리자 앱에는 픽셀을 심지 않는다
@@ -183,6 +186,19 @@
 - `receipt_edit_history` — 영수증 수정 감사. `deliverable_id` FK **SET NULL**(마이그레이션 253) + 3종 prev/next 스냅샷. RLS SELECT `is_admin()`, INSERT 는 `update_receipt_admin` 만
 - `campaign_caution_history` — 주의사항/참여방법/NG 변경 audit + `app_count_at_change`. RLS SELECT super_admin, INSERT 는 `record_caution_history()` 만(campaign_admin 이상)
 - `campaign_change_history` — **캠페인 전체 항목 변경 audit**(마이그레이션 265·266). 「바뀐 항목 1개 = 1행」 + `change_group_id` + `changed_by`/`changed_by_name`/`changed_at` + `field_name`(CHECK 화이트리스트 **48개**) + `old_value`/`new_value` jsonb + `change_source`(admin / auto / system). RLS SELECT `is_super_admin()`, 쓰기는 트리거만(`record_campaign_change_history()` AFTER UPDATE — 구 `record_caution_history` 와 달리 같은 트랜잭션이라 감사 공백 없음). ⚠️ **화이트리스트는 세 곳(265 CHECK · 266 v_fields · 266 트리거 `AFTER UPDATE OF` 목록)이 항상 같은 집합** — 어긋나면 CHECK 위반으로 INSERT 실패. 조회수·신청 수·수정일·순서·채번 제외. 3영역은 기존 표와 병존. 사양서 `docs/specs/2026-07-27-campaign-full-change-history.md`
+
+### 브랜드 계정·로그인 (마이그레이션 526~ — 🔴 **개발서버만**, 운영 반영 보류)
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 인수인계 `…-brand-login-handoff.md`
+> 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
+- 표 셋(526): `brand_accounts`(`auth_id` = `auth.users` 1:1, 이메일 `lower(btrim())` 강제·유일) · `brand_account_links`(브랜드 참조 `ON DELETE RESTRICT`, 브랜드당 활성 대표 1명) · `brand_password_reset_requests`(243 복제, 해시만). 셋 다 쓰기 정책 없음 — 읽기는 본인 또는 `is_admin()`(요청 기록은 최고 관리자)
+- 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`** — 사용자 메타데이터는 공개 키 가입으로 누구나 채우고 383 이 지운다. 계정은 `invite_admin`(417) 방식 직접 삽입 + `email_confirmed_at=now()` 로 만든다(🔴 `auth.admin.createUser` 는 497 가입 관문에 걸린다)
+- 🔴 **인플루언서 표 삽입 거부 트리거 `trg_block_influencer_row_for_brand`**(526, DEFINER) — `NEW.id` 가 브랜드 계정이면 `brand_account_not_influencer`. 판정은 `auth.uid()` 가 아니라 `NEW.id`(137 삽입 정책이 로그인만 보면 통과). 인플루언서 앱 `handleLogin` 의 프로필 자동 생성이 이 거부에 걸린다 — 인플루언서 앱 차단(작업표 조각 9)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
+- `get_my_account_kind()`(526) → `'brand'|'other'`, `authenticated` 만(로그아웃 호출은 권한 오류)
+- 함수(527, 전부 DEFINER): 관리자 `admin_upsert_brand_owner_account(brand, 이전 대표 줄 id, 이전 이메일)`(캠페인 관리자 이상 — 판정 표는 527 머리말 B. 🔴 화면은 상세를 연 시점의 대표 줄 id·이메일을 **반드시** 넘긴다 — 안 넘기면 이메일 변경으로 본다) · `admin_get_brand_account_status`(관리자 아니면 42501 — 🔴 실패를 「계정 없음」으로 그리지 않는다) · 비로그인 `get_brand_link_state(링크, 'setup'|'reset')` · 임시 세션 `complete_brand_account_setup`(🔴 `updateUser` 먼저 — 비밀번호가 비면 `password_not_set`)·`complete_brand_password_reset` · 로그인 판정 `get_my_brand_login_state`(보관 브랜드 제외) · 서비스 키 전용 `service_issue_brand_account_link`·`service_mark_brand_setup_mail_sent`·`check_brand_password_reset_rate_limit` · 정기 정리 `brand-password-reset-requests-retention-daily`(UTC 21:00, 30일)
+- 🔴 **링크 번호 칸 `brand_accounts.setup_link_id` 하나를 계정 만들기·재설정 링크가 같이 쓴다**(피그마 「링크는 보낸 때의 계정 상태에 묶인다」) — 새로 보내면 옛 링크 무효, 설정·재설정을 마치면 비운다
+- ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
+- 화면(개발서버만 — 판정 `_brandAccountEnabled()` 한 곳): 인플루언서 앱 차단(`auth.js` `handleLogin`·`app.js` 부팅·로그인 이벤트 — 🔴 판정 실패 `null` 은 차단 아님) · 관리자 브랜드 상세 「계정」 줄(`admin-brand.js` — 🔴 「대표 이메일이 새로·바뀔 때만」은 **화면이** 지킨다: 527 은 계정 없는 브랜드면 이전 값을 안 본다) · 브랜드 화면 `/brand/`
+- 기존 함수 보호(528): 계정 연결(활성)이 있는 브랜드는 삭제·병합(원본) 거부, 해제 이력만 있어도 삭제 거부(이력 보존 — 병합으로 안내), 관리자 초대는 브랜드 계정 이메일 거부. ⚠️ **연결 해제 기능이 아직 없다** — 운영 전 어느 조각에서 만들지 정할 것. ⚠️ 병합·초대 거부 문구는 화면 매핑 전이라 영문 코드·일반 오류로 보인다(조각 10)
 
 ### 광고주 신청(브랜드 서베이)
 - `brand_applications` — `form_type`(reviewer|seeding), `brand_name`, `contact_name`, `phone`, `email`, `billing_email`, `products jsonb`, `total_jpy/total_qty`, `estimated_krw`, `final_quote_krw`, `quote_sent_at`, `quote_sent_url`, `orient_sheet_sent_at`, `orient_sheet_sent_url`, `paid_at`, `payment_flags jsonb`, `status` 10단계, `request_note`, `version`, `legacy_no`. **익명 INSERT 는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 필수** — 직접 INSERT 는 42501

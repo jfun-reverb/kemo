@@ -3134,6 +3134,80 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
+// 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
+function _brandAccountEnabled() {
+  return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
+}
+
+// 대표 담당자 계정 만들기·바꾸기. 화면은 상세를 연 시점의 대표 줄 id·이메일을 넘긴다(P-3 — 안 넘기면 이메일 변경으로 본다).
+// 반환 {ok:true, data:{result, needs_mail, email, account_email, auth_id, brand_id}} | {ok:false, error}
+//       운영(보류)에서는 {ok:false, error:'brand_account_disabled'} — 부르는 쪽은 조용히 건너뛴다.
+async function upsertBrandOwnerAccount(brandId, prevContactId, prevEmail) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!_brandAccountEnabled()) return {ok:false, error:'brand_account_disabled'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_upsert_brand_owner_account', {
+        p_brand_id: brandId,
+        p_prev_contact_id: prevContactId || null,
+        p_prev_email: prevEmail || null,
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertBrandOwnerAccount]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 설정 메일 보내기(mode 'setup'|'resend'). sendAdminInviteMail 과 같은 모양:
+// {sent:true, recipient[, dev_link]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_link 가 온다.
+async function sendBrandAccountSetupMail(brandId, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-account-setup', {
+      body: { brand_id: brandId, mode: mode === 'resend' ? 'resend' : 'setup' }
+    });
+    if (error) {
+      // 401·403 등은 응답 본문(reason)이 error.context 에 담긴다
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 브랜드 상세 「계정」 줄 상태. 🔴 실패는 null, 계정 없음은 {status:'none'} — 실패를 「계정 없음」으로 그리지 않는다.
+// 운영(보류)에서는 null(줄을 그리지 않는다).
+async function fetchBrandAccountStatus(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const {data, error} = await db.rpc('admin_get_brand_account_status', { p_brand_id: brandId });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
+}
+
+// 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
+// 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
+// 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.
+async function fetchMyAccountKind() {
+  if (!db) return null;
+  if (!_brandAccountEnabled()) return 'other';
+  try {
+    const {data, error} = await db.rpc('get_my_account_kind');
+    if (error) throw error;
+    return data === 'brand' ? 'brand' : 'other';
+  } catch(e) { console.error('[fetchMyAccountKind]', e); return null; }
+}
+
 // ── companies 마스터 (migration 118) ────────────────────────
 
 // 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)

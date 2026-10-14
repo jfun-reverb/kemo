@@ -2993,9 +2993,15 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 // 디버깅용 전역 노출
 window.__REVERB_ENV__ = SUPABASE_ENV;
 
+// 브랜드 화면(dev/brand/index.html)은 이 파일을 싣되 전역 연결을 만들지 않는다 — window.REVERB_SKIP_GLOBAL_DB = true.
+//   전역 db 는 기본 저장 칸 + detectSessionInUrl:true 라, 브랜드 화면에서 만들어지면 ①인플루언서 세션과 저장 칸을 섞고
+//   ②메일 링크 주소의 인증 값을 먼저 가로챈다. 브랜드 화면은 자기 연결(저장 칸 'reverb.brandAuth')을 따로 만든다.
+//   ⚠️ 인플루언서·관리자 화면은 이 표시를 두지 않는다 — 두면 그 화면의 db 가 null 이 된다.
+const REVERB_SKIP_GLOBAL_DB = window.REVERB_SKIP_GLOBAL_DB === true;
+
 let db = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'pkce',
@@ -3016,7 +3022,7 @@ try {
 //   ※ 메일을 「받은 뒤」의 검증(verifyOtp)은 pkce 여부와 무관한 별개 경로라 전역 db 를 그대로 쓴다.
 let dbAuthRequest = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     dbAuthRequest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'implicit',      // 브라우저 종속 토큰(pkce_) 발급 방지 — 핵심
@@ -11252,6 +11258,80 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
+// 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
+function _brandAccountEnabled() {
+  return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
+}
+
+// 대표 담당자 계정 만들기·바꾸기. 화면은 상세를 연 시점의 대표 줄 id·이메일을 넘긴다(P-3 — 안 넘기면 이메일 변경으로 본다).
+// 반환 {ok:true, data:{result, needs_mail, email, account_email, auth_id, brand_id}} | {ok:false, error}
+//       운영(보류)에서는 {ok:false, error:'brand_account_disabled'} — 부르는 쪽은 조용히 건너뛴다.
+async function upsertBrandOwnerAccount(brandId, prevContactId, prevEmail) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!_brandAccountEnabled()) return {ok:false, error:'brand_account_disabled'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_upsert_brand_owner_account', {
+        p_brand_id: brandId,
+        p_prev_contact_id: prevContactId || null,
+        p_prev_email: prevEmail || null,
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertBrandOwnerAccount]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 설정 메일 보내기(mode 'setup'|'resend'). sendAdminInviteMail 과 같은 모양:
+// {sent:true, recipient[, dev_link]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_link 가 온다.
+async function sendBrandAccountSetupMail(brandId, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-account-setup', {
+      body: { brand_id: brandId, mode: mode === 'resend' ? 'resend' : 'setup' }
+    });
+    if (error) {
+      // 401·403 등은 응답 본문(reason)이 error.context 에 담긴다
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 브랜드 상세 「계정」 줄 상태. 🔴 실패는 null, 계정 없음은 {status:'none'} — 실패를 「계정 없음」으로 그리지 않는다.
+// 운영(보류)에서는 null(줄을 그리지 않는다).
+async function fetchBrandAccountStatus(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const {data, error} = await db.rpc('admin_get_brand_account_status', { p_brand_id: brandId });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
+}
+
+// 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
+// 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
+// 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.
+async function fetchMyAccountKind() {
+  if (!db) return null;
+  if (!_brandAccountEnabled()) return 'other';
+  try {
+    const {data, error} = await db.rpc('get_my_account_kind');
+    if (error) throw error;
+    return data === 'brand' ? 'brand' : 'other';
+  } catch(e) { console.error('[fetchMyAccountKind]', e); return null; }
+}
+
 // ── companies 마스터 (migration 118) ────────────────────────
 
 // 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)
@@ -18380,6 +18460,25 @@ async function handleSignup(e) {
   if (typeof metaPixelReleaseReload === 'function') metaPixelReleaseReload();
 }
 
+// 로그인 화면이 판정 중인지 — app.js 로그인 이벤트 처리기가 브랜드 계정 판정을 겹쳐 하지 않게 본다(조각 9).
+//   이 화면에서의 차단은 handleLogin 이 맡는다(같은 실패 문구를 보여 줘야 해서). 두 자리가 함께 로그아웃하면
+//   처리기가 먼저 세션을 지워 handleLogin 의 판정이 실패(null)로 떨어진다.
+let _handleLoginBusy = false;
+
+// 브랜드 계정 세션 정리 — 인플루언서 앱에서는 브랜드 계정을 로그인 상태로 두지 않는다(조각 9).
+//   🔴 `scope:'local'` — 기본값(global)은 같은 사용자의 다른 기기·브랜드 페이지 세션까지 끊는다.
+//   currentUser 는 **첫 await 전에** 비운다 — 로그인 이벤트 처리기가 기다리지 않고 불러도 바로 로그아웃 상태가 된다.
+async function signOutBrandAccountSession() {
+  currentUser = null;
+  currentUserProfile = null;
+  try {
+    await db?.auth?.signOut({scope: 'local'});
+  } catch (e) {
+    console.error('[signOutBrandAccountSession] signOut', e);
+  }
+  if (typeof updateGnb === 'function') updateGnb();
+}
+
 async function handleLogin(e) {
   e.preventDefault();
   const email = $('loginEmail').value.trim();
@@ -18398,6 +18497,7 @@ async function handleLogin(e) {
   // 메타 픽셀 새로고침 보류(흐름 6) — 로그인 요청 도중 픽셀 재조회가 먼저 끝나 새로고침하면 아래 관리자
   //   이동(/admin/)이 실행되지 못한다. 일반 회원으로 끝나는 갈래에서만 풀고, 오류 경로는 시간이 지나면 풀린다.
   if (typeof metaPixelHoldReload === 'function') metaPixelHoldReload();
+  _handleLoginBusy = true;
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
@@ -18422,6 +18522,19 @@ async function handleLogin(e) {
       toast(t('auth.toast.adminLogin'),'success'); updateGnb();
       window.location.href = '/admin/';
     } else {
+      // 브랜드 계정이면 인플루언서 앱 로그인을 막는다(조각 9). 운영 주소에서는 서버를 안 부르고 'other'(storage.js).
+      //   🔴 화면은 비밀번호가 틀렸을 때와 **완전히 같게** — 문구·자리·버튼 복구가 같아야 계정 종류가 드러나지 않는다.
+      //   ⚠️ 서버(마이그레이션 526)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
+      const accountKind = typeof fetchMyAccountKind === 'function' ? await fetchMyAccountKind() : 'other';
+      if (accountKind === 'brand') {
+        await signOutBrandAccountSession();
+        errEl.textContent=t('authError.checkCredentials'); errEl.style.display='block';
+        btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
+      }
+      // 🔴 판정 실패(null)는 차단이 아니다 — 함수가 없거나 통신이 끊긴 서버에서 전원 로그인 불가가 된다.
+      //    다만 아래 「프로필 0건이면 만든다」 갈래로는 보내지 않는다(브랜드 계정일 수도 있다).
+      const accountKindUnknown = accountKind === null;
+      if (accountKindUnknown) logAppError('handleLogin.accountKind', new Error('get_my_account_kind failed'));
       const {data:profile, error:profileErr} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile || null;
       // 🔴 조회 실패와 0건을 가른다 — 실패면 삽입하지 않고 기록만 남긴 채 진행한다
@@ -18438,9 +18551,12 @@ async function handleLogin(e) {
       }
       if (profileErr) {
         logAppError('handleLogin.profileFetch', profileErr);
-      } else if (!profile && !sessionAttached) {
+      } else if (!profile && (!sessionAttached || accountKindUnknown)) {
+        // 계정 종류를 못 확인한 채 프로필이 0건이면 만들지 않는다(조각 9) — 세션이 안 붙은 경우와 같은 처리:
+        //   기록 + 로컬 로그아웃 + 「다시 로그인」 안내. 프로필이 있는 보통 회원은 이 갈래에 오지 않는다.
         // 세션이 왜 안 붙는지(기기 저장소 가설)는 기기 없이 확정 불가 — 기록하고 다시 로그인하게 한다
-        logAppError('handleLogin.sessionNotAttached', new Error('session not attached after signInWithPassword'));
+        //   (계정 종류 판정 실패는 위에서 handleLogin.accountKind 로 이미 기록했다)
+        if (!sessionAttached) logAppError('handleLogin.sessionNotAttached', new Error('session not attached after signInWithPassword'));
         currentUser = null; currentUserProfile = null;
         try { await db.auth.signOut({scope: 'local'}); } catch(_) {}
         updateGnb();
@@ -18472,6 +18588,9 @@ async function handleLogin(e) {
   } catch(e) {
     logAppError('handleLogin', e);
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
+  } finally {
+    // 안쪽의 return 갈래도 모두 여기를 지난다
+    _handleLoginBusy = false;
   }
   btn.disabled=false; btn.textContent=t('auth.login.btn');
 }
@@ -25871,9 +25990,19 @@ async function init() {
       currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
       // 조회 실패(null+error)와 0건을 가른다 — 실패는 기록만(handleLogin 과 같은 원칙, 여기엔 삽입이 원래 없다)
-      const {data:profile, error:profileErr} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
-      if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
-      currentUserProfile = profile || null;
+      // 브랜드 계정 판정(조각 9)은 프로필 조회와 **동시에** 묻는다 — 부팅을 한 번 더 기다리게 하지 않는다.
+      //   운영 주소에서는 서버를 안 부르고 바로 'other'(storage.js). 🔴 null(판정 실패)은 아무것도 하지 않는다.
+      const [{data:profile, error:profileErr}, accountKind] = await Promise.all([
+        db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+        typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+      ]);
+      if (accountKind === 'brand') {
+        // 다른 경로(예: admin-setpw.html?mode=login)로 남은 브랜드 계정 세션 — 로그아웃 상태로 시작한다
+        await signOutBrandAccountSession();
+      } else {
+        if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
+        currentUserProfile = profile || null;
+      }
     }
   }
   updateGnb();
@@ -25938,7 +26067,28 @@ async function init() {
             currentUser._isAdmin = true;
             currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
           } else {
-            const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+            // 브랜드 계정 판정(조각 9) — 프로필 조회와 동시에.
+            //   로그인 화면이 판정 중(_handleLoginBusy)이어도 여기서 **판정은 한다** — 안 하면 브랜드 계정에게 알림 폴링·
+            //   약관 안내 창·초대 복귀가 먼저 돌아 버린다(supabase-expert 검토 2026-10-14). 다만 그때 **로그아웃은 로그인
+            //   화면에 맡긴다** — 같은 실패 문구를 보여 줘야 하고, 여기서 먼저 로그아웃하면 그쪽 판정이 실패(null)로 떨어진다.
+            const loginScreenBusy = typeof _handleLoginBusy !== 'undefined' && _handleLoginBusy;
+            const [{data:profile}, accountKind] = await Promise.all([
+              db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+              typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+            ]);
+            if (accountKind === 'brand') {
+              if (loginScreenBusy) {
+                // 로그인 화면이 곧 로그아웃·실패 문구를 띄운다 — 여기서는 화면 상태만 비우고 부수 동작 없이 끝낸다
+                currentUser = null;
+                currentUserProfile = null;
+                return;
+              }
+              // ⚠️ 기다리지 않는다 — 이 처리기 안에서 인증 호출을 기다리면 잠금이 엉킬 수 있다(탈퇴 로그아웃과 같은 방식).
+              //   currentUser 는 함수가 첫 await 전에 비운다. 알림 폴링·공지 팝업도 띄우지 않고 끝낸다.
+              //   🔴 null(판정 실패)은 이 갈래가 아니다 — 아무것도 하지 않고 아래로 진행한다.
+              signOutBrandAccountSession();
+              return;
+            }
             currentUserProfile = profile;
           }
           updateGnb();
