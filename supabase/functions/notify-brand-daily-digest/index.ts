@@ -475,6 +475,38 @@ function digestRunSummary(c: DigestCounts, firstErr: string): string {
 // 이 함수의 다이제스트 종류 — digest_email_sent.digest_kind
 const DIGEST_KIND: DigestKind = "brand_daily";
 
+// ──────────────────────────────────────────────────────────────────
+// 1,000행 상한 대응 — notify-influencer-daily-digest 의 fetchAllPaged 와 같은 본문
+//   (Edge Function 은 공유 모듈이 없어 함수마다 각자 든다). 고칠 때 세 벌 함께.
+// ──────────────────────────────────────────────────────────────────
+async function fetchAllPaged<T>(
+  buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+// 기존 오류 처리({data, error} 점검 → finalizeRun failed)를 그대로 쓰도록 같은 모양으로 감싼다
+async function pagedResult<T>(
+  buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  try {
+    return { data: await fetchAllPaged<T>(buildQuery), error: null };
+  } catch (e) {
+    return { data: null, error: { message: (e as Error).message } };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   if (rejectPublicKeyCaller(req, "notify-brand-daily-digest")) {
@@ -662,20 +694,24 @@ Deno.serve(async (req: Request) => {
     //   ∴ 한 시트가 두 조건 동시 만족 불가 → 중복 제거 불필요
     //
     // status 필터 없음: consumed/expired 도 시각 기준으로 포착 (사양서 §3 ⑤)
+    // ⚠️ 1,000행 상한 — 두 조회 모두 fetchAllPaged 로 끝까지 받는다(전수조사 3차 ④ 낮음 · 다이제스트 3종 D-7 규칙).
+    //   빌더는 호출마다 새로 만들고 id 보조 정렬을 건다(페이지 경계가 흔들리지 않게).
     const [newRes, resubmitRes] = await Promise.all([
       // 섹션 1: 신규 제출
-      sb.from("orient_sheets")
+      pagedResult(() => sb.from("orient_sheets")
         .select("id, brand_id, orient_no, form_type, submitted_at, last_submitted_at")
         .gte("submitted_at", startIso)
         .lt("submitted_at", endIso)
-        .order("submitted_at", { ascending: true }),
+        .order("submitted_at", { ascending: true })
+        .order("id", { ascending: true })),
       // 섹션 2: 수정 재제출 (마지막 제출이 어제 AND 최초 제출은 그 이전)
-      sb.from("orient_sheets")
+      pagedResult(() => sb.from("orient_sheets")
         .select("id, brand_id, orient_no, form_type, submitted_at, last_submitted_at")
         .gte("last_submitted_at", startIso)
         .lt("last_submitted_at", endIso)
         .lt("submitted_at", startIso)
-        .order("last_submitted_at", { ascending: true }),
+        .order("last_submitted_at", { ascending: true })
+        .order("id", { ascending: true })),
     ]);
 
     // 에러 점검
