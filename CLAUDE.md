@@ -129,7 +129,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `merge_brands` — **467**(175 → 328 → 467, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이 사라진다)
+- `merge_brands` — **527**(175 → 328 → 467 → 527, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **527**(174 → 191 → 325 → 527, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 527 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 525 → 526 → 527 한 묶음, 527 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
 
 - 오리엔시트 발급·조회 페인(신규 발급 창의 신청 연결 칸은 잠김 · 발급 메일 수신자는 서버가 정함 · ⚠️ 재발송 버튼·발송 이력은 없다)·발급 목록 삭제 — 상세 `.claude/rules/orient-sheet.md`
 - 브랜드 상세 모달(🔴 편집 폼이라 탭 전환은 `display` 토글만)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
@@ -150,7 +150,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `invite_admin` — **417**(베이스 245)
+- `invite_admin` — **527**(245 → 417 → 527 — 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 527 은 개발서버만, 운영 원본은 417)
 - `get_admin_last_sign_in` — **437**(🔴 반환 칸을 바꾸려면 `DROP` 후 `CREATE` 라 **실행 권한 회수를 다시 걸어야 한다**)
 
 > 🔴 **광고 추적(메타 픽셀)은 운영에서 켜져 있다**(시행일 `2026-09-18` — 방침·앱 공지·메일의 10-17 은 사용자 결정으로 그대로). 관리자 앱에는 픽셀을 심지 않는다
@@ -194,6 +194,7 @@
 - 함수(526, 전부 DEFINER): 관리자 `admin_upsert_brand_owner_account(brand, 이전 대표 줄 id, 이전 이메일)`(캠페인 관리자 이상 — 판정 표는 526 머리말 B. 🔴 화면은 상세를 연 시점의 대표 줄 id·이메일을 **반드시** 넘긴다 — 안 넘기면 이메일 변경으로 본다) · `admin_get_brand_account_status`(관리자 아니면 42501 — 🔴 실패를 「계정 없음」으로 그리지 않는다) · 비로그인 `get_brand_link_state(링크, 'setup'|'reset')` · 임시 세션 `complete_brand_account_setup`(🔴 `updateUser` 먼저 — 비밀번호가 비면 `password_not_set`)·`complete_brand_password_reset` · 로그인 판정 `get_my_brand_login_state`(보관 브랜드 제외) · 서비스 키 전용 `service_issue_brand_account_link`·`service_mark_brand_setup_mail_sent`·`check_brand_password_reset_rate_limit` · 정기 정리 `brand-password-reset-requests-retention-daily`(UTC 21:00, 30일)
 - 🔴 **링크 번호 칸 `brand_accounts.setup_link_id` 하나를 계정 만들기·재설정 링크가 같이 쓴다**(피그마 「링크는 보낸 때의 계정 상태에 묶인다」) — 새로 보내면 옛 링크 무효, 설정·재설정을 마치면 비운다
 - ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
+- 기존 함수 보호(527): 계정 연결(활성)이 있는 브랜드는 삭제·병합(원본) 거부, 해제 이력만 있어도 삭제 거부(이력 보존 — 병합으로 안내), 관리자 초대는 브랜드 계정 이메일 거부. ⚠️ **연결 해제 기능이 아직 없다** — 운영 전 어느 조각에서 만들지 정할 것. ⚠️ 병합·초대 거부 문구는 화면 매핑 전이라 영문 코드·일반 오류로 보인다(조각 10)
 
 ### 광고주 신청(브랜드 서베이)
 - `brand_applications` — `form_type`(reviewer|seeding), `brand_name`, `contact_name`, `phone`, `email`, `billing_email`, `products jsonb`, `total_jpy/total_qty`, `estimated_krw`, `final_quote_krw`, `quote_sent_at`, `quote_sent_url`, `orient_sheet_sent_at`, `orient_sheet_sent_url`, `paid_at`, `payment_flags jsonb`, `status` 10단계, `request_note`, `version`, `legacy_no`. **익명 INSERT 는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 필수** — 직접 INSERT 는 42501
