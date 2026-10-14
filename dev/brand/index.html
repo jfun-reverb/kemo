@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>브랜드 로그인 · REVERB JP</title>
+<!-- v0 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<!-- ⚠️ supabase 라이브러리는 아직 싣지 않는다 — 싣는 순간 같은 주소의 인플루언서·관리자
+     로그인 저장 칸을 함께 쓰게 된다(brand-core.js BRAND_AUTH_STORAGE_KEY 참고). -->
+<link rel="stylesheet" href="../css/brand.css">
+</head>
+<body>
+
+<!-- 모바일 머리 띠 (m01-00) — 좁은 화면에서만 보인다 -->
+<header class="brand-topbar" aria-hidden="true">Reverb</header>
+
+<main class="brand-stage" id="brandStage">
+
+  <!-- 운영 주소 막음 — 로그인 연결 전까지 운영(globalreverb.com)에서는 이 카드만 보인다 -->
+  <section class="brand-card" data-screen="closed" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>브랜드 페이지 준비 중입니다</h1>
+      <p>지금은 이용할 수 없어요. 문의는 REVERB 운영팀으로 연락해 주세요.</p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-00 · m01-00 로그인 (+ w01-91 입력 상태) -->
+  <section class="brand-card" data-screen="login" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-notice brand-notice-info" id="loginExpiredNotice" role="status" hidden>로그인 시간이 지났습니다. 다시 로그인해 주세요.</div>
+    <div class="brand-head">
+      <h1>브랜드 로그인</h1>
+      <p>REVERB JP 브랜드 페이지에 로그인합니다.</p>
+    </div>
+    <form class="brand-form" id="loginForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="loginEmail">이메일</label>
+          <input type="email" id="loginEmail" class="brand-input" placeholder="이메일" autocomplete="username" inputmode="email">
+          <p class="brand-field-error" id="loginEmailError" hidden></p>
+        </div>
+        <div class="brand-field">
+          <label for="loginPw">비밀번호</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="loginPw" class="brand-input" placeholder="비밀번호" autocomplete="current-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="loginPw" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="loginPwError" hidden></p>
+        </div>
+      </div>
+      <div class="brand-notice brand-notice-error" id="loginError" role="alert" hidden></div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="loginSubmit">로그인</button>
+        <a class="brand-sub-link" href="#forgot">비밀번호를 잊으셨나요?</a>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-01 비밀번호 찾기 -->
+  <section class="brand-card" data-screen="forgot" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>비밀번호 찾기</h1>
+      <p>가입한 이메일을 입력하면 비밀번호 재설정 링크를 보내 드립니다.</p>
+    </div>
+    <form class="brand-form" id="forgotForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="forgotEmail">이메일</label>
+          <input type="email" id="forgotEmail" class="brand-input" placeholder="이메일" autocomplete="username" inputmode="email">
+          <p class="brand-field-error" id="forgotEmailError" hidden></p>
+        </div>
+      </div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="forgotSubmit">재설정 메일 보내기</button>
+        <a class="brand-sub-link" href="#login">로그인 화면으로 돌아가기</a>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-01a 비밀번호 찾기 — 메일 발송 -->
+  <section class="brand-card" data-screen="forgot-sent" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>메일을 확인해 주세요</h1>
+      <p>입력하신 이메일이 등록된 계정이라면<br>비밀번호 재설정 메일을 보냈습니다.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>메일 속 링크를 누르면 새 비밀번호를 정할 수 있습니다.</li>
+      <li>받은편지함에 없으면 스팸함을 확인해 주세요.</li>
+      <li>그래도 없으면 REVERB 운영팀에 문의해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+      <a class="brand-sub-link" href="#forgot">메일이 오지 않았나요? 다시 보내기</a>
+    </div>
+  </section>
+
+  <!-- 1차 w01-02 비밀번호 설정 (메일 링크로 들어옴) · w01-02b 초대받은 멤버 -->
+  <section class="brand-card" data-screen="setpw" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>비밀번호 설정</h1>
+      <p id="setpwDesc"></p>
+    </div>
+    <form class="brand-form" id="setpwForm" novalidate>
+      <div class="brand-fields">
+        <div class="brand-field">
+          <label for="setpwEmail">이메일 (바꿀 수 없어요)</label>
+          <input type="email" id="setpwEmail" class="brand-input" readonly>
+        </div>
+        <div class="brand-field" data-member-only>
+          <label for="setpwName">이름 *</label>
+          <input type="text" id="setpwName" class="brand-input" placeholder="이름을 입력해 주세요" autocomplete="name" maxlength="40">
+          <p class="brand-field-error" id="setpwNameError" hidden></p>
+        </div>
+        <div class="brand-field" data-member-only>
+          <label for="setpwPhone">연락처 (선택)</label>
+          <input type="tel" id="setpwPhone" class="brand-input" placeholder="010-0000-0000" autocomplete="tel" inputmode="tel" maxlength="20">
+        </div>
+        <div class="brand-field">
+          <label for="setpwPw">비밀번호</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="setpwPw" class="brand-input" placeholder="8자 이상 · 영문 소문자와 기호 포함" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="setpwPw" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="setpwPwError" hidden></p>
+        </div>
+        <div class="brand-field">
+          <label for="setpwPw2">비밀번호 확인</label>
+          <div class="brand-pw-wrap">
+            <input type="password" id="setpwPw2" class="brand-input" placeholder="한 번 더 입력해 주세요" autocomplete="new-password">
+            <button type="button" class="brand-pw-toggle" data-pw-toggle="setpwPw2" aria-label="비밀번호 보기" aria-pressed="false">
+              <span class="material-icons-round notranslate" translate="no">visibility</span>
+            </button>
+          </div>
+          <p class="brand-field-error" id="setpwPw2Error" hidden></p>
+        </div>
+        <div class="brand-agree" id="setpwAgree" role="group" aria-label="약관 동의" aria-describedby="setpwAgreeError">
+          <label class="brand-check brand-check-all">
+            <input type="checkbox" id="agreeAll">
+            <span>전체 동의</span>
+          </label>
+          <div class="brand-agree-line"></div>
+          <div class="brand-agree-row">
+            <label class="brand-check">
+              <input type="checkbox" class="agree-item" id="agreeTerms">
+              <span>[필수] 이용약관에 동의합니다</span>
+            </label>
+            <button type="button" class="brand-agree-view" data-legal="terms">보기</button>
+          </div>
+          <div class="brand-agree-row">
+            <label class="brand-check">
+              <input type="checkbox" class="agree-item" id="agreePrivacy">
+              <span>[필수] 개인정보처리방침에 동의합니다</span>
+            </label>
+            <button type="button" class="brand-agree-view" data-legal="privacy">보기</button>
+          </div>
+        </div>
+        <p class="brand-field-error" id="setpwAgreeError" role="alert" hidden></p>
+      </div>
+      <div class="brand-notice brand-notice-info" id="setpwResult" role="status" hidden></div>
+      <div class="brand-actions">
+        <button type="submit" class="brand-btn" id="setpwSubmit">비밀번호 설정하고 시작하기</button>
+        <p class="brand-sub-text">동의하지 않으면 계정을 쓸 수 없어요. 모르는 메일이라면 이 화면을 닫아 주세요.</p>
+      </div>
+    </form>
+  </section>
+
+  <!-- 1차 w01-03 초대 수락 (이미 브랜드 계정이 있는 사람) -->
+  <section class="brand-card" data-screen="invite" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>브랜드 초대</h1>
+      <p id="inviteDesc"></p>
+    </div>
+    <div class="brand-fields">
+      <div class="brand-field">
+        <label for="inviteEmail">초대받은 계정</label>
+        <input type="email" id="inviteEmail" class="brand-input" readonly>
+      </div>
+    </div>
+    <div class="brand-notice brand-notice-info" id="inviteResult" role="status" hidden></div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="inviteSubmit">초대 수락</button>
+      <p class="brand-sub-text">수락하면 좌측 위에서 브랜드를 바꿔 쓸 수 있어요 · <a href="#login">나중에</a></p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-04 이메일 변경 확인 (메일 링크로 들어옴) -->
+  <section class="brand-card" data-screen="email-change" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>로그인 이메일 바꾸기</h1>
+      <p>레버브 운영팀이 회원님의 로그인 이메일을 바꾸도록 요청했어요. 「확인」을 누르면 바로 바뀌어요.</p>
+    </div>
+    <div class="brand-fields">
+      <div class="brand-field">
+        <label for="emailChangeNew">새 로그인 이메일</label>
+        <input type="email" id="emailChangeNew" class="brand-input" readonly>
+      </div>
+    </div>
+    <div class="brand-notice brand-notice-info" id="emailChangeResult" role="status" hidden></div>
+    <div class="brand-actions">
+      <button type="button" class="brand-btn" id="emailChangeSubmit">확인</button>
+      <p class="brand-sub-text" id="emailChangeNote"></p>
+    </div>
+  </section>
+
+  <!-- 1차 w01-05 쓸 수 없는 링크 (비밀번호 설정·초대·이메일 변경 공용) -->
+  <section class="brand-card" data-screen="link-invalid" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1>링크를 쓸 수 없어요</h1>
+      <p>기한이 지났거나, 이미 사용됐거나, 메일을 보낸 뒤 계정 상태가 바뀐 링크예요.</p>
+    </div>
+    <ul class="brand-guide">
+      <li>운영팀이 보낸 메일(계정 만들기·이메일 변경)이면 레버브 운영팀에 다시 보내 달라고 요청해 주세요.</li>
+      <li>동료의 초대 메일이면 초대한 대표 담당자에게 다시 보내 달라고 요청해 주세요.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login">로그인 화면으로</a>
+    </div>
+  </section>
+
+</main>
+
+<!-- 약관 「보기」 — 브랜드용 약관이 아직 없어 안내만 띄운다 -->
+<div class="brand-modal" id="legalModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" hidden>
+  <div class="brand-modal-box">
+    <h2 id="legalModalTitle"></h2>
+    <p>브랜드용 문서는 준비 중입니다. 정식 운영 전에 이 자리에서 볼 수 있게 됩니다.</p>
+    <button type="button" class="brand-btn" id="legalModalClose">닫기</button>
+  </div>
+</div>
+
+<!-- 개발서버 전용 화면 미리보기 막대 — 운영 주소에서는 그리지 않는다(brand-app.js) -->
+<div class="brand-preview" id="brandPreview" hidden>
+  <div class="brand-preview-title">
+    <span class="material-icons-round notranslate" translate="no">science</span>
+    화면 미리보기 — 로그인·메일은 아직 연결되지 않았습니다
+  </div>
+  <div class="brand-preview-row">
+    <label for="previewScreen">화면</label>
+    <select id="previewScreen"></select>
+  </div>
+  <div class="brand-preview-row" data-preview-for="login">
+    <label for="previewLoginResult">로그인 결과</label>
+    <select id="previewLoginResult">
+      <option value="fail">④ 로그인 실패</option>
+      <option value="too-many">⑥ 시도가 너무 많음</option>
+      <option value="ok">성공 (다음 화면 없음)</option>
+    </select>
+  </div>
+  <div class="brand-preview-row" data-preview-for="login">
+    <label class="brand-preview-check"><input type="checkbox" id="previewExpired"> ⑦ 로그인 시간 만료 안내</label>
+  </div>
+  <div class="brand-preview-row" data-preview-for="setpw">
+    <label for="previewSetpwKind">계정 종류</label>
+    <select id="previewSetpwKind">
+      <option value="owner">w01-02 운영팀이 만든 계정</option>
+      <option value="member">w01-02b 초대받은 멤버</option>
+    </select>
+  </div>
+</div>
+
+<!-- 도메인 판정(IS_STAGING)만 쓴다 — supabase 라이브러리가 없으면 연결을 만들지 않는다 -->
+<script src="../lib/supabase.js"></script>
+<script src="../js/brand-core.js"></script>
+<script src="../js/brand-login.js"></script>
+<script src="../js/brand-app.js"></script>
+</body>
+</html>

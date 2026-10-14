@@ -1,0 +1,277 @@
+/* 브랜드 페이지 — 로그인 전 화면 (Figma 「[1차] 01 로그인」 섹션, 노드 34:1153)
+   ⚠️ 관리자·인플루언서 공용 CSS(base.css·components.css)를 싣지 않는 독립 화면이다.
+      색·크기는 Figma 값을 그대로 옮긴 아래 변수에서만 고친다. */
+
+:root {
+  --b-bg: #ececee;          /* 화면 바탕 */
+  --b-surface: #ffffff;     /* 카드 */
+  --b-ink: #1a1a1a;         /* 제목·본문·주 버튼 */
+  --b-label: #3f3f46;       /* 입력 칸 이름 */
+  --b-muted: #71717a;       /* 설명 문구 */
+  --b-guide: #52525c;       /* 안내 상자 글자 */
+  --b-faint: #a1a1aa;       /* 자리 표시 글자·보조 링크 */
+  --b-line: #e4e4e7;        /* 입력 칸 테두리·구분선 */
+  --b-soft: #fafafa;        /* 안내 상자 바탕 */
+  --b-agree-bg: #f9f9f9;    /* 약관 동의 상자 바탕 */
+  --b-disabled-bg: #f4f4f5; /* 잠긴 칸 바탕 */
+  --b-disabled-btn: #d4d4d8;/* 잠긴 버튼 */
+  --b-error: #ed1e1e;
+  --b-error-bg: #fff0f0;
+  --b-info: #2b59c3;
+  --b-info-bg: #eef4ff;
+  --b-radius-card: 16px;
+  --b-radius: 8px;
+  --b-font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--b-bg);
+  color: var(--b-ink);
+  font-family: var(--b-font);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+[hidden] { display: none !important; }
+button, input { font-family: inherit; }
+
+/* ── 모바일 머리 띠 (m01-00) — 좁은 화면에서만 */
+.brand-topbar {
+  display: none;
+  height: 45px;
+  padding: 0 12px;
+  align-items: center;
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* ── 가운데 카드 */
+.brand-stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 16px;
+}
+.brand-card {
+  width: 418px;
+  max-width: 100%;
+  background: var(--b-surface);
+  border-radius: var(--b-radius-card);
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* 로고 */
+.brand-logo { display: flex; align-items: center; gap: 8px; }
+.brand-logo-mark {
+  width: 26px; height: 26px;
+  border-radius: var(--b-radius);
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-logo-text { font-size: 14px; font-weight: 700; color: var(--b-ink); }
+
+/* 제목·설명 */
+.brand-head { display: flex; flex-direction: column; gap: 8px; }
+.brand-head h1 { margin: 0; font-size: 18px; font-weight: 700; color: var(--b-ink); }
+.brand-head p { margin: 0; font-size: 13px; color: var(--b-muted); line-height: 1.25; }
+
+/* 폼 */
+.brand-form { display: flex; flex-direction: column; gap: 32px; margin: 0; }
+.brand-fields { display: flex; flex-direction: column; gap: 16px; }
+.brand-field { display: flex; flex-direction: column; gap: 8px; }
+.brand-field label { font-size: 13px; color: var(--b-label); }
+
+.brand-input {
+  width: 100%;
+  height: 45px;
+  padding: 0 12px;
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  background: var(--b-surface);
+  color: var(--b-ink);
+  font-size: 14px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.brand-input::placeholder { color: var(--b-faint); }
+/* 입력 중 — Figma ④·⑦ 의 1.5px 진한 테두리 */
+.brand-input:focus { border: 1.5px solid var(--b-ink); padding: 0 11.5px; }
+/* 오류 — Figma ②·③ 의 1.5px 빨간 테두리 */
+.brand-input.is-error { border: 1.5px solid var(--b-error); padding: 0 11.5px; }
+/* 잠김 — Figma ⑤ 로그인 중, 읽기 전용 칸 */
+.brand-input:disabled,
+.brand-input[readonly] { background: var(--b-disabled-bg); color: var(--b-faint); }
+/* 읽기 전용(바꿀 수 없는 이메일)은 잠김보다 진하게 — Figma w01-02 #52525b */
+.brand-input[readonly]:not(:disabled) { color: var(--b-guide); }
+.brand-input[readonly]:focus { border: 1px solid var(--b-line); padding: 0 12px; }
+
+.brand-field-error { margin: 0; font-size: 12px; color: var(--b-error); line-height: 1.25; }
+
+/* 비밀번호 보기 단추 */
+.brand-pw-wrap { position: relative; }
+.brand-pw-wrap .brand-input { padding-right: 40px; }
+.brand-pw-wrap .brand-input:focus,
+.brand-pw-wrap .brand-input.is-error { padding-right: 39.5px; }
+.brand-pw-toggle {
+  position: absolute; top: 0; right: 0;
+  width: 40px; height: 45px;
+  border: 0; background: none; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--b-ink);
+  cursor: pointer;
+}
+.brand-pw-toggle .material-icons-round { font-size: 16px; }
+.brand-pw-toggle:disabled { color: var(--b-faint); cursor: default; }
+
+/* 안내 띠 — 오류(④·⑥)·알림(⑦) */
+.brand-notice {
+  padding: 12px 14px;
+  border-radius: var(--b-radius);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.brand-notice-error { background: var(--b-error-bg); color: var(--b-error); }
+.brand-notice-info { background: var(--b-info-bg); color: var(--b-info); }
+/* 폼 안에서는 칸 묶음과 버튼 사이 간격(32px)을 반으로 */
+.brand-form .brand-notice { margin: -16px 0; }
+
+/* 안내 상자 (w01-01a·w01-05) */
+.brand-guide {
+  margin: 0;
+  padding: 14px 16px;
+  list-style: none;
+  background: var(--b-soft);
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 12px; color: var(--b-guide); line-height: 1.25;
+}
+.brand-guide li::before { content: '· '; }
+
+/* 버튼·보조 링크 */
+.brand-actions { display: flex; flex-direction: column; gap: 16px; }
+.brand-btn {
+  width: 100%;
+  height: 45px;
+  border: 1px solid var(--b-line);
+  border-radius: var(--b-radius);
+  background: var(--b-ink);
+  color: #fff;
+  font-size: 14px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.brand-btn:disabled { background: var(--b-disabled-btn); border-color: var(--b-disabled-btn); cursor: default; }
+.brand-btn:focus-visible,
+.brand-sub-link:focus-visible,
+.brand-agree-view:focus-visible,
+.brand-pw-toggle:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-sub-link {
+  align-self: center;
+  font-size: 12px; color: var(--b-faint);
+  text-decoration: none;
+}
+.brand-sub-link:hover { color: var(--b-muted); text-decoration: underline; }
+.brand-sub-text { margin: 0; font-size: 12px; color: var(--b-faint); text-align: center; line-height: 1.25; }
+.brand-sub-text a { color: var(--b-faint); }
+
+/* 약관 동의 상자 (w01-02) */
+.brand-agree {
+  background: var(--b-agree-bg);
+  border-radius: var(--b-radius);
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.brand-agree.is-error { box-shadow: inset 0 0 0 1.5px var(--b-error); }
+.brand-agree-line { height: 1px; background: var(--b-line); }
+.brand-agree-row { display: flex; align-items: center; gap: 8px; }
+.brand-check {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  font-size: 13px; color: var(--b-ink);
+  cursor: pointer;
+}
+.brand-check-all { font-weight: 600; }
+.brand-check input {
+  -webkit-appearance: none; appearance: none;
+  flex-shrink: 0;
+  width: 16px; height: 16px; margin: 0;
+  border: 1px solid var(--b-faint);
+  border-radius: 4px;
+  background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.brand-check input:checked { background: var(--b-ink); border-color: var(--b-ink); }
+.brand-check input:checked::after {
+  content: '';
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+.brand-check input:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-agree-view {
+  flex-shrink: 0;
+  border: 0; background: none; padding: 0;
+  font-size: 12px; color: var(--b-muted);
+  cursor: pointer;
+}
+.brand-agree-view:hover { text-decoration: underline; }
+
+/* 약관 「보기」 창 */
+.brand-modal {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(26, 26, 26, .45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.brand-modal-box {
+  width: 360px; max-width: 100%;
+  background: var(--b-surface);
+  border-radius: var(--b-radius-card);
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.brand-modal-box h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.brand-modal-box p { margin: 0; font-size: 13px; color: var(--b-muted); line-height: 1.4; }
+
+/* 개발서버 전용 화면 미리보기 막대 */
+.brand-preview {
+  position: fixed; right: 16px; bottom: 16px; z-index: 40;
+  width: 280px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: var(--b-radius);
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: 12px; color: #7c2d12;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+}
+.brand-preview-title { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.brand-preview-title .material-icons-round { font-size: 16px; }
+.brand-preview-row { display: flex; align-items: center; gap: 8px; }
+.brand-preview-row > label:first-child:not(.brand-preview-check) { width: 64px; flex-shrink: 0; }
+.brand-preview-row select { flex: 1; min-width: 0; height: 28px; font-size: 12px; font-family: inherit; }
+.brand-preview-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* ── 좁은 화면 (m01-00) */
+@media (max-width: 600px) {
+  .brand-topbar { display: flex; }
+  .brand-stage { min-height: calc(100vh - 45px); padding: 40px 25px; align-items: flex-start; }
+  .brand-card { width: 100%; padding: 24px 16px; }
+  /* iOS 는 16px 미만 입력 칸에 초점이 가면 화면을 확대한다 — Figma 14px 대신 16px */
+  .brand-input { font-size: 16px; }
+  .brand-actions .brand-sub-link { align-self: flex-start; }
+  .brand-preview { left: 16px; right: 16px; width: auto; }
+}
