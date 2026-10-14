@@ -1,5 +1,5 @@
 -- ============================================================
--- 525_brand_accounts_base.sql
+-- 526_brand_accounts_base.sql
 -- 브랜드 로그인 — 조각 1: 데이터베이스 기초
 --   docs/specs/2026-10-14-brand-login-breakdown.md 「조각 1」 · 사양서 docs/specs/2026-07-15-brand-portal.md §16-6
 --
@@ -93,34 +93,34 @@
 --       INSERT INTO auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at,
 --                               confirmation_token,recovery_token,email_change,email_change_token_new,email_change_token_current,
 --                               phone_change,phone_change_token,reauthentication_token,raw_app_meta_data,raw_user_meta_data)
---       VALUES ('00000000-0000-0000-0000-000000000000', v_brand,'authenticated','authenticated','zz-525-brand@example.invalid','',now(),now(),now(),
+--       VALUES ('00000000-0000-0000-0000-000000000000', v_brand,'authenticated','authenticated','zz-526-brand@example.invalid','',now(),now(),now(),
 --               '','','','','','','','',
---               '{"provider":"email","providers":["email"],"account_kind":"brand"}', jsonb_build_object('sub',v_brand::text,'email','zz-525-brand@example.invalid','email_verified',true,'phone_verified',false));
+--               '{"provider":"email","providers":["email"],"account_kind":"brand"}', jsonb_build_object('sub',v_brand::text,'email','zz-526-brand@example.invalid','email_verified',true,'phone_verified',false));
 --       -- (B) 대조군: account_kind 없는 일반 계정 → 인플루언서 행 1건이어야 한다
 --       INSERT INTO auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at,
 --                               confirmation_token,recovery_token,email_change,email_change_token_new,email_change_token_current,
 --                               phone_change,phone_change_token,reauthentication_token,raw_app_meta_data,raw_user_meta_data)
---       VALUES ('00000000-0000-0000-0000-000000000000', v_plain,'authenticated','authenticated','zz-525-plain@example.invalid','',now(),now(),now(),
+--       VALUES ('00000000-0000-0000-0000-000000000000', v_plain,'authenticated','authenticated','zz-526-plain@example.invalid','',now(),now(),now(),
 --               '','','','','','','','',
---               '{"provider":"email","providers":["email"]}', jsonb_build_object('sub',v_plain::text,'email','zz-525-plain@example.invalid','email_verified',true,'phone_verified',false));
+--               '{"provider":"email","providers":["email"]}', jsonb_build_object('sub',v_plain::text,'email','zz-526-plain@example.invalid','email_verified',true,'phone_verified',false));
 --       SELECT count(*) INTO r_brand_inf FROM public.influencers WHERE id = v_brand;
 --       SELECT count(*) INTO r_plain_inf FROM public.influencers WHERE id = v_plain;
 --       -- (C) 계정 표 행이 아직 없어도(앱 메타데이터만) 직접 삽입 거부
 --       BEGIN
---         INSERT INTO public.influencers (id, email) VALUES (v_brand, 'zz-525-brand@example.invalid');
+--         INSERT INTO public.influencers (id, email) VALUES (v_brand, 'zz-526-brand@example.invalid');
 --         msg_c := 'NOT BLOCKED';
 --       EXCEPTION WHEN others THEN msg_c := SQLERRM; END;
 --       -- (D) 계정 표 행이 있고 앱 메타데이터는 일반인 계정도 거부(표 쪽 판정)
---       INSERT INTO public.brand_accounts (auth_id, email) VALUES (v_plain, 'zz-525-plain@example.invalid');
+--       INSERT INTO public.brand_accounts (auth_id, email) VALUES (v_plain, 'zz-526-plain@example.invalid');
 --       DELETE FROM public.influencers WHERE id = v_plain;
 --       BEGIN
---         INSERT INTO public.influencers (id, email) VALUES (v_plain, 'zz-525-plain@example.invalid');
+--         INSERT INTO public.influencers (id, email) VALUES (v_plain, 'zz-526-plain@example.invalid');
 --         msg_d := 'NOT BLOCKED';
 --       EXCEPTION WHEN others THEN msg_d := SQLERRM; END;
---       RAISE EXCEPTION '525 시험 결과(전부 되돌림): A브랜드 인플루언서행=% (기대 0) · B일반 인플루언서행=% (기대 1) · C=% · D=% (둘 다 기대 brand_account_not_influencer)',
+--       RAISE EXCEPTION '526 시험 결과(전부 되돌림): A브랜드 인플루언서행=% (기대 0) · B일반 인플루언서행=% (기대 1) · C=% · D=% (둘 다 기대 brand_account_not_influencer)',
 --         r_brand_inf, r_plain_inf, msg_c, msg_d;
 --     END $$;
---     기대: 오류 창에 위 한 줄이 나오고(의도된 예외), 이후 `SELECT count(*) FROM auth.users WHERE email LIKE 'zz-525-%'` = 0.
+--     기대: 오류 창에 위 한 줄이 나오고(의도된 예외), 이후 `SELECT count(*) FROM auth.users WHERE email LIKE 'zz-526-%'` = 0.
 --     순서: ① 위 DO 블록만 실행 → 오류 문구 확인 ② 그다음 따로 count 조회 실행 → 0 확인(0 이 아니면 즉시 멈추고 알릴 것).
 --     ⚠️ 이 시험은 관리자·권한 분기를 재현하지 못한다(서비스 권한이라 정책이 안 돈다).
 --   [V4] get_my_account_kind 는 실제 로그인한 브라우저 콘솔에서 1회: (await db.rpc('get_my_account_kind')).data → 'other' (인플루언서·관리자 계정).
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS public.brand_accounts (
 );
 
 COMMENT ON TABLE public.brand_accounts IS
-  '[525] 브랜드 로그인 계정(대표 담당자). auth.users 와 1:1(auth_id). 쓰기는 SECURITY DEFINER 함수·서비스 키만(RLS 쓰기 정책 없음).
+  '[526] 브랜드 로그인 계정(대표 담당자). auth.users 와 1:1(auth_id). 쓰기는 SECURITY DEFINER 함수·서비스 키만(RLS 쓰기 정책 없음).
    email 은 lower(btrim()) 정규화 값. created_by 는 만든 관리자의 auth_id(FK 없음 — 관리자 삭제와 얽히지 않게).';
 
 CREATE UNIQUE INDEX IF NOT EXISTS brand_accounts_email_key
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS public.brand_account_links (
 );
 
 COMMENT ON TABLE public.brand_account_links IS
-  '[525] 브랜드 계정 ↔ 브랜드 연결. role=owner 는 브랜드당 활성 1명(부분 유일). status=released 는 이력으로 남긴다.
+  '[526] 브랜드 계정 ↔ 브랜드 연결. role=owner 는 브랜드당 활성 1명(부분 유일). status=released 는 이력으로 남긴다.
    source_contact_id 는 연결의 근거가 된 brands.contacts[].id(문자열, FK 아님).';
 
 CREATE UNIQUE INDEX IF NOT EXISTS brand_account_links_one_active_owner
@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS public.brand_password_reset_requests (
 );
 
 COMMENT ON TABLE public.brand_password_reset_requests IS
-  '[525] 브랜드 비밀번호 찾기 요청 기록(243 복제). 원문 이메일 미저장(sha256 해시만). 요청 제한 판정용 + 30일 후 삭제(조각 2).
+  '[526] 브랜드 비밀번호 찾기 요청 기록(243 복제). 원문 이메일 미저장(sha256 해시만). 요청 제한 판정용 + 30일 후 삭제(조각 2).
    쓰기는 서비스 키 전용(RLS 정책 없음).';
 
 CREATE INDEX IF NOT EXISTS idx_brand_pw_reset_email_hash_at
@@ -242,7 +242,7 @@ AS $$
 DECLARE
   m jsonb := COALESCE(NEW.raw_user_meta_data, '{}'::jsonb);
 BEGIN
-  -- [525] 브랜드 계정(앱 메타데이터 account_kind='brand')은 인플루언서 행을 만들지 않는다.
+  -- [526] 브랜드 계정(앱 메타데이터 account_kind='brand')은 인플루언서 행을 만들지 않는다.
   --   🔴 사용자 메타데이터(raw_user_meta_data)가 아니라 **앱** 메타데이터를 본다 — 앞쪽은 공개 키 `signUp` 호출자가
   --   마음대로 채울 수 있다. 이 분기는 반드시 INSERT 보다 앞에 있어야 한다(아래 정리 UPDATE 도 건너뛴다).
   IF NEW.raw_app_meta_data->>'account_kind' = 'brand' THEN
@@ -318,7 +318,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.handle_new_user() IS
-  '[014+382+420+525] 계정이 만들어질 때 회원 행을 만든다. 525 부터 앱 메타데이터 account_kind=brand 인 계정은 회원 행 없이 즉시 종료(브랜드 계정).
+  '[014+382+420+526] 계정이 만들어질 때 회원 행을 만든다. 526 부터 앱 메타데이터 account_kind=brand 인 계정은 회원 행 없이 즉시 종료(브랜드 계정).
    420 부터 동의 시각은 계정 생성 시각 ±1일 안에서만 브라우저 값을 믿고(밖이면 now()), 생년월일은 1900~오늘 밖이면 NULL. 382 부터 가입 폼 값
    (이름·생년월일·성별·동의 시각)을 raw_user_meta_data 에서 꺼내 함께 넣고,
    개인정보를 두 곳에 남기지 않도록 그 자리를 지운다(email 키는 남긴다).
@@ -344,7 +344,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.block_influencer_row_for_brand() IS
-  '[525] influencers BEFORE INSERT. NEW.id 가 brand_accounts 에 있거나 auth.users 앱 메타데이터가 account_kind=brand 면 brand_account_not_influencer 로 거부.
+  '[526] influencers BEFORE INSERT. NEW.id 가 brand_accounts 에 있거나 auth.users 앱 메타데이터가 account_kind=brand 면 brand_account_not_influencer 로 거부.
    판정은 auth.uid() 가 아니라 NEW.id(137 의 삽입 정책은 로그인만 하면 통과). SECURITY DEFINER — 호출자의 표 읽기 정책에 좌우되지 않게.';
 
 REVOKE ALL ON FUNCTION public.block_influencer_row_for_brand() FROM PUBLIC;
@@ -373,7 +373,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.get_my_account_kind() IS
-  '[525] 로그인한 본인의 계정 종류 — brand_accounts 에 있으면 ''brand'', 아니면 ''other''. authenticated 전용(로그아웃 상태 호출은 권한 오류).';
+  '[526] 로그인한 본인의 계정 종류 — brand_accounts 에 있으면 ''brand'', 아니면 ''other''. authenticated 전용(로그아웃 상태 호출은 권한 오류).';
 
 -- 부여 먼저 → PUBLIC 회수 → anon 회수 (369·370·375 의 방향 둘)
 GRANT  EXECUTE ON FUNCTION public.get_my_account_kind() TO postgres, authenticated, service_role;

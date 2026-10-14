@@ -1,10 +1,10 @@
 -- ============================================================
--- 527_brand_account_guards.sql
+-- 528_brand_account_guards.sql
 -- 브랜드 로그인 — 조각 3: 기존 함수 세 개에 「브랜드 계정」 가드 추가
 --   docs/specs/2026-10-14-brand-login-breakdown.md 「조각 3」 · P-10(초대 거부 확정) · stale 1
 --
 -- 목적
---   525 의 brand_account_links 가 생겼으므로, 기존 함수 세 개가 브랜드 계정을 모르는 채로 돌면 안 된다.
+--   526 의 brand_account_links 가 생겼으므로, 기존 함수 세 개가 브랜드 계정을 모르는 채로 돌면 안 된다.
 --   ① delete_brand(uuid)   — 계정 연결이 있으면 삭제 거부
 --   ② merge_brands(uuid,uuid) — 원본 브랜드에 활성 계정 연결이 있으면 병합 거부
 --   ③ invite_admin(text,text,text) — 브랜드 계정 이메일이면 관리자 초대·승격 거부
@@ -38,7 +38,7 @@
 -- 결정: 해제된(released) 연결만 있는 브랜드의 삭제 → 막는다 (지우지 않는다)
 --   · brand_account_links.brand_id 는 ON DELETE RESTRICT 라 그대로 두면 외래키 오류(23503)가 나고,
 --     화면에는 「연결된 데이터가 있어 처리할 수 없습니다」라는 모호한 문구만 뜬다 → 함수가 먼저 친절하게 막는다.
---   · released 행은 525 가 「이력으로 남긴다」고 정한 감사 기록(누가 이 브랜드를 볼 수 있었나)이다. 삭제 때 함께 지우면
+--   · released 행은 526 가 「이력으로 남긴다」고 정한 감사 기록(누가 이 브랜드를 볼 수 있었나)이다. 삭제 때 함께 지우면
 --     그 기록이 조용히 사라진다. 지우는 쪽이 되돌릴 수 없고, 막는 쪽은 병합(원본 archived)으로 우회 가능하므로 막는 쪽이 안전하다.
 --   · 병합은 해제 연결만 있는 원본을 막지 않는다(활성만 검사) — 이력은 보관된 원본 브랜드에 남는다.
 --
@@ -49,15 +49,15 @@
 --   delete_brand : 325_audit_remediation_bundle_i_deletion.sql 의 delete_brand 함수 정의(423~474행) 재실행
 --   merge_brands : 467_merge_brands_move_memos.sql 전체 재실행
 --   invite_admin : 417_audit_d5_d6_i2_promo_channel_chain_lock_invite_email.sql 의 「I-2」 절(invite_admin 정의, 544~628행)만 재실행
---   (사본 한 벌: 이 파일의 함수 본문에서 [527] 표시 구역을 빼면 베이스와 같다)
+--   (사본 한 벌: 이 파일의 함수 본문에서 [528] 표시 구역을 빼면 베이스와 같다)
 --
 -- 배포 순서  (사용자 결정 P-1: 브랜드 로그인은 개발서버에서만 동작, 운영 보류)
---   1) 525 → 526 이 먼저 적용돼 있어야 한다.
+--   1) 526 → 527 이 먼저 적용돼 있어야 한다.
 --   2) 개발서버 SQL 편집기에 이 파일 전체를 실행한다.
---   3) 🔴 운영 주의: 세 함수는 운영에 이미 있다. 525 표(brand_accounts·brand_account_links)가 없는 운영에
---      527 만 들어가면 함수 본문의 표 참조가 첫 호출에서 relation does not exist 로 터져
+--   3) 🔴 운영 주의: 세 함수는 운영에 이미 있다. 526 표(brand_accounts·brand_account_links)가 없는 운영에
+--      528 만 들어가면 함수 본문의 표 참조가 첫 호출에서 relation does not exist 로 터져
 --      브랜드 삭제·병합·관리자 초대가 전부 깨진다(함수 생성은 표 존재를 검사하지 않아 적용은 Success 로 끝난다).
---      운영 반영 때는 반드시 525 → 526 → 527 순서로, 한 번에, 같은 점검 창에서 한다. 527 단독 적용 금지.
+--      운영 반영 때는 반드시 526 → 527 → 528 순서로, 한 번에, 같은 점검 창에서 한다. 528 단독 적용 금지.
 --
 -- 적용 뒤 확인 (1단계씩 — 앞 단계 결과를 보고 다음으로)
 --   V1 실행 권한이 적용 전후 같은지 — 적용 전에 한 번, 적용 후에 한 번 돌려 두 결과를 눈으로 비교(완전히 같아야 한다):
@@ -69,9 +69,9 @@
 --   V2 원본과 차이가 가드 줄뿐인지 — 로컬 터미널(저장소 루트)에서. 각 함수마다 「>」(추가) 줄만 나오고 「<」(삭제) 줄이 0이어야 한다:
 --        f() { sed -n "/^CREATE OR REPLACE FUNCTION public.$2/,/^\$\$;/p" "$1"; }
 --        cd supabase/migrations
---        diff <(f 325_audit_remediation_bundle_i_deletion.sql delete_brand) <(f 527_brand_account_guards.sql delete_brand)
---        diff <(f 467_merge_brands_move_memos.sql merge_brands)             <(f 527_brand_account_guards.sql merge_brands)
---        diff <(f 417_audit_d5_d6_i2_promo_channel_chain_lock_invite_email.sql invite_admin) <(f 527_brand_account_guards.sql invite_admin)
+--        diff <(f 325_audit_remediation_bundle_i_deletion.sql delete_brand) <(f 528_brand_account_guards.sql delete_brand)
+--        diff <(f 467_merge_brands_move_memos.sql merge_brands)             <(f 528_brand_account_guards.sql merge_brands)
+--        diff <(f 417_audit_d5_d6_i2_promo_channel_chain_lock_invite_email.sql invite_admin) <(f 528_brand_account_guards.sql invite_admin)
 --   V3 되돌림 시험 — 개발서버 SQL 편집기. 아래 블록(또는 같은 내용의 별도 파일)을 그대로 실행한다.
 --        끝에서 일부러 RAISE EXCEPTION 으로 전부 되돌리므로 오류 화면이 정상이다. 그 오류 문구에 T1~T8 이 모두 「OK」여야 한다.
 --        T1 활성 연결 브랜드 삭제 거부 / T2 연결 없는 브랜드 삭제 성공 / T3 해제 연결만 있는 브랜드 삭제 거부 /
@@ -97,18 +97,18 @@
 --       confirmation_token,recovery_token,email_change,email_change_token_new,email_change_token_current,
 --       phone_change,phone_change_token,reauthentication_token,raw_app_meta_data,raw_user_meta_data)
 --     VALUES ('00000000-0000-0000-0000-000000000000', v_user,'authenticated','authenticated',
---       'zz-527-brand@example.invalid','',now(),now(),now(),
+--       'zz-528-brand@example.invalid','',now(),now(),now(),
 --       '','','','','','','','',
 --       '{"provider":"email","providers":["email"],"account_kind":"brand"}',
---       jsonb_build_object('sub',v_user::text,'email','zz-527-brand@example.invalid',
+--       jsonb_build_object('sub',v_user::text,'email','zz-528-brand@example.invalid',
 --         'email_verified',true,'phone_verified',false));
---     INSERT INTO public.brand_accounts (auth_id, email) VALUES (v_user, 'zz-527-brand@example.invalid');
+--     INSERT INTO public.brand_accounts (auth_id, email) VALUES (v_user, 'zz-528-brand@example.invalid');
 --   
 --     -- 시험 브랜드 넷: A=활성 연결 / B=연결 없음 / C=연결 없음 / D=해제 연결만
---     INSERT INTO public.brands (name) VALUES ('zz-527-A-' || gen_random_uuid()) RETURNING id INTO v_a;
---     INSERT INTO public.brands (name) VALUES ('zz-527-B-' || gen_random_uuid()) RETURNING id INTO v_b;
---     INSERT INTO public.brands (name) VALUES ('zz-527-C-' || gen_random_uuid()) RETURNING id INTO v_c;
---     INSERT INTO public.brands (name) VALUES ('zz-527-D-' || gen_random_uuid()) RETURNING id INTO v_d;
+--     INSERT INTO public.brands (name) VALUES ('zz-528-A-' || gen_random_uuid()) RETURNING id INTO v_a;
+--     INSERT INTO public.brands (name) VALUES ('zz-528-B-' || gen_random_uuid()) RETURNING id INTO v_b;
+--     INSERT INTO public.brands (name) VALUES ('zz-528-C-' || gen_random_uuid()) RETURNING id INTO v_c;
+--     INSERT INTO public.brands (name) VALUES ('zz-528-D-' || gen_random_uuid()) RETURNING id INTO v_d;
 --     INSERT INTO public.brand_account_links (auth_id, brand_id, role) VALUES (v_user, v_a, 'owner');
 --     INSERT INTO public.brand_account_links (auth_id, brand_id, role, status, released_at)
 --       VALUES (v_user, v_d, 'owner', 'released', now());
@@ -163,7 +163,7 @@
 --   
 --     -- T7 브랜드 계정 이메일(대소문자·공백이 달라도)로 관리자 초대 → 거부
 --     BEGIN
---       PERFORM public.invite_admin('  ZZ-527-Brand@Example.invalid ', 'zz 시험', 'campaign_manager');
+--       PERFORM public.invite_admin('  ZZ-528-Brand@Example.invalid ', 'zz 시험', 'campaign_manager');
 --       v_out := v_out || E'\nT7 FAIL 초대가 통과했다';
 --     EXCEPTION WHEN OTHERS THEN
 --       v_out := v_out || E'\nT7 ' || CASE WHEN SQLERRM LIKE '%brand_account_email%' THEN 'OK ' ELSE 'FAIL ' END || SQLSTATE || ' ' || SQLERRM;
@@ -171,13 +171,13 @@
 --   
 --     -- T8 일반 새 이메일 초대 → 통과(지금처럼)
 --     BEGIN
---       PERFORM public.invite_admin('zz-527-normal@example.invalid', 'zz 시험', 'campaign_manager');
+--       PERFORM public.invite_admin('zz-528-normal@example.invalid', 'zz 시험', 'campaign_manager');
 --       v_out := v_out || E'\nT8 OK 일반 초대 통과';
 --     EXCEPTION WHEN OTHERS THEN
 --       v_out := v_out || E'\nT8 FAIL ' || SQLSTATE || ' ' || SQLERRM;
 --     END;
 --   
---     RAISE EXCEPTION '527 시험 결과 (전부 되돌림, 기대: T1~T8 전부 OK):%', v_out;
+--     RAISE EXCEPTION '528 시험 결과 (전부 되돌림, 기대: T1~T8 전부 OK):%', v_out;
 --   END
 --   $t$;
 --   V4 회귀 — 개발서버 관리자 화면에서 눈으로: 연결 없는 시험 브랜드 삭제(성공) · 관리자 초대(기존처럼 메일 발송 흐름까지 진행).
@@ -200,8 +200,8 @@ DECLARE
   v_apps   bigint;
   v_sheets bigint;
   v_exists boolean;
-  v_links  bigint;  -- [527] 활성 계정 연결 수
-  v_rel    bigint;  -- [527] 해제된 계정 연결(이력) 수
+  v_links  bigint;  -- [528] 활성 계정 연결 수
+  v_rel    bigint;  -- [528] 해제된 계정 연결(이력) 수
 BEGIN
   -- 권한: campaign_admin 이상 (174/191 원본과 동일)
   IF NOT public.is_campaign_admin() THEN
@@ -230,7 +230,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  -- [527] 브랜드 계정 연결(525). 활성 연결이 있으면 거부, 해제된 연결(이력)만 있어도 거부한다.
+  -- [528] 브랜드 계정 연결(526). 활성 연결이 있으면 거부, 해제된 연결(이력)만 있어도 거부한다.
   --   brand_account_links.brand_id 가 ON DELETE RESTRICT 라 막지 않으면 외래키 오류(23503)로 터진다.
   --   해제 이력은 「누가 이 브랜드를 볼 수 있었나」 감사 기록이라 지우지 않는다 → 병합을 쓰게 한다.
   SELECT count(*) INTO v_links FROM public.brand_account_links WHERE brand_id = p_brand_id AND status = 'active';
@@ -253,10 +253,10 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.delete_brand(uuid) IS
-  '[174+191+325+527] 브랜드 hard delete (연결 0건 한정). campaign_admin 가드. '
+  '[174+191+325+528] 브랜드 hard delete (연결 0건 한정). campaign_admin 가드. '
   '연결된 캠페인·신청·오리엔시트가 있으면 22023 + 병합 안내. '
   '[325] 캠페인 카운트에서 보관 삭제(deleted_at NOT NULL)된 캠페인 제외. '
-  '[527] 브랜드 계정 연결이 활성이면 22023(계정 연결 N건), 해제 이력만 있어도 22023(이력 보존 — 병합 안내).';
+  '[528] 브랜드 계정 연결이 활성이면 22023(계정 연결 N건), 해제 이력만 있어도 22023(이력 보존 — 병합 안내).';
 
 -- ── ② merge_brands — 베이스 467 + 활성 계정 연결 가드 ─────────
 
@@ -324,7 +324,7 @@ BEGIN
     RAISE EXCEPTION '대상 브랜드를 찾을 수 없습니다: %', p_target USING ERRCODE = '22023';
   END IF;
 
-  -- [527] 원본 브랜드에 활성 브랜드 계정 연결이 있으면 병합 거부.
+  -- [528] 원본 브랜드에 활성 브랜드 계정 연결이 있으면 병합 거부.
   --   원본은 병합 뒤 archived 가 되는데 계정은 그 브랜드에 그대로 묶여 있어 로그인한 담당자가
   --   보관된 브랜드를 보게 된다. 연결을 먼저 해제하거나 옮긴 뒤 병합한다.
   --   대상(p_target) 쪽 연결은 보지 않는다 — 대상은 이동을 받는 쪽이라 영향이 없다.
@@ -521,11 +521,11 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.merge_brands(uuid, uuid) IS
-  '[467+527] 브랜드 병합 — 신청·캠페인·오리엔시트·영업 메모를 대상 브랜드로 옮기고 채번을 재발급한다. '
+  '[467+528] 브랜드 병합 — 신청·캠페인·오리엔시트·영업 메모를 대상 브랜드로 옮기고 채번을 재발급한다. '
   '원본은 archived. is_campaign_admin 가드. 멱등성 판정에 brand_applications·campaigns·'
   'orient_sheets·brand_memos 존재 여부를 모두 본다(328 + 467). '
   '메모는 본문 앞에 「(구 원본브랜드명)」 을 붙여 어느 브랜드 시절 글인지 남긴다. '
-  '[527] 원본에 활성 브랜드 계정 연결이 있으면 brand_has_account_links 로 거부(대상 쪽 연결은 영향 없음).';
+  '[528] 원본에 활성 브랜드 계정 연결이 있으면 brand_has_account_links 로 거부(대상 쪽 연결은 영향 없음).';
 
 -- ── ③ invite_admin — 베이스 417 + 브랜드 계정 이메일 가드 ─────
 
@@ -555,13 +555,13 @@ BEGIN
     RAISE EXCEPTION 'Admin with this email already exists';
   END IF;
 
-  -- [527] 브랜드 계정(525)의 이메일이면 관리자로 초대·승격하지 않는다(사용자 결정 P-10).
+  -- [528] 브랜드 계정(526)의 이메일이면 관리자로 초대·승격하지 않는다(사용자 결정 P-10).
   --   브랜드 담당자가 관리자 권한을 얻는 경로를 막는다. 세 갈래를 본다:
   --   ① brand_accounts.email 이 같다  ② 인증 사용자 중 이메일이 같은 사람이 브랜드 계정이다(승격 갈래).
   IF EXISTS (SELECT 1 FROM public.brand_accounts ba
               WHERE lower(btrim(ba.email)) = admin_email
                  OR ba.auth_id IN (SELECT u.id FROM auth.users u WHERE lower(btrim(u.email)) = admin_email))
-     -- ③ 앱 메타데이터에 브랜드 표시만 있고 brand_accounts 행이 아직 없는 순간(525 [C] 와 같은 틈 — 527 리뷰 권고)
+     -- ③ 앱 메타데이터에 브랜드 표시만 있고 brand_accounts 행이 아직 없는 순간(526 [C] 와 같은 틈 — 528 리뷰 권고)
      OR EXISTS (SELECT 1 FROM auth.users u
                  WHERE lower(btrim(u.email)) = admin_email
                    AND u.raw_app_meta_data->>'account_kind' = 'brand') THEN
@@ -629,9 +629,9 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.invite_admin(text, text, text) IS
-  '[245+417+527] 관리자 초대. 기존 auth.users 계정 승격 시 비밀번호를 덮어쓰지 않음(031 원본은 '
+  '[245+417+528] 관리자 초대. 기존 auth.users 계정 승격 시 비밀번호를 덮어쓰지 않음(031 원본은 '
   '임시 랜덤값으로 덮어써 기존 로그인을 끊었음). 승격 여부는 admins.promoted_at 에 기록. '
   '신규 생성 분기는 031 원본과 동일(임시 랜덤 비밀번호 + auth.identities 생성). '
-  '[417] 이메일 lower(btrim()) 정규화. [527] 브랜드 계정(brand_accounts) 이메일이면 brand_account_email 로 거부.';
+  '[417] 이메일 lower(btrim()) 정규화. [528] 브랜드 계정(brand_accounts) 이메일이면 brand_account_email 로 거부.';
 
 COMMIT;

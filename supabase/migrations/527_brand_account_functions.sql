@@ -1,11 +1,11 @@
 -- ============================================================
--- 526_brand_account_functions.sql
+-- 527_brand_account_functions.sql
 -- 브랜드 로그인 — 조각 2: 데이터베이스 함수
 --   docs/specs/2026-10-14-brand-login-breakdown.md 「조각 2」·「선결 조건」·「🎨 피그마 설명 반영」 F-1~F-8
 --   사양서 docs/specs/2026-07-15-brand-portal.md §16-6
 --
 -- 목적
---   525 의 표(brand_accounts · brand_account_links · brand_password_reset_requests) 위에 올라가는 함수 묶음.
+--   526 의 표(brand_accounts · brand_account_links · brand_password_reset_requests) 위에 올라가는 함수 묶음.
 --   ① 관리자가 브랜드 대표 담당자 계정을 만들고/바꾸는 함수      admin_upsert_brand_owner_account
 --   ② 관리자 화면의 계정 줄 상태                               admin_get_brand_account_status
 --   ③ 링크(계정 만들기·비밀번호 재설정 공용) 유효 판정(비로그인)  get_brand_link_state
@@ -24,7 +24,7 @@
 --   대표 줄 : brands.contacts[] 의 is_primary 줄(086) — 이메일 정본. 옛 칸 primary_email 은 보지 않는다(stale 9)
 --
 -- 배포 순서  (사용자 결정 P-1: 개발서버에서만 동작)
---   1) 525 가 먼저 적용돼 있어야 한다(없으면 표가 없어 이 파일은 함수 본문만 만들어지고 첫 호출에서 터진다).
+--   1) 526 가 먼저 적용돼 있어야 한다(없으면 표가 없어 이 파일은 함수 본문만 만들어지고 첫 호출에서 터진다).
 --   2) 개발서버 SQL 편집기에 이 파일 전체를 실행한다. 🔴 운영 데이터베이스에는 적용하지 않는다(보류, 약관 관문 P-7).
 --   3) 적용만으로 바뀌는 기존 동작: 없음(새 함수와 새 예약 작업뿐).
 --   4) 이 파일 다음 조각: 3(delete_brand·merge_brands·invite_admin 가드) → 4(설정 메일) → 5(비밀번호 찾기 메일).
@@ -162,14 +162,14 @@
 --     SELECT public.complete_brand_account_setup(gen_random_uuid(), 'v0'); → not_brand
 --     SELECT public.complete_brand_password_reset(gen_random_uuid());      → not_brand
 --     SELECT public.admin_upsert_brand_owner_account(gen_random_uuid(), NULL, NULL); → {"result":"forbidden",...}  (로그인 없음 = 정상)
---     SELECT public.check_brand_password_reset_rate_limit(encode(extensions.digest('zz-526@example.invalid','sha256'),'hex'), false);  → true (첫 호출)
+--     SELECT public.check_brand_password_reset_rate_limit(encode(extensions.digest('zz-527@example.invalid','sha256'),'hex'), false);  → true (첫 호출)
 --       같은 문장을 5분 안에 다시 → false.  끝나고 정리: DELETE FROM public.brand_password_reset_requests
---                                                          WHERE email_hash = encode(extensions.digest('zz-526@example.invalid','sha256'),'hex');
+--                                                          WHERE email_hash = encode(extensions.digest('zz-527@example.invalid','sha256'),'hex');
 --     SELECT public.purge_old_brand_password_reset_requests();             → 정수(0 이면 정상)
 --     SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'brand-password-reset-requests-retention-daily';  → '0 21 * * *', true
 --     SELECT public.service_issue_brand_account_link(gen_random_uuid(), 'auto');  → {"ok":false,"reason":"no_account"}
 --     SELECT public.service_mark_brand_setup_mail_sent(gen_random_uuid(), gen_random_uuid(), 'a@example.invalid');  → false
---     SELECT public._brand_email_owner('zz-526-none@example.invalid', NULL);  → {"kind":"none","auth_id":null}
+--     SELECT public._brand_email_owner('zz-527-none@example.invalid', NULL);  → {"kind":"none","auth_id":null}
 --   [V3] 로그인한 브라우저 콘솔에서 — 개발서버 관리자 화면(캠페인 관리자 이상 계정)
 --     (await db.rpc('admin_get_brand_account_status', {p_brand_id: '<아무 브랜드 uuid>'}))   → data {status:'none',...}
 --     (await db.rpc('admin_upsert_brand_owner_account', {p_brand_id: crypto.randomUUID(), p_prev_contact_id: null, p_prev_email: null})).data  → {result:'brand_not_found',...}
@@ -190,40 +190,40 @@
 --       PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
 --       SELECT email INTO v_inf_email FROM public.influencers WHERE email IS NOT NULL LIMIT 1;
 --       SELECT email INTO v_adm_email FROM public.admins LIMIT 1;
---       INSERT INTO public.brands (name, contacts) VALUES ('zz-526-b1',
---         '[{"id":"c1","name":"시험","phone":"000","email":"zz-526-a@example.invalid","is_primary":true}]') RETURNING id INTO b1;
+--       INSERT INTO public.brands (name, contacts) VALUES ('zz-527-b1',
+--         '[{"id":"c1","name":"시험","phone":"000","email":"zz-527-a@example.invalid","is_primary":true}]') RETURNING id INTO b1;
 --       -- 1) 만들기
 --       r := public.admin_upsert_brand_owner_account(b1, NULL, NULL);                    v_out := v_out || '1=' || (r->>'result') || ' ';          -- created
 --       -- 2) 같은 값 재저장
---       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-526-a@example.invalid'); v_out := v_out || '2=' || (r->>'result') || ' ';       -- noop
+--       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-527-a@example.invalid'); v_out := v_out || '2=' || (r->>'result') || ' ';       -- noop
 --       -- 3) 설정 전 이메일 수정
---       UPDATE public.brands SET contacts = '[{"id":"c1","name":"시험","email":"zz-526-b@example.invalid","is_primary":true}]' WHERE id = b1;
---       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-526-a@example.invalid'); v_out := v_out || '3=' || (r->>'result') || '/' || (r->>'needs_mail') || ' ';  -- email_replaced/true
---       v_out := v_out || 'auth이메일=' || (SELECT email FROM auth.users WHERE id = (r->>'auth_id')::uuid) || ' ';                                    -- zz-526-b@…
+--       UPDATE public.brands SET contacts = '[{"id":"c1","name":"시험","email":"zz-527-b@example.invalid","is_primary":true}]' WHERE id = b1;
+--       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-527-a@example.invalid'); v_out := v_out || '3=' || (r->>'result') || '/' || (r->>'needs_mail') || ' ';  -- email_replaced/true
+--       v_out := v_out || 'auth이메일=' || (SELECT email FROM auth.users WHERE id = (r->>'auth_id')::uuid) || ' ';                                    -- zz-527-b@…
 --       -- 4) 설정 뒤 이메일 수정
 --       UPDATE public.brand_accounts SET password_set_at = now() WHERE auth_id = (r->>'auth_id')::uuid;
---       UPDATE public.brands SET contacts = '[{"id":"c1","email":"zz-526-c@example.invalid","is_primary":true}]' WHERE id = b1;
---       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-526-b@example.invalid'); v_out := v_out || '4=' || (r->>'result') || ' ';        -- password_already_set
+--       UPDATE public.brands SET contacts = '[{"id":"c1","email":"zz-527-c@example.invalid","is_primary":true}]' WHERE id = b1;
+--       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-527-b@example.invalid'); v_out := v_out || '4=' || (r->>'result') || ' ';        -- password_already_set
 --       -- 5) 대표 표시가 다른 줄로 옮겨짐
---       UPDATE public.brands SET contacts = '[{"id":"c2","email":"zz-526-d@example.invalid","is_primary":true}]' WHERE id = b1;
---       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-526-c@example.invalid'); v_out := v_out || '5=' || (r->>'result') || ' ';        -- primary_moved
+--       UPDATE public.brands SET contacts = '[{"id":"c2","email":"zz-527-d@example.invalid","is_primary":true}]' WHERE id = b1;
+--       r := public.admin_upsert_brand_owner_account(b1, 'c1', 'zz-527-c@example.invalid'); v_out := v_out || '5=' || (r->>'result') || ' ';        -- primary_moved
 --       -- 6) 충돌 셋 (연결 없는 새 브랜드)
---       INSERT INTO public.brands (name, contacts) VALUES ('zz-526-b2', jsonb_build_array(jsonb_build_object('id','x','email',v_inf_email,'is_primary',true))) RETURNING id INTO b2;
+--       INSERT INTO public.brands (name, contacts) VALUES ('zz-527-b2', jsonb_build_array(jsonb_build_object('id','x','email',v_inf_email,'is_primary',true))) RETURNING id INTO b2;
 --       r := public.admin_upsert_brand_owner_account(b2, NULL, NULL); v_out := v_out || '6a=' || (r->>'result') || ' ';                              -- conflict_influencer (회원 이메일이 하나라도 있을 때)
---       INSERT INTO public.brands (name, contacts) VALUES ('zz-526-b3', jsonb_build_array(jsonb_build_object('id','x','email',v_adm_email,'is_primary',true))) RETURNING id INTO b3;
+--       INSERT INTO public.brands (name, contacts) VALUES ('zz-527-b3', jsonb_build_array(jsonb_build_object('id','x','email',v_adm_email,'is_primary',true))) RETURNING id INTO b3;
 --       r := public.admin_upsert_brand_owner_account(b3, NULL, NULL); v_out := v_out || '6b=' || (r->>'result') || ' ';                              -- conflict_admin
---       INSERT INTO public.brands (name, contacts) VALUES ('zz-526-b4', '[{"id":"x","email":"zz-526-b@example.invalid","is_primary":true}]') RETURNING id INTO b4;
+--       INSERT INTO public.brands (name, contacts) VALUES ('zz-527-b4', '[{"id":"x","email":"zz-527-b@example.invalid","is_primary":true}]') RETURNING id INTO b4;
 --       r := public.admin_upsert_brand_owner_account(b4, NULL, NULL); v_out := v_out || '6c=' || (r->>'result') || ' ';                              -- conflict_brand
 --       -- 7) 상태·판정 함수
 --       v_out := v_out || '상태=' || (public.admin_get_brand_account_status(b1)->>'status') || ' ';                                                   -- active
 --       -- 8) 대표 이메일 없음
 --       UPDATE public.brands SET contacts = '[]' WHERE id = b4;
 --       r := public.admin_upsert_brand_owner_account(b4, NULL, NULL); v_out := v_out || '8=' || (r->>'result') || ' ';                              -- no_primary_email
---       RAISE EXCEPTION '526 시험 결과(전부 되돌림): %', v_out;
+--       RAISE EXCEPTION '527 시험 결과(전부 되돌림): %', v_out;
 --     END $$;
---     기대: 오류 창에 「1=created 2=noop 3=email_replaced/true auth이메일=zz-526-b@example.invalid 4=password_already_set 5=primary_moved
+--     기대: 오류 창에 「1=created 2=noop 3=email_replaced/true auth이메일=zz-527-b@example.invalid 4=password_already_set 5=primary_moved
 --           6a=conflict_influencer 6b=conflict_admin 6c=conflict_brand 상태=active 8=no_primary_email」 한 줄(의도된 예외).
---     그다음 따로: SELECT count(*) FROM auth.users WHERE email LIKE 'zz-526-%';  SELECT count(*) FROM public.brands WHERE name LIKE 'zz-526-%'; → 둘 다 0 (0 이 아니면 멈추고 알릴 것)
+--     그다음 따로: SELECT count(*) FROM auth.users WHERE email LIKE 'zz-527-%';  SELECT count(*) FROM public.brands WHERE name LIKE 'zz-527-%'; → 둘 다 0 (0 이 아니면 멈추고 알릴 것)
 --     ⚠️ 이 시험은 요청 제한·링크 번호 발급(service_*)·설정 완료 함수를 다루지 않는다 — 아래 V5.
 --   [V5] 링크·설정 완료 함수 — 같은 방식의 되돌림 DO 블록 (브랜드 계정 하나를 만들고 임시 세션 대신 클레임으로 그 계정을 흉내낸다)
 --     DO $$
@@ -232,8 +232,8 @@
 --       b1 uuid; r jsonb; v_acct uuid; v_link uuid; v_link2 uuid; v_out text := '';
 --     BEGIN
 --       PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
---       INSERT INTO public.brands (name, contacts) VALUES ('zz-526-b5',
---         '[{"id":"c1","name":"시험","email":"zz-526-e@example.invalid","is_primary":true}]') RETURNING id INTO b1;
+--       INSERT INTO public.brands (name, contacts) VALUES ('zz-527-b5',
+--         '[{"id":"c1","name":"시험","email":"zz-527-e@example.invalid","is_primary":true}]') RETURNING id INTO b1;
 --       r := public.admin_upsert_brand_owner_account(b1, NULL, NULL);  v_acct := (r->>'auth_id')::uuid;
 --       r := public.service_issue_brand_account_link(v_acct, 'auto');   v_link := (r->>'link_id')::uuid;
 --       v_out := v_out || '발급=' || (r->>'kind') || ' ';                                                       -- setup
@@ -241,7 +241,7 @@
 --       v_out := v_out || 'reset종류=' || public.get_brand_link_state(v_link, 'reset') || ' ';                  -- invalid (종류 불일치)
 --       r := public.service_issue_brand_account_link(v_acct, 'setup');  v_link2 := (r->>'link_id')::uuid;   -- 번호 교체
 --       v_out := v_out || '옛링크=' || public.get_brand_link_state(v_link, 'setup') || ' ';                     -- invalid
---       v_out := v_out || '기록=' || public.service_mark_brand_setup_mail_sent(v_acct, v_link2, 'zz-526-e@example.invalid')::text || ' ';  -- true
+--       v_out := v_out || '기록=' || public.service_mark_brand_setup_mail_sent(v_acct, v_link2, 'zz-527-e@example.invalid')::text || ' ';  -- true
 --       v_out := v_out || '상태1=' || (public.admin_get_brand_account_status(b1)->>'status') || ' ';            -- mail_sent
 --       -- 이제 이 계정으로 로그인한 척
 --       PERFORM set_config('request.jwt.claims', json_build_object('sub', v_acct, 'role', 'authenticated')::text, true);
@@ -257,14 +257,14 @@
 --       v_out := v_out || '재설정종류=' || (r->>'kind') || '/' || public.get_brand_link_state(v_link, 'reset') || ' ';  -- reset/valid
 --       PERFORM set_config('request.jwt.claims', json_build_object('sub', v_acct, 'role', 'authenticated')::text, true);
 --       v_out := v_out || '재설정완료=' || public.complete_brand_password_reset(v_link) || '/' || public.get_brand_link_state(v_link, 'reset') || ' ';  -- ok/invalid
---       RAISE EXCEPTION '526 V5 시험 결과(전부 되돌림): %', v_out;
+--       RAISE EXCEPTION '527 V5 시험 결과(전부 되돌림): %', v_out;
 --     END $$;
 --     기대: 「발급=setup setup유효=valid reset종류=invalid 옛링크=invalid 기록=true 상태1=mail_sent 완료전=setup_incomplete 비번없음=password_not_set
 --           다른링크=link_mismatch 완료=ok 재호출=already_set 완료후=ok 재설정종류=reset/valid 재설정완료=ok/invalid」
---     그다음 따로: SELECT count(*) FROM auth.users WHERE email LIKE 'zz-526-%'; → 0
+--     그다음 따로: SELECT count(*) FROM auth.users WHERE email LIKE 'zz-527-%'; → 0
 --   [V6] 🔁 회귀: 인플루언서 신규 가입 1회 · 관리자 초대 1회 (이 파일은 그 함수들을 안 바꾸지만 같은 auth.users 에 삽입하는 코드가 늘었으므로 한 번)
 --
--- 가입 관문·정리 트리거와의 상호작용은 525 머리말 끝부분과 위 D-[D] 참조. 이 파일은 그 트리거들을 바꾸지 않는다.
+-- 가입 관문·정리 트리거와의 상호작용은 526 머리말 끝부분과 위 D-[D] 참조. 이 파일은 그 트리거들을 바꾸지 않는다.
 -- ============================================================
 
 BEGIN;
@@ -306,7 +306,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public._brand_email_owner(text, uuid) IS
-  '[526] 내부 도우미. 이메일(lower(btrim()))을 쓰는 auth.users 계정이 admin / brand / influencer(그 밖 모두) / none 중 무엇인지. 호출 불가(안쪽 전용).';
+  '[527] 내부 도우미. 이메일(lower(btrim()))을 쓰는 auth.users 계정이 admin / brand / influencer(그 밖 모두) / none 중 무엇인지. 호출 불가(안쪽 전용).';
 
 GRANT  EXECUTE ON FUNCTION public._brand_email_owner(text, uuid) TO postgres, service_role;
 REVOKE EXECUTE ON FUNCTION public._brand_email_owner(text, uuid) FROM PUBLIC;
@@ -512,7 +512,7 @@ BEGIN
         UPDATE auth.users
            SET email             = v_email,
                updated_at        = now(),
-               -- 옛 메일의 인증 서비스 일회용 토큰도 비운다(옛 링크로 세션이 생기지 않게 — 526 리뷰 권고)
+               -- 옛 메일의 인증 서비스 일회용 토큰도 비운다(옛 링크로 세션이 생기지 않게 — 527 리뷰 권고)
                recovery_token     = '',
                confirmation_token = '',
                recovery_sent_at   = NULL,
@@ -559,7 +559,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.admin_upsert_brand_owner_account(uuid, text, text) IS
-  '[526] 브랜드 대표 담당자 계정 만들기/바꾸기(캠페인 관리자 이상, 안쪽 재확인). 판정 규칙은 526 머리말 B 표. 반환 jsonb: result·needs_mail·email·auth_id·account_email·brand_id.
+  '[527] 브랜드 대표 담당자 계정 만들기/바꾸기(캠페인 관리자 이상, 안쪽 재확인). 판정 규칙은 527 머리말 B 표. 반환 jsonb: result·needs_mail·email·auth_id·account_email·brand_id.
    result = created·noop·email_replaced·password_already_set·primary_moved·conflict_influencer·conflict_admin·conflict_brand·no_primary_email·invalid_email·brand_not_found·brand_archived·forbidden.';
 
 GRANT  EXECUTE ON FUNCTION public.admin_upsert_brand_owner_account(uuid, text, text) TO postgres, authenticated, service_role;
@@ -609,7 +609,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.admin_get_brand_account_status(uuid) IS
-  '[526] 관리자 화면 계정 줄 상태. none(연결 없음) / mail_pending(설정 메일 미발송) / mail_sent / active(비밀번호 설정됨). is_admin() 아니면 42501.';
+  '[527] 관리자 화면 계정 줄 상태. none(연결 없음) / mail_pending(설정 메일 미발송) / mail_sent / active(비밀번호 설정됨). is_admin() 아니면 42501.';
 
 GRANT  EXECUTE ON FUNCTION public.admin_get_brand_account_status(uuid) TO postgres, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.admin_get_brand_account_status(uuid) FROM PUBLIC;
@@ -647,14 +647,14 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_brand_link_state(uuid, text) IS
-  '[526] 계정 만들기(setup)/비밀번호 재설정(reset) 링크 유효 판정. 링크 번호가 계정의 setup_link_id 와 같고 종류가 계정 상태(password_set_at)와 맞고 활성 브랜드 연결이 있으면 valid. 비로그인 가능, 이메일 반환 안 함.';
+  '[527] 계정 만들기(setup)/비밀번호 재설정(reset) 링크 유효 판정. 링크 번호가 계정의 setup_link_id 와 같고 종류가 계정 상태(password_set_at)와 맞고 활성 브랜드 연결이 있으면 valid. 비로그인 가능, 이메일 반환 안 함.';
 
 GRANT  EXECUTE ON FUNCTION public.get_brand_link_state(uuid, text) TO postgres, anon, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.get_brand_link_state(uuid, text) FROM PUBLIC;
 
 -- ── 4. complete_brand_account_setup ────────────────────────────────────
 --   설정 링크로 생긴 임시 세션이 부른다(auth.uid() = 그 계정). 화면은 updateUser({password}) 를 먼저 하고 이 함수를 부른다(머리말 D-[B]).
---   'ok' | 'link_mismatch' | 'already_set' | 'not_brand' | 'password_not_set'(526 추가)
+--   'ok' | 'link_mismatch' | 'already_set' | 'not_brand' | 'password_not_set'(527 추가)
 CREATE OR REPLACE FUNCTION public.complete_brand_account_setup(p_link_id uuid, p_terms_version text)
 RETURNS text
 LANGUAGE plpgsql
@@ -707,7 +707,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.complete_brand_account_setup(uuid, text) IS
-  '[526] 브랜드 계정 설정 완료 기록(약관·개인정보 동의 시각은 서버 now()). 링크 번호가 맞고 비밀번호가 실제로 정해졌을 때만 ok. 결과: ok·link_mismatch·already_set·not_brand·password_not_set.';
+  '[527] 브랜드 계정 설정 완료 기록(약관·개인정보 동의 시각은 서버 now()). 링크 번호가 맞고 비밀번호가 실제로 정해졌을 때만 ok. 결과: ok·link_mismatch·already_set·not_brand·password_not_set.';
 
 GRANT  EXECUTE ON FUNCTION public.complete_brand_account_setup(uuid, text) TO postgres, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.complete_brand_account_setup(uuid, text) FROM PUBLIC;
@@ -745,7 +745,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.complete_brand_password_reset(uuid) IS
-  '[526] 비밀번호 재설정 완료 뒤 링크 번호(setup_link_id)를 비운다. 설정이 끝난 계정 + 번호 일치일 때만 ok. 결과: ok·link_mismatch·not_brand.';
+  '[527] 비밀번호 재설정 완료 뒤 링크 번호(setup_link_id)를 비운다. 설정이 끝난 계정 + 번호 일치일 때만 ok. 결과: ok·link_mismatch·not_brand.';
 
 GRANT  EXECUTE ON FUNCTION public.complete_brand_password_reset(uuid) TO postgres, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.complete_brand_password_reset(uuid) FROM PUBLIC;
@@ -796,7 +796,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_my_brand_login_state() IS
-  '[526] 브랜드 로그인 직후 판정. not_brand(브랜드 계정 아님) / setup_incomplete(비밀번호 설정 미완료) / no_active_brand(활성 브랜드 연결 없음 — 보관 브랜드는 안 센다, P-9) / ok. authenticated 전용.';
+  '[527] 브랜드 로그인 직후 판정. not_brand(브랜드 계정 아님) / setup_incomplete(비밀번호 설정 미완료) / no_active_brand(활성 브랜드 연결 없음 — 보관 브랜드는 안 센다, P-9) / ok. authenticated 전용.';
 
 GRANT  EXECUTE ON FUNCTION public.get_my_brand_login_state() TO postgres, authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.get_my_brand_login_state() FROM PUBLIC;
@@ -858,7 +858,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.check_brand_password_reset_rate_limit(text, boolean) IS
-  '[526] 브랜드 비밀번호 찾기 요청 제한 판정(243 복제). 이메일별 5분1회·24시간5회 + 전역 시간당30건을 원자적으로 판정하고 결과와 무관하게 항상 기록. service_role 전용.';
+  '[527] 브랜드 비밀번호 찾기 요청 제한 판정(243 복제). 이메일별 5분1회·24시간5회 + 전역 시간당30건을 원자적으로 판정하고 결과와 무관하게 항상 기록. service_role 전용.';
 
 GRANT  EXECUTE ON FUNCTION public.check_brand_password_reset_rate_limit(text, boolean) TO postgres, service_role;
 REVOKE EXECUTE ON FUNCTION public.check_brand_password_reset_rate_limit(text, boolean) FROM PUBLIC;
@@ -883,7 +883,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.purge_old_brand_password_reset_requests() IS
-  '[526] 브랜드 비밀번호 찾기 요청 기록 30일 정리(243 과 같은 기간). postgres(pg_cron) 전용. pg_cron: brand-password-reset-requests-retention-daily (UTC 21:00 = KST 06:00).';
+  '[527] 브랜드 비밀번호 찾기 요청 기록 30일 정리(243 과 같은 기간). postgres(pg_cron) 전용. pg_cron: brand-password-reset-requests-retention-daily (UTC 21:00 = KST 06:00).';
 
 GRANT  EXECUTE ON FUNCTION public.purge_old_brand_password_reset_requests() TO postgres;
 REVOKE EXECUTE ON FUNCTION public.purge_old_brand_password_reset_requests() FROM PUBLIC;
@@ -954,7 +954,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.service_issue_brand_account_link(uuid, text) IS
-  '[526] 서비스 키 전용. 설정/재설정 메일을 보내기 직전 새 링크 번호(setup_link_id)를 발급해 앞선 링크를 모두 무효화한다. 종류가 계정 상태와 맞는지·활성 브랜드 연결이 있는지 한 곳에서 판정.';
+  '[527] 서비스 키 전용. 설정/재설정 메일을 보내기 직전 새 링크 번호(setup_link_id)를 발급해 앞선 링크를 모두 무효화한다. 종류가 계정 상태와 맞는지·활성 브랜드 연결이 있는지 한 곳에서 판정.';
 
 GRANT  EXECUTE ON FUNCTION public.service_issue_brand_account_link(uuid, text) TO postgres, service_role;
 REVOKE EXECUTE ON FUNCTION public.service_issue_brand_account_link(uuid, text) FROM PUBLIC;
@@ -979,7 +979,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.service_mark_brand_setup_mail_sent(uuid, uuid, text) IS
-  '[526] 서비스 키 전용. 설정(setup) 메일 발송 시각·주소 기록. 링크 번호가 아직 현재 번호이고 비밀번호 미설정일 때만 기록(true). 재설정 메일은 기록하지 않는다.';
+  '[527] 서비스 키 전용. 설정(setup) 메일 발송 시각·주소 기록. 링크 번호가 아직 현재 번호이고 비밀번호 미설정일 때만 기록(true). 재설정 메일은 기록하지 않는다.';
 
 GRANT  EXECUTE ON FUNCTION public.service_mark_brand_setup_mail_sent(uuid, uuid, text) TO postgres, service_role;
 REVOKE EXECUTE ON FUNCTION public.service_mark_brand_setup_mail_sent(uuid, uuid, text) FROM PUBLIC;
