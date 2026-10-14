@@ -301,10 +301,19 @@ Deno.serve(async (req: Request) => {
     email = body?.email;
   } catch (_) { /* 본문 파싱 실패도 동일 응답으로 수렴 */ }
 
-  try {
-    await process(email);
-  } catch (e) {
+  // 🔴 실제 처리(조회·링크 발급·메일 발송)는 응답과 떼어 **응답 뒤에** 끝낸다(EdgeRuntime.waitUntil).
+  //   처리를 기다렸다 응답하면 브랜드 계정일 때만 링크 발급·발송 시간만큼 늦어져, 걸린 시간으로 계정 여부가
+  //   드러났다(개발서버 실측 2026-10-14: 브랜드 계정 +0.3초, 운영은 발송까지 더해져 더 크다).
+  //   응답은 이제 처리 시간과 무관하게 FIXED_RESPONSE_MS 에 나간다. waitUntil 이 없는 환경(로컬 등)은 예전처럼 기다린다.
+  const work = process(email).catch((e) => {
     console.error("[brand-password-reset-request] error", (e as Error).message);
+  });
+  // deno-lint-ignore no-explicit-any
+  const rt = (globalThis as any).EdgeRuntime;
+  if (rt && typeof rt.waitUntil === "function") {
+    rt.waitUntil(work);
+  } else {
+    await work;
   }
 
   // ★고정 시각까지 대기 후 반환 — 분기별 소요 시간 차이를 흡수한다
