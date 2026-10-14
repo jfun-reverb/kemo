@@ -90,7 +90,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- 가입 트리거(폼 값 저장) — **420**(382 → 420) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
+- 가입 트리거(폼 값 저장) `handle_new_user` — **525**(382 → 420 → 525 — 525 는 맨 앞 브랜드 계정 분기만 더함. 🔴 420 을 베이스로 잡으면 브랜드 계정에 인플루언서 행이 생긴다) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
 
 > ⚠️ **아직 안 한 것**: 「올려두고 제출 안 함」 재발 방지의 관리자 대신 제출 기록(작업 9)·일일 메일 안내(작업 11)는 범위 밖, 자주 묻는 질문 노드(작업 12)는 작업 2·5 운영 배포 뒤에만
 
@@ -183,6 +183,15 @@
 - `receipt_edit_history` — 영수증 수정 감사. `deliverable_id` FK **SET NULL**(마이그레이션 253) + 3종 prev/next 스냅샷. RLS SELECT `is_admin()`, INSERT 는 `update_receipt_admin` 만
 - `campaign_caution_history` — 주의사항/참여방법/NG 변경 audit + `app_count_at_change`. RLS SELECT super_admin, INSERT 는 `record_caution_history()` 만(campaign_admin 이상)
 - `campaign_change_history` — **캠페인 전체 항목 변경 audit**(마이그레이션 265·266). 「바뀐 항목 1개 = 1행」 + `change_group_id` + `changed_by`/`changed_by_name`/`changed_at` + `field_name`(CHECK 화이트리스트 **48개**) + `old_value`/`new_value` jsonb + `change_source`(admin / auto / system). RLS SELECT `is_super_admin()`, 쓰기는 트리거만(`record_campaign_change_history()` AFTER UPDATE — 구 `record_caution_history` 와 달리 같은 트랜잭션이라 감사 공백 없음). ⚠️ **화이트리스트는 세 곳(265 CHECK · 266 v_fields · 266 트리거 `AFTER UPDATE OF` 목록)이 항상 같은 집합** — 어긋나면 CHECK 위반으로 INSERT 실패. 조회수·신청 수·수정일·순서·채번 제외. 3영역은 기존 표와 병존. 사양서 `docs/specs/2026-07-27-campaign-full-change-history.md`
+
+### 브랜드 계정·로그인 (마이그레이션 525~ — 🔴 **개발서버만**, 운영 반영 보류)
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 인수인계 `…-brand-login-handoff.md`
+> 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
+- 표 셋(525): `brand_accounts`(`auth_id` = `auth.users` 1:1, 이메일 `lower(btrim())` 강제·유일) · `brand_account_links`(브랜드 참조 `ON DELETE RESTRICT`, 브랜드당 활성 대표 1명) · `brand_password_reset_requests`(243 복제, 해시만). 셋 다 쓰기 정책 없음 — 읽기는 본인 또는 `is_admin()`(요청 기록은 최고 관리자)
+- 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`** — 사용자 메타데이터는 공개 키 가입으로 누구나 채우고 383 이 지운다. 계정은 `invite_admin`(417) 방식 직접 삽입 + `email_confirmed_at=now()` 로 만든다(🔴 `auth.admin.createUser` 는 497 가입 관문에 걸린다)
+- 🔴 **인플루언서 표 삽입 거부 트리거 `trg_block_influencer_row_for_brand`**(525, DEFINER) — `NEW.id` 가 브랜드 계정이면 `brand_account_not_influencer`. 판정은 `auth.uid()` 가 아니라 `NEW.id`(137 삽입 정책이 로그인만 보면 통과). 인플루언서 앱 `handleLogin` 의 프로필 자동 생성이 이 거부에 걸린다 — 인플루언서 앱 차단(작업표 조각 9)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
+- `get_my_account_kind()`(525) → `'brand'|'other'`, `authenticated` 만(로그아웃 호출은 권한 오류)
+- ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
 
 ### 광고주 신청(브랜드 서베이)
 - `brand_applications` — `form_type`(reviewer|seeding), `brand_name`, `contact_name`, `phone`, `email`, `billing_email`, `products jsonb`, `total_jpy/total_qty`, `estimated_krw`, `final_quote_krw`, `quote_sent_at`, `quote_sent_url`, `orient_sheet_sent_at`, `orient_sheet_sent_url`, `paid_at`, `payment_flags jsonb`, `status` 10단계, `request_note`, `version`, `legacy_no`. **익명 INSERT 는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 필수** — 직접 INSERT 는 42501

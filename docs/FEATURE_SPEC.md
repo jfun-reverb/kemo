@@ -2325,3 +2325,12 @@ SELECT
 - 창 안: 「캠페인 문의 / 서비스 문의」 선택(처음엔 지금 탭에 맞춤 — `faqNodeVisibleIn`), 위 분류까지 켜진 질문만(`faqNodeChainActive` — shared.js 로 옮겨 회원 화면과 공용), 일본어/한국어 전환(기본 일본어), 질문을 누르면 답변. 열 때마다 새로 불러온다(`fetchFaqNodesOrNull` — 실패 null)
 - 「답장에 넣기」: 보이는 언어의 답변을 열린 대화 답장 칸 커서 자리에 덧붙인다(자동 전송 없음). 토큰 `{intro}` 는 일반 문구(i18n `messaging.faqFollowerIntroGeneric` 사본), `{required}`·`{current}` 줄은 뺀다. 「직접 문의」 질문(`is_human_handoff`)은 읽기만
 - 제목 옆 「설정」 → 자주 묻는 질문 설정 화면(쓰던 답장이 있으면 확인). `menu.faq` 숨김 등급에겐 안 보임
+
+## 58. 브랜드 계정 — 데이터베이스 기초 — 2026-10-14 (마이그레이션 525, 개발서버만 · 운영 보류)
+
+- 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` 조각 1
+- 새 표 셋: `brand_accounts`(브랜드 로그인 계정) · `brand_account_links`(계정↔브랜드, 브랜드당 활성 대표 1명) · `brand_password_reset_requests`(비밀번호 찾기 요청 기록, 해시만)
+- 가입 트리거 `handle_new_user`(현재 원본 525): 앱 메타데이터 `account_kind='brand'` 계정은 인플루언서 행을 만들지 않는다. 그 밖의 가입은 420 과 같다
+- 인플루언서 표에 브랜드 계정 행 삽입 거부(`brand_account_not_influencer`) · 판정 함수 `get_my_account_kind()`
+- 화면 변경 없음(다음 조각에서). 개발서버 확인: 표·정책·실행 권한 · 되돌림 시험 · 인플루언서 신규 가입 · 관리자 초대 회귀 통과
+

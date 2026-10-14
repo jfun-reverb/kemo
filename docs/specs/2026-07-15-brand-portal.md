@@ -714,3 +714,12 @@
 ---
 
 ## 구현 결과 (개발 세션이 채울 것)
+
+### 로그인 기능 — 조각 1 데이터베이스 기초 (2026-10-14, 개발서버만)
+- 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 선결 조건 결정 P-1~P-10 기록)
+- 마이그레이션 **525** `supabase/migrations/525_brand_accounts_base.sql` — 개발서버 적용 2026-10-14, **운영 미적용(보류)**
+  - 표 `brand_accounts` · `brand_account_links` · `brand_password_reset_requests`(읽기 정책만, 쓰기는 함수 전용)
+  - `handle_new_user` 525(420 본문 + 맨 앞 브랜드 분기) · 거부 트리거 `trg_block_influencer_row_for_brand` · `get_my_account_kind()`
+- 작업표와 달라진 것: 거부 판정을 계정 표 + `auth.users` 앱 메타데이터 **두 곳**으로(계정 생성 순간의 틈 차단) · 이메일 정규화를 검사 제약으로 강제 · 연결 표의 계정 참조는 `ON DELETE CASCADE`
+- 개발서버 확인: V1 표·정책 / V2 실행 권한(`=X/` 없음) / V3 되돌림 시험(A=0·B=1·C·D 차단, 잔여 0) / V4 로그인 세션 `'other'` / V5 인플루언서 신규 가입·관리자 초대 회귀 — 모두 통과. 시험 계정은 정리함
+- 담당자 이름·전화를 관리자 전원이 읽는 것은 의도(같은 값이 `brands.contacts` 에 있고 브랜드 읽기 정책이 `is_admin()`)
