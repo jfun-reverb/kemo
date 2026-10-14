@@ -246,12 +246,12 @@ Deno.serve(async (req: Request) => {
     const contactName = String(issued.name || acct.name || "").trim() || "담당자";
     // ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장은 supabase/functions/brand-password-reset-request/index.ts 에도 같은 글자로 있다 — 고치면 두 곳을 함께 고친다
     const intro = isResend
-      ? `REVERB 운영팀이 ${brandName} 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`
-      : `REVERB 운영팀이 ${brandName} 브랜드 계정을 만들었습니다. ${brandName} 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.`;
+      ? `REVERB 운영팀이 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`
+      : `REVERB 운영팀이 「${brandName}」 브랜드 계정을 만들었습니다. 「${brandName}」 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.`;
     const expiresNote = "이 링크는 보낸 때부터 1시간 동안 유효합니다.";
     const subject = isResend
-      ? `[REVERB] ${brandName} 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다`
-      : `[REVERB] ${brandName} 브랜드 계정이 만들어졌습니다 — 비밀번호를 설정해 주세요`;
+      ? `[REVERB] 「${brandName}」 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다`
+      : `[REVERB] 「${brandName}」 브랜드 계정이 만들어졌습니다 — 비밀번호를 설정해 주세요`;
 
     // HTML 주석 strip — 템플릿 안 주석(용도 안내 자리 표시 포함)이 메일 본문에 누출되는 것 차단
     const tpl = TEMPLATES["brand-account-setup"].replace(/<!--[\s\S]*?-->/g, "");

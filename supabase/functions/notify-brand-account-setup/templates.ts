@@ -23,7 +23,7 @@ export const TEMPLATES: Record<string, string> = {
   관리자·브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
 -->
 <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
-  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">{{brand_name}} 브랜드 계정이 만들어졌습니다</h2>
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">「{{brand_name}}」 브랜드 계정이 만들어졌습니다</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">{{contact_name}} 님</p>
   <p style="margin:0 0 12px;font-size:13px;color:#444;line-height:1.7">{{intro}}</p>
   <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">아래 버튼을 눌러 사용하실 비밀번호를 설정해 주세요. 설정을 마치면 REVERB 브랜드 페이지에 로그인하실 수 있습니다.</p>
@@ -39,7 +39,7 @@ export const TEMPLATES: Record<string, string> = {
   </div>
   <!-- 용도 안내: 약관 확정 뒤 (사양서 §16-3 9번 — 담당자 정보를 이 계정에 쓰는 용도 문구가 들어갈 자리. 이 주석은 발송 때 제거된다) -->
   <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
-    이 메일은 REVERB 운영팀이 {{brand_name}} 브랜드의 대표 담당자로 등록된 이 주소로 보냈습니다.
+    이 메일은 REVERB 운영팀이 「{{brand_name}}」 브랜드의 대표 담당자로 등록된 이 주소로 보냈습니다.
   </p>
   <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
     본인이 요청하지 않았거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.
