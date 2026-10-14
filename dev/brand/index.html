@@ -274,7 +274,10 @@
   </div>
 </div>
 
-<!-- 도메인 판정(IS_STAGING)만 쓴다 — supabase 라이브러리가 없으면 연결을 만들지 않는다 -->
+<!-- supabase.js 는 도메인 판정(IS_STAGING)·주소 상수를 위해 싣는다. 전역 연결은 아래 표시로 생략하고, 브랜드 화면 연결은 brand-core.js 가 따로 만든다 -->
+<!-- 전역 연결(db)을 만들지 않는다 — 브랜드 화면은 자기 연결을 따로 만든다(dev/lib/supabase.js 머리 주석) -->
+<script>window.REVERB_SKIP_GLOBAL_DB = true;</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="../lib/supabase.js"></script>
 <script src="../js/brand-core.js"></script>
 <script src="../js/brand-login.js"></script>

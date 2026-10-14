@@ -165,7 +165,10 @@
 - `build.sh`: 브랜드 절(`BRAND_CSS_FILES`·`BRAND_JS_FILES`) + 🔴 원본 태그 지우는 정규식 두 곳
 - **완료 정의**: 빌드 성공 · 산출물에 `../` 원본 태그 0건 + `bootBrand` 1건 · `curl -sL https://dev.globalreverb.com/brand/` 200 · 🔁 인플루언서 비밀번호 찾기 1회 · 양쪽 화면 콘솔 오류 0 · CLAUDE.md 「8개」→「9개」 같은 커밋
 
+- ✅ **구현됨(2026-10-14)** — `dev/lib/supabase.js` 의 `REVERB_SKIP_GLOBAL_DB`(브랜드 화면만 `true` → 전역 `db`·`dbAuthRequest` 생략), `dev/brand/index.html` 에 표시 + supabase-js `@2.116.0`, `dev/build.sh` 7절(루트 `brand/index.html`). 로컬 확인: 브랜드 산출물 `db`·`dbAuthRequest` = null · 인플루언서 산출물 정상 · 콘솔 오류 0 · 산출물 `../` 태그 0. 운영 주소에서는 `bootBrand()` 가 「준비 중」만. 인플루언서 비밀번호 찾기 회귀(`dbAuthRequest`)는 인플루언서 산출물에서 연결이 그대로 만들어지는 것으로 갈음 — 실제 요청은 개발서버 배포 뒤 1회
+
 ### 조각 8 — 브랜드 화면 실제 연결
+- 🔴 **착수 전 주의(supabase-expert, 2026-10-14)**: ①로그아웃·설정 연결 정리는 **`signOut({scope:'local'})`**(기본 global 은 같은 사용자의 다른 기기 세션까지 폐기) ②설정 연결은 `implicit`·`persistSession:false`·`autoRefreshToken:false`·**`detectSessionInUrl:false`** + 수동 `setSession`, 성공·실패 무관 **`history.replaceState` 로 해시 제거**(토큰이 주소·방문 기록에 남지 않게), 실패 해시 `#error=…otp_expired` 는 직접 읽어 쓸 수 없는 링크 화면으로 ③🔴 **`brandDb.auth.resetPasswordForEmail` 금지** — 서버 함수 `brand-password-reset-request` 만(pkce 검증값이 요청 브라우저에 묶여 다른 기기에서 실패) ④인라인 표시는 `window.REVERB_SKIP_GLOBAL_DB = true` 형태 유지(`var`/`let` 이면 `supabase.js` 의 `const` 와 재선언 오류) ⑤`storage.js` 가 안 실리므로 `retryWithRefresh` 대응물·`onAuthStateChange`(`TOKEN_REFRESHED`·`SIGNED_OUT`)를 브랜드 쪽에 따로 ⑥개발서버 실측: 인플루언서 로그인 탭 + 브랜드 탭 로그인·로그아웃 → 서로 안 끊김 · GoTrueClient 경고 · `localStorage` 에 `sb-…`·`reverb.brandAuth` 따로
 - 로그인 연결 `brandDb`: `storageKey:'reverb.brandAuth'` · `pkce` · `persistSession:true` · `detectSessionInUrl:false`
 - 설정 연결 `brandSetupDb`: `implicit` · `persistSession:false` · 저장 칸 `'reverb.brandSetup'`
 - 로그인: `signInWithPassword` → `get_my_brand_login_state()` — `ok` → `data-screen="home"` · `not_brand`·`setup_incomplete` → `signOut` + `BRAND_MSG.loginFail` · `no_active_brand` → 「연결된 브랜드가 없습니다 — 운영팀에 문의」(문구 사용자 확정)

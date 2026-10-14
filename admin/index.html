@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791956674';
+  var CURRENT_BUILD = 'v1791956911';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-14 14:44 · a1af984</span>
+          <span class="admin-build-text">2026-10-14 14:48 · aa2961f</span>
         </div>
       </div>
     </aside>
@@ -7988,9 +7988,15 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 // 디버깅용 전역 노출
 window.__REVERB_ENV__ = SUPABASE_ENV;
 
+// 브랜드 화면(dev/brand/index.html)은 이 파일을 싣되 전역 연결을 만들지 않는다 — window.REVERB_SKIP_GLOBAL_DB = true.
+//   전역 db 는 기본 저장 칸 + detectSessionInUrl:true 라, 브랜드 화면에서 만들어지면 ①인플루언서 세션과 저장 칸을 섞고
+//   ②메일 링크 주소의 인증 값을 먼저 가로챈다. 브랜드 화면은 자기 연결(저장 칸 'reverb.brandAuth')을 따로 만든다.
+//   ⚠️ 인플루언서·관리자 화면은 이 표시를 두지 않는다 — 두면 그 화면의 db 가 null 이 된다.
+const REVERB_SKIP_GLOBAL_DB = window.REVERB_SKIP_GLOBAL_DB === true;
+
 let db = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'pkce',
@@ -8011,7 +8017,7 @@ try {
 //   ※ 메일을 「받은 뒤」의 검증(verifyOtp)은 pkce 여부와 무관한 별개 경로라 전역 db 를 그대로 쓴다.
 let dbAuthRequest = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     dbAuthRequest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'implicit',      // 브라우저 종속 토큰(pkce_) 발급 방지 — 핵심

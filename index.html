@@ -2993,9 +2993,15 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 // 디버깅용 전역 노출
 window.__REVERB_ENV__ = SUPABASE_ENV;
 
+// 브랜드 화면(dev/brand/index.html)은 이 파일을 싣되 전역 연결을 만들지 않는다 — window.REVERB_SKIP_GLOBAL_DB = true.
+//   전역 db 는 기본 저장 칸 + detectSessionInUrl:true 라, 브랜드 화면에서 만들어지면 ①인플루언서 세션과 저장 칸을 섞고
+//   ②메일 링크 주소의 인증 값을 먼저 가로챈다. 브랜드 화면은 자기 연결(저장 칸 'reverb.brandAuth')을 따로 만든다.
+//   ⚠️ 인플루언서·관리자 화면은 이 표시를 두지 않는다 — 두면 그 화면의 db 가 null 이 된다.
+const REVERB_SKIP_GLOBAL_DB = window.REVERB_SKIP_GLOBAL_DB === true;
+
 let db = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'pkce',
@@ -3016,7 +3022,7 @@ try {
 //   ※ 메일을 「받은 뒤」의 검증(verifyOtp)은 pkce 여부와 무관한 별개 경로라 전역 db 를 그대로 쓴다.
 let dbAuthRequest = null;
 try {
-  if (window.supabase) {
+  if (window.supabase && !REVERB_SKIP_GLOBAL_DB) {
     dbAuthRequest = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         flowType: 'implicit',      // 브라우저 종속 토큰(pkce_) 발급 방지 — 핵심
