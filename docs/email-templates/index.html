@@ -502,6 +502,27 @@
 
   <div class="card">
     <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">브랜드 계정 비밀번호 설정</div>
+    <div class="card-desc">관리자가 브랜드 대표 담당자 계정을 만들면, 그 담당자에게 비밀번호를 직접 설정하라는 링크를 보냅니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자가 브랜드 상세에서 「계정 만들기」 또는 「다시 보내기」를 누르는 순간 보냅니다. 받는 사람은 요청 내용이 아니라 서버가 브랜드의 대표 담당자 계정에서 다시 읽습니다. 링크는 보낸 지 1시간 안에만 열리고, 새로 보내면 앞서 보낸 링크는 모두 무효가 됩니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 관리자가 누른 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 브랜드 상세의 계정 만들기/다시 보내기 → notify-brand-account-setup 호출</div>
+      <div><b>수신자:</b> 브랜드 대표 담당자 본인</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>용도 안내 문구:</b> 약관 확정 뒤 채울 자리가 있다(사양서 §16-3 9번)</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-account-setup.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-account-setup.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">관리자 비밀번호 찾기</div>
     <div class="card-desc">관리자가 비밀번호를 잊었을 때 재설정 링크를 보냅니다.</div>
     <div class="card-condition">

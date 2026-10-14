@@ -735,3 +735,9 @@
 - 결정: 해제 이력만 있는 브랜드도 삭제를 막는다(외래키 `RESTRICT` 오류 대신 안내 · 감사 기록 보존 · 병합이 우회로). 초대 거부는 리뷰 권고로 앱 메타데이터 갈래까지 세 갈래
 - 개발서버 확인: T1~T8(계정 연결 브랜드 삭제·병합 거부, 해제 이력 삭제 거부, 빈 브랜드 삭제·병합·일반 초대 회귀, 브랜드 이메일 초대 거부) 통과, 잔여 0. 관리자 화면 직접 조작 회귀는 같은 함수를 시험에서 불렀으므로 생략
 - 남은 일: ①**연결 해제 기능이 없다** — 계정이 연결된 브랜드는 삭제도 병합도 못 한다(운영 전 결정) ②병합·초대 거부 문구 한국어 매핑(조각 10) ③규칙 파일 `.claude/rules/brand-admin.md`(merge_brands 「현재 원본 467」)·`admin-accounts-notices.md`(invite_admin 「현재 원본 417」) 갱신 — 규칙 파일은 고문 세션 몫
+
+### 로그인 기능 — 조각 4 설정 메일 서버 함수 (2026-10-14, 코드만 — 개발서버 배포 전)
+- `supabase/functions/notify-brand-account-setup/` + 양식 `docs/email-templates/brand-account-setup.html`(한국어, 관리자 초대 양식 기준) · 동기화 스크립트 두 곳 등록
+- 계약: `POST {brand_id, mode:'setup'|'resend'}` + 관리자 토큰 → `{sent:true, recipient}` / 개발서버 `{sent:true, recipient, dev_link}` / `{sent:false, reason}`(no_account·password_already_set·no_active_brand·send_failed·forbidden 403·unauthorized 401·invalid_request 400·server_error 500)
+- 결정: 개발서버 링크 표시(`dev_link`) 때는 발송 기록을 남기지 않는다(관리자 화면이 거짓 「메일 보냄」을 그리지 않게) · `PUBLIC_BRAND_URL` 기본값 없음
+- 남은 일: 개발서버 배포 + 비밀값 등록(P-11) → `OPTIONS` 200·매니저 403·`dev_link` 확인 · 규칙 파일 `.claude/rules/mail-webhooks.md` 의 `paths:`·안전 점검 목록에 이 함수 추가(고문 세션 몫)

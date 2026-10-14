@@ -43,6 +43,7 @@ SYNC_GROUPS=(
   "notify-orient-submitted|orient-submitted-notify.html"
   "notify-brand-daily-digest|brand-daily-digest.html,brand-daily-digest.section.html"
   "notify-admin-invite|admin-invite.html"
+  "notify-brand-account-setup|brand-account-setup.html"
   "admin-password-reset-request|admin-password-reset.html"
   "notify-withdrawal-scheduled|withdrawal-scheduled.html"
   "signup-code-send|signup-code.html,signup-already-registered.html"
@@ -104,6 +105,7 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "notify-policy-change" ]] || \
      [[ "$fn_name" == "notify-brand-daily-digest" ]] || \
      [[ "$fn_name" == "notify-admin-invite" ]] || \
+     [[ "$fn_name" == "notify-brand-account-setup" ]] || \
      [[ "$fn_name" == "admin-password-reset-request" ]] || \
      [[ "$fn_name" == "notify-withdrawal-scheduled" ]] || \
      [[ "$fn_name" == "signup-code-send" ]]; then
