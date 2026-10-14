@@ -717,21 +717,21 @@
 
 ### 로그인 기능 — 조각 1 데이터베이스 기초 (2026-10-14, 개발서버만)
 - 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 선결 조건 결정 P-1~P-10 기록)
-- 마이그레이션 **525** `supabase/migrations/525_brand_accounts_base.sql` — 개발서버 적용 2026-10-14, **운영 미적용(보류)**
+- 마이그레이션 **526** `supabase/migrations/526_brand_accounts_base.sql` — 개발서버 적용 2026-10-14, **운영 미적용(보류)**
   - 표 `brand_accounts` · `brand_account_links` · `brand_password_reset_requests`(읽기 정책만, 쓰기는 함수 전용)
-  - `handle_new_user` 525(420 본문 + 맨 앞 브랜드 분기) · 거부 트리거 `trg_block_influencer_row_for_brand` · `get_my_account_kind()`
+  - `handle_new_user` 526(420 본문 + 맨 앞 브랜드 분기) · 거부 트리거 `trg_block_influencer_row_for_brand` · `get_my_account_kind()`
 - 작업표와 달라진 것: 거부 판정을 계정 표 + `auth.users` 앱 메타데이터 **두 곳**으로(계정 생성 순간의 틈 차단) · 이메일 정규화를 검사 제약으로 강제 · 연결 표의 계정 참조는 `ON DELETE CASCADE`
 - 개발서버 확인: V1 표·정책 / V2 실행 권한(`=X/` 없음) / V3 되돌림 시험(A=0·B=1·C·D 차단, 잔여 0) / V4 로그인 세션 `'other'` / V5 인플루언서 신규 가입·관리자 초대 회귀 — 모두 통과. 시험 계정은 정리함
 - 담당자 이름·전화를 관리자 전원이 읽는 것은 의도(같은 값이 `brands.contacts` 에 있고 브랜드 읽기 정책이 `is_admin()`)
 
 ### 로그인 기능 — 조각 2 데이터베이스 함수 (2026-10-14, 개발서버만)
-- 마이그레이션 **526** `supabase/migrations/526_brand_account_functions.sql` — 개발서버 적용 2026-10-14(예약 작업 번호 17), **운영 미적용(보류)**
+- 마이그레이션 **527** `supabase/migrations/527_brand_account_functions.sql` — 개발서버 적용 2026-10-14(예약 작업 번호 17), **운영 미적용(보류)**
 - 함수 9개 + 내부 도우미 1개 + 정기 정리 1개. 작업표와 달라진 것: 서버 메일 함수용 보조 함수 둘 추가(`service_issue_brand_account_link`·`service_mark_brand_setup_mail_sent` — 판정이 메일 함수 두 곳에 사본으로 생기지 않게) · 재설정 완료 함수 추가(피그마 F-2) · 결과 값 셋 추가(`brand_not_found`·`brand_archived`·`invalid_email`) · 설정 완료는 비밀번호가 실제로 정해졌을 때만(`password_not_set`) · 이메일 교체 때 인증 서비스 일회용 토큰도 비움(리뷰 권고)
 - 개발서버 확인: V1 실행 권한(비로그인은 링크 상태 함수만) / V2 함수별 1회 호출 / V4 판정 10가지 / V5 링크·설정 완료 14가지 / 잔여 0 / V3 로그인한 최고 관리자 화면 호출 — 모두 통과
-- 가입 회귀(V6)는 생략 — 526 은 기존 함수·트리거를 바꾸지 않는다(525 에서 확인 완료)
+- 가입 회귀(V6)는 생략 — 527 은 기존 함수·트리거를 바꾸지 않는다(526 에서 확인 완료)
 
 ### 로그인 기능 — 조각 3 기존 함수 보호 (2026-10-14, 개발서버만)
-- 마이그레이션 **527** `supabase/migrations/527_brand_account_guards.sql` — 개발서버 적용 2026-10-14, **운영 미적용(보류)**. 베이스 325(`delete_brand`)·467(`merge_brands`)·417(`invite_admin`) 본문 그대로 + 가드만(삭제·변경 줄 0 대조)
+- 마이그레이션 **528** `supabase/migrations/528_brand_account_guards.sql` — 개발서버 적용 2026-10-14, **운영 미적용(보류)**. 베이스 325(`delete_brand`)·467(`merge_brands`)·417(`invite_admin`) 본문 그대로 + 가드만(삭제·변경 줄 0 대조)
 - 결정: 해제 이력만 있는 브랜드도 삭제를 막는다(외래키 `RESTRICT` 오류 대신 안내 · 감사 기록 보존 · 병합이 우회로). 초대 거부는 리뷰 권고로 앱 메타데이터 갈래까지 세 갈래
 - 개발서버 확인: T1~T8(계정 연결 브랜드 삭제·병합 거부, 해제 이력 삭제 거부, 빈 브랜드 삭제·병합·일반 초대 회귀, 브랜드 이메일 초대 거부) 통과, 잔여 0. 관리자 화면 직접 조작 회귀는 같은 함수를 시험에서 불렀으므로 생략
 - 남은 일: ①**연결 해제 기능이 없다** — 계정이 연결된 브랜드는 삭제도 병합도 못 한다(운영 전 결정) ②병합·초대 거부 문구 한국어 매핑(조각 10) ③규칙 파일 `.claude/rules/brand-admin.md`(merge_brands 「현재 원본 467」)·`admin-accounts-notices.md`(invite_admin 「현재 원본 417」) 갱신 — 규칙 파일은 고문 세션 몫
@@ -742,11 +742,11 @@
 - 결정: 개발서버 링크 표시(`dev_link`) 때는 발송 기록을 남기지 않는다(관리자 화면이 거짓 「메일 보냄」을 그리지 않게) · `PUBLIC_BRAND_URL` 기본값 없음
 - 개발서버 배포·비밀값 등록 완료(2026-10-14, `PUBLIC_BRAND_URL`·`BRAND_SETUP_DEV_ECHO` — 개발서버만, 운영 비밀값 없음 확인). 확인: `OPTIONS` 200 + 허용 헤더 · 토큰 없음 401 · 계정 없는 브랜드 `no_account` · 시험 브랜드 `created` → `{sent:true, dev_link}`(주소 `/brand/?…&mode=setup#confirm=…/auth/v1/verify`) · 링크 상태 setup=valid / reset=invalid · 계정 줄 `mail_pending`(개발서버 링크 표시는 발송 기록 안 남김). 캠페인 매니저 403 은 매니저 로그인이 필요해 미확인(같은 역할 판정 코드)
 ### 로그인 기능 — 조각 5 비밀번호 찾기 서버 함수 (2026-10-14)
-- `supabase/functions/brand-password-reset-request/` + 양식 `docs/email-templates/brand-password-reset.html`. 비로그인 · 늘 `200 {ok:true}` · 최소 2,500밀리초 · 요청 제한(526) · 설정 끝낸 계정 = 재설정(`mode=reset`) / 설정 전 = 설정 메일 재발송(`mode=setup`, 설정 메일 양식 그대로) / 그 밖 = 무동작
+- `supabase/functions/brand-password-reset-request/` + 양식 `docs/email-templates/brand-password-reset.html`. 비로그인 · 늘 `200 {ok:true}` · 최소 2,500밀리초 · 요청 제한(527) · 설정 끝낸 계정 = 재설정(`mode=reset`) / 설정 전 = 설정 메일 재발송(`mode=setup`, 설정 메일 양식 그대로) / 그 밖 = 무동작
 - 🔴 개발서버 잠금은 **링크 번호 발급까지만** — 비로그인 공개 함수라 응답·로그에 링크를 싣지 않는다(실으면 누구나 남의 재설정 링크를 받는다). 확인은 데이터베이스의 링크 번호 교체로
 - ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장 사본이 두 함수에 있다(양쪽 주석으로 표시)
 - 🔴 **응답 시간으로 계정 여부가 드러나는 문제를 고쳤다**(사용자 결정 2026-10-14): 처음엔 처리를 끝내고 응답해 브랜드 계정만 +0.3초(개발서버 실측, 운영은 발송까지 더해져 더 큼). 이제 처리는 `EdgeRuntime.waitUntil` 로 **응답 뒤에** 끝내고 응답은 늘 2.5초에 나간다. 관리자 비밀번호 찾기(`admin-password-reset-request`)는 같은 한계가 남아 있다(이번 범위 밖)
 - 개발서버 배포·확인(2026-10-14): `OPTIONS` 200 · 없는 주소·인플루언서·브랜드 계정 모두 `200 {ok:true}`, 2.55~2.83초 · 브랜드 계정만 링크 번호 교체(응답 뒤 처리 동작 확인) · 5분 안 재요청은 교체 안 됨(요청 제한)
 - 열린 항목(리뷰 권고): ①설정 전 계정에 남이 비밀번호 찾기를 누르면 운영팀이 보낸 설정 링크가 무효가 된다(5분 1회·하루 5회 제한, 링크 번호 규칙상 의도) ②본인이 요청한 재발송인데 소개문이 「REVERB 운영팀이 다시 보내 드립니다」·만료 안내가 「운영팀에 다시 요청」 — 문구 결정 필요(조각 8 문구 정리 때)
-- 🧪 **개발서버 시험 데이터(남겨 둠 — 조각 8 로그인 흐름 시험용)**: 브랜드 `zz-브랜드로그인-시험` + 대표 계정 `zz-brand-owner@example.com`(비밀번호 미설정). 정리할 때는 527 가드 때문에 연결부터 SQL 로 지운다
+- 🧪 **개발서버 시험 데이터(남겨 둠 — 조각 8 로그인 흐름 시험용)**: 브랜드 `zz-브랜드로그인-시험` + 대표 계정 `zz-brand-owner@example.com`(비밀번호 미설정). 정리할 때는 528 가드 때문에 연결부터 SQL 로 지운다
 - 남은 일: 규칙 파일 `.claude/rules/mail-webhooks.md` 의 `paths:`·안전 점검 목록에 이 함수 추가(고문 세션 몫)

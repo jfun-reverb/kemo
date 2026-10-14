@@ -3135,9 +3135,9 @@ async function insertBrand(payload) {
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
 
-// ── 브랜드 계정(로그인) — 마이그레이션 525·526 + 서버 함수 notify-brand-account-setup ──
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
 // 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
-//    서버를 부른다. 운영 데이터베이스에는 525·526 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
 //    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
 function _brandAccountEnabled() {
   return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;

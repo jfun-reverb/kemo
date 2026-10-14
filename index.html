@@ -11259,9 +11259,9 @@ async function insertBrand(payload) {
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
 
-// ── 브랜드 계정(로그인) — 마이그레이션 525·526 + 서버 함수 notify-brand-account-setup ──
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
 // 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
-//    서버를 부른다. 운영 데이터베이스에는 525·526 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
 //    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
 function _brandAccountEnabled() {
   return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
@@ -18504,7 +18504,7 @@ async function handleLogin(e) {
     } else {
       // 브랜드 계정이면 인플루언서 앱 로그인을 막는다(조각 9). 운영 주소에서는 서버를 안 부르고 'other'(storage.js).
       //   🔴 화면은 비밀번호가 틀렸을 때와 **완전히 같게** — 문구·자리·버튼 복구가 같아야 계정 종류가 드러나지 않는다.
-      //   ⚠️ 서버(마이그레이션 525)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
+      //   ⚠️ 서버(마이그레이션 526)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
       const accountKind = typeof fetchMyAccountKind === 'function' ? await fetchMyAccountKind() : 'other';
       if (accountKind === 'brand') {
         await signOutBrandAccountSession();

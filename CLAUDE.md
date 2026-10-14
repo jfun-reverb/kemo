@@ -93,7 +93,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- 가입 트리거(폼 값 저장) `handle_new_user` — **525**(382 → 420 → 525 — 525 는 맨 앞 브랜드 계정 분기만 더함. 🔴 420 을 베이스로 잡으면 브랜드 계정에 인플루언서 행이 생긴다) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
+- 가입 트리거(폼 값 저장) `handle_new_user` — **526**(382 → 420 → 526 — 526 는 맨 앞 브랜드 계정 분기만 더함. 🔴 420 을 베이스로 잡으면 브랜드 계정에 인플루언서 행이 생긴다) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326)
 
 > ⚠️ **아직 안 한 것**: 「올려두고 제출 안 함」 재발 방지의 관리자 대신 제출 기록(작업 9)·일일 메일 안내(작업 11)는 범위 밖, 자주 묻는 질문 노드(작업 12)는 작업 2·5 운영 배포 뒤에만
 
@@ -132,7 +132,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `merge_brands` — **527**(175 → 328 → 467 → 527, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **527**(174 → 191 → 325 → 527, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 527 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 525 → 526 → 527 한 묶음, 527 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
+- `merge_brands` — **528**(175 → 328 → 467 → 528, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **528**(174 → 191 → 325 → 528, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 528 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 526 → 527 → 528 한 묶음, 528 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
 
 - 오리엔시트 발급·조회 페인(신규 발급 창의 신청 연결 칸은 잠김 · 발급 메일 수신자는 서버가 정함 · ⚠️ 재발송 버튼·발송 이력은 없다)·발급 목록 삭제 — 상세 `.claude/rules/orient-sheet.md`
 - 브랜드 상세 모달(🔴 편집 폼이라 탭 전환은 `display` 토글만)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
@@ -153,7 +153,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `invite_admin` — **527**(245 → 417 → 527 — 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 527 은 개발서버만, 운영 원본은 417)
+- `invite_admin` — **528**(245 → 417 → 528 — 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 528 은 개발서버만, 운영 원본은 417)
 - `get_admin_last_sign_in` — **437**(🔴 반환 칸을 바꾸려면 `DROP` 후 `CREATE` 라 **실행 권한 회수를 다시 걸어야 한다**)
 
 > 🔴 **광고 추적(메타 픽셀)은 운영에서 켜져 있다**(시행일 `2026-09-18` — 방침·앱 공지·메일의 10-17 은 사용자 결정으로 그대로). 관리자 앱에는 픽셀을 심지 않는다
@@ -187,18 +187,18 @@
 - `campaign_caution_history` — 주의사항/참여방법/NG 변경 audit + `app_count_at_change`. RLS SELECT super_admin, INSERT 는 `record_caution_history()` 만(campaign_admin 이상)
 - `campaign_change_history` — **캠페인 전체 항목 변경 audit**(마이그레이션 265·266). 「바뀐 항목 1개 = 1행」 + `change_group_id` + `changed_by`/`changed_by_name`/`changed_at` + `field_name`(CHECK 화이트리스트 **48개**) + `old_value`/`new_value` jsonb + `change_source`(admin / auto / system). RLS SELECT `is_super_admin()`, 쓰기는 트리거만(`record_campaign_change_history()` AFTER UPDATE — 구 `record_caution_history` 와 달리 같은 트랜잭션이라 감사 공백 없음). ⚠️ **화이트리스트는 세 곳(265 CHECK · 266 v_fields · 266 트리거 `AFTER UPDATE OF` 목록)이 항상 같은 집합** — 어긋나면 CHECK 위반으로 INSERT 실패. 조회수·신청 수·수정일·순서·채번 제외. 3영역은 기존 표와 병존. 사양서 `docs/specs/2026-07-27-campaign-full-change-history.md`
 
-### 브랜드 계정·로그인 (마이그레이션 525~ — 🔴 **개발서버만**, 운영 반영 보류)
+### 브랜드 계정·로그인 (마이그레이션 526~ — 🔴 **개발서버만**, 운영 반영 보류)
 > 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 인수인계 `…-brand-login-handoff.md`
 > 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
-- 표 셋(525): `brand_accounts`(`auth_id` = `auth.users` 1:1, 이메일 `lower(btrim())` 강제·유일) · `brand_account_links`(브랜드 참조 `ON DELETE RESTRICT`, 브랜드당 활성 대표 1명) · `brand_password_reset_requests`(243 복제, 해시만). 셋 다 쓰기 정책 없음 — 읽기는 본인 또는 `is_admin()`(요청 기록은 최고 관리자)
+- 표 셋(526): `brand_accounts`(`auth_id` = `auth.users` 1:1, 이메일 `lower(btrim())` 강제·유일) · `brand_account_links`(브랜드 참조 `ON DELETE RESTRICT`, 브랜드당 활성 대표 1명) · `brand_password_reset_requests`(243 복제, 해시만). 셋 다 쓰기 정책 없음 — 읽기는 본인 또는 `is_admin()`(요청 기록은 최고 관리자)
 - 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`** — 사용자 메타데이터는 공개 키 가입으로 누구나 채우고 383 이 지운다. 계정은 `invite_admin`(417) 방식 직접 삽입 + `email_confirmed_at=now()` 로 만든다(🔴 `auth.admin.createUser` 는 497 가입 관문에 걸린다)
-- 🔴 **인플루언서 표 삽입 거부 트리거 `trg_block_influencer_row_for_brand`**(525, DEFINER) — `NEW.id` 가 브랜드 계정이면 `brand_account_not_influencer`. 판정은 `auth.uid()` 가 아니라 `NEW.id`(137 삽입 정책이 로그인만 보면 통과). 인플루언서 앱 `handleLogin` 의 프로필 자동 생성이 이 거부에 걸린다 — 인플루언서 앱 차단(작업표 조각 9)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
-- `get_my_account_kind()`(525) → `'brand'|'other'`, `authenticated` 만(로그아웃 호출은 권한 오류)
-- 함수(526, 전부 DEFINER): 관리자 `admin_upsert_brand_owner_account(brand, 이전 대표 줄 id, 이전 이메일)`(캠페인 관리자 이상 — 판정 표는 526 머리말 B. 🔴 화면은 상세를 연 시점의 대표 줄 id·이메일을 **반드시** 넘긴다 — 안 넘기면 이메일 변경으로 본다) · `admin_get_brand_account_status`(관리자 아니면 42501 — 🔴 실패를 「계정 없음」으로 그리지 않는다) · 비로그인 `get_brand_link_state(링크, 'setup'|'reset')` · 임시 세션 `complete_brand_account_setup`(🔴 `updateUser` 먼저 — 비밀번호가 비면 `password_not_set`)·`complete_brand_password_reset` · 로그인 판정 `get_my_brand_login_state`(보관 브랜드 제외) · 서비스 키 전용 `service_issue_brand_account_link`·`service_mark_brand_setup_mail_sent`·`check_brand_password_reset_rate_limit` · 정기 정리 `brand-password-reset-requests-retention-daily`(UTC 21:00, 30일)
+- 🔴 **인플루언서 표 삽입 거부 트리거 `trg_block_influencer_row_for_brand`**(526, DEFINER) — `NEW.id` 가 브랜드 계정이면 `brand_account_not_influencer`. 판정은 `auth.uid()` 가 아니라 `NEW.id`(137 삽입 정책이 로그인만 보면 통과). 인플루언서 앱 `handleLogin` 의 프로필 자동 생성이 이 거부에 걸린다 — 인플루언서 앱 차단(작업표 조각 9)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
+- `get_my_account_kind()`(526) → `'brand'|'other'`, `authenticated` 만(로그아웃 호출은 권한 오류)
+- 함수(527, 전부 DEFINER): 관리자 `admin_upsert_brand_owner_account(brand, 이전 대표 줄 id, 이전 이메일)`(캠페인 관리자 이상 — 판정 표는 527 머리말 B. 🔴 화면은 상세를 연 시점의 대표 줄 id·이메일을 **반드시** 넘긴다 — 안 넘기면 이메일 변경으로 본다) · `admin_get_brand_account_status`(관리자 아니면 42501 — 🔴 실패를 「계정 없음」으로 그리지 않는다) · 비로그인 `get_brand_link_state(링크, 'setup'|'reset')` · 임시 세션 `complete_brand_account_setup`(🔴 `updateUser` 먼저 — 비밀번호가 비면 `password_not_set`)·`complete_brand_password_reset` · 로그인 판정 `get_my_brand_login_state`(보관 브랜드 제외) · 서비스 키 전용 `service_issue_brand_account_link`·`service_mark_brand_setup_mail_sent`·`check_brand_password_reset_rate_limit` · 정기 정리 `brand-password-reset-requests-retention-daily`(UTC 21:00, 30일)
 - 🔴 **링크 번호 칸 `brand_accounts.setup_link_id` 하나를 계정 만들기·재설정 링크가 같이 쓴다**(피그마 「링크는 보낸 때의 계정 상태에 묶인다」) — 새로 보내면 옛 링크 무효, 설정·재설정을 마치면 비운다
 - ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
-- 화면(개발서버만 — 판정 `_brandAccountEnabled()` 한 곳): 인플루언서 앱 차단(`auth.js` `handleLogin`·`app.js` 부팅·로그인 이벤트 — 🔴 판정 실패 `null` 은 차단 아님) · 관리자 브랜드 상세 「계정」 줄(`admin-brand.js` — 🔴 「대표 이메일이 새로·바뀔 때만」은 **화면이** 지킨다: 526 은 계정 없는 브랜드면 이전 값을 안 본다) · 브랜드 화면 `/brand/`
-- 기존 함수 보호(527): 계정 연결(활성)이 있는 브랜드는 삭제·병합(원본) 거부, 해제 이력만 있어도 삭제 거부(이력 보존 — 병합으로 안내), 관리자 초대는 브랜드 계정 이메일 거부. ⚠️ **연결 해제 기능이 아직 없다** — 운영 전 어느 조각에서 만들지 정할 것. ⚠️ 병합·초대 거부 문구는 화면 매핑 전이라 영문 코드·일반 오류로 보인다(조각 10)
+- 화면(개발서버만 — 판정 `_brandAccountEnabled()` 한 곳): 인플루언서 앱 차단(`auth.js` `handleLogin`·`app.js` 부팅·로그인 이벤트 — 🔴 판정 실패 `null` 은 차단 아님) · 관리자 브랜드 상세 「계정」 줄(`admin-brand.js` — 🔴 「대표 이메일이 새로·바뀔 때만」은 **화면이** 지킨다: 527 은 계정 없는 브랜드면 이전 값을 안 본다) · 브랜드 화면 `/brand/`
+- 기존 함수 보호(528): 계정 연결(활성)이 있는 브랜드는 삭제·병합(원본) 거부, 해제 이력만 있어도 삭제 거부(이력 보존 — 병합으로 안내), 관리자 초대는 브랜드 계정 이메일 거부. ⚠️ **연결 해제 기능이 아직 없다** — 운영 전 어느 조각에서 만들지 정할 것. ⚠️ 병합·초대 거부 문구는 화면 매핑 전이라 영문 코드·일반 오류로 보인다(조각 10)
 
 ### 광고주 신청(브랜드 서베이)
 - `brand_applications` — `form_type`(reviewer|seeding), `brand_name`, `contact_name`, `phone`, `email`, `billing_email`, `products jsonb`, `total_jpy/total_qty`, `estimated_krw`, `final_quote_krw`, `quote_sent_at`, `quote_sent_url`, `orient_sheet_sent_at`, `orient_sheet_sent_url`, `paid_at`, `payment_flags jsonb`, `status` 10단계, `request_note`, `version`, `legacy_no`. **익명 INSERT 는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 필수** — 직접 INSERT 는 42501

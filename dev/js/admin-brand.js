@@ -1453,7 +1453,7 @@ async function doBrandMerge(sourceId) {
   if (!confirm('정말 병합할까요?\n캠페인·신청 번호가 재발급되며 되돌릴 수 없습니다.')) return;
   var result = await mergeBrands(sourceId, targetId);
   if (!result.ok) {
-    // 527 — 원본에 브랜드 계정 연결이 있으면 코드 문자열로 거부한다(다른 거부는 한국어 문구라 그대로 싣는다)
+    // 528 — 원본에 브랜드 계정 연결이 있으면 코드 문자열로 거부한다(다른 거부는 한국어 문구라 그대로 싣는다)
     var mergeErr = result.error || '';
     toast('병합 실패: ' + (mergeErr.indexOf('brand_has_account_links') >= 0 ? friendlyError(mergeErr) : (mergeErr || '알 수 없는 오류')), 'error');
     return;
@@ -2336,7 +2336,7 @@ async function submitNewBrand() {
 
 // ══ 브랜드 로그인 계정 — 관리자 브랜드 상세 연동(브랜드 로그인 조각 10) ═══════════════════════
 //   작업표 docs/specs/2026-10-14-brand-login-breakdown.md 「조각 10」 · 사양서 docs/specs/2026-07-15-brand-portal.md §16-6
-//   서버: admin_upsert_brand_owner_account · admin_get_brand_account_status(마이그레이션 526) · 서버 함수 notify-brand-account-setup
+//   서버: admin_upsert_brand_owner_account · admin_get_brand_account_status(마이그레이션 527) · 서버 함수 notify-brand-account-setup
 //   🔴 운영 반영 보류(P-1) — 판정은 storage.js `_brandAccountEnabled()` 한 곳. 운영 주소에서는 계정 줄을 아예 안 그리고
 //      저장 뒤 계정 처리도 조용히 건너뛴다(storage 의 네 함수가 운영에서는 서버를 부르지 않는다).
 //   🔴 부르는 쪽 주의(작업표 조각 6): ①upsert 는 ok:true 여도 서버가 거부했을 수 있다 — `data.result` 로 가르고,
@@ -2358,7 +2358,7 @@ function _brandAccountIsAdm() {
 }
 function _brandAccountNormEmail(v) { return String(v || '').trim().toLowerCase(); }
 
-// 대표 줄 스냅샷 — `is_primary` 줄만 본다(서버도 그 줄만 본다 — 마이그레이션 526 머리말 B).
+// 대표 줄 스냅샷 — `is_primary` 줄만 본다(서버도 그 줄만 본다 — 마이그레이션 527 머리말 B).
 function _brandPrimarySnapshotFromContacts(contacts) {
   var list = Array.isArray(contacts) ? contacts : [];
   var p = list.find(function(c){ return c && c.is_primary; });
@@ -2438,7 +2438,7 @@ function _brandAccountRowHtml(brandId, st) {
     // 매니저 — 숨기지 않고 비활성 + 이유(규칙: 버튼을 보고 눌렀다가 오류를 보는 일을 막는다)
     if (btn && !isAdm) notes += '<div class="brand-account-note">계정 메일은 캠페인 관리자 이상이 보냅니다.</div>';
     if (s === 'mail_pending') notes += '<div class="brand-account-note">아직 설정 메일을 보낸 기록이 없습니다(개발서버는 메일 대신 링크만 만들고 기록을 남기지 않습니다).</div>';
-    // 로그인 이메일 ≠ 저장된 대표 이메일 — 서버는 이 경우를 다시 안내하지 않는다(526 머리말 B ②). 메일은 로그인 이메일로 간다
+    // 로그인 이메일 ≠ 저장된 대표 이메일 — 서버는 이 경우를 다시 안내하지 않는다(527 머리말 B ②). 메일은 로그인 이메일로 간다
     var savedPrimary = _brandAccountNormEmail(_brandFormPrimaryOriginal && _brandFormPrimaryOriginal.email);
     if (s !== 'none' && st.email && savedPrimary && savedPrimary !== _brandAccountNormEmail(st.email)) {
       notes += '<div class="brand-account-note is-warn">로그인 이메일(' + esc(st.email) + ')이 저장된 대표 담당자 이메일(' + esc(_brandFormPrimaryOriginal.email) + ')과 다릅니다. '
@@ -2569,7 +2569,7 @@ async function _brandAccountRunUpsert(brandId, prev, ctx) {
 }
 
 // 브랜드 저장·등록 뒤 계정 처리. ctx: 'save'(상세 저장) | 'new'(새 브랜드 등록 — 이전 대표 없음)
-//   🔴 「새로 생기거나 바뀐 경우만」(§16-6) — 서버는 계정이 없는 브랜드면 이전 값을 보지 않고 바로 만든다(526 머리말 B (1)).
+//   🔴 「새로 생기거나 바뀐 경우만」(§16-6) — 서버는 계정이 없는 브랜드면 이전 값을 보지 않고 바로 만든다(527 머리말 B (1)).
 //      그래서 **계정 없는 브랜드를 같은 값으로 저장할 때는 화면이 부르지 않는다** — 안 막으면 광고주 신청서가 넣어 둔
 //      확인 안 된 대표 이메일로, 이름만 고쳐 저장해도 설정 메일이 나간다(§16-6 「사실 정정」). 계정 없는 기존 브랜드는 P-2 단추로.
 async function _brandAccountAfterBrandSave(brandId, contacts, ctx) {

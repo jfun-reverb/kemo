@@ -586,7 +586,7 @@ async function handleLogin(e) {
     } else {
       // 브랜드 계정이면 인플루언서 앱 로그인을 막는다(조각 9). 운영 주소에서는 서버를 안 부르고 'other'(storage.js).
       //   🔴 화면은 비밀번호가 틀렸을 때와 **완전히 같게** — 문구·자리·버튼 복구가 같아야 계정 종류가 드러나지 않는다.
-      //   ⚠️ 서버(마이그레이션 525)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
+      //   ⚠️ 서버(마이그레이션 526)도 브랜드 계정의 인플루언서 행 삽입을 거부한다. 여기는 같은 실패 문구를 보여 주는 자리.
       const accountKind = typeof fetchMyAccountKind === 'function' ? await fetchMyAccountKind() : 'other';
       if (accountKind === 'brand') {
         await signOutBrandAccountSession();

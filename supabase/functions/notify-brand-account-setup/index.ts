@@ -8,7 +8,7 @@
 // 복제 원본: notify-admin-invite. 차이 —
 //   · 호출자: 최고 관리자 전용 → 캠페인 관리자 이상(super_admin, campaign_admin) — is_campaign_admin() 과 같게
 //   · 대상: admins → brand_account_links(owner, active) → brand_accounts. 받는 사람은 요청에서 받지 않는다
-//   · 링크: 서버가 setup_link_id 를 새로 발급(service_issue_brand_account_link, 마이그레이션 526)해
+//   · 링크: 서버가 setup_link_id 를 새로 발급(service_issue_brand_account_link, 마이그레이션 527)해
 //     앞서 보낸 링크를 모두 무효화하고, 그 번호를 착지 주소에 싣는다
 //   · 링크 유효 시간 1시간(Supabase 「Email OTP Expiration」 3600초 — 사용자 확인, 사양서 P-4)
 //
