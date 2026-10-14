@@ -311,7 +311,7 @@ Deno.serve(async (req: Request) => {
   // deno-lint-ignore no-explicit-any
   const rt = (globalThis as any).EdgeRuntime;
   if (rt && typeof rt.waitUntil === "function") {
-    rt.waitUntil(work);
+    try { rt.waitUntil(work); } catch (_) { await work; }  // 등록 자체가 실패해도 500 으로 새지 않게
   } else {
     await work;
   }
