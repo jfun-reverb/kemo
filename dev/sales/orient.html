@@ -677,7 +677,7 @@ body.embed-frame .quote-print-btn { display: none; }
 
   <div id="resubmitNote" class="resubmit-note hidden">
     <span class="material-icons-outlined notranslate" translate="no">check_circle</span>
-    <span>이미 제출하신 내용입니다. 발행 전까지 자유롭게 수정하고 다시 제출할 수 있습니다.</span>
+    <span>이미 제출하신 내용입니다. 여기서 고친 내용은 따로 저장되고, <b>다시 제출해야 담당자에게 전달돼요.</b> 발행 전까지 고칠 수 있습니다.</span>
   </div>
 
   <div id="conflictNote" class="conflict-note hidden">
@@ -777,6 +777,7 @@ body.embed-frame .quote-print-btn { display: none; }
   <div class="done-card">
     <h2 id="doneTitle">제출되었습니다</h2>
     <p>제출된 내용은 담당자가 확인합니다. 발행 전까지는 「내용 수정하기」로 고쳐서 다시 제출할 수 있어요.</p>
+    <div id="doneDraftNote" class="done-warn hidden">제출하지 않은 수정 내용이 있어요. 「내용 수정하기」로 이어서 고치고 다시 제출해 주세요.<br><span style="font-size:12px">다시 제출하기 전까지 담당자에게는 아래 제출된 내용이 보여요.</span></div>
     <div class="done-flow">
       <span class="step now">제출</span><span>›</span><span class="step">담당자 확인</span><span>›</span><span class="step">견적 확정</span><span>›</span><span class="step">캠페인 발행</span><span>›</span><span class="step">모집</span>
     </div>
@@ -897,6 +898,7 @@ let uploadingCount = 0;                    // 진행 중 업로드 수(>0이면 
 let token = null;
 let currentVersion = 0;
 let currentStatus = 'draft';
+let hasUnsubmittedDraft = false;           // 제출 뒤 고쳐 두고 다시 제출하지 않은 작성본이 있나(get_orient_sheet 의 draft_data) — 완료 화면 안내용
 let conflicted = false;            // 충돌 발생 시 자동저장 중단
 let saveTimer = null;
 let dirty = false;                 // 미저장 변경 존재 여부
@@ -1403,9 +1405,12 @@ async function boot() {
 
     // data 복원 (없으면 빈 스키마). 카드 배열 구조.
     const data = (res.data && typeof res.data === 'object') ? res.data : {};
-    loadedData = data;
+    loadedData = data;   // 제출본 — 완료 화면·견적서는 이 값을 본다
+    // 제출 뒤 고친 작성본(524) — 작성 화면만 이 값으로 채운다. 다시 제출하기 전까지 담당자에게는 data 가 보인다.
+    const draft = (currentStatus === 'submitted' && res.draft_data && typeof res.draft_data === 'object') ? res.draft_data : null;
+    hasUnsubmittedDraft = !!draft;
     applyLayoutMode();
-    fillForm(data);
+    fillForm(draft || data);
     detectLocalBackup();
     loadTierFees();   // 구간 단가(448) — 기다리지 않는다. 받아 오면 단추에 채워지고, 못 받아 와도 폼은 그대로다
     // 2단계 — 새 구조 시트: ?view=quote 는 견적서 화면, 제출된 시트 재진입은 완료 화면 먼저(작성 화면은 「내용 수정하기」로만).
@@ -3233,6 +3238,7 @@ async function submitSheet() {
       currentVersion = res.version;
       applyCardUids(cardEls, res.card_uids);   // 제출 뒤에도 수정할 수 있으므로 여기서도 담아 둔다
       currentStatus = 'submitted';
+      hasUnsubmittedDraft = false;   // 서버가 제출과 함께 작성본을 비웠다(524)
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
       // 제출된 판이 원본이 됐다 — 되살리기 안내와 메모리의 옛 백업도 버린다(안 버리면 「내용 수정하기」로
@@ -3353,6 +3359,7 @@ function enterDoneScreen() {
   } else {
     area.innerHTML = '';
   }
+  $('doneDraftNote').classList.toggle('hidden', !hasUnsubmittedDraft);
   $('screenDone').classList.remove('hidden');
   window.scrollTo({ top: 0 });
   onSpyScroll();

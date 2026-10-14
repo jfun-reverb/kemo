@@ -116,6 +116,15 @@ function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja |
 function osBadge(st) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg}">${st.label}</span>`;
 }
+// 브랜드가 제출 뒤 고쳐 두고 다시 제출하지 않았나(523·524). 작성본 내용은 관리자에게 안 온다 — 시각만 본다.
+//   🔴 제출됨일 때만 — 새 구조 시트를 고치던 중 발행되면 작성본이 남지만 그 시트에는 표시하지 않는다(사양서 경우의 수 3).
+function osHasUnsubmittedDraft(s) { return !!(s && s.status === 'submitted' && s.draft_saved_at); }
+const OS_DRAFT_TIP = '보이는 내용은 마지막 제출본입니다. 브랜드가 다시 제출하면 바뀝니다.';
+// 목록·상세 공용 표시 — 해당 없으면 빈 문자열
+function osDraftPendingHtml(s) {
+  if (!osHasUnsubmittedDraft(s)) return '';
+  return `<span title="${esc(OS_DRAFT_TIP)}" style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;white-space:nowrap">브랜드 수정 중 · 미제출 ${esc(formatDateTime(s.draft_saved_at))}</span>`;
+}
 function osChLabel(c) { return OS_CH_LABEL[c] || (c || '채널'); }
 // 시딩 통합 소구 키워드 — 신규는 seeding.appeal, 없고 옛 seeding.guides 있으면 개행으로 합쳐 하위호환
 function osSeedingAppeal(sd) {
@@ -264,7 +273,7 @@ function osRowHtml(s) {
     <td style="font-weight:700;color:var(--ink);white-space:nowrap">${s.orient_no ? esc(s.orient_no) : '-'}</td>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
     <td>${osCardsSummary(s.data)}</td>
-    <td>${osBadge(osStatusOf(s))}</td>
+    <td>${osBadge(osStatusOf(s))}${osDraftPendingHtml(s)}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
     <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
@@ -1019,8 +1028,10 @@ function osDetailHtml(s, catMap, readonly) {
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
   </div>` : '';
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
-  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
-    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span></div>`;
+  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}${osDraftPendingHtml(s)}`
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span>`
+    + (osHasUnsubmittedDraft(s) ? `<div style="margin-top:6px;font-size:12px;color:#B45309">${esc(OS_DRAFT_TIP)}</div>` : '')
+    + `</div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
   // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
   const quoteCard = osQuoteCard(s, readonly);
@@ -1747,6 +1758,14 @@ function osPublishCard(cardIdx) {
   const listView = document.getElementById('osLinkListView');
   if (choice) choice.style.display = '';
   if (listView) listView.style.display = 'none';
+  // 브랜드가 고쳐 두고 다시 제출하지 않았으면 경고만(막지 않는다) — 자동 채움은 제출본으로 된다
+  const draftWarn = document.getElementById('osPublishDraftWarn');
+  if (draftWarn) {
+    draftWarn.style.display = osHasUnsubmittedDraft(s) ? '' : 'none';
+    draftWarn.textContent = osHasUnsubmittedDraft(s)
+      ? `브랜드가 ${formatDateTime(s.draft_saved_at)}에 고친 내용을 아직 다시 제출하지 않았습니다. 발행은 마지막 제출본으로 됩니다.`
+      : '';
+  }
   document.getElementById('orientPublishModal').classList.add('open');
 }
 
@@ -2367,6 +2386,7 @@ function ensureOrientModals() {
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientPublishModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osPublishChoice">
+          <div id="osPublishDraftWarn" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#FEF3C7;color:#92400E;font-size:12.5px;line-height:1.5"></div>
           <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
           <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
             <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#1A1A1A)">add_circle</span>신규 캠페인 발행</div>
