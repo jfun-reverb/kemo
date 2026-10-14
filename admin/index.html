@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1791961871';
+  var CURRENT_BUILD = 'v1791962055';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3361,7 +3361,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-14 16:11 · ed95ff4</span>
+          <span class="admin-build-text">2026-10-14 16:14 · 08d6282</span>
         </div>
       </div>
     </aside>
@@ -30616,8 +30616,8 @@ function _scheduleStatsFor(list) {
     var infs = {}, rcpt = {};
     ds.forEach(function(d){
       // 반려·취소된 신청의 결과물은 세지 않는다(전수조사 3차 ⑥-7 — 「13/12」). 조건은 isCertExcluded 와 글자 그대로 같다.
-      //   ⚠️ 운영현황 브랜드 상세 미니카드의 「제출」 막대는 서버 값(deliv_submitted_inf, 259)이라 **여전히 센다** —
-      //      두 화면 숫자가 다를 수 있다(2026-10-01 사용자 결정: 이 화면만 고친다).
+      //   브랜드 상세 미니카드의 「제출」(서버 deliv_submitted_inf)도 마이그레이션 529 부터 같은 기준(반려·취소 신청 +
+      //   임시저장 제외)이다. 임시저장은 이 조회(storage.js 의 _queryDeliverables)가 이미 뺀다.
       var st = d.applications && d.applications.status;
       if (st === 'rejected' || st === 'cancelled') return;
       if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
