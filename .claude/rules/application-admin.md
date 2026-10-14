@@ -25,5 +25,6 @@ paths:
   - ⚠️ **원래 취소 기록은 비우기 전에 `application_events.memo` 로 옮긴다** — 안 옮기면 **언제·왜 취소했는지가 안 남는다**
   - ⚠️ **보류된 정산은 자동으로 풀지 않는다**(보류 사유가 여럿 — 416 원칙). 건수만 돌려주고 화면이 「정산 화면에서 확인하세요」
   - ⚠️ **되돌린 것을 다시 취소로 만드는 버튼은 없다** — 확인 창이 사유를 강제하고 후속 처리를 안내한다. 종료·노출종료 캠페인에 심사중으로 되돌리면 **자동 낙첨(176)이 안 돌아** 심사중으로 남음을 알린다(막지는 않는다)
+  - 🔴 **함수 밖에서는 취소 상태를 못 벗어난다**(525 — 현재 원본 **525**, 베이스 440) — `applications` 트리거 `trg_guard_cancelled_application_status` 가 `cancelled` → 다른 상태를 거부(`cancelled_status_locked`). 통과는 ①이 함수가 세우는 `reverb.restore_cancelled`=행 id ②행사 예약 되살리기의 `reverb.event_ticket_bypass='on'` ③`auth.uid() IS NULL`(편집기·서비스 키). **취소된 신청을 되살리는 새 경로를 만들면 통과 표시를 세워야 한다** — 안 그러면 그 경로가 조용히 거부된다. 이 함수를 다시 정의할 땐 525 를 베이스로(표시 두 줄이 빠지면 되돌리기가 통째로 막힌다)
   - 사양서 `docs/specs/2026-09-15-restore-cancelled-application.md` · 작업표 `…-breakdown.md`
 - **캠페인 진행현황**(캠페인 → 신청자 보기): 요약 카드 3종(개요 / 모집·결과물 현황[진행바: 모집·제출·**인증 성공**(인증성공 인플/모집인원)] / 비용[**조건부** — `isCampaignAdminOrAbove()` + `source_application_id`]) + OT 발송 체크박스(gifting/visit 승인) + 결과물 상태 요약. 진입 ①캠페인 목록 `○/○명` ②운영현황 미니카드 「상세」(`openCampApplicants(id, null, 'brand-ops')`). `renderCampOpsSummary` 계열(admin-applications.js). ⚠️ 운영현황에서 들어오면 `allCampaigns` 가 비어 `fetchCampaigns()` 폴백 필요. 사양서 `docs/specs/2026-06-12-campaign-ops-detail.md`

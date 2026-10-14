@@ -359,6 +359,7 @@
 - 🔴 **시행일 판정식은 `_meta_pixel_policy_in_effect(date)` 한 곳**이고 저장 거부·앱용 조회·상태 배지가 그것을 부른다. 식 = `p_date IS NOT NULL AND p_date <= (now() AT TIME ZONE 'Asia/Tokyo')::date`. **다른 함수에 복사하지 말 것**
 - `get_meta_pixel_admin()` — 관리자 전원. 설정 + `status` + 최근 이력 50건. `update_meta_pixel_settings(text, boolean)` — 가드는 `is_campaign_admin()` 이 아니라 **`has_permission('ad_tracking.manage','write')`**. ⚠️ **「꺼짐 → 켜짐」 요청만** 시행 전이면 거부 — 아이디 저장·끄기는 항상 허용
 - `get_public_meta_pixel_id()` — 비로그인·로그인 모두. ①켜짐 ②아이디 있음 ③시행일 도래 ④관리자·감사용 아님(332 와 같은 판정) — 넷 다 참일 때만 아이디, 아니면 **빈 문자열**(NULL 아님 — 실패와 구분).
+- 🔴 **민감 주소 판정은 부팅 때 한 번뿐**(`metaPixelUrlHasSensitiveValue`) — 이미 켜진 탭에서 주소에 붙는 값은 못 막는다. 그래서 **초대 번호는 주소에 남기지 않는다** — 저장소(`reverb.inviteCtx`)가 기억하고 `captureInviteFromHash` 가 주소에서 걷어낸다(`stripInviteFromUrl`, 저장소를 못 쓰면 남김). 주소에 값을 싣는 새 링크를 만들면 같은 처리를. ⚠️ 초대 링크로 처음 들어온 방문은 픽셀이 꺼진 채 시작한다(의도). **iOS 앱(Capacitor 웹뷰)에서는 꺼짐**(앱 추적 투명성 동의 없음)
 - ⚠️ **실행 권한은 회수 방향이 둘**(369·370·375) — 앱용 조회만 `anon`·`authenticated`, 관리 함수 둘은 `authenticated`, 헬퍼·트리거 함수는 셋 다 회수
 - ⚠️ **관리자·권한·감사용 판정은 SQL 편집기로 재현 못 한다** — 실제 로그인 브라우저로 확인
 - 🔴 **배포는 데이터베이스 먼저, 코드 나중** — 반대면 없는 함수를 불러 오류가 쌓인다. ⚠️ 개발에서 앱 코드가 438 보다 먼저 나간 적이 있다. 439 는 438 뒤, **관리 화면과 같은 배포**에(화면은 못 읽으면 열고 서버는 거부 — 방향이 반대)

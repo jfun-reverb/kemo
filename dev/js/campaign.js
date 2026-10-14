@@ -544,8 +544,23 @@ function campaignIdFromHash(hash) {
 function captureInviteFromHash(hash) {
   const p = parseInviteFromHash(hash);
   if (!p) return String(hash || '').replace('detail-', '').split('?')[0];
-  if (p.inviteCode) rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+  if (p.inviteCode) {
+    rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+    stripInviteFromUrl(p.campaignId);
+  }
   return p.campaignId;
+}
+
+// 주소에서 초대 번호를 걷어낸다 — 기억이 저장소에 실제로 남았을 때만.
+//   🔴 주소에 번호가 남아 있으면 메타 픽셀이 이벤트마다 현재 주소를 함께 보내 번호가 메타로 간다
+//      (전수조사 3차 ⑦-1). 부팅 판정(metaPixelUrlHasSensitiveValue)은 **불러올 때 한 번**만 보므로,
+//      이미 켜진 탭에서 번호가 주소에 붙는 경로(번호 입력·링크 붙여넣기·가입 뒤 복귀)는 못 막는다.
+//   ⚠️ 저장소를 못 쓰는 브라우저면 걷어내지 않는다 — 그때는 주소가 새로고침 뒤 번호를 되살리는 유일한 자리다.
+function stripInviteFromUrl(campaignId) {
+  if (!campaignId || !getInviteCodeForCampaign(campaignId)) return;
+  const h = location.hash || '';
+  if (!h.startsWith('#detail-' + campaignId + '?')) return;
+  try { history.replaceState(history.state, '', `#detail-${campaignId}`); } catch (e) {}
 }
 
 // 확인된 초대 번호를 캠페인별로 기억한다.
@@ -595,10 +610,9 @@ function consumeInviteReturn() {
     localStorage.removeItem(INVITE_RETURN_KEY);
   } catch (e) { return false; }
   if (!campId) return false;
-  const code = getInviteCodeForCampaign(campId);
-  const suffix = code ? `?invite=${encodeURIComponent(code)}` : '';
-  // 해시를 초대 번호까지 붙여 되돌려 놓고 상세를 연다 — 새로고침해도 같은 자리로 온다.
-  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}${suffix}`); } catch (e) {}
+  // 해시를 상세로 되돌려 놓고 연다 — 새로고침해도 같은 자리로 온다.
+  //   ⚠️ 초대 번호는 주소에 붙이지 않는다(메타 픽셀로 샌다 — stripInviteFromUrl). 번호는 저장소에 있다.
+  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}`); } catch (e) {}
   if (typeof openCampaign === 'function') openCampaign(campId);
   return true;
 }
@@ -680,7 +694,9 @@ async function submitInviteCode(campaignId) {
     return;
   }
   rememberInviteCtx(campaignId, code);
-  // 주소에도 번호를 남겨 새로고침·뒤로가기에서 다시 묻지 않게 한다.
-  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}?invite=${encodeURIComponent(code)}`); } catch (e) {}
+  // 새로고침·뒤로가기에서 다시 묻지 않는 것은 저장소의 기억이 맡는다.
+  //   ⚠️ 주소에는 번호를 붙이지 않는다 — 메타 픽셀로 샌다(stripInviteFromUrl). 저장소를 못 쓰면 주소에 남긴다.
+  const _keepInUrl = !getInviteCodeForCampaign(campaignId);
+  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}${_keepInUrl ? `?invite=${encodeURIComponent(code)}` : ''}`); } catch (e) {}
   if (typeof openCampaign === 'function') openCampaign(campaignId);
 }
