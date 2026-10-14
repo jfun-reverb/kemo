@@ -13,6 +13,7 @@ paths:
   - "dev/build.sh"
   - "supabase/functions/password-range-lookup/**"
   - "supabase/migrations/417_*"
+  - "supabase/migrations/528_*"
   - "dev/lib/storage.js"
   - "supabase/functions/notify-admin-invite/**"
   - "supabase/functions/admin-password-reset-request/**"
@@ -34,7 +35,7 @@ paths:
 - **오픈 예정 기능 보드**(`/admin#upcoming`, 관리자 전원 읽기): 시행 예정 기능·D-day 카드(가까운 순). **DB 미사용** — `dev/lib/shared.js` 의 `UPCOMING_FEATURES` 상수(배포 시 1줄 등록). 시행 후 14일 뒤 숨김. 판정은 클라 `+09:00` 날짜 단위. ⚠️ **예고판일 뿐 기능 스위치 아님**(`effectiveDate`는 실제 시행일과 단일 소스). 렌더 `dev/js/admin-roadmap.js`, 헬퍼 `upcomingFeatureStatus`/`Dday`/`visibleUpcomingFeatures`. 사양서 `docs/specs/2026-06-15-admin-upcoming-features-board.md`
 - **관리자 공지사항**(`/admin#admin-notices`): 사이드바 최상단 + 미읽음 배지. 카테고리 4종(system_update/release/warning/general), 고정(push_pin), Quill. **draft/published 분리** — 신규·draft는 `[초안 저장][게시하기]`, published는 `[게시 유지하며 저장][초안으로 되돌리고 저장]`. 작성자/super 한정 `[지금 게시]`/`[게시 회수]`. 노출은 published 만. 초안은 `/공지초안-관리자`
 - **관리자 계정**: 3단계 권한(super_admin > campaign_admin > campaign_manager)
-  - **추가**: super_admin 이 이메일+이름+역할 입력 → `invite_admin()` RPC(현재 원본 **417**, 베이스 245 — 이메일 `lower(btrim())` 정규화) → Edge Function `notify-admin-invite` 가 **서버에서** 링크 발급(`auth.admin.generateLink`) + **한국어** 메일 Brevo 발송 → 자립형 `/admin-setpw.html` 에서 설정. 재발송은 「재발송」(super_admin, 서버도 가드) 또는 `mode=reset`. `storage.js` `sendAdminInviteMail(email, mode)`
+  - **추가**: super_admin 이 이메일+이름+역할 입력 → `invite_admin()` RPC(현재 원본 **528**, 245 → 417 → 528 — 417 이메일 `lower(btrim())` 정규화, 528 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 528 은 개발서버만, 운영 원본은 417. 🔴 417 을 베이스로 재정의하면 브랜드 계정 거부가 사라진다) → Edge Function `notify-admin-invite` 가 **서버에서** 링크 발급(`auth.admin.generateLink`) + **한국어** 메일 Brevo 발송 → 자립형 `/admin-setpw.html` 에서 설정. 재발송은 「재발송」(super_admin, 서버도 가드) 또는 `mode=reset`. `storage.js` `sendAdminInviteMail(email, mode)`
     - **발송 상태 표시**(마이그레이션 244): `invite_completed_at` 있으면 「설정 완료」 / `invite_mail_sent_at` 있으면 「발송 {날짜}」 / 없으면 「미발송」. 발송 기록은 Edge Function, 설정 완료는 자립형 페이지가 본인 행 UPDATE(`.is(null)` 최초 1회)
     - **기존 계정 승격 시 비밀번호 보존**(마이그레이션 245): 🔴 **기존 비밀번호를 덮어쓰지 않는다** — 덮어쓰면 인플루언서 로그인이 즉시 끊기고, 메일이 스팸함으로 가면 계정에서 잠긴다. `admins.promoted_at` 로 메일 문구가 갈린다(승격자=「권한이 추가되었습니다」 / 신규=「비밀번호를 설정해 주세요」)
     - ⚠️ 이메일로 `admins` 조회 시 **`ilike` + 와일드카드 이스케이프**(`escapeLikePattern`). `eq` 는 대소문자를 구분해 못 찾고, 이스케이프 없는 `ilike` 는 `_`·`%` 든 이메일이 다른 행에 매칭된다
