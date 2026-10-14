@@ -6064,17 +6064,21 @@ async function fetchOrientSheets() {
   if (!db) return [];
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
-      .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
+      .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, draft_saved_at, brands(name, name_ja)')
       .order('created_at', { ascending: false }).order('id'))
   );
 }
 
 // 상세: data 포함 단건
+// 🔴 select('*') 를 쓰지 않는다 — 브랜드가 제출 뒤 고친 작성본(draft_data, 523)은 관리자 화면에 내려보내지 않는다
+//    (사양서 2026-10-01-orient-sheet-post-submit-draft.md 결정 3 — 화면 기준이다. 관리자 조회 정책은 칸 단위로 막지 않으므로
+//    서버 차단은 아니다). 작성본은 「수정 중」 표시용 시각(draft_saved_at)만 받는다.
+//    orient_sheets 에 새 칸을 더해 상세에서 써야 하면 이 목록에 넣는다.
 async function fetchOrientSheetById(id) {
   if (!db) return null;
   return await retryWithRefresh(async () => {
     const { data, error } = await db.from('orient_sheets')
-      .select('*, brands(name, name_ja)')
+      .select('id, brand_id, application_id, orient_no, token, form_type, data, status, campaign_id, token_expires_at, submitted_at, last_submitted_at, last_notified_at, consumed_at, version, created_by, created_at, updated_at, mail_sent_at, mail_sent_to, draft_saved_at, brands(name, name_ja)')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
