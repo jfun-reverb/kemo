@@ -3233,7 +3233,8 @@ async function fetchCompanies({ status = 'active', search } = {}) {
 
 // 운영 현황 페인 — 브랜드 카드 그리드용 핵심 지표 집계
 // companyId 지정 시 해당 회사 소속 브랜드만, null 이면 전체 브랜드
-// 반환: 행 배열(19컬럼), 오류 시 [] 반환
+// 반환: 행 배열(19컬럼). 🔴 **오류면 `null`**(0건 `[]` 과 구분 — 실패를 「브랜드 없음」으로 그리지 않게,
+//   전수조사 3차 ⑥ 낮음). 호출처는 운영현황 진입(loadBrandOps) 한 곳.
 // 서버 집계 함수(데이터베이스에 미리 만든 명령 — get_brand_ops_overview)를 호출
 async function getBrandOpsOverview(companyId) {
   if (!db) return [];
@@ -3242,7 +3243,7 @@ async function getBrandOpsOverview(companyId) {
       p_company_id: companyId || null
     }).order('brand_id'));
     return data || [];
-  } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
+  } catch(e) { console.error('[getBrandOpsOverview]', e); return null; }
 }
 
 // 운영 현황 페인 — 브랜드 상세 페인용 신청·캠페인 통합 jsonb 반환
@@ -3414,25 +3415,19 @@ async function mergeBrands(sourceId, targetId) {
 }
 
 // 브랜드별 캠페인 수 일괄 집계 — 브랜드 목록 「캠페인 수」 컬럼용. {brand_id: count} 반환.
-// 1000행 캡 대응 range loop (대시보드 집계 패턴).
+// 🔴 **실패는 `null`, 0건은 `{}`** — 실패에 `{}` 를 돌려주면 모든 행이 「0」으로 그려져
+//    「캠페인이 없다」로 읽힌다(전수조사 3차 ⑥ 낮음). 반복 조회는 `fetchOrientSheetCountsByBrand` 와 같은 모양.
 async function fetchCampaignCountsByBrand() {
-  if (!db) return {};
+  if (!db) return null;
   try {
-    var counts = {};
-    var from = 0, size = 1000;
-    while (true) {
-      // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
-      //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
-      const {data, error} = await db?.from('campaigns').select('brand_id')
-        .is('deleted_at', null)
-        .not('brand_id', 'is', null).range(from, from + size - 1);
-      if (error) throw error;
-      (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
-      if (!data || data.length < size) break;
-      from += size;
-    }
+    // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
+    //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
+    const rows = await fetchAllPaged(() => db.from('campaigns').select('brand_id')
+      .is('deleted_at', null).not('brand_id', 'is', null).order('id'));
+    const counts = {};
+    (rows || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
     return counts;
-  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return {}; }
+  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return null; }
 }
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
@@ -6178,7 +6173,7 @@ async function fetchOrientSheetsByApplication(applicationId) {
 // data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
 //   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
 // 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
-//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문을 쓰지 않는다(fetchCampaignCountsByBrand 도 2026-10-14 이 방식으로 바꿨다).
 // 실패 null / 0건 [].
 async function fetchOrientSheetsByBrand(brandId) {
   if (!db || !brandId) return null;

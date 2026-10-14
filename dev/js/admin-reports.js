@@ -338,6 +338,14 @@ async function openReport(reportId) {
   const delivs = liveIds.length ? await fetchDeliverablesForReport(liveIds) : [];
   const uids = [...new Set((delivs || []).map(function(d){ return d.user_id; }).filter(Boolean))];
   const users = await fetchInfluencersForReport(uids);
+  // 🔴 회원 조회 실패(null)면 어느 줄이 감사용인지 알 수 없다 — 그대로 그리면 감사용 줄이 섞이고
+  //    「엑셀 내려받기」가 이 줄을 그대로 쓴다(전수조사 3차 ② 낮음). 0건({})과 갈라 화면을 막는다.
+  if (users === null && uids.length) {
+    pane.innerHTML = '<div style="padding:40px;text-align:center;color:var(--pink);font-size:13px">회원 정보를 불러오지 못해 감사용 계정을 거를 수 없습니다.<br>잠시 뒤 다시 시도해 주세요.<br>'
+      + '<button class="btn btn-ghost btn-xs" style="margin-top:12px" onclick="openReport(' + jsStr(reportId) + ')">다시 시도</button> '
+      + '<button class="btn btn-ghost btn-xs" style="margin-top:12px" onclick="loadReportsPane()">목록으로</button></div>';
+    return;
+  }
 
   // ⚠️ 감사용 계정은 만들 때 정한 대로 뺀다 — 그 선택을 저장해 둔 이유가 이것이다.
   let rows = buildReportRows(delivs, camps, users);
