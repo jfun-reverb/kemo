@@ -44,6 +44,7 @@ SYNC_GROUPS=(
   "notify-brand-daily-digest|brand-daily-digest.html,brand-daily-digest.section.html"
   "notify-admin-invite|admin-invite.html"
   "notify-brand-account-setup|brand-account-setup.html"
+  "notify-brand-invite|brand-invite-new.html,brand-invite-existing.html,brand-invite-blocked.html"
   "admin-password-reset-request|admin-password-reset.html"
   "brand-password-reset-request|brand-password-reset.html,brand-account-setup.html"
   "notify-withdrawal-scheduled|withdrawal-scheduled.html"
@@ -107,6 +108,7 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "notify-brand-daily-digest" ]] || \
      [[ "$fn_name" == "notify-admin-invite" ]] || \
      [[ "$fn_name" == "notify-brand-account-setup" ]] || \
+     [[ "$fn_name" == "notify-brand-invite" ]] || \
      [[ "$fn_name" == "admin-password-reset-request" ]] || \
      [[ "$fn_name" == "brand-password-reset-request" ]] || \
      [[ "$fn_name" == "notify-withdrawal-scheduled" ]] || \
