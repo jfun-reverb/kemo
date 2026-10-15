@@ -200,11 +200,12 @@ fi
 # ══════════════════════════════════════
 # 7. 브랜드 페이지 → ../brand/index.html (로그인 전 화면 — 사양서 docs/specs/2026-07-15-brand-portal.md §16)
 #    dev/brand/ 는 .vercelignore 의 `dev` 제외로 서버에 안 올라가 이 산출물이 필요하다.
-#    ⚠️ 목록(BRAND_*_FILES)과 아래 원본 태그를 지우는 정규식 **두 곳**을 함께 고칠 것(관리자 빌드와 같은 함정).
+#    새 파일은 목록(BRAND_*_FILES)만 고친다 — 아래 원본 태그 정규식은 ../css/·../lib/·../js/ 일반식이라 이름을 넣지 않는다
+#    (관리자 빌드와 다르다). 순서: brand-core → brand-login → brand-invite → brand-shell → 페이지 파일 → brand-app 맨 끝.
 #    storage.js·ui.js 는 싣지 않는다 — 자립형 화면(admin-setpw.html·event-scan.html·report.html 과 같은 줄).
 # ══════════════════════════════════════
 BRAND_CSS_FILES=("css/brand.css")
-BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-app.js")
+BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-invite.js" "js/brand-shell.js" "js/brand-members.js" "js/brand-mypage.js" "js/brand-app.js")
 if [ -f brand/index.html ]; then
   mkdir -p ../brand
   : > "$BUILD_TMP/brand.css"
