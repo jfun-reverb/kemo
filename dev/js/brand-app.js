@@ -2,7 +2,7 @@
 //   운영 주소(IS_STAGING=false — dev/lib/supabase.js 의 도메인 판정)에서는 「준비 중」 카드만 보이고
 //   연결을 만들지 않으며 다른 화면·미리보기 막대도 그리지 않는다(사용자 결정 P-1).
 
-const BRAND_EXPIRED_MSG = '로그인 시간이 지났습니다. 다시 로그인해 주세요.';
+const BRAND_EXPIRED_MSG = '로그인 시간이 지났습니다. 다시 로그인해 주십시오.';
 
 // 미리보기 막대에서 고른 값 — brand-login.js 가 읽는다(서버와 연결 안 된 화면 전용)
 const brandPreviewState = {
