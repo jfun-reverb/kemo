@@ -618,17 +618,90 @@ function toggleOptional() {
 // 비밀번호 정책 검증
 // 규칙: 8자 이상 + 영문 소문자 1개 이상 + 특수문자 1개 이상
 // 유효하면 null, 위반 시 현지화된 에러 메시지 반환
+// 비밀번호 규칙 판정 — 회원·관리자 공용(문구는 각 화면이 고른다).
+//   ⚠️ 같은 판정이 **두 곳**: 이 함수 + dev/admin-setpw.html 의 validateAdminPassword
+//      (자립형 화면이라 ui.js 를 안 싣는다). 규칙을 바꾸면 두 곳을 함께.
+function passwordPolicyIssue(pw) {
+  if (!pw || pw.length < 8) return 'short';
+  if (!/[a-z]/.test(pw)) return 'needLower';
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return 'needSpecial';
+  return null;
+}
+
+// 흔한(유출 목록에 있는) 비밀번호 판정 — 'common' | 'ok' | 'unknown'.
+//   사양서 docs/specs/2026-09-29-common-password-warning.md §3-2.
+//   SHA-1 을 브라우저에서 만들고 **앞 5글자만** 서버 함수 password-range-lookup 에 보낸다(대조는 여기서).
+//   ⚠️ 'unknown'(해시 계산·호출·응답 실패, 3초 초과)은 **통과로** 다룬다 — 이 검사가 가입·변경을 막으면 안 된다.
+//   ⚠️ 횟수 0 줄은 Add-Padding 가짜 줄이라 'common' 으로 치지 않는다.
+//   ⚠️ 같은 판정이 **두 곳**: 이 함수 + dev/admin-setpw.html 의 commonPasswordCheck(자립형이라 ui.js 를 안 싣는다).
+const COMMON_PW_TIMEOUT_MS = 3000;
+async function commonPasswordCheck(pw) {
+  try {
+    if (!pw || !(window.crypto && crypto.subtle)) return 'unknown';
+    const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(pw));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const prefix = hex.slice(0, 5), suffix = hex.slice(5);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), COMMON_PW_TIMEOUT_MS);
+    let res;
+    try {
+      const r = await fetch(SUPABASE_URL + '/functions/v1/password-range-lookup', {
+        method: 'POST', signal: ctrl.signal,
+        headers: {'content-type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY},
+        body: JSON.stringify({prefix})
+      });
+      res = await r.json();
+    } finally { clearTimeout(timer); }
+    if (!res || res.ok !== true || typeof res.lines !== 'string') return 'unknown';
+    for (const line of res.lines.split(/\r?\n/)) {
+      const [suf, cnt] = line.trim().split(':');
+      if (suf && suf.toUpperCase() === suffix) return Number(cnt) > 0 ? 'common' : 'ok';
+    }
+    return 'ok';
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
+// 회원 비밀번호 칸의 「흔한 비밀번호」 경고 줄 — 사양서 §3-3(회원은 경고만, 버튼을 막지 않는다).
+//   입력을 멈추고 0.6초 또는 칸을 떠날 때, **규칙(passwordPolicyIssue)을 통과한 값만** 판정한다.
+//   늦게 온 응답은 버린다(판정 중 값이 바뀌면 바뀐 값만 반영). 'ok'·'unknown' 이면 줄을 지운다.
+//   ⚠️ 경고를 보고 진행했는지는 **기록하지 않는다**(새 정보 수집이 된다).
+function bindCommonPasswordWarning(inputId, warnId) {
+  const input = document.getElementById(inputId);
+  const warn = document.getElementById(warnId);
+  if (!input || !warn || input.dataset.commonPwBound) return;
+  input.dataset.commonPwBound = '1';
+  let timer = null, seq = 0;
+  const hide = () => { warn.style.display = 'none'; };
+  const run = async () => {
+    clearTimeout(timer);
+    const v = input.value;
+    const my = ++seq;
+    if (!v || passwordPolicyIssue(v)) { hide(); return; }
+    const r = await commonPasswordCheck(v);
+    if (my !== seq || input.value !== v) return;   // 늦은 응답 버림
+    warn.style.display = (r === 'common') ? 'block' : 'none';
+  };
+  input.addEventListener('input', () => { clearTimeout(timer); seq++; hide(); timer = setTimeout(run, 600); });
+  input.addEventListener('blur', run);
+}
+
+function hideCommonPasswordWarning(warnId) {
+  const warn = document.getElementById(warnId);
+  if (warn) warn.style.display = 'none';
+}
+
 function validatePasswordPolicy(pw) {
   const fallback = {
     short: 'パスワードは8文字以上で入力してください。',
     needLower: 'パスワードに英小文字を1つ以上含めてください。',
     needSpecial: 'パスワードに記号（!@#$%^&*など）を1つ以上含めてください。'
   };
+  const keys = {short: 'auth.pwTooShort', needLower: 'auth.pwNeedLower', needSpecial: 'auth.pwNeedSpecial'};
   const T = (key, fb) => (typeof t === 'function') ? t(key, fb) : fb;
-  if (!pw || pw.length < 8) return T('auth.pwTooShort', fallback.short);
-  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower', fallback.needLower);
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial', fallback.needSpecial);
-  return null;
+  const issue = passwordPolicyIssue(pw);
+  return issue ? T(keys[issue], fallback[issue]) : null;
 }
 
 function togglePw(inputId, btn) {
@@ -653,6 +726,8 @@ async function lookupZipProfile() {
       if (pref) { const opts = Array.from(pref.options); const match = opts.find(o=>o.text===r.address1); if(match) pref.value=match.value||match.text; }
       const city = $('profileCity');
       if (city) city.value = (r.address2||'') + (r.address3||'');
+      // 코드로 채운 값은 입력 신호가 안 나므로 직접 알린다(마이페이지 저장 단추가 바뀐 값을 알아보게)
+      if (city) city.dispatchEvent(new Event('change', {bubbles: true}));
       toast('住所を自動入力しました', 'success');
     } else { toast('該当する住所が見つかりませんでした', 'error'); }
   // 외부 주소 검색 서비스(zipcloud) 장애는 우리 잘못이 아니지만, 「주소 입력이 안 된다」는
@@ -1162,4 +1237,29 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get rendered() { return state.cursor; },
     get total() { return state.rows.length; },
   };
+}
+
+// ── 회원 앱 상태 안내 셋(사양서 2026-09-29-member-app-style-unification §3-2) ──
+//   🔴 조회 실패(null) = stateErrorHtml, 0건([]) = stateEmptyHtml — 둘을 같은 모양으로 그리지 않는다.
+//   ⚠️ 클래스는 회원 전용 member-ui.css 에만 있다 — 관리자 코드에서 부르지 않는다(스타일 없이 그려진다).
+//   ⚠️ retryFnName 은 코드가 넣는 고정 함수 이름만(사용자 입력 금지). 이름 모양이 아니면 단추를 그리지 않는다.
+function stateEmptyHtml(icon, title, sub) {
+  return '<div class="state-empty" role="status">' +
+    (icon ? '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">' + esc(icon) + '</span>' : '') +
+    (title ? '<div class="state-title">' + esc(title) + '</div>' : '') +
+    (sub ? '<div class="state-sub">' + esc(sub) + '</div>' : '') +
+  '</div>';
+}
+function stateLoadingHtml(text) {
+  const label = text || t('common.loading');
+  return '<div class="state-loading" role="status" aria-live="polite">' +
+    '<span class="state-spin" aria-hidden="true"></span><span>' + esc(label) + '</span></div>';
+}
+function stateErrorHtml(text, retryFnName) {
+  const fn = (typeof retryFnName === 'string' && /^[A-Za-z_$][\w$]*$/.test(retryFnName)) ? retryFnName : '';
+  return '<div class="state-error" role="alert">' +
+    '<span class="material-icons-round notranslate state-icon" translate="no" aria-hidden="true">error_outline</span>' +
+    '<div class="state-text">' + esc(text || t('authError.genericError')) + '</div>' +
+    (fn ? '<button type="button" class="btn btn-ghost" onclick="' + fn + '()">' + esc(t('common.retry')) + '</button>' : '') +
+  '</div>';
 }

@@ -13,6 +13,14 @@ var clientErrorsLazy = null;
 const CLIENT_ERRORS_PAGE_SIZE = 50;
 var _clientErrorsCache = [];   // 현재 목록 (상세 모달이 id로 조회)
 var _currentClientErrorId = null;  // 상세 모달이 처리 중인 오류 id
+// 기간별 횟수·발생 환경 (get_client_error_counts, 마이그레이션 522)
+//   🔴 null = 조회 실패(또는 아직 안 함) / {introduced_on, rows} = 성공. 실패를 0 으로 그리지 않는다
+var _clientErrorCounts = null;
+var _clientErrCountMap = new Map();   // 오류 줄 id → {period_count, envs}
+var _clientErrPeriod = { all: true, from: '', to: '', label: '전체' };
+var _errRangeFp = null;               // 「직접 선택」 달력 (1회 mount)
+var _errRangeFrom = '', _errRangeTo = '';
+var _clientErrLoadSeq = 0;            // 늦게 도착한 옛 조회가 새 목록을 덮지 않게
 
 // 상태 한국어 라벨 + 색
 const CLIENT_ERR_STATUS = {
@@ -131,11 +139,114 @@ function _clientErrExpectedBadge(r) {
   return `<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px">정상 거부</span>`;
 }
 
-async function loadClientErrors() {
+// 'YYYY-MM-DD' 를 n 일 옮긴다 — 문자열 연산이라 이 PC 의 시간대와 무관하다
+function _errDateShift(ymd, n) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+function _errDateLabel(ymd) { return (ymd || '').replace(/-/g, '/'); }
+
+// 기간 필터 → {all, from, to, label}. 날짜는 모두 **일본 표준시 날짜**(사양서 경우의 수 ⑤).
+//   「직접 선택」: 두 날짜 = 그 기간 · 한 날짜 = 그 하루 · 비움 = 「전체」와 같음(사용자 결정 2026-10-13 — 달력 한 칸)
+function _clientErrPeriodFromFilter() {
+  const days = $('errFilterDays') ? $('errFilterDays').value : '';
+  const today = jstTodayStr();
+  if (days === '0') return { all: false, from: today, to: today, label: '오늘' };
+  if (days === '7' || days === '30') {
+    const n = parseInt(days, 10);
+    return { all: false, from: _errDateShift(today, -(n - 1)), to: today, label: `최근 ${n}일` };
+  }
+  if (days === 'custom' && _errRangeFrom) {
+    const from = _errRangeFrom, to = _errRangeTo || _errRangeFrom;
+    const label = from === to ? _errDateLabel(from) : `${_errDateLabel(from)}~${_errDateLabel(to)}`;
+    return { all: false, from, to, label };
+  }
+  return { all: true, from: '', to: '', label: '전체' };
+}
+
+// 「직접 선택」 달력 mount (1회) — 결과물 관리 「최근 제출일」과 같은 범위 방식.
+//   한 날짜만 고르고 달력을 닫으면 그 하루로 본다.
+function _setupErrRange() {
+  if (typeof flatpickr === 'undefined' || _errRangeFp) return;
+  const el = $('errFilterRange');
+  if (!el) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _errRangeFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    maxDate: jstTodayStr(),
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(sel) {
+      _errRangeFrom = fmt(sel[0]); _errRangeTo = fmt(sel[1]);
+      el.classList.toggle('filter-active', !!_errRangeFrom);
+      if (sel.length === 0 || sel.length === 2) loadClientErrors();
+    },
+    onClose: function(sel, _str, inst) {
+      if (sel.length !== 1) return;
+      _errRangeTo = _errRangeFrom;
+      // ⚠️ 범위 달력은 닫힐 때 반쯤 고른 날짜를 스스로 지운다(칸이 빈칸으로 보인다) —
+      //    그 뒤에 같은 날을 시작·끝으로 다시 채워, 고른 날이 칸에 남게 한다(이벤트 없이)
+      const day = sel[0];
+      setTimeout(() => { if (_errRangeFrom) inst.setDate([day, day], false); }, 0);
+      loadClientErrors();
+    }
+  });
+}
+
+// 「직접 선택」 날짜 칸 보이기/숨기기 — 다른 기간으로 바꾸면 고른 날짜를 지운다
+function _syncErrRangeVisibility() {
+  const custom = ($('errFilterDays') ? $('errFilterDays').value : '') === 'custom';
+  const grp = $('errRangeGroup'); if (grp) grp.style.display = custom ? '' : 'none';
+  if (custom) { _setupErrRange(); return; }
+  _errRangeFrom = ''; _errRangeTo = '';
+  if (_errRangeFp) _errRangeFp.clear(false);   // clear(false) — onChange 가 목록을 한 번 더 그리지 않게
+  const el = $('errFilterRange'); if (el) el.classList.remove('filter-active');
+}
+
+// 발생 환경 중 가장 많은 것 — {name, pct, sum} 또는 null(분포 없음)
+function _clientErrTopEnv(entry) {
+  if (!entry || !entry.envs) return null;
+  const list = Object.entries(entry.envs);
+  const sum = list.reduce((a, [, n]) => a + (Number(n) || 0), 0);
+  if (!sum) return null;
+  list.sort((a, b) => b[1] - a[1]);
+  return { name: list[0][0], pct: Math.round(list[0][1] / sum * 100), sum };
+}
+
+// 목록 한 줄 — 횟수·환경 줄은 마지막 조회(_clientErrPeriod·_clientErrorCounts) 기준
+function _clientErrRowHtml(r) {
+  const period = _clientErrPeriod;
+  const counts = _clientErrorCounts;
+  const kindKo = CLIENT_ERR_KIND_KO[r.kind] || r.kind || '';
+  const srcKo = CLIENT_ERR_SOURCE_KO[r.source] || r.source || '';
+  const msgShort = (r.message || '').length > 90 ? (r.message || '').slice(0, 90) + '…' : (r.message || '');
+  // 한글 풀이가 있으면 그것을 **앞줄**로 올리고 영문 원문은 아래 작은 글씨로 남긴다.
+  //   풀이가 없으면 종전대로 원문이 앞줄이다(빈 줄을 만들지 않는다).
+  const koMsg = clientErrorKo(r.message);
+  const entry = _clientErrCountMap.get(r.id);
+  const n = period.all ? (r.occurrence_count || 1) : (entry?.period_count || 0);
+  const top = counts ? _clientErrTopEnv(entry) : null;
+  const envLine = top ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(top.name)} ${top.pct}%${period.all ? ' · 도입 이후 기준' : ''}</div>` : '';
+  return `<tr data-id="${esc(r.id)}">
+    <td>${_clientErrStatusBadge(r.status)}</td>
+    <td style="max-width:380px">
+      <div style="font-size:13px;color:var(--ink);${koMsg ? 'font-weight:600;' : ''}word-break:break-word;cursor:pointer" onclick="openClientErrorDetail('${esc(r.id)}')">${esc(koMsg || msgShort) || '—'}${_clientErrExpectedBadge(r)}</div>
+      ${koMsg ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-word">${esc(msgShort)}</div>` : ''}
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${r.context ? '<b>' + esc(r.context) + '</b> · ' : ''}${esc(kindKo)} · ${esc(srcKo)}${r.page_hash ? ' · ' + esc(r.page_hash) : ''}</div>
+      ${envLine}
+    </td>
+    <td style="font-size:11px;color:var(--muted)">${r.error_code ? esc(r.error_code) : '—'}</td>
+    <td style="text-align:center;font-weight:700;color:${n > 10 ? 'var(--red)' : 'var(--ink)'}">${n}</td>
+    <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDateTime(r.last_seen_at)}</td>
+    <td><button class="btn btn-ghost btn-xs" onclick="openClientErrorDetail('${esc(r.id)}')">상세</button></td>
+  </tr>`;
+}
+
+// 목록 조회 조건(상태·앱·종류) — 기간은 여기 없다(날짜별 횟수가 고른다)
+function _clientErrTableFilters() {
   const status = $('errFilterStatus') ? $('errFilterStatus').value : 'open';
   const source = $('errFilterSource') ? $('errFilterSource').value : '';
-  const days   = $('errFilterDays') ? $('errFilterDays').value : '';
-  const searchQ = ($('errSearch') ? $('errSearch').value : '').trim().toLowerCase();
 
   // 「종류」 필터 — 기본은 「예상 못 한 오류만」(빈 값 = 전체). 정상 거부가 목록을 채우면
   //   진짜 결함이 묻히므로, 처음 화면은 결함만 보이게 둔다.
@@ -146,47 +257,67 @@ async function loadClientErrors() {
   if (source) filters.source = source;
   if (expected === 'real')     filters.expected = false;
   else if (expected === 'expected') filters.expected = true;
-  if (days) {
-    const d = new Date();
-    d.setDate(d.getDate() - parseInt(days, 10));
-    filters.since = d.toISOString();
-  }
 
-  let rows = await fetchClientErrors(filters);
-  _clientErrorsCache = rows;
+  return filters;
+}
+
+function _renderClientErrCountsFailed(body, countEl) {
+  if (clientErrorsLazy) { clientErrorsLazy.destroy(); clientErrorsLazy = null; }
+  if (countEl) countEl.textContent = '';
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:32px">기간별 횟수를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</td></tr>';
+}
+
+// 도입일 안내 — 고른 기간 시작이 도입일과 같거나 이르면(「전체」·조회 실패 때는 안 띄운다)
+function _showClientErrPeriodNotice(notice, period, counts) {
+  if (!notice) return;
+  notice.style.display = 'none';
+  if (period.all || !counts?.introduced_on || period.from > counts.introduced_on) return;
+  notice.textContent = `${_errDateLabel(counts.introduced_on)}(도입일) 이전과 그날 일부 횟수는 날짜가 기록되지 않아 이 기간 횟수에 들어가지 않습니다.`;
+  notice.style.display = '';
+}
+
+async function loadClientErrors() {
+  const seq = ++_clientErrLoadSeq;
+  _syncErrRangeVisibility();
+  const filters = _clientErrTableFilters();
+  const searchQ = ($('errSearch') ? $('errSearch').value : '').trim().toLowerCase();
+
+  // 기간은 줄의 「최근 발생」이 아니라 **날짜별 횟수**로 고른다(사양서 설계 ③).
+  //   「전체」도 조회한다 — 목록의 환경 줄·상세의 분포에 쓴다.
+  const period = _clientErrPeriodFromFilter();
+  const [allRows, counts] = await Promise.all([
+    fetchClientErrors(filters),
+    fetchClientErrorCounts(period.all ? null : period.from, period.all ? null : period.to),
+  ]);
+  if (seq !== _clientErrLoadSeq) return;
+  _clientErrPeriod = period;
+  _clientErrorCounts = counts;
+  _clientErrCountMap = new Map((counts?.rows || []).map(x => [x.id, x]));
+  _clientErrorsCache = allRows;
+
+  const header = $('errCountHeader');
+  if (header) header.textContent = `횟수(${period.label})`;
+  const countEl = $('errTotalCount');
+  const body = $('errTableBody');
+  const notice = $('errPeriodNotice');
+  if (notice) notice.style.display = 'none';   // 조회 실패 갈래에서도 지난 안내가 남지 않게
+
+  updateClientErrorBadge();
+  if (!body) return;
+
+  // 「전체」가 아닌 기간인데 횟수 조회가 실패하면 고를 줄을 정할 수 없다 — 0 대신 실패 안내
+  if (!period.all && !counts) { _renderClientErrCountsFailed(body, countEl); return; }
+
+  let rows = period.all ? allRows : allRows.filter(r => _clientErrCountMap.has(r.id));
   if (searchQ) {
     // ⚠️ 한글 풀이도 검색 대상에 넣는다 — 화면에 보이는 말로 못 찾으면 풀이를 붙인 뜻이 없다.
     rows = rows.filter(r => matchSearchTokens(searchQ, [r.message, clientErrorKo(r.message), r.error_code, r.page_hash, r.context]));
   }
-
-  const countEl = $('errTotalCount');
   if (countEl) countEl.textContent = `총 ${rows.length}건`;
 
-  updateClientErrorBadge();
+  _showClientErrPeriodNotice(notice, period, counts);
 
-  const body = $('errTableBody');
-  if (!body) return;
-
-  const renderRow = (r) => {
-    const kindKo = CLIENT_ERR_KIND_KO[r.kind] || r.kind || '';
-    const srcKo = CLIENT_ERR_SOURCE_KO[r.source] || r.source || '';
-    const msgShort = (r.message || '').length > 90 ? (r.message || '').slice(0, 90) + '…' : (r.message || '');
-    // 한글 풀이가 있으면 그것을 **앞줄**로 올리고 영문 원문은 아래 작은 글씨로 남긴다.
-    //   풀이가 없으면 종전대로 원문이 앞줄이다(빈 줄을 만들지 않는다).
-    const koMsg = clientErrorKo(r.message);
-    return `<tr data-id="${esc(r.id)}">
-      <td>${_clientErrStatusBadge(r.status)}</td>
-      <td style="max-width:380px">
-        <div style="font-size:13px;color:var(--ink);${koMsg ? 'font-weight:600;' : ''}word-break:break-word;cursor:pointer" onclick="openClientErrorDetail('${esc(r.id)}')">${esc(koMsg || msgShort) || '—'}${_clientErrExpectedBadge(r)}</div>
-        ${koMsg ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-word">${esc(msgShort)}</div>` : ''}
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${r.context ? '<b>' + esc(r.context) + '</b> · ' : ''}${esc(kindKo)} · ${esc(srcKo)}${r.page_hash ? ' · ' + esc(r.page_hash) : ''}</div>
-      </td>
-      <td style="font-size:11px;color:var(--muted)">${r.error_code ? esc(r.error_code) : '—'}</td>
-      <td style="text-align:center;font-weight:700;color:${r.occurrence_count > 10 ? 'var(--red)' : 'var(--ink)'}">${r.occurrence_count || 1}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDateTime(r.last_seen_at)}</td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openClientErrorDetail('${esc(r.id)}')">상세</button></td>
-    </tr>`;
-  };
+  const renderRow = (r) => _clientErrRowHtml(r);
 
   if (clientErrorsLazy) clientErrorsLazy.destroy();
   clientErrorsLazy = mountLazyList({
@@ -195,7 +326,7 @@ async function loadClientErrors() {
     rows,
     renderRow,
     pageSize: CLIENT_ERRORS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">최근 보고된 오류가 없습니다</td></tr>',
+    emptyHtml: `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">${period.all ? '보고된 오류가 없습니다' : '이 기간에 보고된 오류가 없습니다'}</td></tr>`,
   });
 }
 
@@ -213,12 +344,40 @@ function openErrorsOpen() {
   const st = document.getElementById('errFilterStatus'); if (st) st.value = 'open';
   const src = document.getElementById('errFilterSource'); if (src) src.value = '';
   const dys = document.getElementById('errFilterDays'); if (dys) dys.value = '';
+  // 기간을 「전체」로 되돌리면 「직접 선택」 날짜 칸도 다음 그리기에서 비워지고 숨겨진다(_syncErrRangeVisibility)
   // 배지 숫자는 「예상 못 한 오류」만 센다 — 눌러서 열리는 목록도 같은 기준이어야
   // 「배지 3인데 목록은 12건」 같은 어긋남이 안 생긴다.
   const exp = document.getElementById('errFilterExpected'); if (exp) exp.value = 'real';
   const sch = document.getElementById('errSearch'); if (sch) sch.value = '';
   if (typeof navAdminPaneReload === 'function') navAdminPaneReload('errors');
   else loadClientErrors();
+}
+
+// 상세 모달 「발생 환경」 — 고른 기간 기준. 비율 분모는 늘 날짜별 합(도입 이후 횟수).
+//   🔴 조회 실패면 「—」(0 이 아니다). 성공인데 그 줄이 결과에 없으면 날짜별 합 0 — 분포 없음.
+function _clientErrEnvHtml(r) {
+  const p = _clientErrPeriod;
+  const row = (inner) => `<div class="admin-detail-row"><div class="admin-detail-label">발생 환경<br><span style="font-weight:400">(${esc(p.label)})</span></div><div>${inner}</div></div>`;
+  if (!_clientErrorCounts) return row('<span style="color:var(--muted)">—</span>');
+  const entry = _clientErrCountMap.get(r.id);
+  const list = Object.entries(entry?.envs || {}).map(([k, v]) => [k, Number(v) || 0]).filter(([, v]) => v > 0);
+  list.sort((a, b) => b[1] - a[1]);
+  const sum = list.reduce((a, [, v]) => a + v, 0);
+  const before = p.all ? Math.max(0, (r.occurrence_count || 0) - sum) : 0;
+  const lines = list.map(([k, v]) => `<tr><td style="padding:2px 12px 2px 0">${esc(k)}</td><td style="padding:2px 8px;text-align:right">${v}회</td><td style="padding:2px 0;text-align:right;color:var(--muted)">${Math.round(v / sum * 100)}%</td></tr>`).join('');
+  const table = sum ? `<table style="font-size:12px;border-collapse:collapse">${lines}</table>${p.all ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">비율은 도입 이후 기준</div>' : ''}` : '<span style="color:var(--muted)">날짜·환경 기록 없음</span>';
+  const beforeLine = before > 0 ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">도입 이전(날짜·환경 없음) ${before}회</div>` : '';
+  return row(`${table}${beforeLine}<div style="font-size:11px;color:var(--muted);margin-top:4px">OS·브라우저 분류는 브라우저가 보낸 문자열로 짐작한 대략값입니다.</div>`);
+}
+
+// 상세 모달 「최근 브라우저」 — 가장 최근 발생 때 받은 값과 받은 시각(identity_at, 「그 무렵 이후」 뜻).
+//   브라우저 문자열이 비면 원인을 단정하지 않는다(보관 기간 파기·탈퇴·빈 값 수집 — 화면은 구분 못 한다).
+//   받은 시각은 쌍(브라우저·회원 아이디)이 **둘 다** 빌 때만 숨긴다.
+function _clientErrBrowserHtml(r) {
+  const ua = r.user_agent ? `<div style="font-size:11px;color:var(--muted);word-break:break-all">${esc(r.user_agent)}</div>` : '<div style="font-size:12px;color:var(--muted)">브라우저 정보 없음</div>';
+  const pairEmpty = !r.user_agent && !r.user_id;
+  const at = (!pairEmpty && r.identity_at) ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${formatDateTime(r.identity_at)} 무렵 이후에 받은 값</div>` : '';
+  return `<div class="admin-detail-row"><div class="admin-detail-label">최근 브라우저</div><div>${ua}${at}</div></div>`;
 }
 
 // 상세 모달
@@ -243,7 +402,8 @@ function openClientErrorDetail(id) {
       ${r.context ? `<div class="admin-detail-row"><div class="admin-detail-label">맥락</div><div>${esc(r.context)}</div></div>` : ''}
       <div class="admin-detail-row"><div class="admin-detail-label">최초 발생</div><div>${formatDateTime(r.first_seen_at)}</div></div>
       <div class="admin-detail-row"><div class="admin-detail-label">최근 발생</div><div>${formatDateTime(r.last_seen_at)}</div></div>
-      ${r.user_agent ? `<div class="admin-detail-row"><div class="admin-detail-label">브라우저</div><div style="font-size:11px;color:var(--muted);word-break:break-all">${esc(r.user_agent)}</div></div>` : ''}
+      ${_clientErrEnvHtml(r)}
+      ${_clientErrBrowserHtml(r)}
       ${r.stack ? `<div class="admin-detail-row"><div class="admin-detail-label">스택</div><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;color:var(--muted);background:var(--surface-dim);padding:8px;border-radius:6px;max-height:240px;overflow:auto;margin:0">${esc(r.stack)}</pre></div>` : ''}
       ${r.resolved_by ? `<div class="admin-detail-row"><div class="admin-detail-label">처리</div><div style="font-size:12px;color:var(--muted)">${formatDateTime(r.resolved_at)}${r.resolve_note ? ' · ' + esc(r.resolve_note) : ''}</div></div>` : ''}
       <div style="margin-top:8px">

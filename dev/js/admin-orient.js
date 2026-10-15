@@ -116,6 +116,15 @@ function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja |
 function osBadge(st) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg}">${st.label}</span>`;
 }
+// 브랜드가 제출 뒤 고쳐 두고 다시 제출하지 않았나(523·524). 작성본 내용은 관리자에게 안 온다 — 시각만 본다.
+//   🔴 제출됨일 때만 — 새 구조 시트를 고치던 중 발행되면 작성본이 남지만 그 시트에는 표시하지 않는다(사양서 경우의 수 3).
+function osHasUnsubmittedDraft(s) { return !!(s && s.status === 'submitted' && s.draft_saved_at); }
+const OS_DRAFT_TIP = '보이는 내용은 마지막 제출본입니다. 브랜드가 다시 제출하면 바뀝니다.';
+// 목록·상세 공용 표시 — 해당 없으면 빈 문자열
+function osDraftPendingHtml(s) {
+  if (!osHasUnsubmittedDraft(s)) return '';
+  return `<span title="${esc(OS_DRAFT_TIP)}" style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;white-space:nowrap">브랜드 수정 중 · 미제출 ${esc(formatDateTime(s.draft_saved_at))}</span>`;
+}
 function osChLabel(c) { return OS_CH_LABEL[c] || (c || '채널'); }
 // 시딩 통합 소구 키워드 — 신규는 seeding.appeal, 없고 옛 seeding.guides 있으면 개행으로 합쳐 하위호환
 function osSeedingAppeal(sd) {
@@ -264,7 +273,7 @@ function osRowHtml(s) {
     <td style="font-weight:700;color:var(--ink);white-space:nowrap">${s.orient_no ? esc(s.orient_no) : '-'}</td>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
     <td>${osCardsSummary(s.data)}</td>
-    <td>${osBadge(osStatusOf(s))}</td>
+    <td>${osBadge(osStatusOf(s))}${osDraftPendingHtml(s)}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
     <td style="white-space:nowrap">${osExpireCell(s)}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
@@ -387,7 +396,16 @@ async function osOpenCreate(opts) {
   const chSel = document.getElementById('osCreateChannel');
   chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
   chSel.value = '';
-  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) fee.value = ''; }   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+  { const fee = document.getElementById('osCreateRecruitFee'); if (fee) {
+      fee.value = '';   // 지난 발급의 금액이 다음 발급에 남으면 안 된다
+      // [490] 모집비 직접 지정은 캠페인 관리자 이상만(사용자 결정 2026-10-01 — 기준값 수정 권한과 맞춤).
+      //   서버(create_orient_sheet)가 최종 방어선이고, 여기서는 칸을 잠가 누르기 전에 알린다. 진입점이 셋이라 열 때마다 정한다
+      const canFee = typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove();
+      fee.disabled = !canFee;
+      fee.placeholder = canFee ? '비움 = 기준값' : '캠페인 관리자 이상만';
+      const lock = document.getElementById('osCreateRecruitFeeLock');
+      if (lock) lock.style.display = canFee ? 'none' : '';
+    } }
   osOnFormTypeChange();
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
@@ -571,7 +589,7 @@ async function osSubmitCreate() {
     // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동)
     if (!appId) { osLoadRecipients(brandId); }
     else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
-    await refreshPane('orient-sheets');
+    await osRefreshAfterSheetChange();
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -589,6 +607,7 @@ function osReasonText(r) {
     channel_required: '시딩은 게시 채널을 골라야 합니다',
     invalid_channel: '고를 수 없는 채널입니다',
     invalid_recruit_fee: '모집비는 0 이상이어야 합니다',
+    recruit_fee_forbidden: '모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 칸을 비우고 발급해 주세요',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -832,7 +851,7 @@ async function osExecuteDelete() {
       osCloseModal('orientDeleteModal');
       const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
       toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
-      await refreshPane('orient-sheets');
+      await osRefreshAfterSheetChange();
     } else if (res && res.reason === 'blocked_has_applications') {
       const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
       err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
@@ -1009,8 +1028,10 @@ function osDetailHtml(s, catMap, readonly) {
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
   </div>` : '';
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
-  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
-    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span></div>`;
+  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}${osDraftPendingHtml(s)}`
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${(cards.length && !osNewSheetNotStarted(s)) ? cards.length + '개 모집 건' : ''}</span>`
+    + (osHasUnsubmittedDraft(s) ? `<div style="margin-top:6px;font-size:12px;color:#B45309">${esc(OS_DRAFT_TIP)}</div>` : '')
+    + `</div>`;
   const brandCard = osBrandCard(d.brand, osBrandName(s));
   // [2단계] 예상 견적 카드 — data.quote / quote_error 세트(마이그레이션 427)로 판별. 옛 시트는 둘 다 없어 안 그린다.
   const quoteCard = osQuoteCard(s, readonly);
@@ -1207,7 +1228,7 @@ function osQuotePayload(s, historyIndex) {
       issued: { form_type: (d.issued && d.issued.form_type) || q.form_type || '', channel: (d.issued && d.issued.channel) || q.channel || '' },
     },
     // 지난 판은 무엇이 그때 값이고 무엇이 지금 값인지 밝힌다 — 뭉뚱그리면 브랜드에게 보내도 되는지 판단을 못 한다
-    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·판매 URL·수신처는 지금 저장된 값입니다.` : '',
+    note: isPast ? `${q.revision || '?'}차 견적(지난 판)입니다. 금액은 그때 계산한 값 그대로이고, 제품명·Qoo10 상품 주소·수신처는 지금 저장된 값입니다.` : '',
   };
 }
 let _osQuoteDoc = null;   // 열려 있는 견적서 창의 상태 { payload, origin, onMsg, timer }
@@ -1306,12 +1327,17 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
 
   // 새 구조 시트에는 모집 마감·업로드 기간이 없다 — 마감이 없으면 「?」 대신 시작일만 보인다
   // 모집 구간 — 시딩·리뷰어 공통(새 구조만 값이 있다). 이름은 osTierName 이 고르고 osField 가 esc 한다(관리자 입력값)
-  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, p.slots_tier))
+  // ⚠️ 폼이 구간 기준을 못 받아 인원만 직접 넣고 제출하면 slots_tier 가 없다(전수조사 3차 ①-2 이후 제출 가능) —
+  //   그때는 새 구조(카드 1개) 시트에 한해 서버가 인원으로 판정한 견적의 구간(quote.tier)을 대신 보인다
+  const sheetData = (sheet && sheet.data) || {};
+  const tierKey = p.slots_tier
+    || (sheetData.issued && sheetData.quote && typeof sheetData.quote.tier === 'string' ? sheetData.quote.tier : '');
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots) + osField('모집 구간', osTierName(sheet, tierKey))
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
-    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
+    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('Qoo10 상품 주소', osLinkOrText(sale.url), true)
       + osField('판매가', sale.price_regular);
   }
   if (ft === 'reviewer' && sale.shipping_fee) inner += osField('배송비', sale.shipping_fee);   // 배송비(선택, 2026-09-10) — 비었으면 줄을 안 만든다(옛 시트는 키가 없다)
@@ -1732,6 +1758,14 @@ function osPublishCard(cardIdx) {
   const listView = document.getElementById('osLinkListView');
   if (choice) choice.style.display = '';
   if (listView) listView.style.display = 'none';
+  // 브랜드가 고쳐 두고 다시 제출하지 않았으면 경고만(막지 않는다) — 자동 채움은 제출본으로 된다
+  const draftWarn = document.getElementById('osPublishDraftWarn');
+  if (draftWarn) {
+    draftWarn.style.display = osHasUnsubmittedDraft(s) ? '' : 'none';
+    draftWarn.textContent = osHasUnsubmittedDraft(s)
+      ? `브랜드가 ${formatDateTime(s.draft_saved_at)}에 고친 내용을 아직 다시 제출하지 않았습니다. 발행은 마지막 제출본으로 됩니다.`
+      : '';
+  }
   document.getElementById('orientPublishModal').classList.add('open');
 }
 
@@ -1886,7 +1920,7 @@ async function osConfirmLink(campaignId) {
   toast('연결(발행)되었습니다.');
   osCloseModal('orientPublishModal');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
 }
 
 // 발행 카드의 연결 캠페인 번호 클릭 → 그 캠페인 진행현황(신청자·요약)으로 이동. 오리엔 상세 모달은 닫는다.
@@ -1918,7 +1952,14 @@ async function osUnlinkCard(cardIdx) {
   }
   toast('연결을 해제했습니다.');
   osCloseModal('orientDetailModal');
-  await refreshPane('orient-sheets');
+  await osRefreshAfterSheetChange();
+}
+
+// 오리엔시트를 바꾼 뒤(발급·삭제·연결·해제) — 목록뿐 아니라 **그 시트를 보여 주는 브랜드 화면 둘**도 갱신한다
+//   (전수조사 3차 ⑥-2·⑥-3). 그 둘은 숨어 있으면 다시 받지 않고 「돌아올 때 다시 그리기」 표시만 남긴다(shared.js).
+//   동시에 돌린다 — 차례로 기다리면 전체 시트 목록을 다 받은 뒤에야 다음이 시작된다.
+async function osRefreshAfterSheetChange() {
+  await Promise.all([refreshPane('orient-sheets'), refreshPane('brand-detail'), refreshPane('brand-ops-detail')]);
 }
 
 // 연결/해제 실패 reason → 사용자 안내 문구
@@ -2273,6 +2314,7 @@ function ensureOrientModals() {
             <div style="display:flex;align-items:center;gap:8px">
               <input type="text" inputmode="numeric" id="osCreateRecruitFee" class="form-input" style="max-width:160px" placeholder="비움 = 기준값" autocomplete="off">
               <span style="font-size:13px;color:var(--muted)">원 / 1건</span></div>
+            <div id="osCreateRecruitFeeLock" style="display:none;font-size:11px;color:var(--muted);margin-top:4px">모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 비워 두면 기준값으로 발급됩니다.</div>
             <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">비우면 기준값의 구간 단가를 씁니다. 시딩이면 진행비를 대신합니다. 0 을 넣으면 무료로 계산됩니다.<br>발급 뒤에는 바꿀 수 없습니다 — 잘못 넣었으면 시트를 지우고 다시 발급하세요.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
             링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
@@ -2344,6 +2386,7 @@ function ensureOrientModals() {
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientPublishModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osPublishChoice">
+          <div id="osPublishDraftWarn" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#FEF3C7;color:#92400E;font-size:12.5px;line-height:1.5"></div>
           <p style="margin:0 0 14px;font-size:13px;color:var(--muted)">이 카드를 어떻게 발행할까요?</p>
           <button type="button" onclick="osChooseNewPublish()" style="display:block;width:100%;text-align:left;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;margin-bottom:10px">
             <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--pink,#1A1A1A)">add_circle</span>신규 캠페인 발행</div>

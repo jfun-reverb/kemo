@@ -46,7 +46,63 @@ const roleBlock = sessionRole ? [
   '',
 ] : [];
 
+// 항상 읽히는 지시 문서 합계 — 사양서 docs/specs/2026-09-30-instruction-load-budget.md 조각 E.
+// Claude Code 는 합계가 150k 를 넘을 때만 경고하므로, 넘기 전 추세를 보이게 한다. 경고만, 차단 없음.
+// 세는 법은 사양서 「재는 법」과 같다: paths: 머리말이 있는 규칙은 빼고, 문자(코드 포인트) 단위.
+// HTML 주석(<!-- -->)은 뺀다 — Claude 에게 주입되기 전에 지워져 실제 비용이 0 이다(조각 G 실측). 코드 블록 안 주석은 남는다.
+const INSTRUCTION_TARGET_CHARS = 150000; // 2026-09-30 사용자 결정(목표 15만 자)
+
+function instructionTotalLine() {
+  try {
+    const os = require('os');
+    const projectDir = process.env.CLAUDE_PROJECT_DIR || cwd;
+    const home = path.join(os.homedir(), '.claude');
+    const listMd = (dir) => {
+      try {
+        return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => path.join(dir, f));
+      } catch {
+        return [];
+      }
+    };
+    const files = [
+      path.join(home, 'CLAUDE.md'),
+      ...listMd(path.join(home, 'rules')),
+      path.join(projectDir, 'CLAUDE.md'),
+      ...listMd(path.join(projectDir, '.claude', 'rules')),
+    ];
+    let total = 0;
+    let count = 0;
+    let commentChars = 0;
+    // 코드 블록(```)·인라인 코드(`…`) 밖의 주석만 지운다 — 그 안의 주석 표기는 그대로 주입된다.
+    const stripComments = (t) =>
+      t.split(/(```[\s\S]*?```|`[^`\n]*`)/).map((part, i) => (i % 2 ? part : part.replace(/<!--[\s\S]*?-->/g, ''))).join('');
+    for (const f of files) {
+      let text;
+      try {
+        text = fs.readFileSync(f, 'utf8');
+      } catch {
+        continue;
+      }
+      // 닫는 --- 가 있어야 머리말로 본다(첫 줄이 가로줄인 문서를 잘못 제외하지 않게). BOM·CRLF 허용.
+      const m = text.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/);
+      const fm = m ? m[1] : '';
+      if (/^paths:/m.test(fm)) continue;
+      const kept = [...stripComments(text)].length;
+      commentChars += [...text].length - kept;
+      total += kept;
+      count += 1;
+    }
+    const over = total > INSTRUCTION_TARGET_CHARS;
+    // 프로젝트 CLAUDE.md 를 못 찾으면 합계가 조용히 작아진다 — 눈에 보이게 적는다.
+    const missing = fs.existsSync(path.join(projectDir, 'CLAUDE.md')) ? '' : ` (⚠️ 프로젝트 CLAUDE.md 못 찾음: ${projectDir})`;
+    return `${over ? '⚠️' : '📏'} [지시 문서 합계] ${count}개 ${total.toLocaleString('en-US')}자 / 목표 ${INSTRUCTION_TARGET_CHARS.toLocaleString('en-US')}자${commentChars ? ` (주석 ${commentChars.toLocaleString('en-US')}자 제외)` : ''}${over ? ' — 초과. 새 영역 상세는 paths: 규칙으로(docs-tracking.md)' : ''}${missing}`;
+  } catch {
+    return '📏 [지시 문서 합계] 측정 실패';
+  }
+}
+
 const checklist = [
+  instructionTotalLine(),
   ...roleBlock,
   '',
   '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -80,7 +136,7 @@ const checklist = [
   '   □ 자릿수 표시 NNNN/### → "4자리 숫자" / "3자리 숫자"',
   '   □ 서브 에이전트 답변 약어도 메인 Claude가 한글로 재가공 후 전달',
   '   □ AskUserQuestion 옵션 label·description 모두 한글 풀이',
-  '   (.claude/rules/interaction.md "약어·전문용어 자제" 섹션 참조)',
+  '   (전역 ~/.claude/CLAUDE.md "약어·전문용어 자제" 섹션 참조)',
   '',
   '🔔 commit-guard hook이 git commit 직전 누락 감지 시 경고 출력',
   '   (2026-05-18 차단 모드 전환 검토 예정)',

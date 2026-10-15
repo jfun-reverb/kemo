@@ -194,7 +194,11 @@ function chanCell(url, kind, who) {
   if (!url) return '';
   const list = String(url).split(/\r?\n/).map(u => u.trim()).filter(Boolean);
   const tag = kind === 'photo' ? '<span class="tag">사진</span>' : (kind === 'post' ? '<span class="tag">게시물</span>' : '');
-  if (kind === 'post') return `<a href="${esc(list[0])}" target="_blank" rel="noopener">열기 ↗</a>${tag}`;
+  if (kind === 'post') {
+    // 🔴 http(s) 가 아니면 링크로 만들지 않는다 — reportIsLinkable(report-rows.js)
+    if (!reportIsLinkable(list[0])) return `<span style="color:var(--muted)">${esc(list[0])}</span>${tag}`;
+    return `<a href="${esc(list[0])}" target="_blank" rel="noopener">열기 ↗</a>${tag}`;
+  }
   const js = esc(JSON.stringify(list));
   if (list.length > 1) return list.map((u, i) => `<a href="javascript:void(0)" onclick='openLb(${js},${i},${jsStr(who)})'>사진 ${i + 1}</a>`).join(' · ');
   return `<a href="javascript:void(0)" onclick='openLb(${js},0,${jsStr(who)})'>열기</a>${tag}`;

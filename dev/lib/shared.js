@@ -1301,6 +1301,54 @@ function faqComputeCancelPhase(camp) {
   return 'other';
 }
 
+// 이 노드와 그 위쪽(부모 카테고리)이 전부 활성인가.
+//   ⚠️ 스스로를 부모로 가리키는 잘못된 데이터에서 무한히 돌지 않게 방문한 곳을 기억한다.
+//   회원 앱(messaging.js)·관리자 메시지 화면(admin-messaging.js) 공용
+function faqNodeChainActive(node, byId) {
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur.active) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];   // 부모를 못 찾으면 undefined → 반복 종료(있는 데까지만 확인)
+  }
+  return true;
+}
+
+// 자주 묻는 질문 노출 위치 — 「캠페인 문의」 / 「서비스 문의」(마이그레이션 510, 2026-10-07 사용자 결정).
+//   보이는 조건 = 자기 칸이 켜져 있고 **위쪽 카테고리 칸도 전부** 켜져 있음(활성 상속 faqNodeChainActive 와 같은 모양).
+//   🔴 회원 화면(대화 「＋」 서랍·질문 페이지)과 관리자 화면(「회원 화면 보기」 거름)이 **이 함수 하나**를 쓴다 — 사본 금지.
+//   510 이 아직 없는 데이터베이스(칸이 undefined)에서는 옛 규칙으로 돌아간다 — 캠페인 = 전부,
+//   서비스 = 아래 카테고리 셋 안의 단계 없는 질문(배포 순서가 어긋나도 서비스 질문이 0건이 되지 않게)
+const FAQ_GENERAL_CATEGORY_IDS = [
+  '00000001-0000-0000-0000-000000000005',
+  '00000001-0000-0000-0000-000000000006',
+  '00000001-0000-0000-0000-000000000007',
+];
+function faqNodeVisibleIn(node, byId, scope) {
+  if (!node) return false;
+  const col = scope === 'service' ? 'show_in_service' : 'show_in_campaign';
+  if (node[col] === undefined) {
+    if (scope !== 'service') return true;
+    let root = node, guard = 0;
+    while (root && root.parent_id && byId[root.parent_id] && guard++ < 20) root = byId[root.parent_id];
+    if (!root || !FAQ_GENERAL_CATEGORY_IDS.includes(root.id)) return false;
+    if (node.kind === 'category') return true;
+    const st = node.relevant_stages;
+    return !Array.isArray(st) || st.length === 0;
+  }
+  const seen = {};
+  let cur = node;
+  while (cur) {
+    if (!cur[col]) return false;
+    if (!cur.parent_id || seen[cur.id]) break;
+    seen[cur.id] = true;
+    cur = byId[cur.parent_id];
+  }
+  return true;
+}
+
 // 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
 //   status: applications.status (pending/approved/rejected/cancelled)
 //   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
@@ -1421,8 +1469,18 @@ const PANE_REFRESHERS = {
   'brand-ops': async () => {
     if (typeof loadBrandOps === 'function') await loadBrandOps();
   },
+  // ⚠️ 오리엔시트를 바꾼 화면(admin-orient.js)이 이 둘도 부른다 — **숨은 화면은 다시 받지 않는다**
+  //   (전체 신청 조회까지 돌아 비싸다). 대신 다음에 그 화면으로 돌아올 때 최신이 되게 표시만 남긴다
+  //   (전수조사 3차 ⑥-2·⑥-3, 2026-10-01 사용자 결정 「돌아올 때 다시 그리기」).
   'brand-ops-detail': async () => {
-    if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+    // 오리엔시트 목록은 「아직 안 받음(undefined)」일 때만 다시 받는다 — 비워 두면 다음 진입(화면 전환이 늘 load 를 부른다)에 새로 받는다
+    if (typeof _brandOpsOrientSheets !== 'undefined') _brandOpsOrientSheets = undefined;
+    const el = document.getElementById('adminPane-brand-ops-detail');
+    if (el && el.classList.contains('on') && typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'brand-detail': async () => {
+    // 🔴 편집 폼이라 본문 전체를 다시 그리지 않는다 — 오리엔시트 구역·탭 숫자만(refreshBrandDetailSheets)
+    if (typeof refreshBrandDetailSheets === 'function') await refreshBrandDetailSheets();
   },
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
@@ -1515,7 +1573,7 @@ const POLICY_NOTICE = {
   // 일반 문의 창구 개설 + 개인정보처리방침 개정(문의 범위 확대·보관 기간 표기 정정) 예고.
   //   공고일 2026-09-29 → 시행일 2026-10-06(공고+7일). 근거 사양서 docs/specs/2026-05-21-general-inquiry-desk.md §10
   //   ⚠️ 메타 픽셀 공지(metaPixel2026, ~10-17)를 대체한다 — 공지 틀이 하나뿐이라서(2026-09-29 사용자 결정. 픽셀은 메일 통지 완료)
-  //   ⚠️ 본문의 「お問い合わせ」「その他のお問い合わせ」는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
+  //   ⚠️ 본문의 「お問い合わせ」「サービス」(탭)는 창구 화면 이름이다 — 창구에서 이름을 바꾸면 이 공지도 함께
   id: 'inquiryDesk2026',        // localStorage 키 식별자 — 통지마다 새 값(옛 값이면 지난 공지를 닫은 사람에게 안 뜬다)
   effectiveDate: '2026-10-06',  // 시행일(본문 {date} 표기용) = 창구 개설일
   // 노출 종료일 = 시행일. 이 날 0시(KST)부터 자동 비노출 — 본문이 「10월 5일까지」 기간과 「10월 6일부터」 예고를 말하므로
@@ -1949,8 +2007,8 @@ const META_PIXEL_REG_STATUS = {
 const META_PIXEL_EVENT_TABLE = [
   { event: META_PIXEL_EVENTS.PAGE_VIEW,             when_ko: '사이트가 열릴 때 · 화면을 옮길 때',                       params_ko: '없음 (방문한 페이지 주소는 픽셀이 자동으로 보냄)' },
   { event: META_PIXEL_EVENTS.VIEW_CONTENT,          when_ko: '캠페인 상세를 열었을 때',                                 params_ko: '캠페인 번호 · 캠페인 제목' },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했을 때 (이메일 확인 전)',              params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
-  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '같은 브라우저에서 확인 링크를 열어 이메일 확인이 끝났을 때', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '회원가입 폼을 제출했지만 이메일 확인 전일 때 (인증번호 없이 지나간 옛 흐름 가입)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.PENDING_EMAIL },
+  { event: META_PIXEL_EVENTS.COMPLETE_REGISTRATION, when_ko: '인증번호를 확인하고 가입을 마쳤을 때 (확인 링크로 이메일 확인을 끝낼 때는 보내지 않음 — 1인 1건)', params_ko: 'status = ' + META_PIXEL_REG_STATUS.CONFIRMED },
   { event: META_PIXEL_EVENTS.SUBMIT_APPLICATION,    when_ko: '캠페인 신청을 완료했을 때',                               params_ko: '캠페인 번호 · 캠페인 제목 (금액 없음)' },
 ];
 
@@ -2130,6 +2188,34 @@ function campaignFinishDate(camp) {
   if (typeof isEventCampaign === 'function' && isEventCampaign(camp) && camp.visit_end) return camp.visit_end;
   return null;
 }
+
+// 관리자 대리 등록 기간 — 기준일(campaignFinishDate) + 달력 1개월(일본 시각)까지만 열린다.
+//   사양서 docs/specs/2026-10-06-proxy-registration-window.md 「판정식」.
+//   🔴 서버 admin_create_deliverable_proxy(마이그레이션 511)가 같은 식으로 거부한다 — 식을 바꾸면 양쪽을 함께.
+//   ⚠️ 판정하려면 캠페인 객체에 submission_end · visit_end · event_mode 셋이 다 있어야 한다
+//      (날짜만 있으면 행사 캠페인이 마지막 방문일 기준을 잃는다).
+// 마지막 가능일 'YYYY-MM-DD' — 기준일이 없으면 null. 말일은 맞춘다(1/31 → 2/28, 윤년 2/29 — 서버 interval '1 month' 와 같다).
+function proxyWindowLastDate(camp) {
+  const base = campaignFinishDate(camp);
+  if (!base) return null;
+  const [y, m, d] = String(base).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const ty = m === 12 ? y + 1 : y;
+  const tm = m === 12 ? 1 : m + 1;
+  const lastDayOfMonth = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+  const td = Math.min(d, lastDayOfMonth);
+  return `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}`;
+}
+
+// 대리 등록이 열려 있나 — 기준일이 없으면 제한하지 않는다(사양서 P-3).
+function isProxyWindowOpen(camp) {
+  const last = proxyWindowLastDate(camp);
+  if (!last) return true;
+  return jstTodayStr() <= last;
+}
+
+// 위 판정에 필요한 캠페인 칸 — 캠페인을 조회해 판정하는 자리는 이 칸을 모두 더한다(사양서 「판정 칸」).
+const PROXY_WINDOW_CAMPAIGN_COLS = 'submission_end, visit_end, event_mode';
 
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
@@ -2383,6 +2469,14 @@ const APP_ERROR_EXPECTED_PATTERNS = [
   //   ⚠️ 2026-08-07 개발서버 검증에서 실제로 나온 값이다. 넣지 않으면 행사 캠페인
   //      취소 시도가 전부 「예상 못 한 오류」로 쌓여 배지가 부푼다.
   /event_status_change_blocked/,
+  // 송금 묶음 도입 뒤 옛 송금완료 경로 거부 · 묶음 건의 송금일을 건에서 바꾸려 함(마이그레이션 486)
+  //   — 서버의 의도적 거부다. 오류 문구 등록(admin-core.js friendlyError)과 **한 세트**다.
+  /payout_bundle_required|paid_at_owned_by_transfer/,
+  // 서비스 문의 여러 대화의 의도적 거부(마이그레이션 505) — 화면을 본 뒤 새 글 도착 · 이미 열린 대화 있음 ·
+  //   열린 대화 없음(운영팀 먼저 시작 금지) · 닫힌 대화에 씀 · 남의/없는 대화(「이미 열린 대화 있음」은 508 에서 없어졌다)
+  /new_message_since_view|no_open_thread|thread_closed|thread_not_found/,
+  // 같은 기능의 개정(마이그레이션 508) — 새 문의 제목 없음 · 제목 40자 초과 · 열린 문의 상한 · 운영팀 발신에 대화 지정 필요
+  /title_required|title_too_long|too_many_open_threads|thread_required/,
   /모집 정원|slots_full|under_age|age_policy/,
   // 중복 — 첫 요청은 성공한 상태다(실패가 아니라 「이미 되어 있다」)
   /uidx_applications_user_campaign|applications_user_camp_active_uidx/,

@@ -35,6 +35,57 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
   return all;
 }
 
+// 목록을 size 개씩 자른다 — 번호 목록을 .in() 으로 보낼 때 주소 길이를 넘지 않게.
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// items 를 최대 limit 개씩 **동시에** fn 으로 처리한다. 결과는 items 순서 그대로.
+//   하나라도 throw 하면 전체가 reject 된다 — 「조각 하나 실패 = 통째로 실패」 규약은 그대로 지켜진다.
+//   ⚠️ 조각마다 실패를 건너뛰어야 하는 곳은 fn 안에서 직접 잡아야 한다(fetchMessagePreviews).
+//   ⚠️ limit 를 크게 잡지 말 것 — 운영 데이터베이스가 가장 작은 사양이라 동시 요청이 몰리면 전부 느려진다.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({length: n}, worker));
+  return out;
+}
+
+// fetchAllPaged 와 결과가 같되, 둘째 페이지부터는 concurrency 개씩 **동시에** 받는다.
+//   🔴 쓸 수 있는 조건 — ①일반 표 조회일 것(db.rpc 는 페이지마다 함수 전체가 다시 돌아
+//      동시에 부르면 서버 부하가 몰린다) ②.order() 가 **고유 순서**일 것(마지막에 .order('id')).
+//      순서가 고유하지 않으면 페이지 경계에서 행이 겹치거나 빠진다 — 이건 fetchAllPaged 도 같다.
+//   ⚠️ 1,000건이 안 되면 첫 요청 하나로 끝난다(추가 요청 없음). 짧은 페이지를 만나면 거기서 멈춘다.
+async function fetchAllPagedFast(buildQuery, opts) {
+  const pageSize = (opts && opts.pageSize) || 1000;
+  const concurrency = (opts && opts.concurrency) || 4;
+  const first = await buildQuery().range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  const all = (first.data || []).slice();
+  if (all.length < pageSize) return all;
+  let from = pageSize;
+  while (true) {
+    const starts = Array.from({length: concurrency}, (_, k) => from + k * pageSize);
+    const pages = await Promise.all(starts.map(s => buildQuery().range(s, s + pageSize - 1)));
+    for (const p of pages) {
+      if (p.error) throw p.error;
+      const d = p.data || [];
+      all.push(...d);
+      if (d.length < pageSize) return all;
+    }
+    from += concurrency * pageSize;
+  }
+}
+
 // ── Campaigns ──
 // 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
 // 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
@@ -90,7 +141,7 @@ async function fetchCampaigns() {
     // 페인이 공유하는 함수라, 여기서 제외하면 양쪽 모두 자동으로 안전해진다.
     // 「삭제됨」 탭(2단계) 전용 조회는 fetchDeletedCampaigns() 별도 함수 사용.
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false})
+      db.from('campaigns').select('*').is('deleted_at', null).order('order_index', {ascending: true, nullsFirst: false}).order('id')
     );
     _campaignsLoadFailed = false;   // 여기까지 왔으면 조회 자체는 성공한 것이다
     if (data.length > 0) {
@@ -159,7 +210,7 @@ async function fetchCampaignsForAdminList() {
       db.from('campaigns')
         .select(ADMIN_LIST_COLUMNS)
         .is('deleted_at', null)
-        .order('order_index', { ascending: true, nullsFirst: false })
+        .order('order_index', { ascending: true, nullsFirst: false }).order('id')
     );
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
@@ -522,7 +573,7 @@ async function fetchDeletedCampaigns() {
   if (!db) return [];
   try {
     const data = await fetchAllPaged(() =>
-      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false})
+      db.from('campaigns').select('*').not('deleted_at', 'is', null).order('deleted_at', {ascending: false}).order('id')
     );
     return data;
   } catch (e) {
@@ -698,8 +749,9 @@ async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() => {
-      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true}).order('id');
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -937,7 +989,7 @@ async function fetchViolationCountsByInfluencer() {
   if (!db) return {};
   try {
     const data = await fetchAllPaged(() =>
-      db.from('influencer_flags').select('influencer_id').eq('action', 'violation')
+      db.from('influencer_flags').select('influencer_id').eq('action', 'violation').order('id')
     );
     const counts = {};
     data.forEach(r => { counts[r.influencer_id] = (counts[r.influencer_id] || 0) + 1; });
@@ -979,12 +1031,13 @@ async function updateInfluencer(userId, updates) {
 async function fetchApplications(filters) {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => {
+    // 페이지 동시 수신 + 고유 순서(.order('id')) — 이유는 _queryDeliverables 와 같다.
+    return await fetchAllPagedFast(() => {
       let q = db.from('applications').select('*');
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) {
     return [];
@@ -1058,7 +1111,7 @@ async function fetchReceipts(filters) {
       if (filters?.application_id) q = q.eq('application_id', filters.application_id);
       if (filters?.user_id) q = q.eq('user_id', filters.user_id);
       if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { return []; }
 }
@@ -1098,6 +1151,8 @@ async function fetchPendingDeliverableCount() {
 //
 //   반환: 임시저장이 하나라도 있는 application_id 의 Set. **조회 실패는 `null`** —
 //     호출부는 그때 아무 표시도 하지 않는다(0건인 척하면 「없는 것」으로 읽힌다).
+//   ⚠️ 대리 등록 기간(isProxyWindowOpen)이 지난 캠페인의 응모는 뺀다 — 아래 fetchStalledDraftDetails 와
+//      **같은 판정**이어야 딱지와 건수가 어긋나지 않는다(사양서 2026-10-06-proxy-registration-window D-5).
 async function fetchStalledDraftApplications() {
   if (!db) return null;
   try {
@@ -1106,13 +1161,38 @@ async function fetchStalledDraftApplications() {
     //    임시저장이 많을 일은 드물지만, 잘리면 「있는데 없다고」 보이는 쪽으로 틀린다.
     for (let from = 0; ; from += 1000) {
       const {data, error} = await db.from('deliverables')
-        .select('application_id').eq('status', 'draft').range(from, from + 999);
+        .select(`application_id, campaigns:campaign_id (${PROXY_WINDOW_CAMPAIGN_COLS})`)
+        .eq('status', 'draft').order('id').range(from, from + 999);
       if (error) throw error;
-      (data || []).forEach(r => { if (r.application_id) ids.add(r.application_id); });
+      (data || []).forEach(r => {
+        if (r.application_id && isProxyWindowOpen(r.campaigns)) ids.add(r.application_id);
+      });
       if (!data || data.length < 1000) break;
     }
     return ids;
   } catch(e) { console.error('[fetchStalledDraftApplications]', e); return null; }
+}
+
+// 「올려두고 제출 안 한 건」 안내 창의 목록용 — 임시저장 결과물을 캠페인·회원과 함께(2026-10-06).
+//   🔴 실패는 null, 0건은 [] — 실패를 「0건」으로 그리면 감지 장치가 막으려던 상태가 재현된다.
+//   ⚠️ 세는 기준은 위 fetchStalledDraftApplications 와 같다(status='draft' 결과물이 있는 응모).
+async function fetchStalledDraftDetails() {
+  if (!db) return null;
+  try {
+    const rows = [];
+    for (let from = 0; ; from += 1000) {
+      const {data, error} = await db.from('deliverables')
+        .select(`id, kind, post_channel, updated_at, application_id, user_id, campaign_id, applications:application_id (id, status, campaign_id, user_id), campaigns:campaign_id (id, campaign_no, title, brand, ${PROXY_WINDOW_CAMPAIGN_COLS})`)
+        .eq('status', 'draft').order('updated_at', {ascending: false}).order('id').range(from, from + 999);
+      if (error) throw error;
+      // 대리 등록 기간이 지난 캠페인은 추적하지 않는다 — 위 fetchStalledDraftApplications 와 같은 판정
+      rows.push(...(data || []).filter(r => isProxyWindowOpen(r.campaigns)));
+      if (!data || data.length < 1000) break;
+    }
+    const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))];
+    const infMap = userIds.length ? await fetchInfluencersByIds(userIds) : {};
+    return rows.map(r => ({...r, influencers: infMap[r.user_id] || null}));
+  } catch(e) { console.error('[fetchStalledDraftDetails]', e); return null; }
 }
 
 // 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
@@ -1133,7 +1213,9 @@ async function fetchPendingApplicationCount() {
 //   fetchDeliverablesByCampaignIds → 실패에 null, 0건에 []  (운영현황 일정 뷰, 2026-09-07)
 // opts.skipInfluencers — 인플루언서 이름이 필요 없는 집계용이면 회원 조회를 건너뛴다.
 async function _queryDeliverables(filters, opts) {
-    const data = await fetchAllPaged(() => {
+    // 결과물은 수천 건이라 페이지를 동시에 받는다(fetchAllPagedFast). 정렬 끝의 .order('id') 는
+    //    필수 — 수정 시각이 같은 행이 페이지 경계에 걸리면 한 건이 겹치거나 빠진다(2026-09-30).
+    const data = await fetchAllPagedFast(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
         receipt_url, order_number, purchase_date, purchase_amount, memo,
@@ -1154,8 +1236,8 @@ async function _queryDeliverables(filters, opts) {
       // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
       if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
       else q = q.order('updated_at', {ascending: false});
-      return q;
-    });
+      return q.order('id');
+    }, {concurrency: 2});   // 캠페인·신청을 끼워 넣은 무거운 조회라 동시 2개까지(운영 데이터베이스 메모리 여유가 없다)
     if (opts?.skipInfluencers) return data;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
     const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
@@ -1170,10 +1252,19 @@ async function fetchDeliverables(filters) {
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
 }
 
+// 실패를 null 로 구분하는 판 — 엑셀처럼 「실패」와 「0건」이 다른 결과를 내는 자리 전용(전수조사 3차 ③-5).
+//   ⚠️ fetchDeliverables 자체는 [] 를 유지한다(부르는 곳이 많아 한꺼번에 바꾸면 화면이 깨진다).
+async function fetchDeliverablesOrNull(filters) {
+  if (!db) return null;
+  try {
+    return await _queryDeliverables(filters);
+  } catch(e) { console.error('[fetchDeliverablesOrNull]', e); return null; }
+}
+
 // 캠페인 여러 건의 결과물을 한 번에 — 운영현황 「일정」 뷰 전용(2026-09-07).
 //   🔴 실패는 null, 0건은 []. 위 fetchDeliverables 와 규약이 다르다 — 그 화면은
 //      「서버에 못 물어봤다」와 「낸 사람이 없다」를 구분해 그려야 한다(마이그레이션 276 원칙).
-//   ⚠️ id 는 200개 단위로 잘라 **차례로** 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다).
+//   ⚠️ id 는 200개 단위로 잘라 부른다(.in() 의 id 가 수백 개면 요청 주소가 길어진다) — 최대 4조각 동시.
 //      조각 하나라도 실패하면 **통째로 null** — 성공한 조각만 합치면 0건과 구분되지 않는
 //      낮은 숫자가 그려진다.
 const DELIV_CAMPAIGN_ID_CHUNK = 200;
@@ -1183,12 +1274,10 @@ async function fetchDeliverablesByCampaignIds(campaignIds, opts) {
   if (!ids.length) return [];
   const chunk = (opts && opts.chunkSize) || DELIV_CAMPAIGN_ID_CHUNK;
   try {
-    const out = [];
-    for (let i = 0; i < ids.length; i += chunk) {
-      const part = await _queryDeliverables({ campaignIds: ids.slice(i, i + chunk) }, { skipInfluencers: true });
-      out.push(...part);
-    }
-    return out;
+    // 조각은 최대 4개씩 동시에 — 하나라도 실패하면 mapLimit 가 reject → 아래 catch 에서 통째로 null.
+    const parts = await mapLimit(chunkArray(ids, chunk), 4,
+      (slice) => _queryDeliverables({ campaignIds: slice }, { skipInfluencers: true }));
+    return [].concat(...parts);
   } catch(e) { console.error('[fetchDeliverablesByCampaignIds]', e); return null; }
 }
 
@@ -1230,6 +1319,39 @@ async function fetchMyNotifications(opts) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchMyNotifications]', e); logAppError('fetchMyNotifications', e); return []; }
+}
+
+// 미읽음 알림 **건수만** — 30초마다 도는 배지 갱신용(2026-09-30). 예전에는 배지 하나를 위해
+//   알림 목록을 통째로 받고 그때마다 로그인 서버에도 한 번 더 물었다.
+//   🔴 제외 조건(정산 알림 2종)은 위 fetchMyNotifications 와 **글자 그대로 같아야** 한다 —
+//      다르면 「배지 숫자는 있는데 목록은 비어있음」이 된다.
+//   ⚠️ 실패는 null, 0건은 0 — 부르는 쪽이 실패면 직전 숫자를 유지한다(예전엔 실패하면 배지가 꺼졌다).
+//   ⚠️ 오프라인이면 30초마다 실패하므로 오류 기록(logAppError)은 남기지 않는다.
+async function countMyUnreadNotifications(uid) {
+  if (!db || !uid) return null;
+  try {
+    const {count, error} = await db.from('notifications')
+      .select('id', {count: 'exact', head: true})
+      .eq('user_id', uid)
+      .not('kind', 'in', '(settlement_paid,settlement_paypal_required)')
+      .is('read_at', null);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('[countMyUnreadNotifications]', e); return null; }
+}
+
+// 알림이 가리키는 결과물 한 건 — 알림을 눌렀을 때 활동관리로 보내기 위해(2026-09-30).
+//   예전에는 이 한 건을 찾으려고 본인 결과물 전체를 받았다.
+//   🔴 **실패는 throw, 없으면 null** — 부르는 쪽이 「지금 못 읽었다」와 「참조가 사라졌다」를
+//      갈라야 한다. 합치면 일시적 통신 실패만으로 알림이 영구 삭제된다(실제로 그랬다).
+async function fetchMyDeliverableRef(deliverableId) {
+  if (!db || !deliverableId) return null;
+  const {data, error} = await db.from('deliverables')
+    .select('id, application_id, campaign_id')
+    .eq('id', deliverableId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 // 알림 1건 읽음 처리
@@ -1356,7 +1478,9 @@ async function fetchDeliverablesByCampaign(campaignId) {
       .order('submitted_at', {ascending: false})
       .order('id', {ascending: true}));
     return data || [];
-  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+  // 🔴 실패는 null — [] 로 돌려주면 인증 성공·제출 막대가 「0%」로 그려져 실패가 「아무도 안 냄」으로 보였다(전수조사 3차 ③-5).
+  //   부르는 쪽(admin-brand-ops hydrateCampCertBars · admin-applications 진행현황)이 null 을 「—」로 그린다.
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return null; }
 }
 
 // 응모건(application) 1건의 기존 결과물 조회 — 관리자 대리 등록 모달 사전 안내용 (is_admin SELECT)
@@ -1677,6 +1801,9 @@ async function submitDrafts(applicationId, kind) {
       .eq('application_id', applicationId)
       .eq('status', 'draft');
     if (kind) q = q.eq('kind', kind);
+    // 만든 순서대로 올린다 — 제출일은 올리는 순간 서버가 찍으므로(마이그레이션 512), 순서가 섞이면
+    //   여러 건을 한 번에 낼 때 「최신」(제출일이 가장 늦은 행)이 나중에 만든 행이 아닐 수 있다.
+    q = q.order('created_at', {ascending: true}).order('id', {ascending: true});
     const {data: drafts, error: selErr} = await q;
     if (selErr) throw selErr;
     for (const row of (drafts || [])) {
@@ -1731,15 +1858,17 @@ async function fetchInfluencersByIds(userIds) {
     // 🔴 번호 목록을 한 번에 보내면 1,000명에서 잘리고(뒤쪽 회원 이름이 빈다) 주소도 너무 길어진다.
     //    결과물·정산 전체를 넘기는 호출부가 있어 목록이 회원 수만큼 커진다 — 200개씩 나눠 받는다
     //    (fetchPayoutInfluencerInfo·_proxyFetchByIds 와 같은 방식).
+    //    조각은 최대 4개씩 동시에 받는다(mapLimit) — 하나라도 실패하면 종전처럼 {} .
     const ids = [...new Set(userIds)];
     const map = {};
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(inf => { map[inf.id] = inf; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(inf => { map[inf.id] = inf; }));
     return map;
   } catch(e) { return {}; }
 }
@@ -1761,13 +1890,14 @@ async function fetchPayoutInfluencerInfo(influencerIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kana, paypal_email')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) {
     console.warn('[fetchPayoutInfluencerInfo]', e);
@@ -1874,7 +2004,7 @@ async function fetchDeliverablesForReport(campaignIds) {
         applications:application_id (status),
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft').in('campaign_id', chunk)
-        .order('submitted_at', {ascending: false}));
+        .order('submitted_at', {ascending: false}).order('id'));
       rows = rows.concat(part || []);
     }
     return rows;
@@ -1901,13 +2031,14 @@ async function fetchInfluencersForReport(userIds) {
   if (!ids.length) return {};
   const map = {};
   try {
-    for (let i = 0; i < ids.length; i += 200) {
+    const parts = await mapLimit(chunkArray(ids, 200), 4, async (slice) => {
       const {data, error} = await db.from('influencers_admin_view')
         .select('id, name, name_kanji, name_kana, email, primary_sns, is_audit, ig, tiktok, x, youtube')
-        .in('id', ids.slice(i, i + 200));
+        .in('id', slice);
       if (error) throw error;
-      (data || []).forEach(function(r) { map[r.id] = r; });
-    }
+      return data || [];
+    });
+    parts.forEach(rows => rows.forEach(function(r) { map[r.id] = r; }));
     return map;
   } catch (e) { console.error('[fetchInfluencersForReport]', e); return null; }
 }
@@ -1962,7 +2093,7 @@ async function fetchReportExtRows(sourceIds) {
   try {
     return await fetchAllPaged(() => db.from('campaign_report_ext_rows')
       .select('id, source_id, member_no, account_id, mission_status, order_no, purchase_amount, receipt_url, receipt_at, review_kind, qoo10_urls, qoo10_at, cosme_urls, cosme_at')
-      .in('source_id', ids).order('member_no'));
+      .in('source_id', ids).order('member_no').order('id'));
   } catch (e) { console.error('[fetchReportExtRows]', e); return null; }
 }
 
@@ -2969,7 +3100,7 @@ async function fetchBrands(filters) {
       var q = db.from('brands')
         .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_id, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
       if (filters?.status) q = q.eq('status', filters.status);
-      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
@@ -3003,6 +3134,80 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+
+// ── 브랜드 계정(로그인) — 마이그레이션 526·527 + 서버 함수 notify-brand-account-setup ──
+// 🔴 운영 반영 보류(작업표 docs/specs/2026-10-14-brand-login-breakdown.md P-1): 아래 넷은 **개발서버(IS_STAGING)에서만**
+//    서버를 부른다. 운영 데이터베이스에는 526·527 이 없어서, 부르면 없는 함수 오류가 쌓이고 인플루언서 로그인 판정이 실패한다.
+//    출시(약관 관문 P-7) 때 이 판정만 걷어 낸다 — 판정 자리는 _brandAccountEnabled() 한 곳.
+function _brandAccountEnabled() {
+  return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
+}
+
+// 대표 담당자 계정 만들기·바꾸기. 화면은 상세를 연 시점의 대표 줄 id·이메일을 넘긴다(P-3 — 안 넘기면 이메일 변경으로 본다).
+// 반환 {ok:true, data:{result, needs_mail, email, account_email, auth_id, brand_id}} | {ok:false, error}
+//       운영(보류)에서는 {ok:false, error:'brand_account_disabled'} — 부르는 쪽은 조용히 건너뛴다.
+async function upsertBrandOwnerAccount(brandId, prevContactId, prevEmail) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!_brandAccountEnabled()) return {ok:false, error:'brand_account_disabled'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_upsert_brand_owner_account', {
+        p_brand_id: brandId,
+        p_prev_contact_id: prevContactId || null,
+        p_prev_email: prevEmail || null,
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertBrandOwnerAccount]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 설정 메일 보내기(mode 'setup'|'resend'). sendAdminInviteMail 과 같은 모양:
+// {sent:true, recipient[, dev_link]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_link 가 온다.
+async function sendBrandAccountSetupMail(brandId, mode) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-account-setup', {
+      body: { brand_id: brandId, mode: mode === 'resend' ? 'resend' : 'setup' }
+    });
+    if (error) {
+      // 401·403 등은 응답 본문(reason)이 error.context 에 담긴다
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 브랜드 상세 「계정」 줄 상태. 🔴 실패는 null, 계정 없음은 {status:'none'} — 실패를 「계정 없음」으로 그리지 않는다.
+// 운영(보류)에서는 null(줄을 그리지 않는다).
+async function fetchBrandAccountStatus(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const {data, error} = await db.rpc('admin_get_brand_account_status', { p_brand_id: brandId });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
+}
+
+// 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
+// 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
+// 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.
+async function fetchMyAccountKind() {
+  if (!db) return null;
+  if (!_brandAccountEnabled()) return 'other';
+  try {
+    const {data, error} = await db.rpc('get_my_account_kind');
+    if (error) throw error;
+    return data === 'brand' ? 'brand' : 'other';
+  } catch(e) { console.error('[fetchMyAccountKind]', e); return null; }
+}
+
 // ── companies 마스터 (migration 118) ────────────────────────
 
 // 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)
@@ -3021,14 +3226,15 @@ async function fetchCompanies({ status = 'active', search } = {}) {
         const s = search.trim();
         q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
       }
-      return q.order('name_ko', {ascending: true});
+      return q.order('name_ko', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
 // 운영 현황 페인 — 브랜드 카드 그리드용 핵심 지표 집계
 // companyId 지정 시 해당 회사 소속 브랜드만, null 이면 전체 브랜드
-// 반환: 행 배열(19컬럼), 오류 시 [] 반환
+// 반환: 행 배열(19컬럼). 🔴 **오류면 `null`**(0건 `[]` 과 구분 — 실패를 「브랜드 없음」으로 그리지 않게,
+//   전수조사 3차 ⑥ 낮음). 호출처는 운영현황 진입(loadBrandOps) 한 곳.
 // 서버 집계 함수(데이터베이스에 미리 만든 명령 — get_brand_ops_overview)를 호출
 async function getBrandOpsOverview(companyId) {
   if (!db) return [];
@@ -3037,7 +3243,7 @@ async function getBrandOpsOverview(companyId) {
       p_company_id: companyId || null
     }).order('brand_id'));
     return data || [];
-  } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
+  } catch(e) { console.error('[getBrandOpsOverview]', e); return null; }
 }
 
 // 운영 현황 페인 — 브랜드 상세 페인용 신청·캠페인 통합 jsonb 반환
@@ -3209,25 +3415,19 @@ async function mergeBrands(sourceId, targetId) {
 }
 
 // 브랜드별 캠페인 수 일괄 집계 — 브랜드 목록 「캠페인 수」 컬럼용. {brand_id: count} 반환.
-// 1000행 캡 대응 range loop (대시보드 집계 패턴).
+// 🔴 **실패는 `null`, 0건은 `{}`** — 실패에 `{}` 를 돌려주면 모든 행이 「0」으로 그려져
+//    「캠페인이 없다」로 읽힌다(전수조사 3차 ⑥ 낮음). 반복 조회는 `fetchOrientSheetCountsByBrand` 와 같은 모양.
 async function fetchCampaignCountsByBrand() {
-  if (!db) return {};
+  if (!db) return null;
   try {
-    var counts = {};
-    var from = 0, size = 1000;
-    while (true) {
-      // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
-      //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
-      const {data, error} = await db?.from('campaigns').select('brand_id')
-        .is('deleted_at', null)
-        .not('brand_id', 'is', null).range(from, from + size - 1);
-      if (error) throw error;
-      (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
-      if (!data || data.length < size) break;
-      from += size;
-    }
+    // 보관 삭제된 캠페인은 세지 않는다 — 브랜드 목록의 「캠페인 수」가 실제보다 부풀어
+    //   보이고, 관리자가 그 숫자를 근거로 「아직 캠페인이 남았다」고 오판한다.
+    const rows = await fetchAllPaged(() => db.from('campaigns').select('brand_id')
+      .is('deleted_at', null).not('brand_id', 'is', null).order('id'));
+    const counts = {};
+    (rows || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
     return counts;
-  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return {}; }
+  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return null; }
 }
 
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
@@ -3362,7 +3562,7 @@ async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search 
       if (search && search.trim()) {
         q = q.ilike('name', `%${search.trim()}%`);
       }
-      return q.order('name', {ascending: true});
+      return q.order('name', {ascending: true}).order('id');
     });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
@@ -3644,7 +3844,7 @@ async function fetchBrandApplications(filters) {
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.from) q = q.gte('created_at', filters.from);
       if (filters?.to) q = q.lte('created_at', filters.to);
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchBrandApplications]', e); return []; }
 }
@@ -4070,6 +4270,44 @@ async function isEmailWithdrawalBlocked(email) {
   }
 }
 
+// 가입 이메일 인증번호 — 서버 함수 두 개(signup-code-send · signup-code-verify, 마이그레이션 495)를 부른다.
+//   사양서 docs/specs/2026-10-01-signup-email-code-verification.md 설계 ①·③.
+//   🔴 **통신 실패는 null**, 서버가 답한 거부는 객체 — 화면이 둘을 다른 문구로 그린다.
+//   ⚠️ 서버 함수는 오류 응답(500 등)도 JSON 본문을 준다 → invoke 가 error 로 돌려도 본문을 먼저 읽는다.
+//   ⚠️ 시각(만료·재발송 가능)은 **서버가 준 값만** 쓴다 — 화면에 유효 시간 숫자를 두지 않는다(완료 기준 4-2).
+async function _invokeSignupCodeFn(name, body) {
+  if (!db?.functions) return null;
+  try {
+    const {data, error} = await db.functions.invoke(name, { body });
+    if (!error) return data && typeof data === 'object' ? data : null;
+    try {
+      const j = await error.context?.json?.();
+      if (j && typeof j === 'object') return j;
+    } catch(_) { /* 본문이 JSON 이 아니면 통신 실패로 본다 */ }
+    logAppError(name, error);
+    return null;
+  } catch(e) {
+    logAppError(name, e);
+    return null;
+  }
+}
+// → { status:'sent'|'rate_limited', codeExpiresAt, resendAvailableAt } · { error:'invalid_email'|'send_failed'|'server_error' } · null
+async function requestSignupCode(email) {
+  const r = await _invokeSignupCodeFn('signup-code-send', { email });
+  if (!r) return null;
+  if (r.ok === false) return { error: r.error || 'server_error' };
+  // dev_mail — 개발서버 전용(서버·화면 두 겹 잠금). 운영 화면에서는 받아도 쓰지 않는다
+  const devMail = (typeof IS_STAGING !== 'undefined' && IS_STAGING && r.dev_mail && typeof r.dev_mail.html === 'string') ? r.dev_mail : null;
+  return { status: r.status, codeExpiresAt: r.code_expires_at || null, resendAvailableAt: r.resend_available_at || null, devMail };
+}
+// → { ok:true, ticket, ticketExpiresAt } · { ok:false, reason, attemptsLeft } · null
+async function verifySignupCode(email, code) {
+  const r = await _invokeSignupCodeFn('signup-code-verify', { email, code });
+  if (!r) return null;
+  if (r.ok === true) return { ok: true, ticket: r.ticket, ticketExpiresAt: r.ticket_expires_at };
+  return { ok: false, reason: r.reason || 'server_error', attemptsLeft: (typeof r.attempts_left === 'number') ? r.attempts_left : null };
+}
+
 // 본인의 탈퇴 진행 상태 조회 (마이그레이션 358).
 //   성공: { ok:true, has_request, status, scheduled_date,
 //           login_blocked, write_blocked }
@@ -4211,7 +4449,7 @@ async function fetchWithdrawalStatesByInfluencer() {
     const rows = await fetchAllPaged(() =>
       db.from('withdrawal_requests')
         .select('influencer_id, status, scheduled_date, requested_by_kind, requested_at')
-        .order('requested_at', {ascending: false})
+        .order('requested_at', {ascending: false}).order('id')
     );
     const map = {};
     rows.forEach(r => {
@@ -4421,9 +4659,18 @@ async function withdrawOwnMessage(messageId, attachmentPaths = []) {
   });
   if (attachmentPaths && attachmentPaths.length) {
     // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
-    try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
-    // ⚠️ 여기서 실패하면 회수했다고 표시된 메시지의 첨부 파일이 저장소에 남는다
-    //    (개인정보). 기록이 없으면 남은 파일을 찾아 지울 방법이 없었다.
+    // ⚠️ 여기서 실패하면 회수했다고 표시된 메시지의 첨부 파일이 저장소에 남는다(개인정보).
+    // 🔴 삭제는 **오류 없이 0건**으로 끝날 수 있다 — 저장소 삭제는 조회 정책으로 보이는 파일만 지운다.
+    //    2026-08-19(315)부터 회수된 사진이 조회 정책에 가려져 운영에서 12장이 조용히 남았다(483 이 고침).
+    //    그래서 오류뿐 아니라 **지워진 건수가 모자라는 경우도** 기록한다.
+    try {
+      const {data, error} = await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths);
+      if (error) throw error;
+      const removed = Array.isArray(data) ? data.length : 0;
+      if (removed < attachmentPaths.length) {
+        logAppError('withdrawOwnMessage.attachment', new Error(`attachment_not_removed ${removed}/${attachmentPaths.length}`));
+      }
+    }
     catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); logAppError('withdrawOwnMessage.attachment', e); }
   }
 }
@@ -4614,20 +4861,19 @@ async function fetchMessagePreviews(applicationIds) {
   if (!db || !applicationIds || !applicationIds.length) return new Map();
   const map = new Map();
   const CHUNK = 100;  // application_id 청크 — 주소 길이 제한용
-  for (let i = 0; i < applicationIds.length; i += CHUNK) {
-    const ids = applicationIds.slice(i, i + CHUNK);
-    let data;
+  // 청크는 최대 4개씩 동시에. ⚠️ 실패한 청크만 건너뛰는 종전 규약을 지키려고 fn 안에서 잡는다.
+  const parts = await mapLimit(chunkArray(applicationIds, CHUNK), 4, async (ids) => {
     try {
-      data = await fetchAllPaged(() => db.from('application_messages')
+      return await fetchAllPaged(() => db.from('application_messages')
         .select('application_id, body, body_translated, translate_status, sender_kind, created_at')
         .in('application_id', ids)
         .is('hidden_by_admin_at', null)
         .is('self_withdrawn_at', null)
         .order('created_at', { ascending: false })
         .order('id'));
-    } catch (error) { console.warn('[fetchMessagePreviews]', error); continue; }
-    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
-  }
+    } catch (error) { console.warn('[fetchMessagePreviews]', error); return []; }
+  });
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); }));
   return map;
 }
 
@@ -4642,6 +4888,372 @@ async function fetchApplicationHideHistory(applicationId) {
     .order('at', { ascending: false });
   if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
   return data || [];
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일반 문의 — 응모에 매이지 않는 회원↔운영팀 메시지 (마이그레이션 475~482)
+//   같은 표(application_messages)에 application_id 가 비고 influencer_id 가 찬 행.
+//   🔴 규약: 조회 실패는 `null`, 0건은 `[]`/빈 Map — 「못 불러옴」과 「없음」을 가른다(276 원칙).
+//   ⚠️ 응모건 함수(fetchApplicationMessages 등)는 응모 번호로 묶여 있어 부르지 않는다 — 짝을 쓴다.
+//      메시지 id 만 보는 회수·숨김·복구·첨부 서명 주소는 기존 함수를 그대로 쓴다.
+//   사양서 docs/specs/2026-05-21-general-inquiry-desk.md §5-4·§6
+// ════════════════════════════════════════════════════════════════════
+
+// 일반 문의 메시지 (마스킹 적용). 회원은 인자 없이 본인 것, 관리자는 회원 id 필수.
+//   threadId 를 주면 그 대화만(505), 비우면 회원 전체(옛 화면 하위 호환용 — 새 화면은 대화 id 를 준다).
+//   ⚠️ 인자 순서를 바꾸지 않는다 — 옛 화면이 위치로 넘긴다.
+async function fetchGeneralInquiryMessages(influencerId = null, threadId = null) {
+  if (!db) return null;
+  try {
+    return await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('get_general_inquiry_messages', { p_influencer_id: influencerId, p_thread_id: threadId });
+      if (error) throw error;
+      return data || [];
+    });
+  } catch (e) { console.warn('[fetchGeneralInquiryMessages]', e); logAppError('fetchGeneralInquiryMessages', e); return null; }
+}
+
+// 일반 문의 발송 (회원·관리자 공용, 발신자 종류는 서버가 판별). 관리자는 회원 id 필수.
+//   attachments: uploadGeneralInquiryAttachment() 반환값 배열. 실패는 예외 — 화면이 문구를 띄운다.
+//   threadId: 그 대화로(508 — 회원도 따른다. 닫힌 지 24시간 안이면 다시 열고, 지났으면 thread_closed).
+//   새 문의는 threadId 없이 title + clientToken(화면이 만든 난수 — 같은 값으로 다시 보내면 같은 대화).
+//   거부 코드: title_required · title_too_long · too_many_open_threads · thread_closed · thread_not_found ·
+//             (운영팀) no_open_thread · thread_required — 화면이 문구로 바꾼다.
+//   반환 `{ message_id, thread_id }` — 새 문의면 새 대화 id 가 여기로 온다.
+//   ⚠️ 인자 순서를 바꾸지 않는다 — 옛 호출이 위치로 넘긴다. 제목·토큰은 값이 있을 때만 보낸다
+//      (508 전 서버의 4인자 함수에도 그대로 맞도록).
+async function sendGeneralInquiryMessage(body, attachments = [], influencerId = null, threadId = null, title = null, clientToken = null) {
+  if (!db) throw new Error('DB 미연결');
+  const params = {
+    p_influencer_id: influencerId,
+    p_body: body || '',
+    p_attachments: attachments,
+    p_thread_id: threadId,
+  };
+  if (title != null) params.p_title = title;
+  if (clientToken != null) params.p_client_token = clientToken;
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_general_inquiry_message', params);
+    if (error) throw error;
+    return Array.isArray(data) ? (data[0] || null) : (data || null);
+  });
+}
+
+// 일반 문의 읽음 처리 (관리자: 개인별 / 회원: read_by_influencer_at). threadId 를 주면 그 대화만.
+async function markGeneralInquiryMessagesRead(influencerId = null, threadId = null) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_messages_read', { p_influencer_id: influencerId, p_thread_id: threadId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 수동 응대 완료 (관리자).
+async function markGeneralInquiryResolved(influencerId) {
+  if (!db || !influencerId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_general_inquiry_resolved', { p_influencer_id: influencerId });
+    if (error) throw error;
+  });
+}
+
+// 일반 문의 첨부 업로드 — 경로 `general/{회원id}/{난수}.jpg` (첫 조각 'general' 고정 — 저장소 정책이 이 두 조각을 본다).
+//   관리자 답장 첨부도 **그 회원의 폴더**에 올린다(서버가 경로 접두를 검사한다).
+async function uploadGeneralInquiryAttachment(file, influencerId) {
+  if (!db) throw new Error('DB 미연결');
+  if (!influencerId) throw new Error('회원 id 없음');
+  const compressed = await compressImageFile(file);
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `general/${influencerId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 문의 갈래 판정용 — 본인 응모 목록(취소 포함). 🔴 실패 `null` 이면 화면은 갈래를 건너뛰지 않는다(§5-4 ⑩).
+async function fetchMyApplicationsForInquiry() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('applications')
+      .select('id, campaign_id, status, created_at')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationsForInquiry]', e); logAppError('fetchMyApplicationsForInquiry', e); return null; }
+}
+
+// 문의하기 「캠페인 문의」 탭 — 대화가 시작된 응모건만(메시지 1건 이상, 최근 대화 순).
+//   반환 [{application_id, last_message_at}] / 실패 `null`(화면은 「불러오지 못했습니다」).
+async function fetchMyApplicationThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_summary')
+      .select('application_id, last_message_at')
+      .gt('message_count', 0)
+      .order('last_message_at', { ascending: false })
+      .order('application_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyApplicationThreads]', e); logAppError('fetchMyApplicationThreads', e); return null; }
+}
+
+// 응모건 메시지 「쓸 수 있는가」 — 본인 응모건 전부(509). 종료 후 90일 지나면 writable=false(읽기만).
+//   반환 Map<application_id, {writable, ended_at}> / 실패·미로그인 `null`(화면은 입력칸을 막지 말고 서버 거부에 맡긴다).
+async function fetchMyApplicationMessageStatus() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const { data, error } = await db.rpc('get_my_application_message_status');
+    if (error) throw error;
+    return new Map(Object.entries(data || {}));
+  } catch (e) { console.warn('[fetchMyApplicationMessageStatus]', e); logAppError('fetchMyApplicationMessageStatus', e); return null; }
+}
+
+// 회원 햄버거 「문의하기」 배지 — 본인 일반 문의의 안 읽은 답장 수. 실패 `null`(배지 없음).
+//   대화 뷰(506)의 여러 행을 **합산**한다 — 대화가 여럿이라 한 줄로 받으면(`maybeSingle`) 오류가 난다.
+async function fetchMyGeneralInquiryUnread() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('general_inquiry_thread_summary')
+      .select('thread_id, unread_for_influencer')
+      .eq('influencer_id', currentUser.id)
+      .order('thread_id'));
+    return (data || []).reduce((sum, r) => sum + (Number(r.unread_for_influencer) || 0), 0);   // 문의가 없으면 0
+  } catch (e) { console.warn('[fetchMyGeneralInquiryUnread]', e); logAppError('fetchMyGeneralInquiryUnread', e); return null; }
+}
+
+// 회원 서비스 문의 — 본인 대화 전부(열림·닫힘), 최근에 연 순. 실패 `null`, 0건 `[]`.
+async function fetchMyGeneralInquiryThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return null;
+  try {
+    const data = await fetchAllPaged(() => db.from('general_inquiry_thread_summary')
+      .select('*')
+      .eq('influencer_id', currentUser.id)
+      .order('opened_at', { ascending: false })
+      .order('thread_id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchMyGeneralInquiryThreads]', e); logAppError('fetchMyGeneralInquiryThreads', e); return null; }
+}
+
+// 관리자 받은편지함 「일반 문의」 탭 목록 — 새 뷰(481). 열 모양은 응모건 뷰와 같다(application_id·campaign_id 는 빈 값).
+//   opts: fetchAdminMessageThreads 와 같음(sinceMonths / fromIso·toIso). 실패 `null`.
+async function fetchAdminGeneralInquiryThreads(opts = {}) {
+  if (!db) return null;
+  const useRange = !!(opts.fromIso || opts.toIso);
+  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('general_inquiry_message_summary')
+        .select('application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at')
+        .gt('message_count', 0)
+        .order('last_message_at', { ascending: false })
+        .order('influencer_id');
+      if (useRange) {
+        if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
+        if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
+      } else {
+        q = q.gte('last_message_at', sinceIso);
+      }
+      return q;
+    });
+    return data || [];
+  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreads]', e); logAppError('fetchAdminGeneralInquiryThreads', e); return null; }
+}
+
+// 일반 문의 미응대 수 — 사이드바·탭 배지 합산용(fetchUnresolvedMessageCount 의 짝, 같은 6개월 창). 실패 `null`.
+async function fetchGeneralInquiryUnresolvedCount() {
+  if (!db) return null;
+  try {
+    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const {count, error} = await db.from('general_inquiry_message_summary')
+      .select('influencer_id', { count: 'exact', head: true })
+      .gt('message_count', 0)
+      .eq('unresolved_for_admin_team', true)
+      .gte('last_message_at', sinceIso);
+    if (error) { console.warn('[fetchGeneralInquiryUnresolvedCount]', error); return null; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchGeneralInquiryUnresolvedCount]', e); return null; }
+}
+
+// 관리자 본인 미열람 수 (회원별 — 옛 화면용). 반환 Map<influencer_id, count>, 실패 `null`.
+//   505 부터 서버는 **대화별**로 돌려준다 — 한 회원에 여러 줄이라 더해서 회원 단위로 만든다(덮어쓰면 마지막 대화 수만 남는다).
+async function fetchGeneralInquiryAdminUnreadCounts() {
+  if (!db) return null;
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('influencer_id').order('thread_id'));
+  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadCounts]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.influencer_id, (map.get(r.influencer_id) || 0) + (Number(r.unread_count) || 0)));
+  return map;
+}
+
+// 「내가 보낸 순」 정렬 — 본인 관리자가 일반 문의에 보낸 회원별 최신 시각. 반환 Map<influencer_id, iso>, 실패 `null`.
+//   ⚠️ fetchAdminSentAtMap 을 쓰면 일반 문의 행이 빈 열쇠 하나로 뭉친다(§5-4 ⑨) — 이 짝을 쓴다.
+async function fetchAdminGeneralSentAtMap() {
+  if (!db) return null;
+  let data;
+  try {
+    const {data: udata} = await db.auth.getUser();
+    const uid = udata?.user?.id;
+    if (!uid) return null;
+    data = await fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, created_at')
+      .is('application_id', null)
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .order('id'));
+  } catch (e) { console.warn('[fetchAdminGeneralSentAtMap]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => { if (!map.has(r.influencer_id)) map.set(r.influencer_id, r.created_at); });
+  return map;
+}
+
+// 일반 문의 미리보기 — 회원별 마지막 살아 있는 메시지. 반환 Map<influencer_id, row>, 실패 `null`.
+async function fetchGeneralInquiryPreviews(influencerIds) {
+  if (!db) return null;
+  const map = new Map();
+  if (!influencerIds || !influencerIds.length) return map;
+  const CHUNK = 100;
+  // 청크는 최대 4개씩 동시에 — 하나라도 실패하면 종전처럼 통째로 null.
+  let parts;
+  try {
+    parts = await mapLimit(chunkArray(influencerIds, CHUNK), 4, (ids) => fetchAllPaged(() => db.from('application_messages')
+      .select('influencer_id, body, body_translated, translate_status, sender_kind, created_at')
+      .is('application_id', null)
+      .in('influencer_id', ids)
+      .is('hidden_by_admin_at', null)
+      .is('self_withdrawn_at', null)
+      .order('created_at', { ascending: false })
+      .order('id')));
+  } catch (e) { console.warn('[fetchGeneralInquiryPreviews]', e); return null; }
+  parts.forEach(data => (data || []).forEach(m => { if (!map.has(m.influencer_id)) map.set(m.influencer_id, m); }));
+  return map;
+}
+
+// 일반 문의 숨김/복구 이력 (최고 관리자 — 표 정책상 그 외는 빈 배열). 실패 `null`.
+async function fetchGeneralInquiryHideHistory(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const data = await fetchAllPaged(() => db.from('application_message_hide_history')
+      .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(influencer_id, application_id)')
+      .eq('application_messages.influencer_id', influencerId)
+      .is('application_messages.application_id', null)
+      .order('at', { ascending: false })
+      .order('id'));
+    return data || [];
+  } catch (e) { console.warn('[fetchGeneralInquiryHideHistory]', e); return null; }
+}
+
+// ── 서비스 문의 여러 대화 (마이그레이션 504~506) — 관리자 ──────────────────
+//   대화 단위 뷰 `general_inquiry_thread_summary` 를 본다. 위의 회원 단위 함수(481 뷰)는 옛 화면용으로 남아 있다.
+//   사양서 docs/specs/2026-10-06-service-inquiry-threads.md
+
+// 서비스 문의 탭 목록 — 대화 한 줄씩. 실패 `null`, 0건 `[]`.
+//   opts: sinceMonths / fromIso·toIso(마지막 글 시각 기준, 보이는 글이 없는 대화는 연 시각 기준)
+//         includeClosed(기본 false = 열린 대화만) · influencerId(그 회원 대화 **전부** — 「이 회원 대화 N」.
+//         ⚠️ 이때는 기간을 걸지 않고 닫힌 대화도 포함한다)
+//   ⚠️ 옛 함수의 `.gt('message_count', 0)` 은 **옮기지 않는다** — 회원이 글을 전부 회수한 열린 대화도
+//      목록에 남아야 운영팀이 닫을 수 있다(506 머리말 · 검증 12 「보이는 글 0건 대화 닫기」)
+async function fetchAdminGeneralInquiryThreadRows(opts = {}) {
+  if (!db) return null;
+  const useRange = !!(opts.fromIso || opts.toIso);
+  const sinceIso = new Date(Date.now() - (opts.sinceMonths || 6) * 30 * 24 * 60 * 60 * 1000).toISOString();
+  // 마지막 글 시각이 비면(보이는 글 0건) 연 시각으로 기간을 판정한다 — 조건 하나(`or` 한 번)로 묶는다
+  const period = (fromIso, toIso) => {
+    const on = (col) => [fromIso && `${col}.gte.${fromIso}`, toIso && `${col}.lte.${toIso}`].filter(Boolean).join(',');
+    return `and(${on('last_message_at')}),and(last_message_at.is.null,${on('opened_at')})`;
+  };
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('general_inquiry_thread_summary')
+        .select('*')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('thread_id');
+      if (opts.influencerId) return q.eq('influencer_id', opts.influencerId);
+      if (!opts.includeClosed) q = q.eq('status', 'open');
+      return useRange ? q.or(period(opts.fromIso, opts.toIso)) : q.or(period(sinceIso, null));
+    });
+    return data || [];
+  } catch (e) { console.warn('[fetchAdminGeneralInquiryThreadRows]', e); logAppError('fetchAdminGeneralInquiryThreadRows', e); return null; }
+}
+
+// 서비스 문의 미응대 수 = 「회원 답 대기가 아닌, 운영팀이 답할 차례」인 열린 대화 수. 실패 `null`.
+//   🔴 기간 창을 걸지 않는다 — 사이드바·탭 배지·30초 갱신 세 자리가 모두 이 값을 써야 숫자가 맞는다(R-4).
+async function fetchGeneralInquiryNeedsReplyCount() {
+  if (!db) return null;
+  try {
+    const {count, error} = await db.from('general_inquiry_thread_summary')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .eq('needs_reply', true);
+    if (error) { console.warn('[fetchGeneralInquiryNeedsReplyCount]', error); return null; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchGeneralInquiryNeedsReplyCount]', e); return null; }
+}
+
+// 관리자 본인 미열람 수 (대화별). 반환 Map<thread_id, count>, 실패 `null`.
+async function fetchGeneralInquiryAdminUnreadByThread() {
+  if (!db) return null;
+  let data;
+  try {
+    data = await fetchAllPaged(() => db.rpc('general_inquiry_admin_unread_counts', { p_admin_auth_id: null }).order('thread_id'));
+  } catch (e) { console.warn('[fetchGeneralInquiryAdminUnreadByThread]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.thread_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 「내가 보낸 순」 정렬 — 본인 관리자가 서비스 문의에 보낸 대화별 최신 시각. 반환 Map<thread_id, iso>, 실패 `null`.
+async function fetchAdminGeneralThreadSentAtMap() {
+  if (!db) return null;
+  let data;
+  try {
+    const {data: udata} = await db.auth.getUser();
+    const uid = udata?.user?.id;
+    if (!uid) return null;
+    data = await fetchAllPaged(() => db.from('application_messages')
+      .select('general_thread_id, created_at')
+      .is('application_id', null)
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .order('id'));
+  } catch (e) { console.warn('[fetchAdminGeneralThreadSentAtMap]', e); return null; }
+  const map = new Map();
+  (data || []).forEach(r => { if (r.general_thread_id && !map.has(r.general_thread_id)) map.set(r.general_thread_id, r.created_at); });
+  return map;
+}
+
+// 대화 닫기(「응대 완료」). seenLastMessageId = 화면이 본 **숨김·회수 뺀** 마지막 글 id(없으면 null).
+//   실패는 예외 — 거부 코드 new_message_since_view · thread_closed · thread_not_found 를 화면이 문구로 바꾼다.
+async function closeGeneralInquiryThread(threadId, seenLastMessageId = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('close_general_inquiry_thread', { p_thread_id: threadId, p_seen_last_message_id: seenLastMessageId });
+    if (error) throw error;
+  });
+}
+
+// 대화 다시 열기(운영팀). 실패는 예외 — 거부 코드 thread_not_found(508 부터 다른 열린 대화가 있어도 열린다).
+async function reopenGeneralInquiryThread(threadId) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('reopen_general_inquiry_thread', { p_thread_id: threadId });
+    if (error) throw error;
+  });
+}
+
+// 대화 제목 고치기(운영팀만, 508). 앞뒤 공백은 서버가 뗀다 · 빈 값이면 제목·번역을 비운다 ·
+//   바뀌면 번역 대기로 돌아가 번역 함수가 다시 번역한다. 실패는 예외 — title_too_long · thread_not_found.
+async function updateGeneralInquiryThreadTitle(threadId, title) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_general_inquiry_thread_title', { p_thread_id: threadId, p_title: title ?? '' });
+    if (error) throw error;
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -4783,6 +5395,19 @@ async function fetchFaqNodes() {
       .order('created_at', { ascending: true })
       .order('id'));
   } catch (error) { console.warn('[fetchFaqNodes]', error); logAppError('fetchFaqNodes', error); return []; }
+}
+
+// 관리자 메시지 화면 「자주 묻는 질문」 창용 — fetchFaqNodes 와 같지만 **실패 null · 0건 []**
+//   (실패를 「등록된 질문 없음」으로 그리지 않게)
+async function fetchFaqNodesOrNull() {
+  if (!db) return null;
+  try {
+    return await fetchAllPaged(() => db.from('faq_nodes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id'));
+  } catch (error) { console.warn('[fetchFaqNodesOrNull]', error); logAppError('fetchFaqNodesOrNull', error); return null; }
 }
 
 // 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
@@ -4935,16 +5560,33 @@ async function fetchClientErrors(filters = {}) {
       let q = db.from('client_error_logs').select('*');
       if (filters.status) q = q.eq('status', filters.status);
       if (filters.source) q = q.eq('source', filters.source);
-      if (filters.since)  q = q.gte('last_seen_at', filters.since);
+      // ⚠️ 기간으로 줄을 고르지 않는다 — 기간 횟수는 날짜별 표가 정한다(fetchClientErrorCounts)
       // 마이그레이션 308 — 「미리 정의된 업무 거부」(마감 지남·정원 초과 등)를 갈라 본다.
       //   ⚠️ true/false 를 명시적으로 비교한다. `if (filters.expected)` 로 쓰면 false 가
       //      「필터 없음」으로 읽혀 「예상 못 한 오류만」 보기가 통째로 죽는다.
       if (filters.expected === true || filters.expected === false) {
         q = q.eq('is_expected', filters.expected);
       }
-      return q.order('last_seen_at', { ascending: false });
+      return q.order('last_seen_at', { ascending: false }).order('id');
     });
   } catch (e) { console.error('[fetchClientErrors]', e); return []; }
+}
+
+// 기간별 횟수·발생 환경 — get_client_error_counts (마이그레이션 522)
+//   from·to = 일본 표준시 날짜 'YYYY-MM-DD'. 빈 값이면 하한 없음 / 오늘까지.
+//   🔴 호출 실패 null · 성공 {introduced_on, rows}(기간에 0건이면 rows: []) — 실패를 0 으로 그리지 않는다
+async function fetchClientErrorCounts(from, to) {
+  if (!db) return null;
+  try {
+    let out = null;
+    await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('get_client_error_counts', { p_from: from || null, p_to: to || null });
+      if (error) throw error;
+      out = data;
+    });
+    if (!out || !Array.isArray(out.rows)) return null;
+    return out;
+  } catch (e) { console.error('[fetchClientErrorCounts]', e); return null; }
 }
 
 // 미해결(open) 오류 건수 — 사이드바 배지용
@@ -5491,17 +6133,21 @@ async function fetchOrientSheets() {
   if (!db) return [];
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
-      .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
-      .order('created_at', { ascending: false }))
+      .select('id, brand_id, application_id, orient_no, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, draft_saved_at, brands(name, name_ja)')
+      .order('created_at', { ascending: false }).order('id'))
   );
 }
 
 // 상세: data 포함 단건
+// 🔴 select('*') 를 쓰지 않는다 — 브랜드가 제출 뒤 고친 작성본(draft_data, 523)은 관리자 화면에 내려보내지 않는다
+//    (사양서 2026-10-01-orient-sheet-post-submit-draft.md 결정 3 — 화면 기준이다. 관리자 조회 정책은 칸 단위로 막지 않으므로
+//    서버 차단은 아니다). 작성본은 「수정 중」 표시용 시각(draft_saved_at)만 받는다.
+//    orient_sheets 에 새 칸을 더해 상세에서 써야 하면 이 목록에 넣는다.
 async function fetchOrientSheetById(id) {
   if (!db) return null;
   return await retryWithRefresh(async () => {
     const { data, error } = await db.from('orient_sheets')
-      .select('*, brands(name, name_ja)')
+      .select('id, brand_id, application_id, orient_no, token, form_type, data, status, campaign_id, token_expires_at, submitted_at, last_submitted_at, last_notified_at, consumed_at, version, created_by, created_at, updated_at, mail_sent_at, mail_sent_to, draft_saved_at, brands(name, name_ja)')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
@@ -5578,7 +6224,7 @@ async function revokePushToken(token) {
 // data 는 형식(osCardsSummary)·제품명·견적(osQuoteState)·발행 캠페인 표시에 전부 쓰여 반드시 받는다.
 //   orient_sheets.form_type 칸은 형식 표시 함수가 안 읽으므로(새 시트=data.issued, 옛 시트=data.cards) 안 받는다.
 // 🔴 1,000행 상한 대응 — 브랜드당 건수를 실측하지 않았으므로 fetchAllPaged 로 전건 반복 조회한다
-//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문(fetchCampaignCountsByBrand)을 본뜨지 않는다.
+//   (fetchOrientSheets 와 같은 방식). 손수 짠 while 반복문을 쓰지 않는다(fetchCampaignCountsByBrand 도 2026-10-14 이 방식으로 바꿨다).
 // 실패 null / 0건 [].
 async function fetchOrientSheetsByBrand(brandId) {
   if (!db || !brandId) return null;
@@ -5586,7 +6232,7 @@ async function fetchOrientSheetsByBrand(brandId) {
     return await fetchAllPaged(() => db.from('orient_sheets')
       .select('id, orient_no, status, data, token_expires_at, submitted_at, created_at')
       .eq('brand_id', brandId)
-      .order('created_at', { ascending: false }));
+      .order('created_at', { ascending: false }).order('id'));
   } catch (e) { console.error('[fetchOrientSheetsByBrand]', e); return null; }
 }
 
@@ -5597,7 +6243,7 @@ async function fetchOrientSheetsByBrand(brandId) {
 async function fetchOrientSheetCountsByBrand() {
   if (!db) return null;
   try {
-    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null));
+    const rows = await fetchAllPaged(() => db.from('orient_sheets').select('brand_id').not('brand_id', 'is', null).order('id'));
     const counts = {};
     (rows || []).forEach(r => { if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
     return counts;
@@ -5632,7 +6278,7 @@ async function fetchSettlements(opts) {
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         amount_source, reward_part_jpy, receipt_amount_jpy, amount_cap_jpy,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        cert_at, paid_amount_jpy,
+        cert_at, paid_amount_jpy, current_transfer_id,
         campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
         settlement_events(count)
       `);
@@ -5640,7 +6286,7 @@ async function fetchSettlements(opts) {
       if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
       if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
       // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
-      q = q.order('created_at', {ascending: true});
+      q = q.order('created_at', {ascending: true}).order('id');
       return q;
     });
     const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
@@ -5853,7 +6499,7 @@ async function fetchOutboundInfluencers(opts) {
       if (opts.availability) q = q.eq('availability', opts.availability);
       if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
       // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
-      return q.order('created_at', {ascending: false});
+      return q.order('created_at', {ascending: false}).order('id');
     });
   } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
 }
@@ -5976,6 +6622,203 @@ async function registerPastSettlements(applicationIds, targetStatus, memo, paidA
     skippedNoPaypal = (row?.skipped_no_paypal_count ?? 0);
   });
   return { registered: Number(registered) || 0, skippedNoPaypal: Number(skippedNoPaypal) || 0 };
+}
+
+// ── 송금 묶음·수수료 (마이그레이션 484·486·487) ──────────────────
+// 사양서 docs/specs/2026-09-30-settlement-transfer-fee-record.md · 작업표 「조각 9」
+// 조회 함수는 실패 **null**, 0건 **빈 배열** — 실패를 0건으로 넘기면 화면이 「기록 없음」으로 그린다.
+
+// 수수료 규칙 조회 — RPC get_settlement_fee_rule(484). 반환 {rate_percent, fixed_jpy, rounding,
+// updated_at, updated_by, updated_by_name, history[]} 또는 실패 시 null.
+async function fetchSettlementFeeRule() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_fee_rule');
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchSettlementFeeRule]', e); return null; }
+}
+
+// 수수료 설정 변경 이력 전부(오래된 순) — 송금 내역이 「그 송금 당시 기준 요율」을 찾는 데 쓴다.
+//   표 settlement_fee_rule_history(484, 조회 정책 settlement.view 읽기 · 추가만). 실패 null, 0건 [].
+async function fetchSettlementFeeRuleHistoryAll() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.from('settlement_fee_rule_history')
+      .select('prev_rate_percent, next_rate_percent, prev_fixed_jpy, next_fixed_jpy, at')
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementFeeRuleHistoryAll]', e); return null; }
+}
+
+// 수수료 규칙 저장 — RPC update_settlement_fee_rule(484). 서버가 반환한 jsonb 를 그대로 돌려준다.
+// 오류는 던진다(호출부가 friendlyError 로 안내).
+async function updateSettlementFeeRule(ratePercent, fixedJpy, rounding) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_settlement_fee_rule', {
+      p_rate_percent: Number(ratePercent),
+      p_fixed_jpy: Number(fixedJpy),
+      p_rounding: rounding
+    });
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+// 송금 묶음 기록 — RPC record_settlement_transfers(486). 페이팔 거래 1건 = 묶음 1개.
+// 반환: {ok:true, transferIds, settlementCount, feeTotal} 또는 {ok:false, failures} (failures 는 가공 없이 그대로).
+// ⚠️ ok:false 는 예외가 아니다 — 호출부가 반드시 ok 를 확인하고 failures 의 reason 별로 안내해야 한다.
+//    서버는 하나라도 걸리면 아무것도 쓰지 않는다. DB 오류는 다른 변경 함수처럼 던진다.
+async function recordSettlementTransfers(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('record_settlement_transfers', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  if (result && result.ok) {
+    return {
+      ok: true,
+      transferIds: result.transfer_ids || [],
+      settlementCount: Number(result.settlement_count) || 0,
+      feeTotal: Number(result.fee_total) || 0
+    };
+  }
+  return {ok: false, failures: (result && result.failures) || []};
+}
+
+// 과거 지급 시트 소급 — RPC backfill_settlement_transfers_from_sheet(501). 출처는 서버가 항상 sheet_backfill 로 고정한다.
+// 반환: {written:[{bundle_index, transfer_id, items}], skipped:[{bundle_index, reason:'already_applied'}]}.
+// ⚠️ 위 기록 함수와 달리 거부는 ok:false 가 아니라 **예외**다(`bundle_xxx: … (묶음 순번 N)` — 하나라도 걸리면 아무것도 안 썼다).
+//    화면은 부르지 않는다 — 일회성 콘솔 도구(scripts/)만 쓴다.
+async function backfillSettlementTransfersFromSheet(bundles) {
+  if (!db) throw new Error('DB 미연결');
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlement_transfers_from_sheet', {p_bundles: bundles});
+    if (error) throw error;
+    result = data;
+  });
+  return {written: (result && result.written) || [], skipped: (result && result.skipped) || []};
+}
+
+// 송금 묶음 정정 — RPC correct_settlement_transfer(현재 원본 517). 반환 정수: -1 = 버전 충돌(재조회), 그 외 새 버전.
+// ⚠️ feeRatePercent·feeFixedJpy(517) — 「이 송금 요율 직접 정하기」. 둘 다 넘기면 서버가 그 요율로 수수료를 다시 계산한다.
+//    undefined/null 이면 null(안 고침). **0 은 유효한 값**이다. 수수료 금액(feeJpy)과 함께 보내면 서버가 거부한다(bundle_fee_conflict).
+// ⚠️ txnId·memo 는 서버에서 NULL = 「안 고침」, '' = 「비움」이다. 그래서 빈 문자열을
+//    null 로 바꾸지 않는다(다른 함수의 `x || null` 을 그대로 쓰면 「비우기」가 조용히 「안 고침」이 된다).
+//    undefined/null 만 null 로 보낸다.
+// ⚠️ sentAt·feeJpy 는 빈 값이면 null(안 고침). 수수료 0 은 유효한 값이다.
+async function correctSettlementTransfer(id, version, sentAt, feeJpy, txnId, memo, feeRatePercent, feeFixedJpy) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('correct_settlement_transfer', {
+      p_transfer_id: id,
+      p_version: version,
+      p_sent_at: sentAt || null,
+      p_fee_jpy: (feeJpy === 0 || feeJpy) ? Number(feeJpy) : null,
+      p_paypal_txn_id: (txnId === undefined || txnId === null) ? null : txnId,
+      p_memo: (memo === undefined || memo === null) ? null : memo,
+      // 요율은 정할 때만 키를 싣는다 — 517 이전 서버(6인자)에서도 일반 정정이 「함수 없음」으로 실패하지 않게
+      ...((feeRatePercent === undefined || feeRatePercent === null || feeRatePercent === '') ? {} : {
+        p_fee_rate_percent: Number(feeRatePercent),
+        p_fee_fixed_jpy: (feeFixedJpy === undefined || feeFixedJpy === null || feeFixedJpy === '') ? null : Number(feeFixedJpy)
+      })
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 송금 묶음 목록 — RPC get_settlement_transfers(487, sent_at·id 순 정렬). from/to = 'YYYY-MM-DD' 또는 null.
+// 1,000행 상한 때문에 fetchAllPaged. 실패 null, 0건 [].
+async function fetchSettlementTransfers(from, to) {
+  if (!db) return null;
+  try {
+    return await fetchAllPaged(() => db.rpc('get_settlement_transfers', {
+      p_from: from || null,
+      p_to: to || null
+    }));
+  } catch(e) { console.error('[fetchSettlementTransfers]', e); return null; }
+}
+
+// 송금 묶음 1건의 변경 이력 — settlement_transfer_events(485, 조회 정책 settlement.view 읽기).
+//   기록(create)·묶음 정정(correct)·건별 송금액 정정(correct, 합계·수수료만)이 시간순으로 쌓인다.
+//   실패 null, 0건 [] — ⚠️ 권한이 없는 등급은 오류가 아니라 0건이 온다.
+async function fetchSettlementTransferEvents(transferId) {
+  if (!db || !transferId) return null;
+  try {
+    const {data, error} = await db.from('settlement_transfer_events')
+      .select('id, action, prev, next, memo, actor_name, at')
+      .eq('transfer_id', transferId)
+      .order('at', {ascending: true}).order('id');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferEvents]', e); return null; }
+}
+
+// 월별 송금 집계 — RPC get_settlement_transfer_monthly(487). 실패 null, 0건 [].
+async function fetchSettlementTransferMonthly(from, to) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_monthly', {
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferMonthly]', e); return null; }
+}
+
+// 회차별 송금 집계 — RPC get_settlement_transfer_by_round(487). 실패 null, 0건 [].
+async function fetchSettlementTransferByRound(from, to) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_by_round', {
+      p_from: from || null,
+      p_to: to || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementTransferByRound]', e); return null; }
+}
+
+// 송금 기록 없는 건 요약 — RPC get_settlement_transfer_unrecorded(487). 단일 행 객체, 실패·행 없음 null.
+async function fetchSettlementTransferUnrecorded() {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_settlement_transfer_unrecorded');
+    if (error) throw error;
+    return (Array.isArray(data) ? data[0] : data) || null;
+  } catch(e) { console.error('[fetchSettlementTransferUnrecorded]', e); return null; }
+}
+
+// 확인 창·정정 창 수수료 미리보기(현재 원본 515). 묶음 합계 배열 → 같은 순서의 수수료 배열.
+//   opts = {rates, fixeds, roundings} — totals 와 같은 길이 배열(원소 null = 설정 규칙). 확인 창은 끝수를 안 보낸다,
+//   정정 창은 그 묶음 사본 끝수를 보낸다(저장 값과 같게). 반환에 custom[] — 요율·고정액이 설정과 다른가.
+//   ⚠️ 화면에 수수료 계산식을 두지 않으려고 서버에 묻는다(식은 486 `_settlement_fee_calc` 한 곳).
+//   ⚠️ **미리보기일 뿐** — 실제 기록 수수료는 저장 순간 서버가 다시 계산한다.
+//   반환: {rate_percent, fixed_jpy, rounding, fees:[…]} / 실패 null(화면은 「계산 못 함」, 0엔으로 그리지 않는다)
+async function previewSettlementFees(totals, opts) {
+  if (!db) return null;
+  try {
+    const args = {p_totals: (totals || []).map(n => Number(n) || 0)};
+    // 빈 칸('')·null 은 null(설정 규칙). Number('') 가 0 이 되는 함정을 피한다
+    const num = v => (v === undefined || v === null || v === '') ? null : Number(v);
+    if (opts && opts.rates)     args.p_rates     = opts.rates.map(num);
+    if (opts && opts.fixeds)    args.p_fixeds    = opts.fixeds.map(num);
+    if (opts && opts.roundings) args.p_roundings = opts.roundings.map(v => v || null);
+    const {data, error} = await db.rpc('preview_settlement_fees', args);
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[previewSettlementFees]', e); return null; }
 }
 
 // ── 오프라인 행사 예약(티켓팅) — 마이그레이션 280~283 ──────────────────
@@ -6263,7 +7106,7 @@ async function fetchEventTicketsByCampaign(campaignId) {
         //    **오류도 안 나고 조회도 성공하는데 값은 계속 빈다**(열 이름으로 연결돼 원본 표로 되돌아간다).
         .select('*, event_slots:slot_id (slot_date, start_time, end_time, audience_label), influencers:influencers_admin_view (name_kanji, name_kana, email, is_audit)')
         .eq('campaign_id', campaignId)
-        .order('created_at', {ascending: true})
+        .order('created_at', {ascending: true}).order('id')
     );
   } catch(e) { return []; }
 }

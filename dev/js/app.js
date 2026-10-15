@@ -25,7 +25,10 @@ let _signupConfirmCodeSeen = false;
   } catch(e) {}
 })();
 
+// 상세 화면을 어디서 열었나 — 'mypage'(응모이력) · 'home' · 'campaigns'(목록 — 그때 탭 주소를 _detailFromHash 에) · null(그 밖).
+//   정하는 곳은 openCampaign() 한 곳(떠 있던 화면으로 판정). 상세 안에서 다시 그릴 때는 덮어쓰지 않는다.
 let _detailFrom = null;
+let _detailFromHash = null;
 let _screenTitle = null;  // iOS GNB 제목용 — openCampaign/openActivityPage 가 담고 navigate 가 읽는다
 
 // ── 뒤로가기 — 쌓은 만큼만 되감는다 ─────────────────────────────
@@ -54,26 +57,39 @@ function gnbBackAction() {
     openMypageList();
     return;
   }
+  // 문의 화면 → 들어오며 쌓은 항목이 있으면 되감고(목록·알림 어디서 왔든), 없으면 마이페이지 목록으로
+  if (active && active.id === 'page-inquiry') {
+    goBackFrom('inquiry', function () {
+      navigate('mypage', false);
+      if (typeof openMypageList === 'function') openMypageList(false);
+    });
+    return;
+  }
   navigateBackFromDetail();
 }
 
 // 캠페인 상세 뒤로가기 — openCampaign 이 기록한 진입 출처로 돌아간다.
-//   목록에서 들어왔는데 홈으로 튕기던 문제 때문에 'campaigns' 분기를 추가했다.
+//   iOS: 들어오며 쌓은 항목이 있으면 그것을 되감는다(goBackFrom) — 새 항목을 쌓아 돌아가면 상세를
+//   반복해서 열고 닫을 때마다 스택이 길어져, 스와이프 뒤로가기가 지나온 화면을 여러 번 보여 준다.
+//   ⚠️ 웹(dev)은 history.back() 을 안 쓴다(광고·공유 링크로 직접 들어왔으면 사이트를 떠난다) —
+//      여기서는 **앱이 직접 쌓은 항목이 있을 때만** 되감으므로 그 문제가 없다. 폴백은 dev 와 같은 판정.
 function navigateBackFromDetail() {
   const from = _detailFrom;
+  const fromHash = _detailFromHash;
   _detailFrom = null;
+  _detailFromHash = null;
   const _fallback = function () {
     if (from === 'mypage') {
       navigate('mypage', false);
       openMypageSub('applications');
-    } else if (from === 'campaigns') {
-      navigate('campaigns');
-    } else {
+    } else if (from === 'home') {
       navigate('home');
+    } else if (from === 'campaigns' && isCampaignsHash(fromHash)) {
+      navigate(fromHash);   // 보던 탭 주소로(전체 초기화 + 그 탭)
+    } else {
+      navigate('campaigns');
     }
   };
-  // 들어오며 쌓은 항목이 있으면 그것을 되감는다 — 새 항목을 쌓아 돌아가면 상세를 반복해서
-  // 열고 닫을 때마다 스택이 길어져, 스와이프 뒤로가기가 지나온 화면을 여러 번 보여 준다.
   goBackFrom('detail', _fallback);
 }
 
@@ -89,6 +105,13 @@ function restoreActivityHash() {
   } catch (e) { /* 주소 되돌리기 실패가 화면을 붙잡는 것을 막지는 않는다 */ }
 }
 
+// 상단 로고 — 앱 안 이동이 아니라 첫 화면을 통째로 다시 불러온다(navigate 를 안 거친다).
+//   그래서 마이페이지 「저장 안 한 변경」 확인을 여기서 따로 건다(2026-10-06 — 로고로는 그냥 나가지던 결함)
+function onGnbLogoClick() {
+  if (typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref('/')) return;
+  window.location.href = '/';
+}
+
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
@@ -97,6 +120,11 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // campaigns-{reviewer|gifting|visit} — 캠페인 목록 모집 형식 탭 주소(2026-09-30). 페이지는 하나다.
+  //   Vercel 집계(pv_inf)·햄버거 강조도 이 떼어 낸 이름('campaigns')을 쓴다.
+  if (isCampaignsHash(page)) {
+    pageName = 'campaigns';
+  }
   // messages-{id} — 응모건 메시지 페이지 (모달→페이지 전환, 2026-05-22)
   if (page.startsWith('messages-')) {
     pageName = 'messages';
@@ -104,6 +132,14 @@ function navigate(page, pushHistory) {
   // legal-{terms|privacy} — 약관 종류를 해시에 실어 새로고침·공유 링크로도 본문 복원
   if (page.startsWith('legal-')) {
     pageName = 'legal';
+  }
+  // inquiry-general / inquiry-general-{대화id} — 서비스 문의 새 문의·대화(같은 #page-messages 재사용)
+  if (isInquiryGeneralHash(page)) {
+    pageName = 'messages';
+  }
+  // faq-campaign / faq-service — 따로 떨어진 「よくある質問」 페이지(2026-10-07)
+  if (page.startsWith('faq-')) {
+    pageName = 'faq';
   }
   // ticket / ticket-{id} — 입장 티켓 화면 (오프라인 행사 예약, 2026-08-03)
   //   티켓 없이 들어오는 경로(햄버거)도 있어 접두어가 아니라 'ticket' 자체도 받는다.
@@ -139,6 +175,11 @@ function navigate(page, pushHistory) {
       && typeof cleanupMessagesPage === 'function') {
     cleanupMessagesPage();
   }
+  // 질문 페이지를 떠나면 그릴 자리를 대화 화면 오버레이로 되돌린다 — 안 하면 대화 화면의 질문이 빈 페이지에 그려진다
+  if (_prevActivePage && _prevActivePage.id === 'page-faq' && pageName !== 'faq'
+      && typeof cleanupFaqPage === 'function') {
+    cleanupFaqPage();
+  }
   // 티켓 화면을 떠나면 그린 내용을 비운다 — 다음에 들어올 때 남의 예약(또는 옛 예약)이
   // 잠깐 보이는 것을 막는다. 같은 페이지 안 티켓 전환은 제외.
   if (_prevActivePage && _prevActivePage.id === 'page-ticket' && pageName !== 'ticket'
@@ -165,6 +206,16 @@ function navigate(page, pushHistory) {
       setTimeout(restoreActivityHash, 0);
       return false;
     }
+  }
+  // 마이페이지 폼에 저장 안 한 변경이 있는 채 떠나려 하면 묻는다(2026-10-06).
+  //   ⚠️ 목적지가 마이페이지여도 묻는다 — navigate('mypage') 는 loadMyPage 로 칸을 **서버 값으로 다시 채워**
+  //      고친 내용을 조용히 지운다(햄버거로 다른 폼에 갈 때가 이 경로).
+  //   ⚠️ 활동관리와 같은 이유로 false 를 돌려주고 주소를 되돌린다. 묻는 창은 비동기라
+  //      고른 뒤에 같은 이동을 다시 실행한다(resolveMypageLeave).
+  if (_prevActivePage && _prevActivePage.id === 'page-mypage'
+      && typeof mypageLeaveGuard === 'function' && !mypageLeaveGuard(page, pushHistory)) {
+    setTimeout(restoreMypageHash, 0);
+    return false;
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -232,7 +283,7 @@ function navigate(page, pushHistory) {
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
   // iOS 탭바 활성 동기화 (응모이력/마이페이지 세부 구분은 tabNav 가 보정)
-  if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage'}[pageName] || '');
+  if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage', inquiry:'mypage', faq:'mypage'}[pageName] || '');  // 문의·질문은 마이페이지 하위
   // iOS GNB 제목 — 캠페인 목록·상세만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈은 로고(빈 제목)
   //   상세·활동관리 제목은 openCampaign/openActivityPage 가 _screenTitle 에 담아 둔 캠페인명을 쓴다.
   if (typeof setGnbTitle === 'function') {
@@ -242,7 +293,8 @@ function navigate(page, pushHistory) {
     setGnbTitle(_title);
   }
   // iOS 하단 뒤로가기 — 상세·활동관리에서만. 다른 화면 진입 시 반드시 꺼서 잔존 노출 방지
-  if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
+  //   문의 화면(inquiry)도 — 화면 안에 뒤로 단추가 없다(웹은 햄버거·브라우저 뒤로가기)
+  if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity' || pageName === 'inquiry');
   // iOS GNB 검색 버튼 — 캠페인 목록에서만
   if (typeof setGnbSearch === 'function') setGnbSearch(pageName === 'campaigns');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
@@ -263,6 +315,8 @@ function navigate(page, pushHistory) {
   }
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
+  // 가입 인증번호 — 다시 들어오면 남은 시간·가입 단추 상태를 다시 그린다(화면을 떠나면 타이머가 멈춘다)
+  if (pageName === 'signup' && typeof onSignupPageEnter === 'function') onSignupPageEnter();
   // 인증 페이지에선 햄버거·탭바 숨김
   const gnbBurger = $('gnbBurger');
   const _isAuthPage = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName);
@@ -276,7 +330,7 @@ function navigate(page, pushHistory) {
 
   if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
   else { const _pnb = document.getElementById('policyNoticeBannerWrap'); if (_pnb) _pnb.style.display = 'none'; }  // 배너는 fixed 오버레이 → 홈 외 페이지에선 숨김
-  if (pageName === 'campaigns') loadCampaignsPage();
+  if (pageName === 'campaigns') loadCampaignsPage(page);   // 목표 주소의 탭으로 시작(부르기 전 주소 X)
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
     closeMypageSub();
@@ -362,8 +416,14 @@ window.addEventListener('popstate', function(e) {
   if (page === 'mypage' || page.startsWith('mypage-')) {
     // ⚠️ 막히면 여기서 멈춘다 — 안 멈추면 아래 openMypageSub 가 화면을 바꿔,
     //    「나가지 않겠다」고 했는데도 마이페이지가 열린다.
-    if (navigate('mypage', false) === false) return;
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (navigate('mypage', false) === false) {
+      // 마이페이지 저장 확인에 막힌 뒤로가기 — 고른 뒤 그 폼으로 가도록 목적지를 적어 둔다(안 적으면 응모이력으로 간다)
+      if (sub && typeof _mypageLeavePending !== 'undefined' && _mypageLeavePending && !_mypageLeavePending.sub) {
+        _mypageLeavePending.sub = sub; _mypageLeavePending.subPush = false;
+      }
+      return;
+    }
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
     if (sub === 'list') {
@@ -406,11 +466,25 @@ window.addEventListener('popstate', function(e) {
     // 화면 전환만 하고, iOS 큰 제목 관찰자만 다시 건다(제목은 _screenTitle 이 그대로 유지).
     navigate(page, false);
     if (typeof setupLargeTitle === 'function') setupLargeTitle('page-activity', 'activityCampTitle');
+  } else if (page === 'inquiry') {
+    // 대화에서 브라우저 뒤로가기로 돌아온 경우가 대부분이다 — 보던 탭을 유지한다('back')
+    if (typeof openInquiryPage === 'function') openInquiryPage('back', false);
+    else navigate('home', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(page));
+    else navigate('home', false);
+  } else if (page.startsWith('faq-')) {
+    if (typeof openFaqPage === 'function') openFaqPage(page.replace('faq-', ''), false);
+    else navigate('home', false);
   } else if (page === 'ticket' || page.startsWith('ticket-')) {
     markPushedInto('ticket', true);
     // 뒤로가기로 티켓 화면에 돌아온 경우 — pushState 를 또 하지 않도록 false 전달.
     if (typeof openTicketPage === 'function') openTicketPage(page.replace('ticket-','').replace('ticket',''), 'mypage', false);
     else navigate('mypage', false);
+  } else if (isCampaignsHash(page) && document.querySelector('#appShell .page.active')?.id === 'page-campaigns') {
+    // 목록이 떠 있는 채 탭 주소 사이를 오가는 뒤로가기 — 탭만 바꾼다(전체 초기화하면 상태 칩·검색어가 매번 날아간다).
+    //   다른 화면(상세 등)에서 목록으로 돌아오는 경우는 아래 navigate() 경로(전체 초기화 + 주소의 탭).
+    if (typeof applyCampPageTypeFromHistory === 'function') applyCampPageTypeFromHistory(page);
   } else {
     navigate(page, false);
   }
@@ -420,7 +494,7 @@ window.addEventListener('popstate', function(e) {
 window.addEventListener('langchange', function() {
   const page = location.hash.replace('#','') || 'home';
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
-  else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
+  else if (isCampaignsHash(page)) { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(page); }   // 선택한 탭 유지
   else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(typeof captureInviteFromHash === 'function' ? captureInviteFromHash(page) : page.replace('detail-','')); }
   else if (page === 'app-cancel') {
     // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
@@ -431,13 +505,25 @@ window.addEventListener('langchange', function() {
       openCancelModalFor(_cancelTargetAppId);
     }
   }
+  // 문의하기 화면 — 탭·목록은 스크립트로 그려 data-i18n 이 안 걸린다(탭 이름이 옛 언어로 남던 결함)
+  else if (page === 'inquiry') { if (typeof renderInquiryBranch === 'function') renderInquiryBranch(); }
+  // 질문 페이지 — 제목·목록을 새 언어로(목록은 처음 단계로)
+  else if (page.startsWith('faq-')) {
+    const _ft = document.getElementById('faqPageTitle');
+    if (_ft) _ft.textContent = t(page === 'faq-service' ? 'inquiry.faqPageTitleService' : 'inquiry.faqPageTitleCampaign');
+    if (typeof renderFaqCategories === 'function' && typeof _faqOnPage === 'function' && _faqOnPage()) renderFaqCategories();
+  }
+  else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(page)) {
+    const _tt = document.getElementById('msgModalTitle');
+    if (_tt) _tt.textContent = t('inquiry.generalTitle');
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage', inquiry:'inquiry', faq:'inquiry'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -588,7 +674,7 @@ function setGnbBack(show) {
 // Pull-to-Refresh — 모바일 네이티브 앱처럼 페이지 최상단에서 아래로 당기면 새로고침
 //   #appShell 내부 .page.active(스크롤 컨테이너) 의 touch 이벤트로 작동.
 //   인증 페이지(login/signup/forgot/reset-pw)는 비활성. activity 등 기타 페이지 모두 허용.
-//   임계값 80px 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
+//   임계값 90px(저항 적용 후) 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
 // ══════════════════════════════════════
 function setupPTR() {
   const appShell = $('appShell');
@@ -605,12 +691,25 @@ function setupPTR() {
   const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
                               // — 실제 손가락 이동 거리 약 180px
   const MAX_PULL = 130;       // 최대 당김 거리 클램프
+  const DEAD_ZONE = 24;       // 이만큼(저항 적용 후) 당기기 전에는 아무것도 안 보인다 — 살짝 움직여도 아이콘이 비치던 결함(2026-10-07)
 
   let startY = 0;
   let pullY = 0;
   let pulling = false;
   let activePage = null;
+  let startTarget = null;     // 손가락을 댄 요소 — 페이지 안쪽 스크롤 상자(.mypage-view·.faq-page-body 등)를 다시 볼 때 쓴다
   let isRefreshing = false;
+
+  // 손가락 아래 요소부터 페이지까지 올라가며 하나라도 아래로 스크롤돼 있으면 참.
+  //   🔴 페이지 자체가 아니라 안쪽 상자가 스크롤되는 화면(마이페이지 하위 화면·자주 묻는 질문 페이지)은
+  //   page.scrollTop 이 늘 0 이라, 이것 없이 보면 목록 중간에서 위로 올리기만 해도 새로고침이 걸린다
+  const scrolledBetween = (el, page) => {
+    for (let n = el; n && n !== page.parentElement; n = n.parentElement) {
+      if ((n.scrollTop || 0) > 0) return true;
+      if (n === page) break;
+    }
+    return false;
+  };
 
   const reset = () => {
     // 숨김 위치 — components.css 의 초기값과 같은 식. --ptr-offset 은 화면 맨 위에서 얼마나
@@ -624,6 +723,7 @@ function setupPTR() {
     }
     pulling = false;
     activePage = null;
+    startTarget = null;
     pullY = 0;
   };
 
@@ -634,8 +734,9 @@ function setupPTR() {
     if (PTR_BLOCKLIST.includes(page.id)) return;
     // 모달/오버레이 등 활성 페이지 바깥을 터치하면 PTR 비활성 — 모달 내부 스크롤과 충돌 방지
     if (!page.contains(e.target)) return;
-    if ((page.scrollTop || 0) > 0) return;
+    if (scrolledBetween(e.target, page)) return;
     activePage = page;
+    startTarget = e.target;
     startY = e.touches[0].clientY;
     pullY = 0;
     pulling = true;
@@ -646,11 +747,13 @@ function setupPTR() {
     const dy = e.touches[0].clientY - startY;
     if (dy < 0) { reset(); return; }
     // 컨테이너가 다시 스크롤된 상태로 바뀌면 PTR 종료
-    if ((activePage.scrollTop || 0) > 0) { reset(); return; }
+    if (scrolledBetween(startTarget, activePage)) { reset(); return; }
     pullY = dy;
     const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
-    indicator.style.transform = `translate(-50%, ${Math.min(adjusted - 16, 40)}px)`;
-    activePage.style.transform = `translateY(${adjusted}px)`;
+    const shown = Math.max(adjusted - DEAD_ZONE, 0);
+    // 아이콘은 화면 밖(-56px)에서 당긴 만큼 내려온다 — 고정 여백(DEAD_ZONE) 전에는 그대로 숨어 있다
+    indicator.style.transform = `translate(-50%, ${Math.min(shown - 56, 40)}px)`;
+    activePage.style.transform = shown ? `translateY(${shown}px)` : '';
     if (adjusted >= TRIGGER_AT) indicator.classList.add('active');
     else indicator.classList.remove('active');
   }, { passive: true });
@@ -658,7 +761,10 @@ function setupPTR() {
   appShell.addEventListener('touchend', () => {
     if (!pulling || !activePage || isRefreshing) return;
     const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
-    if (adjusted >= TRIGGER_AT) {
+    if (adjusted >= TRIGGER_AT && typeof mypageLeaveGuardHref === 'function' && !mypageLeaveGuardHref(null)) {
+      // 마이페이지 폼에 저장 안 한 변경 — 새로고침하면 사라지므로 먼저 묻는다(고른 뒤 새로고침)
+      reset();
+    } else if (adjusted >= TRIGGER_AT) {
       // 새로고침 실행 — 인디케이터를 임계 위치에 고정하고 회전 애니메이션
       isRefreshing = true;
       indicator.style.transform = `translate(-50%, 24px)`;
@@ -684,7 +790,7 @@ async function init() {
   let campaignsPromise = null;
   if (db) {
     try {
-      campaignsPromise = fetchCampaigns();  // 병렬 발사, 나중에 await
+      campaignsPromise = refreshCampaignsShared();  // 병렬 발사, 나중에 await — 받은 목록은 화면 이동 때 재사용(campaign.js)
       await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
@@ -711,14 +817,10 @@ async function init() {
   try {
     if (!inRecoveryInit && _signupConfirmCodeSeen) {
       const codeStillInUrl = new URLSearchParams(location.search).has('code');
-      // 메타 픽셀 4번 이벤트(확인 완료) — 🔴 판정은 세션 유무가 아니라 **확인 코드 교환이 이번에 성공했는가**(결정 10).
-      //   supabase-js 2.116 은 교환에 **성공했을 때만** 주소의 code 를 지운다(실패·검증값 없음이면 남긴다 —
-      //   2026-09-15 라이브러리 소스 대조). 그래서 로드 때 코드를 봤는데 지금 주소에 없다 = 이번에 교환 성공.
-      //   이미 로그인된 창에서 옛 링크를 다시 열면 코드가 남아 있어 세지 않는다. 착지 분기는 부팅 때 한 번만 돈다.
-      //   ⚠️ 아래 지우기 **전에** 판정해야 한다. 이벤트는 픽셀 판정(아래 initMetaPixel) 전이라 줄에 쌓였다가 보내진다.
-      if (!codeStillInUrl && typeof trackMetaPixelEvent === 'function') {
-        trackMetaPixelEvent(META_PIXEL_EVENTS.COMPLETE_REGISTRATION, { status: META_PIXEL_REG_STATUS.CONFIRMED });
-      }
+      // 메타 픽셀 — 🔴 이 착지에서는 가입 이벤트를 **보내지 않는다**(2026-10-02 사용자 결정, 1인 1건).
+      //   이 착지는 가입 폼 제출 때 이미 `pending_email` 을 보낸 옛 흐름 가입자뿐이라, 여기서 `confirmed` 를 또 보내면
+      //   가입 1명이 「등록 완료」 2건이 된다(광고 세트가 이 이벤트로 학습한다). 새 가입 화면은 가입 순간 `confirmed`
+      //   1건을 `auth.js` 가 보낸다. ⚠️ 되살리지 말 것 — 1인 1건이 깨진다(사양서 2026-09-03-meta-pixel.md 표 4번).
       if (codeStillInUrl) {
         history.replaceState(history.state, '', location.pathname + location.hash);
       }
@@ -735,9 +837,19 @@ async function init() {
       currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
       // 조회 실패(null+error)와 0건을 가른다 — 실패는 기록만(handleLogin 과 같은 원칙, 여기엔 삽입이 원래 없다)
-      const {data:profile, error:profileErr} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
-      if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
-      currentUserProfile = profile || null;
+      // 브랜드 계정 판정(조각 9)은 프로필 조회와 **동시에** 묻는다 — 부팅을 한 번 더 기다리게 하지 않는다.
+      //   운영 주소에서는 서버를 안 부르고 바로 'other'(storage.js). 🔴 null(판정 실패)은 아무것도 하지 않는다.
+      const [{data:profile, error:profileErr}, accountKind] = await Promise.all([
+        db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+        typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+      ]);
+      if (accountKind === 'brand') {
+        // 다른 경로(예: admin-setpw.html?mode=login)로 남은 브랜드 계정 세션 — 로그아웃 상태로 시작한다
+        await signOutBrandAccountSession();
+      } else {
+        if (profileErr && typeof logAppError === 'function') logAppError('init.profileFetch', profileErr);
+        currentUserProfile = profile || null;
+      }
     }
   }
   updateGnb();
@@ -802,7 +914,28 @@ async function init() {
             currentUser._isAdmin = true;
             currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
           } else {
-            const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+            // 브랜드 계정 판정(조각 9) — 프로필 조회와 동시에.
+            //   로그인 화면이 판정 중(_handleLoginBusy)이어도 여기서 **판정은 한다** — 안 하면 브랜드 계정에게 알림 폴링·
+            //   약관 안내 창·초대 복귀가 먼저 돌아 버린다(supabase-expert 검토 2026-10-14). 다만 그때 **로그아웃은 로그인
+            //   화면에 맡긴다** — 같은 실패 문구를 보여 줘야 하고, 여기서 먼저 로그아웃하면 그쪽 판정이 실패(null)로 떨어진다.
+            const loginScreenBusy = typeof _handleLoginBusy !== 'undefined' && _handleLoginBusy;
+            const [{data:profile}, accountKind] = await Promise.all([
+              db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle(),
+              typeof fetchMyAccountKind === 'function' ? fetchMyAccountKind() : Promise.resolve('other'),
+            ]);
+            if (accountKind === 'brand') {
+              if (loginScreenBusy) {
+                // 로그인 화면이 곧 로그아웃·실패 문구를 띄운다 — 여기서는 화면 상태만 비우고 부수 동작 없이 끝낸다
+                currentUser = null;
+                currentUserProfile = null;
+                return;
+              }
+              // ⚠️ 기다리지 않는다 — 이 처리기 안에서 인증 호출을 기다리면 잠금이 엉킬 수 있다(탈퇴 로그아웃과 같은 방식).
+              //   currentUser 는 함수가 첫 await 전에 비운다. 알림 폴링·공지 팝업도 띄우지 않고 끝낸다.
+              //   🔴 null(판정 실패)은 이 갈래가 아니다 — 아무것도 하지 않고 아래로 진행한다.
+              signOutBrandAccountSession();
+              return;
+            }
             currentUserProfile = profile;
           }
           updateGnb();
@@ -856,7 +989,7 @@ async function init() {
   }
 
   // 캠페인 불러오기 (init 초입에서 병렬 발사해둔 promise 재사용)
-  allCampaigns = campaignsPromise ? (await campaignsPromise) : await fetchCampaigns();
+  allCampaigns = campaignsPromise ? (await campaignsPromise) : await refreshCampaignsShared();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 
@@ -919,6 +1052,18 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'inquiry') {
+    // 문의 갈래 화면 새로고침 복원 — 응모 목록을 다시 받아 그린다
+    if (typeof openInquiryPage === 'function') openInquiryPage('nav', false);
+    else navigate('home', false);
+  } else if (typeof isInquiryGeneralHash === 'function' && isInquiryGeneralHash(hash)) {
+    // 서비스 문의 새 문의·대화 새로고침 복원 — 뒤로가기 목적지는 서비스 탭 목록
+    if (typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('nav', false, inquiryThreadIdFromHash(hash));
+    else navigate('home', false);
+  } else if (hash && hash.startsWith('faq-')) {
+    // 질문 페이지 새로고침 복원
+    if (typeof openFaqPage === 'function') openFaqPage(hash.replace('faq-', ''), false);
+    else navigate('home', false);
   } else if (hash === 'ticket' || (hash && hash.startsWith('ticket-'))) {
     // 티켓 화면 새로고침 복원 — openTicketPage 가 목록을 다시 받아오므로 상태 의존이 없다.
     const tid = hash.replace('ticket-', '').replace('ticket', '');
@@ -932,6 +1077,12 @@ async function init() {
     history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
     navigate('mypage', false);
     if (typeof openMypageSub === 'function') openMypageSub('applications', false);
+  } else if (currentUser && ['login', 'signup', 'forgot'].includes(hash)) {
+    // 이미 로그인된 채 로그인·가입 화면 주소로 들어왔다 — 홈으로. 로그인 화면을 그리면 「로그인됐는데 로그인 화면」이 된다
+    //   (2026-10-02 운영 모바일 신고 — 로그인 직후 픽셀 새로고침이 `#login` 으로 다시 연 경우. 그 순서는 auth.js 에서 고쳤고 이건 안전장치)
+    //   ⚠️ replaceState 만으로는 안 된다 — 첫 화면이 이미 주소대로(로그인) 켜져 있어 navigate 로 바꿔 그린다
+    history.replaceState({page:'home'}, '', '#home');
+    navigate('home', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
@@ -957,12 +1108,22 @@ async function init() {
   //  일괄로 켜면 서브 화면 구분이 없어 応募履歴 를 マイページ 로 덮어쓴다.)
 }
 
+// 아이폰 사파리 확대 동작 차단 — 화면 설정(user-scalable=no)을 사파리가 무시하므로(iOS 10+).
+//   touch-action(mypage.css)이 대부분 막고, 이것은 그 속성을 모르는 옛 사파리용 보조다.
+document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+
 document.addEventListener('DOMContentLoaded', async function() {
   // 햄버거 메뉴를 명시적으로 닫힌 상태로 초기화 — 새로고침(location.reload) 시 웹뷰가
   //   이전 DOM 상태(메뉴 열림)를 드물게 복원하는 현상 방어. 부팅 시 메뉴는 항상 닫혀 있어야 함.
   if (typeof closeNavPanel === 'function') closeNavPanel();
   // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
   if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
+  // 흔한 비밀번호 경고 줄(회원 — 경고만, 사양서 2026-09-29-common-password-warning §3-3)
+  if (typeof bindCommonPasswordWarning === 'function') {
+    bindCommonPasswordWarning('signupPw', 'signupPwCommonWarn');
+    bindCommonPasswordWarning('resetPwNew', 'resetPwCommonWarn');
+    bindCommonPasswordWarning('newPw', 'newPwCommonWarn');
+  }
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
   let inRecovery = false;
   try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
@@ -972,9 +1133,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
     : initHash.startsWith('messages-') ? 'messages'
+    : isInquiryGeneralHash(initHash) ? 'messages'
+    : initHash.startsWith('faq-') ? 'faq'
     : (initHash === 'ticket' || initHash.startsWith('ticket-')) ? 'ticket'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash.startsWith('reset-pw') ? 'reset-pw'
+    : isCampaignsHash(initHash) ? 'campaigns'
     : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');

@@ -148,6 +148,10 @@ var _delivCertTo = '';
 var _delivCertFp = null;
 // 사이드바 검수대기 배지 클릭 시 켜지는 「검수대기만」 필터 (신청 단위 최신 결과물 pending)
 var _delivPendingOnly = false;
+// 「현재 목록 다운로드」가 내보낼 배열 — 화면이 마지막에 그린 필터·정렬 결과 그대로.
+//   null = 목록을 그리는 중이거나 아직 안 그렸다(그 사이엔 내보내지 않는다).
+//   ⚠️ passesFilters(건수 집계용)로 다시 거르지 않는다 — 「대리 등록만」이 거기 없어 화면과 갈린다.
+var _delivVisibleGroups = null;
 // 인증 상태 탭 (단일 선택, ''=전체). 다중 필터 delivCertStatusMulti 를 대체.
 //   신청 1건 = computeCertStatus 4종 중 하나로 상호 배타라 탭(단일)이 개념에 맞음.
 var _delivCertTab = '';
@@ -257,19 +261,49 @@ function toggleDelivSearch() {
   else if (input && input.value) { input.value = ''; renderDeliverablesList(); }
 }
 
+// 그리기 호출 번호 — 조회를 동시에 보내면서, 필터를 빨리 바꿀 때 늦게 도착한 옛 결과가
+//   새 목록을 덮지 못하게 한다(2026-09-30).
+let _delivRenderSeq = 0;
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
+  _delivVisibleGroups = null;
   tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr>';
-  await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  const seq = ++_delivRenderSeq;
+  // 머리 「관리자 대리 등록」 버튼 — 매니저에게 숨김. 첫 진입 때 관리자 정보가 늦게 와도 다음 그리기에서 맞춰진다
+  const headerProxyBtn = $('delivHeaderProxyBtn');
+  if (headerProxyBtn) headerProxyBtn.style.display = _isProxyManagerRole() ? 'none' : '';
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   setupDelivCertRange();       // 인증 성공일 range picker (1회 mount)
-  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
-  let channelLookup = [];
-  try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
+  const includeMissing = !!$('delivIncludeMissing')?.checked;
 
-  // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
-  const campsForFilter = await fetchCampaigns().catch(() => []);
+  // 서로 기다릴 필요 없는 조회는 한꺼번에 보낸다(2026-09-30 — 하나씩 차례로 받아 약 5.5초 걸렸다).
+  //   · 채널 라벨 캐시(fetchLookups) — monitor 채널별 미니 행·검수 모달 패널 제목의 getLookupLabel 용.
+  //     실패해도 코드 그대로 보일 뿐이라 [] 로 넘긴다.
+  //   · 미제출 토글 ON 이면 당첨된(approved) 신청도 — deliverable 0건 행 노출용.
+  //   · 「올려두고 미제출」 표시용 조회는 판정에 안 쓰인다(작업 7).
+  //     ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
+  //        0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
+  const [, channelLookup, campsForFilter, allDelivs, approvedApps, stalledDraftApps] = await Promise.all([
+    loadApplicantMsgUnread(),  // 응모건 메시지 본인 미열람 배지 맵
+    fetchLookups('channel').catch(() => []),
+    fetchCampaigns().catch(() => []),
+    // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
+    fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'}),
+    includeMissing ? fetchApplications({status: 'approved'}) : Promise.resolve([]),
+    fetchStalledDraftApplications(),
+  ]);
+  let infMissingMap = {};
+  if (includeMissing) {
+    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
+    infMissingMap = await fetchInfluencersByIds(userIds);
+  }
+  // 그사이 필터를 또 바꿔 새 그리기가 시작됐으면 이 결과는 버린다 — 늦게 온 옛 응답이 새 목록을 덮지 않게.
+  if (seq !== _delivRenderSeq) return;
+  _delivCache = allDelivs;
+  _delivStalledDraftApps = stalledDraftApps;
+
+  // 캠페인 리스트 + 모집타입↔캠페인 캐스케이드
   const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   const recruitTypeVals = getMultiFilterValues('delivRecruitTypeMulti');
@@ -290,27 +324,8 @@ async function renderDeliverablesList() {
   //   전체 탭은 검수 불필요를 포함해 보여준다(과거 「검수 불필요 포함」 토글 기본 ON 동작을 계승). 특정 탭은 그 상태만.
   const certTab = _delivCertTab || '';
   const delivCampVals = getMultiFilterValues('delivCampMulti');
-  const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
-
-  // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
-  const allDelivs = await fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'});
-  _delivCache = allDelivs;
-
-  // 미제출 토글 ON 시 당첨된(approved) 신청도 fetch — deliverable 0건 행 노출
-  let approvedApps = [];
-  let infMissingMap = {};
-  if (includeMissing) {
-    approvedApps = await fetchApplications({status: 'approved'});
-    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
-    infMissingMap = await fetchInfluencersByIds(userIds);
-  }
-
-  // 「올려두고 미제출」 표시용 별도 조회 — 판정에는 안 쓰인다(작업 7).
-  //   ⚠️ 실패하면 `null` 이 그대로 들어가고, 그러면 그 표시를 **아무 데도 안 그린다.**
-  //      0건인 척하면 「없는 것」으로 읽혀 이 조각이 막으려던 상태를 그대로 재현한다.
-  _delivStalledDraftApps = await fetchStalledDraftApplications();
 
   // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
   //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
@@ -595,6 +610,7 @@ async function renderDeliverablesList() {
     });
   }
   applyDelivSortIndicators();
+  _delivVisibleGroups = filtered.slice();
 
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
@@ -858,11 +874,13 @@ function stalledChip(g, st) {
 //   캠페인·채널·브랜드·기간·제출마감 5개 열은 모든 행이 같은 값이라 생략하고 6열만 그린다.
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
 // 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
-//   판정에 쓰인 결과물들의 승인 시각 중 **가장 늦은 것** = 마지막 한 건이 승인된 순간.
-//   서버 쪽 원본은 마이그레이션 331 의 `_settlement_cert_candidates()` — 형식별 분기가 같다:
-//     가구매      : 영수증 승인 시각
-//     리뷰어형    : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
-//     시딩·방문형 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//   = **인증 성공 조건을 처음 만족한 순간.**
+//   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **455**) — 형식·채널 갈래가 같다:
+//     가구매              : 영수증 승인 시각
+//     리뷰어형 그리고·1개 : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
+//     리뷰어형 또는       : 영수증 시각과 「가장 먼저 승인된 채널」 시각 중 늦은 것
+//     시딩·방문형 그리고·1개 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
+//     시딩·방문형 또는    : 가장 먼저 승인된 채널 게시물 시각
 //   ⚠️ 채널 목록은 `_finalizePostReprs` 와 **같은 곳**에서 얻는다(캠페인 channel 문자열).
 //      여기만 다른 데서 얻으면 「인증성공인데 날짜가 빈」 행이 생긴다.
 //   ⚠️ 인증 성공이 아닌 건은 빈 값이다 — 진행 중인 건에 날짜를 붙이면 끝난 것처럼 보인다.
@@ -882,11 +900,28 @@ function certSuccessAt(g) {
     return m;
   };
   const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  // 「또는」 캠페인은 채널 하나만 승인돼도 인증 성공이다 → 날짜는 **가장 먼저 승인된 채널** 시각.
+  //   서버 _settlement_cert_candidates(현재 원본 455)의 or 갈래와 글자 그대로 같게 둔다:
+  //   ⚠️ 승인됐지만 승인 시각이 빈 채널은 **건너뛴다**(서버 MIN(...) FILTER 가 NULL 을 무시한다).
+  //   ⚠️ 리뷰어형은 영수증 시각과 그중 늦은 쪽(서버 GREATEST 도 NULL 을 무시 — 채널 시각이
+  //      전부 비면 영수증 시각이 된다). 영수증 시각이 없으면 빈 값.
+  const orKind = _certChannelKind(camp) === 'or';
+  const earliest = (byCh) => {
+    let m = null;
+    for (const ch of channels) { const v = okAt((byCh || {})[ch]); if (v && (!m || v < m)) m = v; }
+    return m;
+  };
   if (rt === 'monitor') {
     const r = okAt(g.receipt);
     if (camp.proxy_purchase) return r;
+    if (orKind) {
+      if (!r) return null;
+      const e = earliest(g.reviewByChannel);
+      return (e && e > r) ? e : r;
+    }
     return latest([r].concat(channels.map(ch => okAt((g.reviewByChannel || {})[ch]))));
   }
+  if (orKind) return earliest(g.postByChannel);
   return latest(channels.map(ch => okAt((g.postByChannel || {})[ch])));
 }
 
@@ -913,6 +948,80 @@ function receiptAmountCell(g) {
     ? `<div style="font-size:10px;color:var(--dark-pink)">상한 ¥${cap.toLocaleString()}</div>`
     : '';
   return `<div style="font-weight:600">¥${amt.toLocaleString()}</div>${capNote}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 「현재 목록 다운로드」 (사양서 2026-09-29-payback-period-excel.md §3-B)
+//   = **검수 현황 엑셀**이다. 지금 화면에 걸린 필터·탭·검색·정렬 결과를 그대로 담는다.
+//   ⚠️ 감사용 확인 창을 띄우지 않는다 — 「현재 목록」이라는 이름을 지키려고(감사용 열로 표시).
+//   ⚠️ 회차·지급 예정일 열은 넣지 않는다 — 그 계산은 정산 → 지급 준비의 몫.
+// ══════════════════════════════════════════════════════════════════
+const DELIV_VIEW_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
+const DELIV_VIEW_STATUS_KO = { none: '미제출', draft: '임시저장', legacy_no_channel: '채널 미지정' };
+
+function _delivViewStatusKo(st) { return DELIV_VIEW_STATUS_KO[st] || statusLabelKo(st); }
+
+// 한 신청 그룹 → 엑셀 한 줄
+function _delivViewExcelRow(g) {
+  const camp = g.campaign || {};
+  const inf = g.influencer || {};
+  const isMonitor = camp.recruit_type === 'monitor';
+  const chLabel = (c) => getLookupLabel('channel', c, 'ko') || c;
+  const channels = isMonitor
+    ? String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean).map(chLabel).join(', ')
+    : (g.result && g.result.post_channel ? chLabel(g.result.post_channel) : '');
+  // ⚠️ Number(null) 은 0 — 빈 값 검사를 먼저 해야 「¥0」이 안 찍힌다
+  const rawAmt = isMonitor && g.receipt ? g.receipt.purchase_amount : null;
+  const amt = (rawAmt === null || rawAmt === undefined || rawAmt === '') ? '' : Number(rawAmt);
+  const cap = isMonitor && camp.product_price != null && camp.product_price !== '' ? Number(camp.product_price) : '';
+  const cert = certSuccessAt(g);
+  const all = [g.receipt, g.result].concat(Object.values(g.reviewByChannel || {})).filter(Boolean);
+  return [
+    (inf.name || '').trim(), (inf.name_kana || '').trim(), inf.email || '',
+    camp.campaign_no || '', camp.title || '',
+    DELIV_VIEW_TYPE_KO[camp.recruit_type] || camp.recruit_type || '', channels,
+    inf.is_audit ? 'O' : '', certStatusLabelKo(g), cert ? formatDate(cert) : '',
+    Number.isFinite(amt) ? amt : '', Number.isFinite(cap) ? cap : '',
+    g.latest_submitted_at ? formatDateTime(g.latest_submitted_at) : '',
+    isMonitor ? _delivViewStatusKo(g.receipt ? g.receipt.status : 'none') : '해당 없음',
+    _delivViewStatusKo(isMonitor ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none')),
+    all.some(d => d.submitted_by_admin) ? 'O' : '',
+  ];
+}
+
+async function exportDeliverablesViewExcel() {
+  if (_delivVisibleGroups === null) { toast('목록을 불러오는 중입니다', 'warn'); return; }
+  const rows = _delivVisibleGroups;
+  if (!rows.length) { toast('내보낼 건이 없습니다', 'warn'); return; }
+  if (typeof _checkExportAllowed === 'function' && !_checkExportAllowed()) return;
+  if (typeof _markExportStart === 'function') _markExportStart();
+  try {
+    await loadExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('결과물(현재 목록)');
+    ws.columns = [
+      ['이름(한자)', 14], ['후리가나', 16], ['이메일', 24], ['캠페인번호', 16], ['캠페인', 28],
+      ['모집 형식', 10], ['채널', 18], ['감사용', 8], ['인증 상태', 14], ['인증 성공일', 12],
+      ['구매금액(¥)', 12], ['상한(¥)', 10], ['최근 제출일', 18], ['영수증 상태', 12], ['결과물 상태', 12], ['대리 등록', 10],
+    ].map(([h, w]) => ({ header: h, width: w }));
+    ws.getRow(1).font = { bold: true };
+    rows.forEach(g => ws.addRow(_delivViewExcelRow(g)));
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    const ts = new Date();
+    const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.href = url;
+    aEl.download = 'deliverables-view-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '건)');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
+  } finally {
+    if (typeof _markExportEnd === 'function') _markExportEnd();
+  }
 }
 
 function renderDelivAppRow(g, opts) {
@@ -1129,7 +1238,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+            ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -1314,8 +1423,7 @@ async function openDelivCombined(applicationId) {
   // RPC 자체에 is_campaign_admin() 가드 있어 우회 시도해도 안전하지만, UI 일관성 차원에서 사전 차단
   const proxyBtn = $('delivCombinedProxyBtn');
   if (proxyBtn) {
-    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
-    proxyBtn.style.display = isManager ? 'none' : '';
+    proxyBtn.style.display = _isProxyManagerRole() ? 'none' : '';
   }
   openModal('delivCombinedModal');
   await renderDelivCombinedBody(applicationId);
@@ -1346,7 +1454,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS})
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -1371,7 +1479,7 @@ async function renderDelivCombinedBody(applicationId) {
       if (app.campaign_id) {
         // product_price — receiptPayoutHint 가 「상한 ¥N 초과 시 상한까지만」을 그리는 데 쓴다.
         // 빠뜨리면 경고 문구는 뜨는데 정작 금액만 사라져 기능이 사실상 무력해진다.
-        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end').eq('id', app.campaign_id).maybeSingle();
+        const campRes = await db?.from('campaigns').select(`id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS}`).eq('id', app.campaign_id).maybeSingle();
         if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
         camp = campRes?.data || null;
       }
@@ -1617,9 +1725,34 @@ async function renderDelivCombinedBody(applicationId) {
   //   (openDelivCombined 를 거치지 않는 직접 재렌더 경로 대비 — 숨김이 안 풀리는 잠재 결함 방지)
   const proxyBtn = $('delivCombinedProxyBtn');
   if (proxyBtn) {
-    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
-    proxyBtn.style.display = (isManager || isExcluded) ? 'none' : '';
+    proxyBtn.style.display = (_isProxyManagerRole() || isExcluded) ? 'none' : '';
+    // 대리 등록 기간이 지났으면 감추지 않고 회색 + 이유(사양서 P-4, 문구 ②)
+    const windowOpen = isProxyWindowOpen(camp);
+    proxyBtn.disabled = !windowOpen;
+    proxyBtn.style.opacity = windowOpen ? '' : '0.5';
+    proxyBtn.style.cursor = windowOpen ? '' : 'not-allowed';
+    proxyBtn.title = windowOpen ? _PROXY_BTN_DEFAULT_TITLE : _proxyWindowClosedText(camp);
+    const note = $('delivCombinedProxyNote');
+    if (note) {
+      note.textContent = windowOpen ? '' : _proxyWindowClosedText(camp);
+      note.style.display = (windowOpen || proxyBtn.style.display === 'none') ? 'none' : '';
+    }
   }
+}
+
+const _PROXY_BTN_DEFAULT_TITLE = '이 신청에 결과물을 관리자가 대신 등록·즉시 승인합니다';
+
+// 대리 등록 입구 두 곳(머리 버튼·검수 창 버튼)의 매니저 판정 — 서버(is_campaign_admin)가 매니저를 거부한다
+function _isProxyManagerRole() {
+  return typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager';
+}
+
+// 문구 ② — 「대리 등록 기간이 지났습니다(○/○까지)」
+function _proxyWindowClosedText(camp) {
+  const last = proxyWindowLastDate(camp);
+  if (!last) return '대리 등록 기간이 지났습니다';
+  const [, m, d] = last.split('-').map(Number);
+  return `대리 등록 기간이 지났습니다(${m}/${d}까지)`;
 }
 
 // 채널 미지정 review_image 에 채널 지정 (마이그레이션 162). 드롭다운 선택값으로 assign RPC 호출 후 모달·목록 재렌더.
@@ -2022,7 +2155,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+        ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
@@ -2120,7 +2253,10 @@ async function openAdminProxyModal(presetAppId) {
     // 검수 모달에서 진입한 경우 캠페인·인플 자동 선택
     if (presetAppId) {
       const app = _adminProxyApps.find(a => a.id === presetAppId);
-      if (app) {
+      // 창을 열 때 새로 받은 캠페인 칸으로 판정한다 — 검수 창 버튼이 그려진 뒤 날짜가 넘어간 경우가 여기로 온다
+      if (app && !isProxyWindowOpen(app.campaigns)) {
+        toast(_proxyWindowClosedText(app.campaigns), 'error');
+      } else if (app) {
         selectAdminProxyCamp(app.campaign_id, /*silent*/true);
         selectAdminProxyInf(app.id, /*silent*/true);
       }
@@ -2285,7 +2421,8 @@ async function _loadAdminProxyApprovedApps() {
   const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
   const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
   const [campRows, infRows] = await Promise.all([
-    _proxyFetchByIds('campaigns', 'id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no', campIds),
+    // 판정 칸(PROXY_WINDOW_CAMPAIGN_COLS) — 대리 등록 기간 판정용. 창을 열 때마다 새로 받는다(사양서 검증 4 가 이것에 기댄다)
+    _proxyFetchByIds('campaigns', `id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no, ${PROXY_WINDOW_CAMPAIGN_COLS}`, campIds),
     // ⚠️ 원본 표(influencers)가 아니라 가림막 통로(influencers_admin_view)로 부른다.
     //    마이그레이션 312 가 원본 표의 「관리자면 통과」 정책을 지워, 원본을 직접 부르면
     //    관리자에게도 0행이 돌아온다 — 오류가 아니라 조용한 0행이라 아무 경고 없이
@@ -2374,15 +2511,20 @@ function _renderAdminProxyCampList(query) {
     if (!campMap.has(a.campaigns.id)) campMap.set(a.campaigns.id, a.campaigns);
   });
   const q = (query || '').trim().toLowerCase();
-  const filtered = Array.from(campMap.values()).filter(c => {
+  const matched = Array.from(campMap.values()).filter(c => {
     if (!q) return true;
     return matchSearchTokens(q, [c.title, c.brand, c.brand_ja, c.brand_en, c.campaign_no]);
   });
+  // 대리 등록 기간이 지난 캠페인은 뺀다(사양서 D-4). 안내 문구 ① 은 이 검색어에서 기간 때문에 빠진 것이 있을 때만 한 번.
+  const filtered = matched.filter(c => isProxyWindowOpen(c));
+  const closedNotice = filtered.length < matched.length
+    ? '<div class="empty">대리 등록 기간이 지난 캠페인은 목록에서 빠집니다</div>'
+    : '';
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
+    list.innerHTML = closedNotice || '<div class="empty">일치하는 캠페인 없음</div>';
     return;
   }
-  list.innerHTML = filtered.slice(0, 100).map(c => {
+  list.innerHTML = closedNotice + filtered.slice(0, 100).map(c => {
     const meta = `${brandLabelAdmin(c)} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
     return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
       <div>${esc(c.title || '제목 없음')}</div>
@@ -2769,6 +2911,10 @@ async function submitAdminProxyDelivProxy() {
     console.error('[admin-proxy] RPC 실패', err);
     const raw = String(err.message || err || '');
     // 중복(이미 제출됨) 에러는 다음 행동까지 안내 — 담당자가 멈추지 않도록
+    if (raw.includes('proxy_window_closed')) {
+      toast('대리 등록 기간이 지났습니다', 'error');
+      return;
+    }
     const isDup = err.code === '23505' || /이미 등록되어 있습니다|이미 등록되어 있습니다\.|리뷰 이미지가 이미 등록/.test(raw);
     const extra = isDup ? ' 대리 등록 대신 「결과물 검수」에서 처리해 주세요.' : '';
     toast('대리 등록 실패: ' + raw + extra, 'error');

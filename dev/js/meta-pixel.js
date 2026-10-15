@@ -233,7 +233,8 @@ function _metaPixelApplyResult(origin, id) {
 // 흐름 2 — app.js init() 의 세션 복원·방문자 집계 바로 뒤에서 부팅 1회 부른다.
 //   🔴 세션 복원 전에 부르면 관리자가 비로그인으로 보여 서버가 아이디를 내준다.
 //   🔴 민감 값 판정은 **여기서 한 번**이다 — 가입 확인 코드는 이 자리 전에 지워져 있어야
-//      4번 이벤트가 산다(작업표 S8, 사양서 ⑯ 표).
+//      확인 링크 착지에서도 픽셀이 켜진다(작업표 S8, 사양서 ⑯ 표). 그 착지는 2026-10-02 부터
+//      가입 이벤트를 안 보내고 페이지뷰만 나간다(app.js — 1인 1건).
 function initMetaPixel() {
   try {
     if (_metaPixelBootReached) return;
@@ -241,6 +242,10 @@ function initMetaPixel() {
     _metaPixelUserId = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) || null;
     if (_metaPixelState === 'off') { _metaPixelSetOff(); return; } // 흐름 1(미리보기)
     if (metaPixelUrlHasSensitiveValue()) { _metaPixelSetOff(); return; }
+    // 🔴 iOS 앱(웹뷰) 안에서는 픽셀을 켜지 않는다 — 앱 추적 투명성(ATT) 동의 없이 추적하면 심사 거절
+    //   사유가 된다(전수조사 3차 ⑦-2). 앱도 이 파일을 그대로 싣는다(ios-app/sync-ios.sh 가 산출물을 복사).
+    //   판정은 앱 코드(feature/ios-app)가 쓰는 것과 같은 식이다.
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) { _metaPixelSetOff(); return; }
     if (typeof fetchPublicMetaPixelId !== 'function') { _metaPixelSetOff(); return; }
     _metaPixelFetch('boot');
   } catch (e) {

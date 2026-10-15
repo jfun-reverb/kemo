@@ -362,6 +362,31 @@ async function fetchMissingChannels(
   });
 }
 
+// 최신 영수증(임시저장 제외)이 승인 상태인가 — 리뷰어형 인증 성공은 「영수증 승인 + 인증샷」이다.
+//   기준은 정산 판정(_settlement_cert_candidates 의 receipt_latest)·화면과 같게:
+//   임시저장 제외 + submitted_at desc, updated_at desc 로 최신 1건.
+//   조회 실패면 null — 부르는 쪽이 「완료」를 단정하지 않는다.
+async function fetchLatestReceiptApproved(sb: any, applicationId: string): Promise<boolean | null> {
+  const { data, error } = await sb
+    .from("deliverables")
+    .select("status, submitted_at, updated_at")
+    .eq("application_id", applicationId)
+    .eq("kind", "receipt")
+    .neq("status", "draft");
+  if (error) {
+    console.error("[notify-deliverable-decision] receipt status fetch failed", error);
+    return null;
+  }
+  let latest: { status: string; submitted_at: string | null; updated_at: string | null } | null = null;
+  for (const row of (data || []) as { status: string; submitted_at: string | null; updated_at: string | null }[]) {
+    if (!latest) { latest = row; continue; }
+    const a = row.submitted_at || "";
+    const b = latest.submitted_at || "";
+    if (a > b || (a === b && (row.updated_at || "") > (latest.updated_at || ""))) latest = row;
+  }
+  return !!latest && latest.status === "approved";
+}
+
 // 승인 메일에 들어갈 "다음 단계" 안내 블록 (kind × 모집 형식 별 분기).
 //
 // ⚠️ 예전엔 kind 하나만 보고 문구를 정해서 아래 두 가지가 틀린 안내로 나가고 있었다:
@@ -408,8 +433,22 @@ async function buildNextStepBlock(
         `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
-    // 리뷰어형(monitor) 일반 — 기존 STEP 2 안내(변경 없음).
+    // 리뷰어형(monitor) 일반 — 인증샷이 이미 다 모였으면 이 영수증 승인으로 완료다.
+    //   🔴 인증샷 승인 메일은 영수증이 승인 전이면 「완료」를 말하지 않는다(③-4) — 그 짝으로
+    //   여기서 완료를 알려야 회원이 완료 안내를 받을 길이 남는다. 채널이 없거나 조회 실패면
+    //   기존 STEP 2 안내(완료를 단정하지 않는다).
     if (isMonitor) {
+      const reqCh = (camp.channel || "").split(",").map((c) => c.trim()).filter(Boolean);
+      if (reqCh.length > 0) {
+        const missRaw = await fetchMissingChannels(sb, applicationId, reqCh, "review_image");
+        const miss = missRaw === null ? null : missingAfterKind(camp, reqCh, missRaw);
+        if (miss !== null && miss.length === 0) {
+          return nextStepBox(
+            "green",
+            `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
+          );
+        }
+      }
       return nextStepBox(
         "blue",
         `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>STEP 2 — レビュー画像の提出</strong></div>` +
@@ -461,6 +500,22 @@ async function buildNextStepBlock(
       );
     }
     if (missingChannels.length === 0) {
+      // 🔴 인증샷이 다 모여도 영수증이 승인 전이면 아직 인증 성공이 아니다(정산 판정은
+      //   영수증 승인을 함께 요구한다). 여기서 「完了·報酬を支払う」라고 하면
+      //   지켜지지 않을 약속이 된다 — 영수증 상태를 확인하고 갈린다(전수조사 3차 ③-4).
+      const receiptOk = await fetchLatestReceiptApproved(sb, applicationId);
+      if (receiptOk === null) {
+        return nextStepBox(
+          "blue",
+          `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
+        );
+      }
+      if (!receiptOk) {
+        return nextStepBox(
+          "blue",
+          `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。レシートの確認が終わり次第、全ての提出が完了となります。レシートの状況は「活動管理」でご確認ください。</div>`,
+        );
+      }
       return nextStepBox(
         "green",
         `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
@@ -685,7 +740,7 @@ Deno.serve(async (req: Request) => {
     .update({ mail_sent_at: claimedAt })
     .eq("id", note.id)
     .is("mail_sent_at", null)
-    .select("id");
+    .select("id, kind, user_id, ref_table, ref_id, title");
   if (claimErr) {
     console.error("[notify-deliverable-decision] claim failed", claimErr);
     return new Response(JSON.stringify({ error: claimErr.message }), {
@@ -717,6 +772,29 @@ Deno.serve(async (req: Request) => {
       console.warn("[notify-deliverable-decision] claim released", { id: note.id, why });
     }
   };
+
+  // 🔴 여기서부터는 **데이터베이스에 있는 알림 행의 값**을 쓴다(2026-10-01 전수조사 3차 ④-4).
+  //   요청 본문(웹훅 페이로드)의 수신자·종류·대상·제목을 그대로 믿으면, 호출 경로가 뚫렸을 때
+  //   **아무 회원에게 아무 제목으로** 메일을 보낼 수 있다. 외부 호출은 rejectPublicKeyCaller 가 막지만
+  //   방어를 한 겹 더 둔다 — 선점 UPDATE 가 돌려준 행이 곧 진짜 값이다(추가 조회 없음).
+  //   ⚠️ 위의 화이트리스트·대상 검사는 페이로드 기준이라 **진짜 값으로 한 번 더** 본다.
+  //      어긋나면 선점을 되돌리고 건너뛴다(메일 대상이 아닌 알림에 「보냄」 표시를 남기지 않는다).
+  const dbNote = claimed[0] as { kind: string; user_id: string; ref_table: string | null; ref_id: string | null; title: string | null };
+  if (!MAIL_KINDS.has(dbNote.kind) || dbNote.ref_table !== "deliverables" || !dbNote.ref_id || !dbNote.user_id) {
+    console.error("[notify-deliverable-decision] payload does not match the stored notification — skipped", {
+      id: note.id, payload_kind: note.kind, db_kind: dbNote.kind, db_ref_table: dbNote.ref_table,
+    });
+    await unclaim("payload mismatch");
+    return new Response(JSON.stringify({ skipped: true, reason: "payload_mismatch" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  note.kind = dbNote.kind;
+  note.user_id = dbNote.user_id;
+  note.ref_table = dbNote.ref_table;
+  note.ref_id = dbNote.ref_id;
+  note.title = dbNote.title;
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
   // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
@@ -825,6 +903,9 @@ Deno.serve(async (req: Request) => {
     tpl = await loadTemplate(tplName);
   } catch (e) {
     console.error("[notify-deliverable-decision] template load failed", { tplName, err: (e as Error).message });
+    // 선점을 되돌린다 — 안 되돌리면 mail_sent_at 이 찬 채로 남아 이 알림은 영영 안 나간다
+    //   (재시도가 「이미 처리됨」으로 빠진다. 전수조사 3차 ④-6).
+    await unclaim("template load failed");
     return new Response(JSON.stringify({ error: `template not found: ${tplName}` }), {
       status: 500,
       headers: { "content-type": "application/json" },

@@ -109,7 +109,7 @@ async function loadBrandOps() {
   _brandOpsCache = results[1];
   _brandOpsCampaigns = results[2] || [];
   _brandOpsApprCounts = results[3];
-  _brandOpsAuditIds = new Set((((results[4] && results[4].data) || [])).map(function(r){ return r.id; }));
+  _brandOpsAuditIds = brandOpsAuditIdsFrom(results[4]);
   _brandOpsActionAlerts = results[5];
   _brandOpsOrientSheets = results[6];
   renderBrandOpsCurrentView();
@@ -164,6 +164,13 @@ function renderBrandOpsCards() {
   var sortF = $('brandOpsSortFilter')?.value || 'alert';
   var q = (($('brandOpsSearch')?.value) || '').trim().toLowerCase();
 
+  // 🔴 집계 조회 실패(null)는 「조건에 맞는 브랜드가 없습니다」가 아니다 — 일정 화면과 같은 안내로
+  if (_brandOpsCache === null) {
+    var cnt0 = $('brandOpsTotalCount');
+    if (cnt0) cnt0.textContent = '(—)';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--pink);padding:48px">브랜드 현황을 불러오지 못했습니다 · 새로고침을 눌러 다시 시도해 주세요</div>';
+    return;
+  }
   var list = (_brandOpsCache || []).filter(function(b){
     if (companyF === '__unassigned__') { if (b.company_id) return false; }
     else if (companyF) { if (b.company_id !== companyF) return false; }
@@ -261,7 +268,15 @@ var _brandOpsDetailId = null;
 var _brandOpsDetailData = null;
 var _brandOpsSheetCampMap = {};   // 상세의 시트 카드가 쓰는 발행 캠페인 맵(campaign_id → 캠페인)
 var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
-var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합)
+var _brandOpsAuditIds = new Set();  // 감사용 계정 id — 인증성공 막대에서 격리(모집·제출 막대와 정합). 🔴 조회 실패면 null
+
+// 감사용 계정 id 조회 결과 → Set. 🔴 조회 오류면 `null` — 빈 Set 으로 두면 감사용 계정이 제출·인증 숫자에
+//   표시 없이 섞인다(전수조사 3차 ⑥ 낮음). null 이면 그 숫자들은 「—」로 그린다.
+function brandOpsAuditIdsFrom(res) {
+  if (!res || res.error) { if (res && res.error) console.error('[brandOps audit ids]', res.error); return null; }
+  return new Set((res.data || []).map(function(r){ return r.id; }));
+}
+var _brandOpsDetailReq = 0;   // 상세 불러오기 요청 번호 — 늦게 끝난 옛 요청이 새 화면을 덮지 않게(전수조사 3차 ⑥-6)
 
 async function loadBrandOpsDetail() {
   var body = $('brandOpsDetailBody');
@@ -270,6 +285,9 @@ async function loadBrandOpsDetail() {
     return;
   }
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></div>';
+  // 🔴 기다릴 때마다 요청 번호를 대조한다 — 받는 사이 다른 브랜드를 열면(또는 같은 브랜드를 다시 불러오면)
+  //   앞 요청이 늦게 끝나 새 화면을 옛 브랜드로 덮었다(전수조사 3차 ⑥-6). 브랜드 번호 대조만으로는 같은 브랜드 겹침을 못 막는다.
+  var req = ++_brandOpsDetailReq;
 
   // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
   var results = await Promise.all([
@@ -278,18 +296,22 @@ async function loadBrandOpsDetail() {
     // ⚠️ 원본 표가 아니라 **가림막 뷰**로 읽는다(마이그레이션 212, 조치 계획 묶음 E-1).
     db ? db.from('influencers_admin_view').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
   ]);
+  if (req !== _brandOpsDetailReq) return;
   var detail = results[0];
   var apps = results[1] || [];
   // 오리엔시트 목록 — 🔴 아직 안 받았을 때(undefined)만 받는다. 실패(null)면 다시 받지 않는다(§3-1)
+  //   ⚠️ 오리엔시트를 바꾼 화면은 refreshPane('brand-ops-detail') 로 이 값을 비운다 → 다음 불러오기에 새로 받는다
   if (_brandOpsOrientSheets === undefined) _brandOpsOrientSheets = await brandOpsFetchOrientSheets();
+  if (req !== _brandOpsDetailReq) return;
   // 시트 카드의 발행 캠페인 번호 — 브랜드 상세 모달과 같은 방식(삭제된 캠페인도 「삭제됨」으로 보이게 id 로 조회)
   _brandOpsSheetCampMap = {};
   var _bSheets = brandOpsSheetsOfBrand(_brandOpsDetailId);
   if (_bSheets && _bSheets.length && typeof fetchCampaignsByIds === 'function' && typeof collectOrientCampaignIds === 'function') {
     try { var _ids = collectOrientCampaignIds(_bSheets); if (_ids.length) _brandOpsSheetCampMap = await fetchCampaignsByIds(_ids) || {}; }
     catch (_) { _brandOpsSheetCampMap = {}; }
+    if (req !== _brandOpsDetailReq) return;
   }
-  var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
+  var _auditIds = brandOpsAuditIdsFrom(results[2]);
   _brandOpsAuditIds = _auditIds;   // 비동기 채움되는 인증성공 막대(hydrateCampCertBars)에서 재사용
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
@@ -299,7 +321,7 @@ async function loadBrandOpsDetail() {
   // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved). 감사용 제외(격리).
   _brandOpsApprByCamp = {};
   apps.forEach(function(a){
-    if (a.status === 'approved' && !_auditIds.has(a.user_id)) _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
+    if (a.status === 'approved' && _auditIds && !_auditIds.has(a.user_id)) _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
   });
   renderBrandOpsDetail(detail);
 }
@@ -328,7 +350,8 @@ function renderBrandOpsDetail(d) {
         + '<div style="font-size:11px;color:var(--muted)">' + crumb + '</div>'
         + '<div style="font-size:18px;font-weight:700;color:var(--ink)">' + esc(b.name || '—') + ' <span style="font-size:12px;font-weight:500;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
       + '</div>'
-      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brand-ops\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
+      + ((typeof canOpenBrandDetail === 'function' && !canOpenBrandDetail()) ? ''
+        : '<button class="btn btn-ghost btn-sm" onclick="openBrandDetail(\'' + esc(b.id) + '\', \'brand-ops\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>')
     + '</div>';
 
   // 오리엔시트 — 시트 브랜드 기준 목록·숫자(§2 ⑤). 실패면 null
@@ -406,10 +429,13 @@ async function hydrateCampCertBars() {
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
     if (!document.body.contains(el)) return;
+    // 조회 실패(null)는 「0%」가 아니라 「—」로 — 실패를 「아무도 인증 안 함」으로 보이지 않게(전수조사 3차 ③-5)
+    if (delivs === null) { el.innerHTML = brandOpsRateBar('인증 성공 (불러오지 못함)', null); return; }
     // 결과물이 0건이면 갈아탈 대상이 없지만, 그때는 인증 성공도 0이라 판정에 쓰이지 않는다.
     if (delivs.length && delivs[0].campaigns) camp = delivs[0].campaigns;
     // 감사용 계정 격리 — 모집·제출 막대(get_brand_ops_detail, 마이그181)는 서버에서 is_audit 제외되는데
     // 인증성공 분자만 감사용이 포함돼 「인증성공>제출」 역전이 가능하던 문제 수정.
+    if (_brandOpsAuditIds === null) { el.innerHTML = brandOpsRateBar('인증 성공 (불러오지 못함)', null); return; }
     var scoped = delivs.filter(function(d){ return !_brandOpsAuditIds.has(d.user_id); });
     var success = countCertSuccess(scoped, camp);
     var pct = slotsN > 0 ? Math.round(success / slotsN * 100) : null;
@@ -949,6 +975,9 @@ function brandOpsScheduleTargetCampaigns() {
 // 빠른 필터 칩은 여기서 걸지 않는다 — 칩의 건수를 이 결과로 세야 하므로 본체(renderBrandOpsSchedule)가 그 뒤에 건다
 function brandOpsScheduleCampaigns() {
   var companyF = $('brandOpsCompanyFilter')?.value || '';
+  // 🔴 브랜드 집계(_brandOpsCache)를 못 받았으면(null) 브랜드→회사를 이을 수 없다 — 회사 필터를 걸면
+  //    「캠페인 없음」처럼 잘못 보이므로 적용하지 않는다(안내는 renderBrandOpsSchedule 의 note)
+  if (_brandOpsCache === null) companyF = '';
   var q = (($('brandOpsSearch')?.value) || '').trim().toLowerCase();
   var brandCompany = {};
   (_brandOpsCache || []).forEach(function(b){ if (b.brand_id) brandCompany[b.brand_id] = b.company_id || null; });
@@ -1401,6 +1430,7 @@ function _scheduleStatsFor(list) {
   var rows = _brandOpsDelivCache[_brandOpsDelivKey()];
   if (rows === undefined) return { pending: true, stats: {} };
   if (rows === null) return { pending: false, stats: null };
+  if (_brandOpsAuditIds === null) return { pending: false, stats: null };   // 감사용을 못 거르면 숫자를 안 그린다
   var byCamp = {};
   rows.forEach(function(d){
     if (_brandOpsAuditIds.has(d.user_id)) return;     // 감사용 계정 격리 — 승인 수(서버 제외)와 정합
@@ -1410,7 +1440,14 @@ function _scheduleStatsFor(list) {
   list.forEach(function(c){
     var ds = byCamp[c.id] || [];
     var infs = {}, rcpt = {};
-    ds.forEach(function(d){ if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; } });
+    ds.forEach(function(d){
+      // 반려·취소된 신청의 결과물은 세지 않는다(전수조사 3차 ⑥-7 — 「13/12」). 조건은 isCertExcluded 와 글자 그대로 같다.
+      //   브랜드 상세 미니카드의 「제출」(서버 deliv_submitted_inf)도 마이그레이션 529 부터 같은 기준(반려·취소 신청 +
+      //   임시저장 제외)이다. 임시저장은 이 조회(storage.js 의 _queryDeliverables)가 이미 뺀다.
+      var st = d.applications && d.applications.status;
+      if (st === 'rejected' || st === 'cancelled') return;
+      if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
+    });
     // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
     //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
     //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
@@ -1571,7 +1608,10 @@ function renderBrandOpsSchedule() {
   }
   var st = stPre;
   if (note) {
-    if (st.stats === null) { note.textContent = '결과물을 불러오지 못해 제출·인증 칸을 비웠습니다. 새로고침을 눌러 다시 시도해 주세요'; note.hidden = false; }
+    var _notes = [];
+    if (st.stats === null) _notes.push('결과물을 불러오지 못해 제출·인증 칸을 비웠습니다. 새로고침을 눌러 다시 시도해 주세요');
+    if (_brandOpsCache === null && ($('brandOpsCompanyFilter')?.value || '')) _notes.push('브랜드 현황을 불러오지 못해 회사 필터를 적용하지 않았습니다');
+    if (_notes.length) { note.textContent = _notes.join(' · '); note.hidden = false; }
     else note.hidden = true;
   }
   rowsEl.innerHTML = list.map(function(c){

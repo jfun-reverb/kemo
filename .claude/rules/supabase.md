@@ -9,8 +9,9 @@ paths:
 # Supabase 규칙
 
 ## 환경 분리
-- **운영서버**: `nrwtujmlbktxjgdwlpjj.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / NANO compute) — 2026-05-27 도쿄 이관 완료
-- **개발서버**: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute) — Org 레벨 PRO라 양 프로젝트 모두 Pro 혜택
+- **운영서버**: `nrwtujmlbktxjgdwlpjj.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / **MICRO compute(1GB)**) — 2026-05-27 도쿄 이관 완료
+  - ⚠️ 오래 「NANO」로 잘못 적혀 있었다(2026-09-30 대시보드 Settings → Infrastructure 에서 MICRO 확인, NANO 는 잠김). 이 줄을 보고 「NANO → MICRO 상향」을 잘못 권한 일이 있었다 — **사양·비용 판단은 문서가 아니라 대시보드에서** 볼 것. 같은 날 메모리 약 0.9GB 사용 + 스왑 약 0.5GB 가 7일 내내 이어져 속도 저하 원인으로 확인, 다음 단계는 SMALL(2GB)
+- **개발서버**: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute — 2026-09-30 대시보드 확인) — Org 레벨 PRO라 양 프로젝트 모두 Pro 혜택
 - URL/Key 관리는 `dev/lib/supabase.js`의 `SUPABASE_ENVS`에서만 (하드코딩 금지)
 - 도메인 분기: `globalreverb.com` / `www.globalreverb.com` → 운영, 나머지 → 개발
 - DB 변경 흐름(개발서버 먼저 → 검증 → 운영 적용)은 `.claude/rules/git.md` 「배포 워크플로 (필수)」 정의처 참조

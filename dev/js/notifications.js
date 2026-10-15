@@ -15,6 +15,8 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 「お問い合わせ」 배지 — 일반 문의 안 읽은 답장(실패면 지난 값 유지)
+  if (currentUser && typeof refreshNavInquiryBadge === 'function') refreshNavInquiryBadge().catch(() => {});
   // 오프라인 행사 예약 유무 최신화 — 「入場チケット」 항목을 띄울지 판단한다.
   //   첫 렌더는 이전에 받아 둔 값으로 그리고, 조회가 끝나면 다시 그린다(프로필과 같은 방식).
   if (currentUser && typeof preloadEventTickets === 'function') {
@@ -90,6 +92,14 @@ function renderNavMenu() {
     `).join('');
     html += `</div>`;
     html += divider;
+    // 문의하기 — 운영팀 문의의 단일 입구(일반 문의 창구, 2026-09). 안에서 「응모에 대해 / 그 외」로 갈린다.
+    //   배지는 일반 문의의 안 읽은 답장 수(응모건 메시지 배지는 응모이력 카드에 있다).
+    html += `<button class="nav-item" data-nav="inquiry" onclick="closeNavPanel();openInquiryPage('nav')">
+      <span class="material-icons-round notranslate nav-icon" translate="no">support_agent</span>
+      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
+      <span class="notif-badge hidden" data-role="nav-inquiry-badge"></span>
+    </button>`;
+    html += divider;
     // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
     // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
@@ -109,6 +119,7 @@ function renderNavMenu() {
   applyNotifBadge(_lastUnread);  // 캐시값으로 즉시 복원 (재렌더 직후 stale 가드로 fetch 스킵돼도 배지 유지)
   refreshNotifBadge();           // 백그라운드 최신화
   updateNavMsgBadge();
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();  // 캐시값으로 즉시 복원
 }
 
 // 메시지 미읽음 배지 (GNB 「メッセージ」 항목) — _myMsgUnreadByApp(mypage.js) 합계
@@ -119,6 +130,8 @@ function updateNavMsgBadge() {
     if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
     else b.classList.add('hidden');
   });
+  // 햄버거 「お問い合わせ」 숫자는 서비스 + 캠페인 합계 — 캠페인 값이 바뀌었으니 다시 그린다(messaging.js)
+  if (typeof applyNavInquiryBadge === 'function') applyNavInquiryBadge();
 }
 
 function navItemHtml(it) {
@@ -217,11 +230,10 @@ async function refreshNotifBadge(opts) {
   if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
   _notifLastFetchAt = now;
   // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
-  let unread = 0;
-  try {
-    const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
-    unread = items.length;
-  } catch(e) {}
+  //   건수만 센다(countMyUnreadNotifications) — 30초마다 목록을 통째로 받지 않게(2026-09-30).
+  //   ⚠️ 조회 실패(null)면 직전 숫자를 그대로 둔다 — 예전엔 실패하면 0 으로 배지가 꺼졌다.
+  const unread = await countMyUnreadNotifications(currentUser.id);
+  if (unread === null) { applyNotifBadge(_lastUnread); return; }
   _lastUnread = unread;
   applyNotifBadge(unread);
 }
@@ -263,7 +275,7 @@ async function openNotifModal() {
   if (!m) return;
   m.setAttribute('aria-hidden', 'false');
   const body = $('notifModalBody');
-  if (body) body.innerHTML = '<div class="notif-empty">' + t('common.loading') + '</div>';
+  if (body) body.innerHTML = stateLoadingHtml();
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
@@ -271,7 +283,7 @@ async function openNotifModal() {
     renderNotifModal(items);
   } catch(e) {
     logAppError('openNotifModal', e);
-    if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
+    if (body) body.innerHTML = stateErrorHtml(t('authError.serverError'), 'openNotifModal');
   }
 }
 
@@ -285,7 +297,7 @@ function renderNotifModal(items) {
   const markBtn = $('notifMarkAllBtn');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="notif-empty">' + t('notif.emptyUnread') + '</div>';
+    body.innerHTML = stateEmptyHtml('notifications_none', '', t('notif.emptyUnread'));
     if (markBtn) markBtn.disabled = true;
     return;
   }
@@ -298,7 +310,7 @@ function renderNotifModal(items) {
     const rt = _notifRecruitTypeMap[n.ref_id];
     const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
     const rtBadge = rtLabel
-      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      ? `<div class="apply-item-kicker">${esc(rtLabel)}</div>`
       : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
@@ -323,6 +335,15 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     await markNotificationRead(id);
   }
   closeNotifModal();
+  // 일반 문의 답장 알림 → 일반 문의 대화. ⚠️ 종류가 응모건과 같은 message_received 라
+  //   **표 이름으로 먼저 가른다**(아래 분기로 새면 회원 id 를 응모 id 자리에 들고 가 엉뚱한 화면이 된다).
+  //   505 부터 ref_id = 대화 id → 그 대화. 그 전 알림은 ref_id = 회원 id → 서비스 탭 목록(경우의 수 #6 하위 호환)
+  if (refTable === 'general_inquiry' && currentUser) {
+    if (refId && refId !== currentUser.id && typeof openGeneralInquiryPage === 'function') openGeneralInquiryPage('notif', undefined, refId);
+    else if (typeof openInquiryPage === 'function') openInquiryPage('notif');
+    refreshNotifBadge();
+    return;
+  }
   // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
@@ -355,18 +376,22 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   활동관리는 신청 id + 캠페인 id 가 둘 다 필요한데 알림에는 캠페인 id 가 없어 그 한 건만 조회한다
   //   (행 단위 보안 정책상 본인 신청만 보이므로 남의 것을 열 수는 없다).
   if (kind === 'submission_deadline_changed' && refId && currentUser) {
+    // 「지금 못 읽었다」(조회 실패)와 「참조가 사라졌다」(0건)를 가른다 — 실패면 알림을 지우지 않는다
+    //   (2026-09-30. 예전엔 오류를 삼켜 일시적 통신 실패만으로 알림이 영구 삭제됐다).
+    let _app = null;
     try {
-      const {data: _app} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
-      if (_app) {
-        openActivityPage(_app.id, _app.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      const {data, error} = await (db?.from('applications').select('id, campaign_id').eq('id', refId).maybeSingle() || {data:null});
+      if (error) throw error;
+      _app = data;
     } catch(e) {
-      // ⚠️ 여기서 조회가 **일시적으로** 실패해도 아래에서 알림을 영구 삭제한다.
-      //    (「참조가 사라졌다」와 「지금 못 읽었다」를 구분하지 않는다 — 동작 개선은 후속,
-      //     지금은 그런 일이 실제로 일어나는지 볼 수 있게 기록부터 남긴다.)
       logAppError('notifClick.applicationRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (_app) {
+      openActivityPage(_app.id, _app.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
@@ -384,17 +409,20 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   }
   // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
+    // 가리키는 결과물 한 건만 조회한다(예전엔 본인 결과물 전체를 받았다 — 2026-09-30).
+    //   ⚠️ 실패(throw)와 0건(null)을 가른다 — 실패면 알림을 지우지 않는다(위 마감일 변경 알림과 같은 이유).
+    let hit = null;
     try {
-      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
-      const hit = delivs.find(d => d.id === refId);
-      if (hit) {
-        openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
-        refreshNotifBadge();
-        return;
-      }
+      hit = await fetchMyDeliverableRef(refId);
     } catch(e) {
-      // ⚠️ 위와 같은 자리 — 일시적 조회 실패도 알림 영구 삭제로 이어진다(후속 개선 대상).
       logAppError('notifClick.deliverableRef', e);
+      toast(t('notif.refLoadFailed'), 'error');
+      return;
+    }
+    if (hit) {
+      openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
+      refreshNotifBadge();
+      return;
     }
     // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
     await deleteNotification(id);

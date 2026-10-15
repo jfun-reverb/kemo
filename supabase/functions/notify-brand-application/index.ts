@@ -33,7 +33,7 @@
 //   # 개발
 //   supabase functions deploy notify-brand-application --project-ref qysmxtipobomefudyixw
 //   # 운영
-//   supabase functions deploy notify-brand-application --project-ref twofagomeizrtkwlhsuv
+//   supabase functions deploy notify-brand-application --project-ref nrwtujmlbktxjgdwlpjj   # ⚠️ 옛 시드니(twofago…)가 아니라 도쿄
 //   # 비밀값 (각 환경별로 1회)
 //   supabase secrets set BREVO_API_KEY=xxx --project-ref <ref>
 //
@@ -417,14 +417,49 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const row = payload.record;
-    if (!row?.id || !row.application_no) {
-      console.error("[notify-brand-application] invalid payload", { row });
+    const payloadRow = payload.record;
+    if (!payloadRow?.id || !payloadRow.application_no) {
+      console.error("[notify-brand-application] invalid payload", { row: payloadRow });
       return new Response(JSON.stringify({ error: "invalid payload" }), {
         status: 400,
         headers: { "content-type": "application/json" },
       });
     }
+
+    // 🔴 메일 내용·받는 주소는 **데이터베이스의 신청 행**에서 다시 읽는다(2026-10-01 전수조사 3차 ④-4).
+    //   요청 본문을 그대로 믿으면 호출 경로가 뚫렸을 때 **아무 주소로 아무 내용을** 보낼 수 있다.
+    //   외부 호출은 rejectPublicKeyCaller 가 막지만 방어를 한 겹 더 둔다 — 본문에서는 id 만 쓴다.
+    //   ⚠️ 행이 없으면(지워졌거나 가짜 id) 아무것도 안 보낸다. 조회 실패는 500(웹훅 재시도가 다시 잡게).
+    const supaUrlRow = env("SUPABASE_URL");
+    const serviceKeyRow = env("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supaUrlRow || !serviceKeyRow) {
+      console.error("[notify-brand-application] missing supabase env");
+      return new Response(JSON.stringify({ error: "missing supabase env" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const sbRow = createClient(supaUrlRow, serviceKeyRow, { auth: { persistSession: false } });
+    const { data: dbRow, error: rowErr } = await sbRow
+      .from("brand_applications")
+      .select("id, application_no, form_type, brand_name, contact_name, phone, email, billing_email, products, total_jpy, total_qty, estimated_krw, request_note, created_at")
+      .eq("id", payloadRow.id)
+      .maybeSingle();
+    if (rowErr) {
+      console.error("[notify-brand-application] application fetch failed", rowErr);
+      return new Response(JSON.stringify({ error: "application fetch failed" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (!dbRow) {
+      console.error("[notify-brand-application] application not found — skipped", { id: payloadRow.id });
+      return new Response(JSON.stringify({ skipped: true, reason: "application_not_found" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const row = dbRow as BrandApplication;
 
     // 관리자 수신자: get_subscribed_admin_emails('brand_notify') + NOTIFY_ADMIN_EMAILS 병합
     const adminEmails = await resolveAdminEmails();

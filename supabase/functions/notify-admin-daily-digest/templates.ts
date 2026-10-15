@@ -100,7 +100,7 @@ export const TEMPLATES: Record<string, string> = {
     {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{infl_count}}         이 캠페인 신청한 인플루언서 수
     {{infl_list_html}}     인플루언서 행 누적 HTML
-                           컬럼 5종: 이름(한자) / 이름(가나) / 이메일 / SNS(링크) / 신청 시각
+                           컬럼 5종: 이름(한자) / 후리가나 / 이메일 / SNS(링크) / 신청 시각
                            헤더 행은 Edge Function 이 본 템플릿 안에 이미 내장
 -->
 <div style="border:1px solid #E2E7F2;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
@@ -113,7 +113,7 @@ export const TEMPLATES: Record<string, string> = {
     <thead>
       <tr style="background:#F5F7FC;color:#5B6BBF">
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(한자)</th>
-        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">후리가나</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이메일</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">SNS</th>
         <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">신청 시각</th>
@@ -135,7 +135,7 @@ export const TEMPLATES: Record<string, string> = {
     {{recruit_type_ko}}      모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{cancel_count}}         이 캠페인에서 취소된 건수
     {{cancel_rows_html}}     인플별 <tr> 누적 HTML (Edge Function 이 직접 생성)
-                             컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 시점(칩) / 사유 / 취소시각
+                             컬럼 7종: 이름(한자) / 후리가나 / 이메일 / SNS / 시점(칩) / 사유 / 취소시각
                              보충 메모는 사유 셀 아래 작은 글씨 줄로 자동 포함
 -->
 <div style="border:1px solid #F4DDE0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
@@ -148,7 +148,7 @@ export const TEMPLATES: Record<string, string> = {
     <thead>
       <tr style="background:#FDF1F3;color:#E8344E">
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(한자)</th>
-        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">후리가나</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이메일</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">SNS</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">시점</th>
@@ -173,7 +173,7 @@ export const TEMPLATES: Record<string, string> = {
     {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{submit_count}}           이 캠페인에서 제출된 건수
     {{submit_rows_html}}       인플별 <tr> 누적 HTML
-                               컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류(칩) / 제출 내역 / 제출시각
+                               컬럼 7종: 이름(한자) / 후리가나 / 이메일 / SNS / 종류(칩) / 제출 내역 / 제출시각
                                제출 내역 셀:
                                  - receipt: <a>영수증 이미지 보기</a> + 작은 글씨 「주문 X · 구매일 · 금액 ¥N」
                                  - review_image: <a>리뷰 이미지 보기</a>
@@ -189,7 +189,7 @@ export const TEMPLATES: Record<string, string> = {
     <thead>
       <tr style="background:#EEF4FC;color:#1F5DBF">
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(한자)</th>
-        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">후리가나</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이메일</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">SNS</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">종류</th>
@@ -217,7 +217,7 @@ export const TEMPLATES: Record<string, string> = {
     {{recruit_type_ko}}         모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{reprocess_count}}         이 캠페인에서 재처리된 건수
     {{reprocess_rows_html}}     인플별 <tr> 누적 HTML
-                                컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류(칩) / 처리 운영자 / 시각
+                                컬럼 7종: 이름(한자) / 후리가나 / 이메일 / SNS / 종류(칩) / 처리 운영자 / 시각
 -->
 <div style="border:1px solid #E5E0F4;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
@@ -229,7 +229,7 @@ export const TEMPLATES: Record<string, string> = {
     <thead>
       <tr style="background:#F5EFFB;color:#6F40A6">
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(한자)</th>
-        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">후리가나</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이메일</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">SNS</th>
         <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">종류</th>

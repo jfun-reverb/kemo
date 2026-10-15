@@ -21,10 +21,68 @@ DEMO_CAMPAIGNS = [
   {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:_demoDeadline(35),post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 
+// ── 캠페인 목록 보관 — 인플루언서 앱 전용 (2026-09-30) ──
+//   화면을 옮길 때마다(홈·캠페인·응모이력) 캠페인 전체를 다시 받느라 이동이 느렸다.
+//   받아 둔 목록이 있으면 **그것으로 먼저 그리고, 뒤에서 새로 받아 바뀐 게 있으면 다시 그린다**
+//   (사용자 결정 — 신청 인원·마감 상태가 낡지 않게). 서버 요청 수는 종전과 비슷하다.
+//   ⚠️ fetchCampaigns 자체는 관리자 화면도 쓴다 — 관리자는 편집 직후 최신값이 필요하므로
+//      여기(인플루언서 앱)에서만 감싼다.
+//   ⚠️ 응모·취소·행사 예약처럼 신청 인원을 바꾸는 동작 뒤에는 invalidateCampaignsCache() —
+//      다음 이동은 보관분 없이 새로 받은 뒤 그린다.
+const CAMP_FRESH_MS = 10000;   // 방금(10초 안) 받은 목록이면 뒤에서 또 받지 않는다(부팅 직후 홈 이동 등)
+let _campFetchPromise = null;
+let _campFetchedAt = 0;
+let _campGen = 0;   // 무효화 세대 — 무효화 전에 출발한 조회가 뒤늦게 와도 「방금 받음」으로 치지 않게
+
+// 새로 받는다. 같은 조회가 진행 중이면 그 결과를 함께 쓴다.
+function refreshCampaignsShared() {
+  if (_campFetchPromise) return _campFetchPromise;
+  const hadData = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  const gen = _campGen;
+  const p = fetchCampaigns().then(data => {
+    if (_campaignsLoadFailed && hadData) {
+      // 뒤에서 받다가 실패 — 멀쩡히 받아 둔 목록을 지우지 않고, 「못 불러왔다」 표시도 세우지 않는다
+      _campaignsLoadFailed = false;
+      return allCampaigns;
+    }
+    allCampaigns = data;
+    _campFetchedAt = (_campaignsLoadFailed || gen !== _campGen) ? 0 : Date.now();
+    return allCampaigns;
+  }).finally(() => { if (_campFetchPromise === p) _campFetchPromise = null; });
+  _campFetchPromise = p;
+  return p;
+}
+
+// 신청 인원이 바뀐 뒤 — 진행 중이던 조회도 버리고 다음엔 새로 받는다
+function invalidateCampaignsCache() { _campFetchedAt = 0; _campGen++; _campFetchPromise = null; }
+
+// 다시 그릴지 판단용 — 화면에 보이는 값이 바뀌었는지만 본다(조회수 등은 뺀다)
+function _campListSignature(camps) {
+  return (camps || []).map(c => [c.id, c.status, c.applied_count, c.slots, c.deadline, c.updated_at].join('|')).join(',');
+}
+
+// 보관분이 있으면 즉시 돌려주고 뒤에서 새로 받는다. onChange(새 목록)는 **바뀌었을 때만** 불린다.
+//   보관분이 없으면(첫 진입·무효화 뒤) 새로 받을 때까지 기다린다 — 종전과 같다.
+async function getCampaignsCached(onChange) {
+  const cached = _campFetchedAt > 0 && Array.isArray(allCampaigns) && allCampaigns.length > 0;
+  if (!cached) return refreshCampaignsShared();
+  if (Date.now() - _campFetchedAt >= CAMP_FRESH_MS) {
+    const before = _campListSignature(allCampaigns);
+    refreshCampaignsShared().then(fresh => {
+      if (typeof onChange === 'function' && _campListSignature(fresh) !== before) onChange(fresh);
+    }).catch(() => {});
+  }
+  return allCampaigns;
+}
+
 async function loadCampaigns() {
-  allCampaigns = await fetchCampaigns();
-  renderCampaigns(allCampaigns);
-  updateStats(allCampaigns);
+  const camps = await getCampaignsCached(fresh => {
+    // 뒤에서 받은 목록이 달라졌을 때 — 지금 보이는 화면만 다시 그린다
+    if ($('page-home')?.classList.contains('active')) { renderCampaigns(fresh); updateStats(fresh); }
+    if ($('page-campaigns')?.classList.contains('active')) renderCampaignGrid();
+  });
+  renderCampaigns(camps);
+  updateStats(camps);
 }
 
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
@@ -73,9 +131,12 @@ const HOME_CAMP_LIMIT = 10;
 
 function updateStats(camps) {
   const visible = visibleCamps(camps);
-  $('statCampaigns').textContent = visible.length;
-  $('campCount').textContent = visible.length;
-  $('statBrands').textContent = [...new Set(camps.map(c=>brandLabelInflu(c)))].length;
+  // 칸이 없으면 건너뛴다 — 운영 1회(2026-10-02) 이 칸이 없어 여기서 멈추고 채널 필터까지 안 그려졌다
+  //   (확장 프로그램이 홈 상단을 지운 것으로 추정). 아래 buildChannelFilters 와 같은 방식
+  const statCampaigns = $('statCampaigns'); if (statCampaigns) statCampaigns.textContent = visible.length;
+  const campCount = $('campCount'); if (campCount) campCount.textContent = visible.length;
+  const statBrands = $('statBrands');
+  if (statBrands) statBrands.textContent = [...new Set(camps.map(c=>brandLabelInflu(c)))].length;
   buildChannelFilters(visible);
 }
 
@@ -93,13 +154,57 @@ function buildChannelFilters(camps) {
 let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
-async function loadCampaignsPage() {
-  // 진입할 때마다 캠페인 데이터 새로고침 — 캐시(allCampaigns)에 의존하지 않음.
-  // 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
-  await loadCampaigns();
-  campPageTypeFilter = 'all';
+// 모집 형식 탭 ↔ 주소 대응 — 이 표가 유일한 정의처다(사양서 2026-09-30-campaign-list-tab-url).
+//   리뷰어는 내부 코드(monitor)가 아니라 화면 이름을 주소에 쓴다. 상태 칩·검색어는 주소에 안 담는다.
+//   ⚠️ 주소를 읽는 자리(app.js 의 navigate·뒤로가기·새로고침 첫 화면·언어 전환)는 전부 아래 두 함수로 판정한다.
+//      'campaigns' 와 정확히 같은지로 판정하는 자리를 새로 만들면 탭 주소에서 빈 화면이 된다.
+const CAMP_PAGE_TYPE_HASH = { all: 'campaigns', monitor: 'campaigns-reviewer', gifting: 'campaigns-gifting', visit: 'campaigns-visit' };
+
+// 'campaigns' 또는 'campaigns-…' 이면 캠페인 목록 주소
+function isCampaignsHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  return h === 'campaigns' || h.startsWith('campaigns-');
+}
+
+// 주소 → 탭. 표에 없는 'campaigns-…'(틀린 주소)는 'all', 캠페인 목록 주소가 아니면 null
+function campPageTypeFromHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  if (!isCampaignsHash(h)) return null;
+  const hit = Object.keys(CAMP_PAGE_TYPE_HASH).find(t => CAMP_PAGE_TYPE_HASH[t] === h);
+  return hit || 'all';
+}
+
+// 틀린 탭 주소(#campaigns-foo)는 기록을 늘리지 않고 #campaigns 로 바꿔 적는다
+function _fixUnknownCampaignsHash(hash) {
+  const h = String(hash || '').replace(/^#/, '');
+  if (!isCampaignsHash(h) || Object.values(CAMP_PAGE_TYPE_HASH).includes(h)) return;
+  try { history.replaceState({page: 'campaigns'}, '', '#campaigns'); } catch (e) { /* 주소 교정 실패는 화면에 영향 없음 */ }
+}
+
+// 탭 강조 칠하기 — 진입·클릭·뒤로가기 세 곳이 쓴다
+function _paintCampPageTypeTabs(type) {
+  ['all','monitor','gifting','visit'].forEach(t => {
+    const btn = $('campPageType-'+t);
+    if (!btn) return;
+    const on = t === type;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+// 목록 진입(전체 초기화). targetHash = navigate() 가 받은 목표 주소 — 그 주소의 탭으로 시작한다.
+//   ⚠️ 부르기 전의 브라우저 주소(location.hash)를 읽으면 안 된다 — 방문형을 보다 햄버거 「캠페인」을
+//      누르면 옛 주소가 읽혀 「전체」로 가야 할 진입이 방문형으로 복원된다.
+async function loadCampaignsPage(targetHash) {
+  // 탭·필터 상태는 목록을 받기 **전에** 정한다 — 받는 사이 탭을 누르면 그 선택이 덮이지 않게.
+  campPageTypeFilter = campPageTypeFromHash(targetHash) || 'all';
+  _fixUnknownCampaignsHash(targetHash);
   campPageStatusFilter = 'all';
   campPageSearch = '';
+  _paintCampPageTypeTabs(campPageTypeFilter);
+  // 진입할 때마다 캠페인 데이터 새로고침 — 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  //   2026-09-30 부터는 받아 둔 목록으로 먼저 그리고 뒤에서 새로 받는다(loadCampaigns → getCampaignsCached).
+  await loadCampaigns();
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
   // 검색 폼 초기 상태: 닫힘 (제목 + 아이콘 노출)
   const searchWrap = $('campPageSearchWrap');
@@ -116,13 +221,7 @@ async function loadCampaignsPage() {
   if (searchGnbBtn) searchGnbBtn.style.visibility = '';
   // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
   setupCampPageHeaderAutoHide();
-  ['all','monitor','gifting','visit'].forEach(t => {
-    const btn = $('campPageType-'+t);
-    if (!btn) return;
-    btn.style.color = t==='all'?'var(--pink)':'var(--muted)';
-    btn.style.borderBottomColor = t==='all'?'var(--pink)':'transparent';
-    btn.style.fontWeight = t==='all'?'700':'600';
-  });
+  _paintCampPageTypeTabs(campPageTypeFilter);
   // 상태 필터 칩 초기화
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   const allChip = $('campPageStatus-all'); if (allChip) allChip.classList.add('on');
@@ -136,12 +235,25 @@ function _scrollCampPageTop() {
   else if (page) page.scrollTop = 0;
 }
 
-function setCampPageType(type, el) {
+// 탭 클릭 — 다른 탭이면 방문 기록을 쌓는다(메타 픽셀이 pushState 를 페이지뷰 1건으로 센다 — 실측된 유일한 방식).
+//   ⚠️ 이미 그 탭이면 아무것도 안 한다 — 쌓으면 뒤로가기가 「변화 없음」을 한 번 더 거치고 가짜 페이지뷰가 간다.
+//   ⚠️ navigate() 를 부르지 않는다 — 부르면 목록을 통째로 다시 받고 상태 칩·검색어가 초기화된다.
+function setCampPageType(type) {
+  if (!CAMP_PAGE_TYPE_HASH[type] || type === campPageTypeFilter) return;
   campPageTypeFilter = type;
-  document.querySelectorAll('[id^="campPageType-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
-  });
-  el.style.color = 'var(--pink)'; el.style.borderBottomColor = 'var(--pink)'; el.style.fontWeight = '700';
+  const hash = CAMP_PAGE_TYPE_HASH[type];
+  try { history.pushState({page: hash}, '', '#' + hash); } catch (e) { /* 기록 실패해도 탭 전환은 한다 */ }
+  _paintCampPageTypeTabs(type);
+  renderCampaignGrid();
+  _scrollCampPageTop();
+}
+
+// 목록이 떠 있는 채 뒤로가기·앞으로가기로 탭 주소에 왔을 때 — 탭만 바꾼다(상태 칩·검색어 유지).
+//   부르는 곳은 app.js 뒤로가기 처리 한 곳. 목록이 아닌 화면에서 온 경우는 navigate() 경로(전체 초기화)다.
+function applyCampPageTypeFromHistory(hash) {
+  campPageTypeFilter = campPageTypeFromHash(hash) || 'all';
+  _fixUnknownCampaignsHash(hash);
+  _paintCampPageTypeTabs(campPageTypeFilter);
   renderCampaignGrid();
   _scrollCampPageTop();
 }
@@ -256,7 +368,7 @@ function toggleCampPageSearch(force) {
 function campEmptyStateHtml(isFiltered) {
   const title = isFiltered ? t('campaign.emptyFiltered') : t('campaign.emptyState');
   const sub = isFiltered ? t('campaign.emptyFilteredSub') : t('campaign.emptyStateSub');
-  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${esc(title)}</div><div class="empty-sub">${esc(sub)}</div></div>`;
+  return stateEmptyHtml('assignment', title, sub);
 }
 
 function renderCampaignGrid() {
@@ -352,21 +464,21 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
-        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(24,24,27,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
-        ${isClosed&&!isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
-        ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
-        ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
-        <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
-          <span style="${isActive?'background:#E2F0E9;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px':'visibility:hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
-          ${isNew&&!isFull?`<span style="background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeNew')}</span>`:''}
+        ${isScheduled?`<div class="cc-overlay scheduled"><span>${t('detail.scheduledOverlay')}</span></div>`:''}
+        ${isClosed&&!isEnded?`<div class="cc-overlay"><span>${t('detail.closedOverlay')}</span></div>`:''}
+        ${isEnded?`<div class="cc-overlay"><span>${t('detail.endedOverlay')}</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosedLike?`<div class="cc-overlay"><span>${t('detail.fullOverlay')}</span></div>`:''}
+        <div class="camp-badges">
+          <span class="cc-flag ${isActive?'recruit':'hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
+          ${isNew&&!isFull?`<span class="cc-flag new">${t('campaign.badgeNew')}</span>`:''}
         </div>
-        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
+        <div class="camp-ch-badge">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${esc(brandLabelInflu(c))}</div>
-        ${typeLabel ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin:2px 0">${esc(typeLabel)}</div>` : ''}
+        ${typeLabel ? `<div class="cc-type">${esc(typeLabel)}</div>` : ''}
         <div class="camp-title">${esc(c.title)}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
+        ${c.content_types ? `<div class="cc-ct">${c.content_types.split(',').map(t=>`<span class="cd-chip">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
           // 締切間近 + {applied}/{slots}名 — 콘텐츠 종류 아래 (진행중 캠페인만)
           if (!isActive) return '';
@@ -380,12 +492,12 @@ function buildCampCards(camps) {
           const applied = c.applied_count || 0;
           const remaining = slots - applied;
           if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) urgent = true;
-          if (urgent) flags.push(`<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeUrgent')}</span>`);
-          if (slots > 0) flags.push(`<span style="background:#F5F5F5;color:#555;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.slotFormat').replace('{applied}',applied).replace('{slots}',slots)}</span>`);
-          return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${flags.join('')}</div>` : '';
+          if (urgent) flags.push(`<span class="cc-flag urgent">${t('campaign.badgeUrgent')}</span>`);
+          if (slots > 0) flags.push(`<span class="cc-flag slots">${t('campaign.slotFormat').replace('{applied}',applied).replace('{slots}',slots)}</span>`);
+          return flags.length ? `<div class="cc-flags">${flags.join('')}</div>` : '';
         })()}
       </div>
-      <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">redeem</span> ${reward}</div></div>
+      <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">redeem</span> ${reward}</div></div>
     </div>`;
   }).join('');
 }
@@ -403,12 +515,11 @@ function renderCampaigns(camps) {
     //    캠페인이 하나도 없는 줄 알고 떠난다. 예전에는 실패 시 예시 여섯 건을 대신 그려
     //    이 갈림이 아예 없었다(가짜가 진짜처럼 보였다).
     const _failed = (typeof _campaignsLoadFailed !== 'undefined') && _campaignsLoadFailed;
-    const _icon = _failed ? 'cloud_off' : 'assignment';
     const _head = t(_failed ? 'campaign.loadFailed' : 'campaign.emptyState');
     const _sub  = t(_failed ? 'campaign.loadFailedSub' : 'campaign.emptyStateSub');
     // 조회는 됐는데 조건으로 0건이면 「조건에 맞는 캠페인이 없다」로(campEmptyStateHtml).
     grid.innerHTML = _failed
-      ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">${_icon}</span></div><div class="empty-text">${esc(_head)}</div><div class="empty-sub">${esc(_sub)}</div></div>`
+      ? stateErrorHtml(`${_head} ${_sub}`, 'loadCampaigns')
       : campEmptyStateHtml(currentTypeFilter !== 'all' || currentFilter !== 'all');
     if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
@@ -456,8 +567,23 @@ function campaignIdFromHash(hash) {
 function captureInviteFromHash(hash) {
   const p = parseInviteFromHash(hash);
   if (!p) return String(hash || '').replace('detail-', '').split('?')[0];
-  if (p.inviteCode) rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+  if (p.inviteCode) {
+    rememberInviteCtx(p.campaignId, String(p.inviteCode).trim().toUpperCase());
+    stripInviteFromUrl(p.campaignId);
+  }
   return p.campaignId;
+}
+
+// 주소에서 초대 번호를 걷어낸다 — 기억이 저장소에 실제로 남았을 때만.
+//   🔴 주소에 번호가 남아 있으면 메타 픽셀이 이벤트마다 현재 주소를 함께 보내 번호가 메타로 간다
+//      (전수조사 3차 ⑦-1). 부팅 판정(metaPixelUrlHasSensitiveValue)은 **불러올 때 한 번**만 보므로,
+//      이미 켜진 탭에서 번호가 주소에 붙는 경로(번호 입력·링크 붙여넣기·가입 뒤 복귀)는 못 막는다.
+//   ⚠️ 저장소를 못 쓰는 브라우저면 걷어내지 않는다 — 그때는 주소가 새로고침 뒤 번호를 되살리는 유일한 자리다.
+function stripInviteFromUrl(campaignId) {
+  if (!campaignId || !getInviteCodeForCampaign(campaignId)) return;
+  const h = location.hash || '';
+  if (!h.startsWith('#detail-' + campaignId + '?')) return;
+  try { history.replaceState(history.state, '', `#detail-${campaignId}`); } catch (e) {}
 }
 
 // 확인된 초대 번호를 캠페인별로 기억한다.
@@ -507,10 +633,9 @@ function consumeInviteReturn() {
     localStorage.removeItem(INVITE_RETURN_KEY);
   } catch (e) { return false; }
   if (!campId) return false;
-  const code = getInviteCodeForCampaign(campId);
-  const suffix = code ? `?invite=${encodeURIComponent(code)}` : '';
-  // 해시를 초대 번호까지 붙여 되돌려 놓고 상세를 연다 — 새로고침해도 같은 자리로 온다.
-  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}${suffix}`); } catch (e) {}
+  // 해시를 상세로 되돌려 놓고 연다 — 새로고침해도 같은 자리로 온다.
+  //   ⚠️ 초대 번호는 주소에 붙이지 않는다(메타 픽셀로 샌다 — stripInviteFromUrl). 번호는 저장소에 있다.
+  try { history.replaceState({page: 'detail-' + campId}, '', `#detail-${campId}`); } catch (e) {}
   if (typeof openCampaign === 'function') openCampaign(campId);
   return true;
 }
@@ -592,7 +717,9 @@ async function submitInviteCode(campaignId) {
     return;
   }
   rememberInviteCtx(campaignId, code);
-  // 주소에도 번호를 남겨 새로고침·뒤로가기에서 다시 묻지 않게 한다.
-  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}?invite=${encodeURIComponent(code)}`); } catch (e) {}
+  // 새로고침·뒤로가기에서 다시 묻지 않는 것은 저장소의 기억이 맡는다.
+  //   ⚠️ 주소에는 번호를 붙이지 않는다 — 메타 픽셀로 샌다(stripInviteFromUrl). 저장소를 못 쓰면 주소에 남긴다.
+  const _keepInUrl = !getInviteCodeForCampaign(campaignId);
+  try { history.replaceState({page: 'detail-' + campaignId}, '', `#detail-${campaignId}${_keepInUrl ? `?invite=${encodeURIComponent(code)}` : ''}`); } catch (e) {}
   if (typeof openCampaign === 'function') openCampaign(campaignId);
 }

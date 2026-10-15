@@ -57,7 +57,11 @@ if '<link rel="stylesheet" href="/ios-theme.css">' not in h:
     h = h.replace('</head>', '  <link rel="stylesheet" href="/ios-theme.css">\n</head>', 1)
 # 3) 네이티브 푸시 스크립트 주입 (body 끝 — storage.js 등 전역 함수 로드 후 실행)
 if '<script src="/native-push.js"></script>' not in h:
-    h = h.replace('</body>', '  <script src="/native-push.js"></script>\n</body>', 1)
+    # 🔴 **마지막** </body> 에 넣는다 — 자바스크립트 문자열 안에도 '</body>' 가 있다(auth.js 가 개발용
+    #    메일 창을 d.write 로 그리는 문자열). 첫 번째 자리에 넣으면 그 문자열 안에 <script> 가 박혀
+    #    번들 스크립트가 거기서 끊기고 앱이 빈 화면으로 뜬다(2026-10-15 실측).
+    _bi = h.rfind('</body>')
+    h = h[:_bi] + '  <script src="/native-push.js"></script>\n' + h[_bi:]
 # 4) 앱 버전 주입 — 마이페이지 하단에 표시. 웹에는 이 값이 없어 그 줄이 숨겨진다.
 #    ⚠️ 중복 검사는 반드시 주입할 태그 전체로 — 'window.__APP_VERSION__' 문자열만 보면
 #       주석·mypage.js 안의 같은 단어에 걸려 주입을 건너뛴다(2026-06-23 ios-theme.css 사고와 동형).

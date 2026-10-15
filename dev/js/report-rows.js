@@ -116,8 +116,8 @@ const REPORT_COLS = [
   {key:'receipt_url',         label:'구매 영수증 (URL)',  w:'120px', grp:'구매·영수증'},
   {key:'receipt_uploaded_at', label:'업로드 날짜',        w:'130px', grp:'구매·영수증', pick:'영수증 업로드 날짜'},
   {key:'account_id',          label:'계정 ID',           w:'210px', grp:'기본'},
-  {key:'name_kanji',          label:'이름 (한자)',        w:'120px', grp:'기본'},
-  {key:'name_kana',           label:'이름 (일본어)',      w:'130px', grp:'기본'},
+  {key:'name_kanji',          label:'이름(한자)',         w:'120px', grp:'기본'},
+  {key:'name_kana',           label:'후리가나',           w:'130px', grp:'기본'},
   {key:'ch_qoo10_url',        label:'큐텐 결과물 (URL)',  w:'150px', grp:'큐텐',     ch:'qoo10'},
   {key:'ch_qoo10_at',         label:'업로드 날짜',        w:'130px', grp:'큐텐',     ch:'qoo10', pick:'큐텐 업로드 날짜'},
   {key:'ch_cosme_url',        label:'엣코스메 결과물 (URL)', w:'150px', grp:'엣코스메', ch:'cosme'},
@@ -274,6 +274,14 @@ function _reportLooksLikeAddress(v) {
   if (typeof v !== 'string') return false;
   var slash = v.indexOf('/');
   return slash > 0 && v.slice(0, slash).indexOf('.') !== -1;
+}
+
+// 결과물 칸을 「열기 ↗」 링크로 만들어도 되는 주소인가 — `http://`·`https://` 로 시작할 때만(전수조사 3차 ②-8).
+//   게시물 주소는 회원이 적은 값이라 `javascript:` 같은 형식이 들어오면 누르는 순간 실행된다.
+//   아니면 링크 없이 글자로만 그린다 — 운영의 옛 오타(`ttps://…`)처럼 깨진 주소도 무엇이 적혔는지 보이게.
+//   🔴 두 화면(관리자 리포트 `_reportChannelCellHtml` · 공유 화면 `chanCell`)이 **이 함수 하나**를 쓴다.
+function reportIsLinkable(u) {
+  return /^https?:\/\//i.test(String(u || '').trim());
 }
 
 // SNS 계정 → 전체 주소 (각 SNS 공식 주소 형식). TikTok/YouTube 는 @ 필수.

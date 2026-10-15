@@ -375,8 +375,8 @@ async function openInfluencerDetail(userId) {
   const _bdLabel = u.birthdate ? (u.birthdate + (_age != null ? ` (만 ${_age}세)` : '')) : '';
 
   $('infDetailBasic').innerHTML =
-    row('이름 (한자)', u.name_kanji || u.name) +
-    row('이름 (카나)', u.name_kana) +
+    row('이름(한자)', u.name_kanji || u.name) +
+    row('후리가나', u.name_kana) +
     row('생년월일', _bdLabel) +
     row('성별', _genderKo[u.gender] || '') +
     row('이메일', u.email) +

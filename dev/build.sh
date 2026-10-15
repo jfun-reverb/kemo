@@ -23,7 +23,7 @@ echo "🔨 REVERB JP 빌드 시작..."
 # ══════════════════════════════════════
 # 1. CLIENT 빌드 → ../index.html
 # ══════════════════════════════════════
-CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
+CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css" "css/member-ui.css")
 CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/ocr-receipt.js" "lib/storage.js" "lib/legal.js" "js/error-report.js" "js/ui.js" "js/meta-pixel.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/event-ticket.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
 
 : > "$BUILD_TMP/client.css"
@@ -195,6 +195,42 @@ html = html.replace(marker, '<script>\n' + js + '\n</script>', 1)
 io.open(out, 'w', encoding='utf-8').write(html)
 PY_REPORT
   echo "  ✅ 공유 리포트 화면 복사(표 코드 인라인) 완료 → ../report.html"
+fi
+
+# ══════════════════════════════════════
+# 7. 브랜드 페이지 → ../brand/index.html (로그인 전 화면 — 사양서 docs/specs/2026-07-15-brand-portal.md §16)
+#    dev/brand/ 는 .vercelignore 의 `dev` 제외로 서버에 안 올라가 이 산출물이 필요하다.
+#    ⚠️ 목록(BRAND_*_FILES)과 아래 원본 태그를 지우는 정규식 **두 곳**을 함께 고칠 것(관리자 빌드와 같은 함정).
+#    storage.js·ui.js 는 싣지 않는다 — 자립형 화면(admin-setpw.html·event-scan.html·report.html 과 같은 줄).
+# ══════════════════════════════════════
+BRAND_CSS_FILES=("css/brand.css")
+BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-app.js")
+if [ -f brand/index.html ]; then
+  mkdir -p ../brand
+  : > "$BUILD_TMP/brand.css"
+  for f in "${BRAND_CSS_FILES[@]}"; do
+    if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/brand.css"; printf '\n' >> "$BUILD_TMP/brand.css"
+    else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
+  done
+  : > "$BUILD_TMP/brand.js"
+  for f in "${BRAND_JS_FILES[@]}"; do
+    if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/brand.js"; printf '\n' >> "$BUILD_TMP/brand.js"
+    else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
+  done
+  python3 - "../brand/index.html" "$BUILD_TMP/brand.css" "$BUILD_TMP/brand.js" "$VERSION" "brand/index.html" << 'PY_BRAND'
+import sys, re
+out, css_path, js_path, version, src = sys.argv[1:6]
+css = open(css_path, encoding="utf-8").read()
+js = open(js_path, encoding="utf-8").read()
+html = open(src, encoding="utf-8").read()
+# 원본 태그 제거 — ../css/ · ../lib/ · ../js/ (CDN 의 https:// 주소는 남긴다)
+html = re.sub(r'<link\s+rel="stylesheet"\s+href="\.\./css/[^"]+"\s*/?>\n?', '', html)
+html = re.sub(r'<script\s+src="\.\./(?:lib|js)/[^"]+"\s*></script>\n?', '', html)
+html = html.replace("</head>", f"<style>\n{css}</style>\n</head>", 1)
+html = html.replace("</body>", f"\n<script>\n{js}</script>\n<!-- {version} -->\n</body>", 1)
+open(out, "w", encoding="utf-8").write(html)
+print(f"  ✅ 브랜드 페이지 빌드 완료 → {out}")
+PY_BRAND
 fi
 
 echo "📦 빌드 완료 ($VERSION)"

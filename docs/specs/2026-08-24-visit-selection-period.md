@@ -1,6 +1,7 @@
 # 방문형에도 선정 기간 · 신청자를 관리자가 고르는지 확인
 
 **작성일:** 2026-08-24
+**상태:** ✅ 운영 반영 — 폼 안내 문구(의심 5)는 별건 (2026-10-02 상태 점검)
 **작성:** 기획/설계 세션
 **계기:** 사용자 요청 — 「방문형도 시딩형처럼 선정 기간이 있어야 한다」 + 「모집된 회원 중 참여 신청을 관리자가 고를 수 있게 되어 있는지 확인」
 **선행 문서:** [`2026-08-11-selection-period-visibility.md`](2026-08-11-selection-period-visibility.md)(선정 기간 노출) · [`2026-08-06-campaign-period-wording-and-payback-notice.md`](2026-08-06-campaign-period-wording-and-payback-notice.md)(기간 문구 체계)

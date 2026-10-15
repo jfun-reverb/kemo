@@ -24,6 +24,7 @@
 | [2026-05-19-campaign-promo-email.md](2026-05-19-campaign-promo-email.md) §17-5 창 정의 | [2026-09-28-promo-mail-new-and-deadline-window.md](2026-09-28-promo-mail-new-and-deadline-window.md) | 홍보 메일 「신규」·「마감 임박」 범위 |
 | [2026-06-15-admin-permission-matrix.md](2026-06-15-admin-permission-matrix.md) | [2026-06-15-admin-permission-management.md](2026-06-15-admin-permission-management.md) | 감사 결과가 구현 사양서의 「현재 상태」·기본값이 됨 |
 | [2026-08-12-reward-promise-by-recruit-type.md](2026-08-12-reward-promise-by-recruit-type.md) | [2026-09-02-unpaid-campaign-reward-mail.md](2026-09-02-unpaid-campaign-reward-mail.md) | 검수 결과 메일의 「보수 지급」 문구 — 뒤 문서가 다시 설계해 구현 |
+| [2026-05-21-general-inquiry-desk.md](2026-05-21-general-inquiry-desk.md) §2 스레드 단위 | [2026-10-06-service-inquiry-threads.md](2026-10-06-service-inquiry-threads.md) | 서비스 문의 「회원당 대화 하나」 → 여러 대화(운영팀이 닫으면 새 대화) |
 | 관리자 머티리얼 3 디자인 사양(파일 없음) | 흑백 재설계 + 보라 강조색 | 관리자 화면 기준이 바뀌었다 — 옛 문서를 기준으로 삼지 말 것(`planning.md`) |
 
 ## 종류 안내
@@ -238,7 +239,9 @@
 | 2026-09-01 | [착수 전 알아야 할 것 — 응모 취소의 공지사항 자동 등록 중단](2026-09-01-cancel-notice-stop-handoff.md) | 인수인계 |  |
 | 2026-09-02 | [전수조사(2차) 조치 계획 — 무엇을 어떤 순서로 처리하나](2026-09-02-audit-remediation-plan.md) | 조치 계획 |  |
 | 2026-09-02 | [회원 「안 읽은 메시지」 배지가 조용히 0으로 뜬다](2026-09-02-influencer-unread-badge-timeout.md) | 사양서 |  |
-| 2026-09-02 | [소셜 로그인과 리워드 포인트 — 경쟁사 대응 설계](2026-09-02-social-login-and-reward-points.md) | 사양서 |  |
+| 2026-09-02 | [소셜 로그인과 리워드 포인트 — 분리 안내·점검 이력](2026-09-02-social-login-and-reward-points.md) | 허브 |  |
+| 2026-09-02 | [소셜 로그인 — 경쟁사 대응 설계](2026-09-02-social-login.md) | 사양서 |  |
+| 2026-09-02 | [리워드 포인트 — 경쟁사 대응 설계](2026-09-02-reward-points.md) | 사양서 |  |
 | 2026-09-02 | [착수 전에 볼 곳 — 소셜 로그인·리워드 포인트](2026-09-02-social-login-points-before-starting.md) | 착수 전 대조 |  |
 | 2026-09-02 | [무보수 캠페인에 「보수를 지급하겠다」고 말하는 메일](2026-09-02-unpaid-campaign-reward-mail.md) | 사양서 |  |
 | 2026-09-03 | [캠페인 목록에 「결과물 현황」 열 추가](2026-09-03-campaign-list-deliverable-column.md) | 사양서 |  |
@@ -284,5 +287,31 @@
 | 2026-09-23 | [브랜드 영업 메모 — 오리엔시트 메모처럼 여러 건으로](2026-09-23-brand-memo-entries.md) | 사양서 |  |
 | 2026-09-28 | [캠페인 홍보 메일 — 「신규」 절이 한 번도 안 나간 문제와 「마감 임박」 범위](2026-09-28-promo-mail-new-and-deadline-window.md) | 사양서 | |
 | 2026-09-28 | [인수인계 — 사양서 「구현 결과」 채우기](2026-09-28-spec-results-handoff.md) | 인수인계 | |
+| 2026-09-29 | [CLAUDE.md 큰 절 세 개를 「필요할 때만 읽히는 규칙 파일」로 옮기기](2026-09-29-claude-md-load-reduction.md) | 사양서 |  |
+| 2026-09-29 | [흔한 비밀번호 — 회원은 경고, 관리자는 거부](2026-09-29-common-password-warning.md) | 사양서 |  |
+| 2026-09-29 | [회원 앱 스타일 통일](2026-09-29-member-app-style-unification.md) | 사양서 |  |
+| 2026-09-29 | [작업표 — 회원 앱 스타일 통일](2026-09-29-member-app-style-unification-breakdown.md) | 작업표 | [2026-09-29-member-app-style-unification.md](2026-09-29-member-app-style-unification.md) |
+| 2026-09-29 | [인증 성공일 회차별 페이백 대상 엑셀](2026-09-29-payback-period-excel.md) | 사양서 |  |
+| 2026-09-29 | [작업표 — 인증 성공일 회차별 페이백 대상 엑셀](2026-09-29-payback-period-excel-breakdown.md) | 작업표 | [2026-09-29-payback-period-excel.md](2026-09-29-payback-period-excel.md) |
+| 2026-09-29 | [공개 저장소 통 3개 — 파일 목록 조회 닫기](2026-09-29-storage-bucket-listing-lockdown.md) | 사양서 |  |
+| 2026-09-29 | [인수인계 — 공개 저장소 통 목록 조회 닫기](2026-09-29-storage-bucket-listing-lockdown-handoff.md) | 인수인계 | [2026-09-29-storage-bucket-listing-lockdown.md](2026-09-29-storage-bucket-listing-lockdown.md) |
+| 2026-09-30 | [관리자 페이지 진입 시 화면 깜빡임 — 개발 인수인계](2026-09-30-admin-entry-flash-handoff.md) | 인수인계 |  |
+| 2026-09-30 | [캠페인 목록 탭별 주소 분리](2026-09-30-campaign-list-tab-url.md) | 사양서 |  |
+| 2026-09-30 | [항상 읽히는 지시 문서를 15만 자 아래로 — 전체 방안](2026-09-30-instruction-load-budget.md) | 사양서 |  |
+| 2026-09-30 | [정산 송금 수수료·총지출 기록](2026-09-30-settlement-transfer-fee-record.md) | 사양서 |  |
+| 2026-09-30 | [작업표 — 정산 송금 수수료·총지출 기록(2단계)](2026-09-30-settlement-transfer-fee-record-breakdown.md) | 작업표 | [2026-09-30-settlement-transfer-fee-record.md](2026-09-30-settlement-transfer-fee-record.md) |
+
+### 2026-10
+
+| 날짜 | 문서 | 종류 | 짝 |
+|---|---|---|---|
+| 2026-10-01 | [회원가입 — 이메일 인증번호를 먼저 확인한 뒤에만 가입](2026-10-01-signup-email-code-verification.md) | 사양서 |  |
+| 2026-10-01 | [작업표 — 회원가입 이메일 인증번호](2026-10-01-signup-email-code-verification-breakdown.md) | 작업표 | [2026-10-01-signup-email-code-verification.md](2026-10-01-signup-email-code-verification.md) |
+| 2026-10-02 | [인수인계 — 사양서 상태 점검 뒤 남은 일](2026-10-02-spec-status-audit-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [인수인계 — 문의하기 「서비스 문의」 탭에 새 답장 표시](2026-10-06-inquiry-service-tab-badge-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [서비스 문의 — 회원 한 명이 여러 대화를 갖는 구조](2026-10-06-service-inquiry-threads.md) | 사양서 |  |
+| 2026-10-06 | [대리 등록 기간 — 캠페인 기준일 + 1개월까지만](2026-10-06-proxy-registration-window.md) | 사양서 |  |
+| 2026-10-06 | [인수인계 — 회원 활동관리 결과물 옆 제출일·승인일](2026-10-06-deliverable-submit-approve-dates-handoff.md) | 인수인계 |  |
+| 2026-10-06 | [인수인계 — 관리자 메시지 번역: 원문 위·번역 아래 + 운영팀 일본어 글 번역](2026-10-06-admin-message-translation-order-handoff.md) | 인수인계 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)

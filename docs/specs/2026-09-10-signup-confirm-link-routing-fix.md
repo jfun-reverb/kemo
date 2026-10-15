@@ -1,6 +1,7 @@
 # 가입 확인 링크가 비밀번호 재설정 화면으로 빠지는 결함 — 착지 경로 정정
 
 **작성일:** 2026-09-10
+**상태:** ✅ 운영 반영 (#1456) — 남은 것: 초대 링크 복귀의 브라우저 실증 (2026-10-02 상태 점검)
 **근거 조사:** `docs/research/2026-09-10-signup-confirm-link-misrouted-to-reset.md`(개발 세션, 운영 로그·데이터베이스 직접 확인) — 이 사양서는 그 조사 위에서 **화면 흐름을 어떻게 바꿀지**만 정한다. 시각별 표·증거는 조사 문서가 단일 소스.
 **관련 사양서:** `docs/specs/2026-07-20-influencer-password-reset-fix.md`(재설정 링크를 `#reset-pw?token_hash=` 새 형식으로 바꾼 작업) · `docs/specs/2026-07-20-admin-invite-mail-and-setpw.md`
 

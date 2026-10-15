@@ -457,7 +457,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       { header: '신청일',        key: 'created',    width: 20 },
       { header: '상태',          key: 'status',     width: 10 },
       { header: '이름(한자)',    key: 'nameKanji',  width: 16 },
-      { header: '이름(가나)',    key: 'nameKana',   width: 16 },
+      { header: '후리가나',    key: 'nameKana',   width: 16 },
       { header: '이메일',        key: 'email',      width: 26 },
       { header: '연락처',        key: 'phone',      width: 16 },
       { header: 'Instagram URL', key: 'ig',         width: 36 },
@@ -583,8 +583,10 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     var allDelivs = [];
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
-      var dels = await fetchDeliverables({ campaign_id: c.id });
-      (dels || []).forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
+      var dels = await fetchDeliverablesOrNull({ campaign_id: c.id });
+      // 🔴 조회 실패면 내보내지 않는다 — 계속하면 그 캠페인 사람들이 전원 「미제출」로 찍힌 파일이 나간다(전수조사 3차 ③-5)
+      if (dels === null) { toast('「' + (c.title || c.campaign_no || '캠페인') + '」 결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
+      dels.forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
     }
     if (allDelivs.length === 0) { toast('결과물이 없습니다', 'warn'); return; }
 
@@ -730,7 +732,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
       '캠페인 번호', '캠페인 제목',
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
@@ -923,7 +925,7 @@ async function exportCampaignApplicationsExcel(campId) {
       { header: '신청일',            key: 'created',    width: 20 },
       { header: '상태',              key: 'status',     width: 10 },
       { header: '이름(한자)',        key: 'nameKanji',  width: 16 },
-      { header: '이름(가나)',        key: 'nameKana',   width: 16 },
+      { header: '후리가나',        key: 'nameKana',   width: 16 },
       { header: '이메일',            key: 'email',      width: 26 },
       { header: '연락처',            key: 'phone',      width: 16 },
       { header: 'Instagram URL',     key: 'ig',         width: 36 },
@@ -1046,7 +1048,9 @@ async function exportCampaignDeliverables(campId) {
     if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
 
     // 2) 결과물 로드 (전체 상태 — 검수중·반려·미제출 인증 상태가 보이도록, 2026-06-09 사용자 결정)
-    var delivs = await fetchDeliverables({campaign_id: campId});
+    var delivs = await fetchDeliverablesOrNull({campaign_id: campId});
+    // 🔴 조회 실패면 내보내지 않는다 — 계속하면 승인 신청이 전원 「미제출」 빈 행으로 찍힌다(전수조사 3차 ③-5)
+    if (delivs === null) { toast('결과물을 불러오지 못해 내보내기를 멈췄습니다. 잠시 후 다시 시도해 주세요.', 'error'); return; }
     // 미제출(결과물 0건) 신청도 행에 포함 — 화면 목록(renderDeliverablesList includeMissing) 과 동일.
     //   승인된(approved) 신청을 가져와, 결과물 그룹에 없는 신청은 빈 행 + 인증 상태 '미제출' 로 추가.
     var approvedApps = await fetchApplications({campaign_id: campId, status: 'approved'});
@@ -1180,7 +1184,7 @@ async function exportCampaignDeliverables(campId) {
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL
     // W컬럼 「관리자 · 사유」: 영수증 또는 결과물 중 1건이라도 대리 등록이면 표시
     ws.getRow(4).values = [
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
@@ -1467,7 +1471,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
 
   // row 4: 컬럼 헤더 (인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
-    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
     '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
@@ -1678,7 +1682,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   // row 4: 컬럼 헤더 (캠페인 2 → 인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
     '캠페인 번호', '캠페인 제목',
-    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '이름(한자)', '후리가나', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
     '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
@@ -1826,7 +1830,7 @@ async function exportInfluencersExcel() {
     var ws = wb.addWorksheet('인플루언서');
     var cols = [
       { header: '이름(한자)', key: 'kanji', width: 14 },
-      { header: '이름(가나)', key: 'kana', width: 16 },
+      { header: '후리가나', key: 'kana', width: 16 },
       { header: '이메일', key: 'email', width: 24 },
       { header: '대표SNS', key: 'primary', width: 10 },
       { header: 'Instagram', key: 'ig', width: 28 },
@@ -1980,7 +1984,7 @@ async function exportEventTicketsExcel(campaignId) {
       { header: '날짜',     key: 'date',  width: 12 },
       { header: '시각',     key: 'time',  width: 14 },
       { header: '이름(한자)', key: 'kanji', width: 16 },
-      { header: '이름(가나)', key: 'kana',  width: 18 },
+      { header: '후리가나', key: 'kana',  width: 18 },
       { header: '예약번호', key: 'code',  width: 12 },
       { header: '상태',     key: 'st',    width: 12 },
       // 선정형은 순번을 아예 안 넣는다(마이그레이션 378). 열은 자리를 지키되 **값을 비운다** —

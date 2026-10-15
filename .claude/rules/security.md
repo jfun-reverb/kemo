@@ -30,7 +30,9 @@ globs: "dev/**/*.js,dev/**/*.html,supabase/**/*.sql"
 - 회원가입 시 기존 이메일 충돌을 사용자에게 구체적으로 노출 금지
 
 ## 비밀번호 정책
-- Supabase의 HIBP (유출된 비번) 검사 활성 유지
+- **Supabase 인증 설정의 「유출 비밀번호 검사」(Prevent use of leaked passwords)는 꺼 둔다** — 켜면 서버가 거부만 해서 회원 「경고만」이 성립하지 않는다(2026-09-29 사용자 결정: 회원은 경고, 관리자는 거부). 흔한 비밀번호 검사는 우리 서버 함수 + 화면에서 한다 — `docs/specs/2026-09-29-common-password-warning.md`
+  - ⚠️ 이 줄은 오래 「유출 비밀번호 검사(HIBP) 활성 유지」라 적혀 있었지만 **운영·개발 모두 꺼져 있었다**(2026-09-29 대시보드 확인). 설정은 문서로 판단하지 말고 대시보드에서 직접 볼 것
+- 비밀번호 규칙(8자 + 영문 소문자 + 기호)은 **화면에서만** 검사한다 — 서버 설정은 6자·문자 조건 없음. 판정은 `passwordPolicyIssue`(`dev/js/ui.js`)와 `validateAdminPassword`(`dev/admin-setpw.html`) 두 곳
 - 관리자 비밀번호: 개발/운영 서로 다르게 설정
 - SQL로 직접 해시 업데이트 시 bcrypt round 10 (`gen_salt('bf', 10)`)
 

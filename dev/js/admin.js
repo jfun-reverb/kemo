@@ -4739,6 +4739,9 @@ async function addCampaign() {
         toast(cr.all_published
           ? '카드 발행 완료 — 모든 카드가 발행되어 오리엔시트가 잠겼습니다.'
           : '카드 발행 완료 (' + cr.published_count + '/' + cr.total_count + ' 발행)', 'success');
+        // 발행 표시가 바뀌었다 — 뒤로 가기로 돌아갈 브랜드 화면 둘이 옛 상태로 남지 않게(전수조사 3차 ⑥-2·⑥-3).
+        //   지금은 캠페인 등록 화면이라 둘 다 숨어 있어 「돌아올 때 다시 그리기」 표시만 남는다.
+        if (typeof refreshPane === 'function') { await Promise.all([refreshPane('brand-detail'), refreshPane('brand-ops-detail')]); }
       } else {
         toast('캠페인은 등록됐으나 오리엔시트 연결에 실패했습니다: ' + (cr && cr.reason ? cr.reason : '알 수 없음'), 'error');
       }

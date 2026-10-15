@@ -1,5 +1,7 @@
 # 작업 분해표 — 비공개 행사, 선착순형과 선정형 중 고르기
 
+**상태:** ✅ 운영 반영 (마이그레이션 376~379) (2026-10-02 상태 점검)
+
 **상위 사양서:** `docs/specs/2026-08-24-event-invite-only-selection.md`
 **선행 사양서:** `docs/specs/2026-08-24-visit-selection-period.md`(설계 7 이 그 결정 1 을 넓힌다) · `2026-07-30-offline-popup-ticketing.md`(예약 골격) · `2026-08-05-event-group-and-scoped-checkin.md`(행사 묶음)
 **분해일:** 2026-08-24 (기획 세션)

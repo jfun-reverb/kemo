@@ -95,7 +95,7 @@ window.I18N_KO = {
     //   잠금만 하고 표시가 없으면 「눌렀는데 반응이 없다」고 느껴 오히려 더 누른다.
     submitting: '전송 중…',
     uploading: '올리는 중…',
-    retry: '다시 시도',
+    retry: '다시 불러오기',
     close: '닫기',
     apply: '적용',
     ok: '확인',
@@ -103,7 +103,7 @@ window.I18N_KO = {
 
   home: {
     hero: {
-      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      eyebrow: 'K-Brand × Japan Only',
       titleLine1: '한국 인기 K브랜드를',
       titleLine2: '당신의 SNS로',
       titleLine3: '체험해보세요',
@@ -168,7 +168,7 @@ window.I18N_KO = {
   auth: {
     // 탈퇴가 확정된 계정을 로그아웃시킬 때 로그인 화면에 남기는 안내(작업 8).
     //   ⚠️ 이유와 갈 곳을 함께 적는다 — 이유 없이 튕기면 「해킹당했나」로 읽힌다.
-    //   ⚠️ 앱 안 문의 창구가 생기면(작업 2) LINE 안내를 그것으로 바꾼다.
+    //   ⚠️ 앱 안 문의 창구가 생겨도 **LINE 을 그대로 둔다** — 로그아웃된 뒤라 창구에 들어갈 수 없다(일반 문의 사양서 §12 ① 표 7, 2026-09-29).
     withdrawnLogout: '탈퇴 처리가 완료되어 로그아웃했습니다. 궁금한 점은 운영팀으로 LINE 연락해 주세요.',
     // 가입 확인 링크(?code=) 착지 안내 — ja.js 와 짝
     confirm: {
@@ -182,6 +182,7 @@ window.I18N_KO = {
       loggedOut: '로그아웃되었습니다',
       adminLogin: '관리자로 로그인했습니다',
     },
+    pwCommonWarn: '이 비밀번호는 많은 사람이 쓰고 있어 추측되기 쉽습니다. 다른 비밀번호를 권합니다.',
     pwPolicy: '8자 이상, 영문 소문자와 특수문자(!@#$%^&* 등)를 반드시 포함하고, 영문 대소문자·숫자·특수문자 중 2가지 이상 조합해주세요.',
     pwTooShort: '비밀번호는 8자 이상이어야 합니다.',
     pwNeedLower: '비밀번호에 영문 소문자를 1개 이상 포함해주세요.',
@@ -214,7 +215,7 @@ window.I18N_KO = {
       newLabel: '새 비밀번호 (8자 이상)',
       confirmLabel: '비밀번호 확인',
       btn: '비밀번호 변경',
-      verifying: '확인하고 있습니다...',
+      verifying: '확인하고 있습니다…',
       expiredTitle: '이 링크는 사용할 수 없습니다',
       expiredStep1: '링크는 받은 뒤 시간이 지나면 사용할 수 없게 됩니다',
       expiredStep2: '여러 번 보낸 경우에는 가장 최근 메일의 링크만 사용할 수 있습니다',
@@ -225,8 +226,8 @@ window.I18N_KO = {
       title: '회원가입',
       sub: 'REVERB에 참여해서 K브랜드 캠페인을 체험하세요',
       nameKanjiLabel: '이름 (한자)',
-      nameKanaLabel: '이름 (가나)',
-      nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      nameKanaLabel: '이름 (후리가나)',
+      nameKanaHint: '일본 주소 배송을 위해 후리가나(가타카나)를 입력해주세요',
       birthdateLabel: '생년월일',
       birthYear: '년',
       birthMonth: '월',
@@ -256,6 +257,32 @@ window.I18N_KO = {
       confirmSentTitle: '확인 메일을 보냈습니다',
       confirmSentDesc: '입력하신 이메일 주소로 확인 메일을 보냈습니다.<br>메일 속 링크를 클릭해 가입을 완료해주세요.<br><br>※이미 등록된 이메일이라면 아래 "로그인 페이지로" 버튼으로 로그인해주세요.',
       confirmSentBtn: '로그인 페이지로',
+      // 가입 이메일 인증번호(사양서 2026-10-01 설계 ③)
+      doneLogin: '가입이 완료되었습니다. 로그인해 주세요',
+      code: {
+        verifyBtn: '인증하기',
+        changeBtn: '변경',
+        verified: '인증됨',
+        placeholder: '6자리 숫자',
+        confirmBtn: '확인',
+        resendBtn: '재발송',
+        resendWait: '재발송 ({sec}초)',
+        resendWaitMin: '재발송 (약 {min}분)',
+        remaining: '남은 시간 {time}',
+        expired: '숫자의 유효 시간이 지났습니다',
+        sent: '메일로 6자리 숫자를 보냈습니다. 아래에 입력하고 「확인」을 눌러 주세요. 메일이 안 오면 스팸함도 확인해 주세요.',
+        sendFailed: '메일을 보내지 못했습니다. 잠시 기다린 뒤 「인증하기」를 다시 눌러 주세요.',
+        rateLimited: '잠시 후 다시 보내 주세요',
+        mismatch: '숫자가 틀렸습니다. {n}번 더 입력할 수 있습니다.',
+        expiredMsg: '숫자의 유효 시간이 지났습니다. 「재발송」을 눌러 새 숫자를 받아 주세요.',
+        locked: '이 숫자는 더 쓸 수 없습니다. 「재발송」을 눌러 새 숫자를 받아 주세요.',
+        verifyFailed: '확인하지 못했습니다. 잠시 기다린 뒤 「확인」을 다시 눌러 주세요.',
+        ticketExpired: '인증 유효 시간이 지났습니다. 「인증하기」를 다시 눌러 주세요.',
+        contactSupport: '이 메일 주소로는 가입을 진행할 수 없습니다. 문의해 주세요',
+        needVerify: '이메일의 「인증하기」를 눌러 받은 숫자를 입력해 주세요',
+        exitText: '숫자 대신 「이미 가입되어 있습니다」 메일을 받으셨다면 ',
+        exitLink: '여기서 로그인',
+      },
     },
   },
 
@@ -301,10 +328,6 @@ window.I18N_KO = {
     //    때문이다(누르면 서버에 아무 일도 일어나지 않는다). 이름까지 바꾼 이유는 남겨 두면
     //    나중에 누가 옛 문구를 되살리기 때문. 진짜 탈퇴 기능은 사양서 2026-08-18-member-withdrawal.
     //    ⚠️ 「지금은 받지 않습니다」로 쓰지 말 것 — 약관 제6조 1항(언제든지 신청)과 부딪힌다.
-    // ⚠️ 이 문구는 2026-08-20 부터 **안 쓰인다** — 탈퇴 화면이 생기면서 그 역할을
-    //    `withdrawView.bContact`(운영팀 연락 안내)가 이어받았다. 지우지 않고 두는 것은
-    //    작업 2(앱 안 문의 창구)에서 다시 쓸 수 있어서다.
-    withdrawGuide: '탈퇴를 원하시는 분은 운영팀으로 LINE 연락해 주세요. 담당자가 안내해 드립니다.',
     // ── 회원 탈퇴 화면 (사양서 §4-4) ──
     //   ⚠️ 일본어(ja.js)와 **의미·단계 수가 같아야 한다.** 한쪽만 고치면 언어를 바꾼
     //      회원이 다른 안내를 본다.
@@ -328,7 +351,7 @@ window.I18N_KO = {
       bEvent: '행사(방문 예약) 응모: {n}건',
       bUnpaid: '받지 않으신 보수: {n}건',
       bOther: '응모나 보수 절차가 남아 있어서',
-      bContact: '운영팀(LINE: @reverb.jp)으로 연락해 주세요. 담당자가 안내해 드립니다.',
+      bContact: '아래 「문의하기」로 운영팀에 연락해 주세요. 담당자가 안내해 드립니다.',
       bBackBtn: '돌아가기',
       cTitle: '탈퇴 절차가 진행 중입니다',
       cBody: '받지 않으신 보수 지급이 끝난 뒤에 탈퇴 예정일을 메일로 알려 드립니다.',
@@ -338,10 +361,10 @@ window.I18N_KO = {
       dCanCancel: '이날까지는 탈퇴를 취소하실 수 있습니다.',
       dCancelBtn: '탈퇴 취소',
       dCancelled: '탈퇴 절차를 취소했습니다. 취소된 응모는 되돌아오지 않으니 양해 부탁드립니다.',
-      dCancelAdminOnly: '이 절차는 운영팀이 진행한 것이라 여기서는 취소하실 수 없습니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      dCancelAdminOnly: '이 절차는 운영팀이 진행한 것이라 여기서는 취소하실 수 없습니다. 메뉴의 「문의하기」로 운영팀에 연락해 주세요.',
       eError: '지금은 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
       eAudit: '이 계정은 탈퇴 절차 대상이 아닙니다.',
-      eAdmin: '이 계정은 운영 측 권한이 있어 여기서는 절차를 진행할 수 없습니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      eAdmin: '이 계정은 운영 측 권한이 있어 여기서는 절차를 진행할 수 없습니다. 「문의하기」로 운영팀에 연락해 주세요.',
       rTitle: '탈퇴 절차를 접수했습니다',
       rCancelled: '취소한 응모: {n}건',
       rUncancelled: '취소하지 못한 응모: {n}건',
@@ -352,8 +375,8 @@ window.I18N_KO = {
       confirmBackBtn: '돌아가기',
       submitting: '처리하고 있습니다…',
       rDoneBtn: '닫기',
-      rContact: '취소하지 못한 응모에 대해서는 운영팀(LINE: @reverb.jp)으로 문의해 주세요.',
-      errLocked: '지금은 직접 절차를 진행하실 수 없는 상태입니다. 운영팀(LINE: @reverb.jp)으로 연락해 주세요.',
+      rContact: '취소하지 못한 응모에 대해서는 아래 「문의하기」로 운영팀에 문의해 주세요.',
+      errLocked: '지금은 직접 절차를 진행하실 수 없는 상태입니다. 메뉴의 「문의하기」로 운영팀에 연락해 주세요.',
       errAlready: '이미 탈퇴 절차가 진행 중입니다. 화면을 새로고침해 확인해 주세요.',
       errReason: '고르신 이유가 올바르지 않습니다. 다시 골라 주세요.',
       errAuth: '로그인 상태를 확인해 주세요.',
@@ -372,7 +395,7 @@ window.I18N_KO = {
 
   // 메일 1-click 수신거부 페이지
   unsubscribe: {
-    loading: '확인 중입니다...',
+    loading: '확인 중입니다…',
     successTitle: '메일 수신을 중지했습니다',
     successDesc: '앞으로 캠페인 정보 안내 메일은 보내지 않습니다. 응모 현황·심사 결과 등 업무 알림 메일은 계속 발송됩니다.',
     backToMypage: '마이페이지로',
@@ -478,6 +501,7 @@ window.I18N_KO = {
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
     refMissing: '관련 결과물을 찾을 수 없습니다',
+    refLoadFailed: '지금은 열 수 없습니다. 잠시 후 다시 시도해 주세요.',
     applicationCancelledTitle: '응모를 취소했습니다',
   },
 
@@ -485,6 +509,13 @@ window.I18N_KO = {
     home: '홈',
     campaigns: '캠페인',
     mypage: '마이페이지',
+  },
+
+  mypageLeave: {
+    title: '변경한 내용을 저장할까요?',
+    desc: '저장하지 않고 이동하면 변경한 내용이 사라집니다.',
+    save: '저장하기',
+    discard: '저장하지 않고 이동',
   },
 
   profileAlert: {
@@ -599,6 +630,8 @@ window.I18N_KO = {
     requiredMention: '필수 멘션',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    slidePrev: '이전 사진',
+    slideNext: '다음 사진',
     productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
@@ -616,6 +649,7 @@ window.I18N_KO = {
     channelRequired: 'Reverb 채널 등록은 필수입니다',
     backToCampaigns: '캠페인 목록으로',
     backToHistory: '응모 이력으로',
+    backToHome: '홈으로',
     applyTitle: '응모',
     followerWarning: '※ 팔로워 수 허위 신고 시 계정 정지 등의 불이익이 있을 수 있습니다.',
     followerRequirement: '이 캠페인 응모 조건은',
@@ -675,7 +709,7 @@ window.I18N_KO = {
     receiptDateLabel: '구매일',
     receiptAmountLabel: '금액(엔)',
     submitBtn: '등록',
-    uploading: '업로드 중...',
+    uploading: '업로드 중…',
     noReceipt: '아직 등록된 영수증이 없습니다',
     noImage: '아직 추가된 이미지가 없습니다',
     imageSection: '이미지 제출',
@@ -684,6 +718,9 @@ window.I18N_KO = {
     addDraftBtn: '리스트에 추가',
     submitToAdminBtn: '제출하기',
     draftBadge: '미제출',
+    // 결과물 옆 날짜 — 제출일과 승인일을 나눠 보여 준다
+    submittedOn: '제출일',
+    approvedOn: '승인일',
     draftAdded: '리스트에 추가했습니다',
     // 「추가」만 하고 끝내는 사람이 이어져, 아직 제출 전이라는 것을 반드시 알린다
     draftAddedNeedSubmit: '리스트에 추가했습니다. 아직 제출되지 않았습니다',
@@ -798,7 +835,7 @@ window.I18N_KO = {
 
   profile: {
     nameKanji: '이름 (한자)',
-    nameKana: '이름 (가나)',
+    nameKana: '이름 (후리가나)',
     birthdate: '생년월일',
     gender: '성별',
     notRegistered: '미등록',
@@ -818,9 +855,18 @@ window.I18N_KO = {
     paypalHint: '리워드는 PayPal로 송금됩니다. 수령용 PayPal 이메일을 등록해주세요.',
     paypalBusinessRequired: '보수를 받으려면 PayPal 「비즈니스 계정」이 필요합니다.<br>1. 개인 계정인 분도 새로 만들 필요는 없습니다. PayPal 「설정」에서 바꾸실 수 있습니다. 바꾸실 때 하시는 일의 내용 등을 입력하는 화면이 나올 수 있습니다.<br>2. 바꾸신 뒤 본인확인을 마쳐 주세요.',
     paypalSaveBtn: 'PayPal 정보 저장',
+    pwConfirmPlaceholder: '다시 입력',
+    cityPlaceholder: '渋谷区渋谷1-2-3',
+    paypalConfirmPlaceholder: '한 번 더 입력해 주세요',
+    catBeauty: '뷰티·코스메',
+    catFood: '푸드·맛집',
+    catFashion: '패션·라이프',
+    catHealth: '헬스·웰니스',
+    catOther: '기타',
     currentPw: '현재 비밀번호',
     newPw: '새 비밀번호',
     newPwConfirm: '새 비밀번호 (확인)',
+    changePwBtn: '비밀번호 변경',
     pwChangeHint: '정기적인 비밀번호 변경을 권장합니다',
     requiredHint: '캠페인 응모에 필수 입력 항목입니다',
     unregistered: '미등록',
@@ -855,9 +901,13 @@ window.I18N_KO = {
     under18: '본 서비스는 만 18세 이상만 가입할 수 있습니다',
     enterGender: '성별을 선택해주세요',
     enterEmail: '이메일을 입력해주세요',
+    emailInvalid: '이메일 주소 형식이 올바르지 않습니다. 「@」 뒤에는 「gmail.com」처럼 「.(점)」까지 입력해 주세요',
     pwMin8: '비밀번호는 8자 이상이어야 합니다',
     pwNoMatch: '비밀번호가 일치하지 않습니다',
     signupFailed: '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요',
+    emailTypoVerify: '이메일 주소의 「@」 뒤가 「{typed}」로 되어 있습니다. 「{suggest}」 아닌가요? 틀리지 않았다면 「인증하기」를 한 번 더 눌러 주세요',
+    alreadyRegisteredHint: '이미 가입하셨다면 로그인 화면의 「비밀번호를 잊으셨나요?」에서 진행해 주세요.',
+    sessionNotAttached: '로그인 상태를 확인하지 못했습니다. 번거로우시겠지만 다시 로그인해 주세요.',
   },
 
   channelLabel: {
@@ -873,10 +923,15 @@ window.I18N_KO = {
     //   조건이 없는 캠페인(리뷰어형·행사)에 「조건이 있습니다」가 뜨던 것을 갈라 준다.
     faqFollowerIntroHas: '이 캠페인은 최소 팔로워 수 조건이 있습니다.',
     faqFollowerIntroNone: '이 캠페인은 팔로워 수 조건이 없습니다. 아래는 팔로워 조건이 있는 캠페인의 안내입니다.',
+    faqFollowerIntroGeneric: '팔로워 수 조건은 캠페인마다 다릅니다.',
+    plusMenu: '메뉴',
+    plusAttach: '이미지 첨부',
+    plusFaq: '자주 묻는 질문',
+    emptyThreadPlusHint: '왼쪽 아래 「＋」에서 「자주 묻는 질문」도 볼 수 있어요.',
     cancelledReadOnly: '취소된 응모라 새 메시지는 보낼 수 없습니다. 지난 대화는 보실 수 있습니다.',
     refresh: '최신 문의로 새로고침',
     newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
-    loading: '불러오는 중...',
+    loading: '불러오는 중…',
     loadError: '문의를 불러오지 못했습니다',
     emptyThread: '아직 문의가 없습니다. 아래 입력란에서 운영팀에 문의할 수 있습니다.',
     you: '본인',
@@ -887,7 +942,7 @@ window.I18N_KO = {
     withdraw: '취소',
     withdrawConfirm: '이 메시지를 취소할까요?',
     withdrawFailed: '메시지 취소에 실패했습니다',
-    placeholder: '문의 내용을 입력...',
+    placeholder: '문의 내용을 입력…',
     attachMax: '첨부는 최대 {n}장까지입니다',
     attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
     attachUploadFailed: '이미지 업로드에 실패했습니다',
@@ -928,7 +983,6 @@ window.I18N_KO = {
       resolvedBtn: '해결됐어요',
       resolvedToast: '도움이 되어 기쁩니다.',
       back: '뒤로',
-      backToCategories: '목록으로',
       unavailable: '현재 안내할 수 있는 항목이 없습니다. 아래 「직접 문의하기」로 연락 주세요.',
       // 문의 게이트 (PR B-rev)
       openBtn: '자주 묻는 질문',
@@ -936,11 +990,55 @@ window.I18N_KO = {
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
   },
+  // 문의 창구 — 일반 문의 창구(2026-09). 탭 이름은 머리 오른쪽에 들어가게 짧게(2026-10-07). ⚠️ title·branchOther 는 앱 안 공지(policyNotice.body)가 이름으로 부른다 — 바꾸면 공지도 함께
+  inquiry: {
+    title: '문의하기',
+    branchApp: '캠페인',
+    branchOther: '서비스',
+    loadError: '응모 이력을 불러오지 못했습니다',
+    retry: '다시 불러오기',
+    generalTitle: '운영팀 문의',
+    unknownCampaign: '캠페인',
+    newThread: '새 문의',
+    pickTitle: '어느 응모에 대한 문의인가요',
+    pickEmpty: '모든 응모에서 문의를 시작했습니다',
+    pickNone: '문의를 시작할 수 있는 응모가 없습니다. 취소한 응모는 새로 문의할 수 없습니다.',
+    appEmpty: '문의 중인 캠페인이 아직 없습니다. 아래 버튼을 눌러 묻고 싶은 응모를 골라 주세요.',
+    otherLead: '참여한 캠페인 외 서비스 관련 문의는 여기서 해 주세요.',
+    otherStart: '문의 시작하기',
+    hasNewReply: '새 답장이 있습니다',   // 탭 빨간 점의 읽어 주기 문구(화면에는 안 보인다)
+    campaignPastReadOnly: '응모가 끝나고 90일이 지나 이 문의는 읽기만 할 수 있습니다',
+    // 문의 목록 「よくある質問」 단추·질문 페이지(2026-10-07)
+    faqBtn: '자주 묻는 질문',
+    faqPageTitleCampaign: '캠페인 자주 묻는 질문',
+    faqPageTitleService: '서비스 자주 묻는 질문',
+    // 서비스 문의 여러 대화(2026-10-06)
+    currentTitle: '진행 중인 문의',
+    pastTitle: '지난 문의',
+    backToList: '문의 목록으로 돌아가기',
+    more: '더 보기',
+    resolved: '응대 완료',
+    noVisibleMessage: '표시할 메시지가 없습니다',
+    threadNotFound: '이 문의를 열 수 없었습니다',
+    threadsLoadError: '문의를 불러오지 못했습니다',
+    pastReadOnly: '이 문의는 끝났습니다. 이어서 묻고 싶으면 목록으로 돌아가 주세요.',
+    // 서비스 문의 여러 대화 개정(2026-10-06 R2) — 새 문의 제목·열린 문의 상한
+    subjectLabel: '제목',
+    subjectPlaceholder: '예: 포인트 사용 방법',
+    subjectRequired: '제목을 입력해 주세요',
+    subjectTooLong: '제목은 40자 이내로 입력해 주세요',
+    openLimit: '열려 있는 문의가 상한에 닿았습니다. 열려 있는 문의에 이어서 써 주세요',
+    openLimitReopen: '열려 있는 문의가 상한이라 이 문의는 다시 열 수 없습니다. 열려 있는 문의에 이어서 써 주세요',
+    threadClosedNew: '이 문의는 끝났습니다. 새로 문의해 주세요',
+    openCountHint: '열려 있는 문의가 {n}건 있습니다. 같은 내용이면 거기에 이어서 써 주세요',
+    seeList: '문의 목록 보기',
+    withdrawSubject: '탈퇴에 대해',
+  },
   // 정책 변경 통지 — 일반 문의 창구 개설 + 개인정보 처리방침 개정(2026-09-29 공고 → 2026-10-06 시행)
   //   ⚠️ 메일 통지 없음(앱 안 공지만). {date} 는 시행일.
   policyNotice: {
     title: '「문의」 창구가 생깁니다',
-    body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「그 외 문의」를 골라 보낸다<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
+    body: '늘 REVERB JP 를 이용해 주셔서 감사합니다.<br><br>■ {date}부터<br>캠페인 말고 다른 일로도 운영팀에 문의할 수 있습니다.<br><br>■ 10월 6일부터 문의하는 방법<br>1. 오른쪽 위 메뉴(≡)를 연다<br>2. 「문의하기」를 고른다<br>3. 「서비스」 탭을 골라 보낸다<br>※10월 5일까지는 지금처럼 응모이력의 말풍선 버튼이나 LINE(@reverb.jp)으로 문의해 주세요.<br><br>■ 개인정보 처리방침도 바뀝니다<br>이에 맞춰 문의 내용 보관에 관한 부분을 개정했습니다(10월 6일부터).<br>자세한 내용은 아래 「자세히 보기」나 앱 아래쪽 「개인정보 처리방침」에서 봐 주세요.<br><br>■ 동의하지 않는 경우<br>2026년 10월 5일까지 아무 말씀이 없으시면 동의하신 것으로 봅니다.<br>동의하지 않으시면 메뉴의 「회원 탈퇴」에서 탈퇴하실 수 있습니다.',
     banner: '10월 6일부터 「문의」 창구가 생깁니다(개인정보 처리방침 개정 포함). 자세한 내용은 여기로.',
     detailBtn: '자세히 보기',
     closeBtn: '다시 보지 않기',
