@@ -7,23 +7,25 @@ export const TEMPLATES: Record<string, string> = {
   "brand-account-setup": `<!DOCTYPE html>
 <!--
   Mail: 브랜드 계정 생성 — 비밀번호 설정 링크 전달 (brand account setup)
-  Trigger: 관리자가 브랜드 상세에서 「계정 만들기」/「다시 보내기」를 누르면
-           Edge Function notify-brand-account-setup 이 이 템플릿으로 발송
+  Trigger: 관리자가 브랜드 상세에서 「계정 만들기」/「다시 보내기」를 누르거나, 「브랜드 연결 추가」로 이은 계정이
+           비밀번호 미설정일 때(mail_kind:'link') Edge Function notify-brand-account-setup 이 이 템플릿으로 발송.
+           비밀번호 찾기에서 설정 전 계정에 다시 보낼 때는 brand-password-reset-request 가 같은 템플릿을 쓴다
   To:      브랜드 대표 담당자 본인 (brand_accounts.email — 서버가 brand_id 로 다시 읽음)
   Lang:    KO (브랜드 담당자는 한국 회사 — 브랜드 페이지 UI 도 한국어)
 
   Placeholders:
+    {{heading}}       제목 줄 (만들어짐 / 연결됨 분기 — 두 함수가 같은 값을 넘긴다)
     {{brand_name}}    브랜드 이름
     {{contact_name}}  담당자 이름 (없으면 「담당자」)
     {{link}}          비밀번호 설정 링크 (/brand/?link=<id>&mode=setup#confirm=… 서버 발급)
     {{intro}}         도입 문장 — 처음 보냄 / 다시 보냄 분기
-    {{expires}}       링크 유효 시간 안내 문구 (1시간)
+    {{expires}}       링크 유효 시간 안내 문구 (24시간)
 
-  사양서 §16-3 2번(누가·왜·모르면 무시) · 9번(용도 안내 자리 — 약관 확정 뒤 채운다)
+  사양서 §16-3 2번(누가·왜·모르면 무시) · 9번(개인정보 이용 안내 — 초안, /약관확인 뒤 확정)
   관리자·브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
 -->
 <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
-  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">「{{brand_name}}」 브랜드 계정이 만들어졌습니다</h2>
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">{{heading}}</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">{{contact_name}} 님</p>
   <p style="margin:0 0 12px;font-size:13px;color:#444;line-height:1.7">{{intro}}</p>
   <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">아래 버튼을 눌러 사용하실 비밀번호를 설정해 주세요. 설정을 마치면 REVERB 브랜드 페이지에 로그인하실 수 있습니다.</p>
@@ -37,12 +39,59 @@ export const TEMPLATES: Record<string, string> = {
     <div style="color:#888;font-size:12px;margin-top:10px;line-height:1.6">버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.</div>
     <div style="font-family:monospace;font-size:12px;color:#555;word-break:break-all;margin-top:4px">{{link}}</div>
   </div>
-  <!-- 용도 안내: 약관 확정 뒤 (사양서 §16-3 9번 — 담당자 정보를 이 계정에 쓰는 용도 문구가 들어갈 자리. 이 주석은 발송 때 제거된다) -->
+  <!-- 16-3 9번 초안 — /약관확인 뒤 확정 (담당자 정보를 이 계정에 쓰는 용도 안내. brand-link-notice.html 과 같은 문장). 이 주석은 발송 때 제거된다 -->
+  <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
+    REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주세요.
+  </p>
   <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
     이 메일은 REVERB 운영팀이 「{{brand_name}}」 브랜드의 대표 담당자로 등록된 이 주소로 보냈습니다.
   </p>
   <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
     본인이 요청하지 않았거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.
+  </p>
+  <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
+    이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주세요.
+  </p>
+  <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+</div>`,
+  "brand-link-notice": `<!DOCTYPE html>
+<!--
+  Mail: 브랜드 연결 안내 — 이미 비밀번호를 정한 브랜드 계정에 운영팀이 새 브랜드를 연결했을 때
+  Trigger: 관리자가 「브랜드 연결 추가」를 마친 직후 화면이 Edge Function notify-brand-account-setup 을
+           mail_kind:'link' 로 부르고, 서버가 대표 계정을 다시 읽어 비밀번호를 정한 계정이면 이 템플릿으로 발송.
+           (비밀번호 미설정 계정이면 이 템플릿이 아니라 brand-account-setup.html 로 나간다 — 작업표 S0-2)
+  To:      브랜드 대표 담당자 본인 (brand_accounts.email — 서버가 brand_id 로 다시 읽음)
+  Lang:    KO
+
+  Placeholders:
+    {{brand_name}}    연결된 브랜드 이름
+    {{contact_name}}  담당자 이름 (없으면 「담당자」)
+    {{link}}          브랜드 페이지 로그인 화면 일반 주소 (/brand/ — 일회용 링크 아님, 유효 시간 없음)
+
+  사양서 §16-3 2번(누가·왜·모르면 무시) · 9번(개인정보 이용 안내 — 초안, /약관확인 뒤 확정)
+  관리자·브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">「{{brand_name}}」 브랜드가 계정에 연결되었습니다</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{contact_name}} 님</p>
+  <p style="margin:0 0 12px;font-size:13px;color:#444;line-height:1.7">REVERB 운영팀이 「{{brand_name}}」 브랜드를 회원님의 REVERB 브랜드 페이지 계정에 연결했습니다. 「{{brand_name}}」 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">지금 쓰시는 계정으로 로그인하시면 「{{brand_name}}」 브랜드가 내 브랜드 목록에 함께 보입니다. 비밀번호는 그대로이며 새로 정하실 필요가 없습니다.</p>
+  <div style="text-align:center;margin:0 0 22px">
+    <a href="{{link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">브랜드 페이지 로그인</a>
+  </div>
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+    <div style="color:#888;font-size:12px;line-height:1.6">버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.</div>
+    <div style="font-family:monospace;font-size:12px;color:#555;word-break:break-all;margin-top:4px">{{link}}</div>
+  </div>
+  <!-- 16-3 9번 초안 — /약관확인 뒤 확정 (담당자 정보를 이 계정에 쓰는 용도 안내. brand-account-setup.html 과 같은 문장). 이 주석은 발송 때 제거된다 -->
+  <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
+    REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주세요.
+  </p>
+  <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
+    이 메일은 REVERB 운영팀이 「{{brand_name}}」 브랜드의 대표 담당자로 등록된 이 주소로 보냈습니다.
+  </p>
+  <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
+    본인과 관련 없거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 이 메일의 버튼은 로그인 화면으로 이어질 뿐, 누르지 않으면 아무 일도 일어나지 않습니다.
   </p>
   <p style="margin:0 0 18px;font-size:12px;color:#888;line-height:1.7">
     이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주세요.
