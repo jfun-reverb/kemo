@@ -182,7 +182,7 @@ function setFormBusy(form, busy) {
 
 // 토스트 — 글자만(아이콘·이모지 없음). 화면 아래에 잠깐 떴다 사라진다.
 let _brandToastTimer = null;
-function brandToast(msg) {
+function brandToast(msg, opts) {
   let el = document.getElementById('brandToast');
   if (!el) {
     el = document.createElement('div');
@@ -193,6 +193,7 @@ function brandToast(msg) {
     document.body.appendChild(el);
   }
   el.textContent = msg || '';
+  el.classList.toggle('is-error', !!(opts && opts.error));   // 실패 토스트는 빨강(피그마 w06-90)
   el.classList.add('is-show');
   clearTimeout(_brandToastTimer);
   _brandToastTimer = setTimeout(() => el.classList.remove('is-show'), 3200);
@@ -200,11 +201,12 @@ function brandToast(msg) {
 
 // 확인 창 — Promise<boolean>. 모달을 그때그때 만든다(index.html 을 화면마다 고치지 않게).
 //   Esc·바깥 누르기 = 취소. 열 때 「취소」에 초점(되돌릴 수 없는 동작을 엔터 한 번에 누르지 않게), 닫으면 원래 초점으로.
-//   단추는 실행(왼쪽) · 취소(오른쪽) — 피그마 순서.
+//   단추 순서는 화면마다 피그마대로(opts.okFirst · opts.single — 아래 주석).
 function brandConfirm(opts) {
   const o = opts || {};
   return new Promise(resolve => {
     const prevFocus = document.activeElement;
+    const _cancelBtn = '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>';
     const wrap = document.createElement('div');
     wrap.className = 'brand-modal';
     wrap.setAttribute('role', 'dialog');
@@ -214,10 +216,12 @@ function brandConfirm(opts) {
       '<div class="brand-modal-box">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
         (o.body ? '<p>' + brandEsc(o.body) + '</p>' : '') +
-        // 단추 순서는 피그마(w01-10 「거절 · 취소」) — 실행 단추가 왼쪽. 처음 초점은 그래도 「취소」(실수로 엔터 한 번에 실행되지 않게)
-        '<div class="brand-modal-actions">' +
+        // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(w06-02·03), o.okFirst 면 「실행 · 취소」(w01-10).
+        //   o.single 이면 「확인」 하나(w06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
+        '<div class="brand-modal-actions' + (o.single ? ' is-single' : '') + '">' +
+          (o.single ? '' : (o.okFirst ? '' : _cancelBtn)) +
           '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
-          '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>' +
+          (o.single ? '' : (o.okFirst ? _cancelBtn : '')) +
         '</div>' +
       '</div>';
     let done = false;
@@ -247,7 +251,7 @@ function brandConfirm(opts) {
     });
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(wrap);
-    wrap.querySelector('[data-act="cancel"]').focus();
+    (wrap.querySelector('[data-act="cancel"]') || wrap.querySelector('[data-act="ok"]')).focus();
   });
 }
 

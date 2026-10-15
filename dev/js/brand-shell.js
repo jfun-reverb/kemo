@@ -258,6 +258,8 @@ function closeBrandDrawer(restoreFocus) {
 
 async function brandLogout() {
   clearBrandInviteLink();
+  const devMail = document.getElementById('brandDevMail');   // 개발서버 메일 대신 보기(링크가 든 채 남지 않게)
+  if (devMail) devMail.remove();
   await brandSignOutLocal();
   setBrandAuthed(null);
   goBrandScreen('login');

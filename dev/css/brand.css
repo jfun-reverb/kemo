@@ -528,3 +528,91 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-text-btn:disabled { cursor: default; opacity: .5; }
 .brand-text-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
 .brand-modal-box p { white-space: pre-line; }
+
+/* ── 멤버 관리(피그마 w06-00·w06-00a, 작업표 조각 5) — 표·알약·관리 단추 */
+.brand-page-tools { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.brand-seat { font-size: 13px; font-weight: 600; color: var(--b-ink); }
+.brand-tool-btn {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 29px; padding: 0 12px; border: 0; border-radius: var(--b-radius);
+  background: var(--b-ink); color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.brand-tool-btn .material-icons-round { font-size: 16px; }
+.brand-tool-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-table-wrap { border: 1px solid var(--b-line); border-radius: var(--b-radius-card); overflow: hidden; }
+.brand-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.brand-table th {
+  height: 35px; padding: 0 16px; text-align: left;
+  background: var(--b-ink); color: #fff; font-size: 12px; font-weight: 600;
+}
+.brand-table .w-name { width: 180px; }
+.brand-table .w-email { width: 260px; }
+.brand-table .w-role { width: 90px; }
+.brand-table .w-status { width: 170px; }
+.brand-table .w-last { width: 140px; }
+.brand-table td { padding: 12px 16px; border-top: 1px solid #f0f0f2; font-size: 13px; color: var(--b-ink); vertical-align: middle; }
+.brand-table tbody tr:first-child td { border-top: 0; }
+.brand-table .c-name { font-weight: 600; }
+.brand-table .c-email { color: var(--b-label); overflow-wrap: anywhere; }
+.brand-table .c-last { font-size: 12px; color: var(--b-muted); }
+.brand-table .c-act { text-align: right; }
+.brand-dash { color: var(--b-faint); font-weight: 400; }
+.brand-pill {
+  display: inline-block; padding: 3px 9px; border-radius: 100px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.brand-pill.is-owner { background: var(--b-ink); color: #fff; }
+.brand-pill.is-member { background: var(--b-disabled-bg); color: var(--b-label); }
+.brand-pill.is-active { background: #ecfdf5; color: #047857; }
+.brand-pill.is-pending { background: #fff7ed; color: #c2410c; }
+.brand-pill.is-muted { background: var(--b-disabled-bg); color: var(--b-muted); }
+.brand-row-btn {
+  height: 31px; padding: 0 12px; margin-left: 6px;
+  border: 1px solid var(--b-line); border-radius: var(--b-radius); background: var(--b-surface);
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--b-ink); cursor: pointer;
+}
+.brand-row-btn.is-danger { border-color: var(--b-danger-line); color: var(--b-danger); }
+.brand-row-btn:disabled { color: var(--b-faint); cursor: default; }
+.brand-row-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-note { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
+.brand-note li::before { content: '· '; }
+.brand-btn-inline { width: auto; display: inline-flex; padding: 0 16px; margin-top: 12px; }
+.brand-modal-box .brand-field { margin: 0; }
+
+/* 개발서버 전용 — 메일 대신 보기 */
+.brand-dev-mail {
+  position: fixed; right: 16px; bottom: 16px; z-index: 55;
+  width: 380px; max-width: calc(100% - 32px); max-height: 60vh; overflow: auto;
+  background: #fff7ed; border: 1px solid #fdba74; border-radius: var(--b-radius);
+  padding: 12px; font-size: 12px; color: #7c2d12; box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+}
+.brand-dev-mail-head { display: flex; justify-content: space-between; align-items: center; }
+.brand-dev-mail-subj { margin: 8px 0 4px; font-weight: 700; }
+.brand-dev-mail-body { margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit; }
+
+/* 좁은 화면 — 표를 줄마다 카드처럼 세로로(작업표 S0-6) */
+@media (max-width: 600px) {
+  .brand-page-head { flex-direction: column; }
+  .brand-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+  .brand-table, .brand-table tbody, .brand-table tr, .brand-table td { display: block; width: 100%; }
+  .brand-table thead { display: none; }
+  .brand-table tr { background: var(--b-surface); border: 1px solid var(--b-line); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
+  .brand-table td { border: 0; padding: 4px 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: right; }
+  .brand-table td::before { content: attr(data-label); font-size: 12px; font-weight: 400; color: var(--b-muted); text-align: left; flex-shrink: 0; }
+  .brand-table .c-act { justify-content: flex-end; flex-wrap: wrap; }
+  .brand-row-btn { height: 36px; }
+}
+
+/* 실패 토스트(피그마 w06-90 빨강) · 초대 모달(w06-01 — 520 폭, 회색 바탕 + 흰 카드, 오른쪽 정렬 단추) */
+.brand-toast.is-error { background: #b42318; }
+.brand-modal-form { width: 520px; background: #f9f9f9; padding: 30px 24px; gap: 20px; }
+.brand-modal-form h2 { font-size: 18px; }
+.brand-modal-form > p { font-size: 12px; color: var(--b-muted); }
+.brand-modal-card { background: var(--b-surface); border-radius: var(--b-radius-card); padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+.brand-modal-card label { font-size: 12px; font-weight: 600; color: var(--b-label); }
+.brand-modal-card .brand-input { border-color: var(--b-faint); }
+.brand-modal-hint { margin: 0; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
+.brand-modal-actions.is-right { justify-content: flex-end; }
+.brand-modal-actions.is-right .brand-btn { flex: 0 0 auto; width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; }
+.brand-modal-actions.is-single { justify-content: flex-end; }
+.brand-modal-actions.is-single .brand-btn { flex: 0 0 auto; width: auto; height: 36px; padding: 0 16px; font-size: 13px; }

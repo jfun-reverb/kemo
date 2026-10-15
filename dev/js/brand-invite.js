@@ -108,7 +108,7 @@ async function declineCurrentInvite() {
     title: brand + ' 브랜드 초대를 거절하시겠습니까?',
     body: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : '') +
       '\n거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다. 다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.',
-    okLabel: '거절', cancelLabel: '취소', danger: true
+    okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 w01-10 「거절 · 취소」
   });
   if (!ok || _brandInviteCtx !== ctx) return;
   _setInviteBusy(true, '처리하는 중…');
