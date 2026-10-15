@@ -616,3 +616,6 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-modal-actions.is-right .brand-btn { flex: 0 0 auto; width: auto; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; }
 .brand-modal-actions.is-single { justify-content: flex-end; }
 .brand-modal-actions.is-single .brand-btn { flex: 0 0 auto; width: auto; height: 36px; padding: 0 16px; font-size: 13px; }
+.brand-modal-card .brand-modal-lines { color: var(--b-label); line-height: 1.6; }
+.brand-modal-box.is-card { background: #f9f9f9; }
+.brand-modal-box.is-card h2 { font-size: 18px; }

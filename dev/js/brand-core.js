@@ -213,12 +213,14 @@ function brandConfirm(opts) {
     wrap.setAttribute('aria-modal', 'true');
     wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
     wrap.innerHTML =
-      '<div class="brand-modal-box">' +
+      // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 w06-02·03, 초대 모달 w06-01 과 같은 모양)
+      '<div class="brand-modal-box' + (o.card ? ' is-card' : '') + '">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
-        (o.body ? '<p>' + brandEsc(o.body) + '</p>' : '') +
+        // o.card 면 내용을 흰 카드 안에(피그마 w06-02·03 — 「· 」로 시작하는 여러 줄)
+        (o.body ? (o.card ? '<div class="brand-modal-card"><p class="brand-modal-lines">' + brandEsc(o.body) + '</p></div>' : '<p>' + brandEsc(o.body) + '</p>') : '') +
         // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(w06-02·03), o.okFirst 면 「실행 · 취소」(w01-10).
         //   o.single 이면 「확인」 하나(w06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
-        '<div class="brand-modal-actions' + (o.single ? ' is-single' : '') + '">' +
+        '<div class="brand-modal-actions' + (o.single ? ' is-single' : '') + (o.card ? ' is-right' : '') + '">' +
           (o.single ? '' : (o.okFirst ? '' : _cancelBtn)) +
           '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
           (o.single ? '' : (o.okFirst ? _cancelBtn : '')) +
