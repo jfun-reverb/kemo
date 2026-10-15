@@ -257,6 +257,7 @@ function closeBrandDrawer(restoreFocus) {
 }
 
 async function brandLogout() {
+  clearBrandInviteLink();
   await brandSignOutLocal();
   setBrandAuthed(null);
   goBrandScreen('login');

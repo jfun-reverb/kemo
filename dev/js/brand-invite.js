@@ -156,3 +156,148 @@ function initInvite() {
     await laterCurrentInvite();
   });
 }
+
+// ── 메일 링크 초대 착지 (작업표 조각 4 — 피그마 w01-08 → w01-02b(새 이메일) / w01-03(이미 브랜드 계정))
+//   메일 링크: …/brand/?link=<번호>&kind=invite (notify-brand-invite). 이 링크는 일회용 인증 값이 없어 열어도 소진되지 않지만,
+//   모든 메일 링크는 w01-08 「계속하기」를 거친다(피그마 공통 규칙).
+//   🔴 링크 번호는 주소에서 바로 걷어 메모리와 세션 저장소(reverb.brandInviteLink — 로그인을 거치는 ⓑ 갈래·새로고침용)에만 둔다.
+//      쓰면 지운다 · 로그아웃·비밀번호 찾기로 빠지면 지운다 · 로그·토스트·오류 보고에 싣지 않는다.
+const BRAND_INVITE_LINK_KEY = 'reverb.brandInviteLink';
+let _brandInviteLanding = null;   // { linkId, state } — w01-08 화면에 있는 동안
+let _brandInviteNewCtx = null;    // { linkId, email } — w01-02b(새 이메일 멤버 설정) 화면에 있는 동안
+
+function _saveInviteLink(linkId) { try { sessionStorage.setItem(BRAND_INVITE_LINK_KEY, linkId); } catch (e) { /* 저장소 막힘 — 메모리만 */ } }
+function _readInviteLink() { try { return sessionStorage.getItem(BRAND_INVITE_LINK_KEY) || ''; } catch (e) { return ''; } }
+function clearBrandInviteLink() { try { sessionStorage.removeItem(BRAND_INVITE_LINK_KEY); } catch (e) { /* 무시 */ } }
+
+// 링크 판정 — {state, recipient, brand_name, inviter_name, issued_at, expires_at, email?} 또는 null(호출 실패)
+async function fetchBrandInviteLinkState(linkId) {
+  const client = brandDb;
+  if (!client) return null;
+  try {
+    const { data, error } = await client.rpc('get_brand_invite_link_state', { p_link_id: linkId });
+    if (error || !data || typeof data !== 'object' || !data.state) return null;
+    return data;
+  } catch (e) { return null; }
+}
+
+// 착지 — 링크를 연 것만으로는 아무것도 하지 않고 w01-08 을 보인다
+async function handleBrandInviteLanding(params) {
+  const linkId = params.get('link') || '';
+  history.replaceState(null, '', location.pathname);   // 주소창·방문 기록에 링크 번호를 남기지 않는다
+  if (!BRAND_UUID_RE.test(linkId)) { clearBrandInviteLink(); endBrandLinkFlow('link-invalid'); return; }
+  const st = await fetchBrandInviteLinkState(linkId);
+  if (st && st.state === 'invalid') { clearBrandInviteLink(); endBrandLinkFlow('link-invalid'); return; }
+  // 호출 실패(null)는 막지 않는다 — 「계속하기」에서 다시 판정한다(일시 오류로 멀쩡한 링크를 죽이지 않게)
+  _saveInviteLink(linkId);
+  _brandInviteLanding = { linkId, state: st };
+  const existing = st && st.recipient === 'existing';
+  document.getElementById('confirmTitle').textContent = existing ? '초대를 확인하시겠습니까?' : '비밀번호를 설정하시겠습니까?';
+  document.getElementById('confirmDesc').textContent = existing
+    ? '아래 「계속하기」를 누르면 초대 확인 화면으로 넘어갑니다.'
+    : '아래 「계속하기」를 누르면 비밀번호 설정 화면으로 넘어갑니다.';
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = false; btn.textContent = '계속하기';
+  paintBrandScreen('confirm');
+  updatePreviewVisibility();
+}
+
+// 「계속하기」 — 다시 판정해 갈래를 정한다
+async function continueBrandInviteLanding() {
+  const landing = _brandInviteLanding;
+  if (!landing) return;
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true; btn.textContent = '확인하는 중…';
+  const st = await fetchBrandInviteLinkState(landing.linkId);
+  btn.disabled = false; btn.textContent = '계속하기';
+  if (!st) { brandToast('링크를 확인하지 못했습니다. 잠시 후 다시 시도해 주십시오.'); return; }
+  _brandInviteLanding = null;
+  if (st.state !== 'valid') { clearBrandInviteLink(); endBrandLinkFlow('link-invalid'); return; }
+  if (st.recipient === 'new') { showInviteNewSetpw(landing.linkId, st); return; }
+  // ⓑ 이미 브랜드 계정 — 이 브라우저에 로그인돼 있으면 바로 초대 화면, 아니면 로그인 뒤 돌아온다
+  const shown = await resumeBrandInviteLink();
+  if (!shown) {
+    goBrandScreen('login');
+    setNotice('loginExpiredNotice', '초대를 수락하려면 로그인해 주십시오.');
+  }
+}
+
+// 로그인된 세션이 있고 보관한 초대 링크가 있으면 w01-03 을 링크 번호로 띄운다. 반환 true(띄움) / false
+async function resumeBrandInviteLink() {
+  const linkId = _readInviteLink();
+  if (!linkId || !brandDb) return false;
+  let session = null;
+  try { const { data } = await brandDb.auth.getSession(); session = data && data.session; } catch (e) { session = null; }
+  if (!session) return false;
+  const st = await fetchBrandInviteLinkState(linkId);
+  clearBrandInviteLink();   // 쓰면 지운다
+  if (!st || st.state !== 'valid') { brandToast(BRAND_INVITE_MSG.invalid); return false; }
+  if (st.recipient !== 'existing') return false;
+  // 로그인 판정이 ok 로 세워 둔 상태를 내린다 — 초대 화면에서 주소가 바뀌면 routeBrand 의 초대 정리 분기가 돌게
+  setBrandAuthed(null);
+  showInviteScreen({ source: 'link', linkId, invite: {
+    brand_name: st.brand_name, inviter_name: st.inviter_name, issued_at: st.issued_at, expires_at: st.expires_at
+  } }, (session.user && session.user.email) || '');
+  return true;
+}
+
+// ⓐ 새 이메일 — w01-02b 비밀번호 설정(이름 필수 · 연락처 선택 · 약관 동의)
+function showInviteNewSetpw(linkId, st) {
+  _brandInviteNewCtx = { linkId, email: st.email || '' };
+  document.querySelectorAll('#setpwForm [data-member-only]').forEach(el => { el.hidden = false; });
+  resetSetpwForm();
+  document.getElementById('setpwDesc').textContent =
+    '「' + (st.brand_name || '') + '」 브랜드의 ' + (st.inviter_name || '') + '님이 회원님을 멤버로 초대했습니다. 이름과 비밀번호를 정하면 바로 시작할 수 있습니다.';
+  // 이메일 칸 — 피그마 w01-02b 읽기 전용(작업표 S0-2). 서버가 이메일을 안 주면(534 전) 칸을 숨긴다
+  const emailInput = document.getElementById('setpwEmail');
+  emailInput.value = st.email || '';
+  emailInput.closest('.brand-field').hidden = !st.email;
+  paintBrandScreen('setpw');
+  updatePreviewVisibility();
+}
+
+function endBrandInviteNew() {
+  _brandInviteNewCtx = null;
+  const f = document.getElementById('setpwEmail');
+  if (f) f.closest('.brand-field').hidden = false;
+}
+
+// 새 이메일 멤버 — 계정 만들기(서버 함수) → 그 이메일·비밀번호로 로그인 → 그 브랜드 첫 페이지
+async function submitInviteNew(pw) {
+  const ctx = _brandInviteNewCtx;
+  const name = document.getElementById('setpwName').value.trim();
+  const phone = document.getElementById('setpwPhone').value.trim();
+  const r = await brandCallFunction('brand-invite-accept', {
+    link_id: ctx.linkId, password: pw, name, phone, terms_version: BRAND_TERMS_VERSION
+  });
+  const body = r.body || {};
+  if (r.status === 200 && body.ok === false && body.reason === 'invalid_link') {
+    clearBrandInviteLink(); endBrandInviteNew(); endBrandLinkFlow('link-invalid'); return;
+  }
+  if (r.status === 200 && body.ok === false && body.reason === 'password_rejected') {
+    setFieldError('setpwPw', BRAND_MSG.weakPassword); document.getElementById('setpwPw').focus(); return;
+  }
+  if (!(r.status === 200 && body.ok === true && body.email)) {
+    // 400·500·연결 끊김 — 같은 화면에 남는다(같은 링크로 다시 누르면 서버가 같은 계정을 이어서 쓴다)
+    setNotice('setpwResult', BRAND_MSG.setupFinishFail); return;
+  }
+  clearBrandInviteLink();
+  endBrandInviteNew();
+  resetSetpwForm();   // 비밀번호 원문을 입력 칸에 남기지 않는다
+  // 이 브라우저에 다른 브랜드 세션이 있으면 먼저 정리하고 새 계정으로 로그인
+  await brandSignOutLocal();
+  let signErr = null;
+  try {
+    const { error } = await brandDb.auth.signInWithPassword({ email: body.email, password: pw });
+    signErr = error;
+  } catch (ex) { signErr = ex || new Error('sign_in_failed'); }
+  if (signErr) {
+    goBrandScreen('login');
+    document.getElementById('loginEmail').value = body.email;
+    setNotice('loginExpiredNotice', BRAND_MSG.setupDoneRelogin);
+    return;
+  }
+  const state = await fetchBrandLoginState();
+  const res = await applyBrandLoginState(state);
+  if (res === 'ok') enterBrandApp(state);
+}

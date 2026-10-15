@@ -54,6 +54,8 @@ function routeBrand() {
     history.replaceState(null, '', location.pathname + location.hash);
   }
   _brandCheckPending = false;
+  // 초대 메일 링크 흐름(계속하기·새 이메일 설정 화면)에 있다가 주소가 바뀌면 그 흐름을 끝낸다
+  if (_brandInviteLanding || _brandInviteNewCtx) { _brandInviteLanding = null; endBrandInviteNew(); clearBrandInviteLink(); }
   const hash = currentBrandHash();
   // 로그인돼 있으면 틀 안 페이지만(카드 화면 해시로 오면 첫 페이지) / 로그인 안 했으면 틀 페이지로 못 간다
   if (brandAuthed) {
@@ -75,12 +77,20 @@ function routeBrand() {
     if (_brandInviteCtx) { paintBrandScreen('invite'); return; }
     fillInviteScreen();
   } else if (_brandInviteCtx) {
-    // 초대 수락 화면을 떠남 — 세션은 대기 초대 전용이라 그대로 두면 틀 없이 로그인된 채 남는다. 이 기기에서 로그아웃
+    // 초대 수락 화면을 떠남
+    const src = _brandInviteCtx.source;
     _brandInviteCtx = null;
+    if (src === 'link') {
+      // 메일 링크로 연 초대 — 계정 자체는 정상일 수 있다. 판정을 다시 받아 원래 화면으로(브랜드 있음 = 틀, 대기 초대만 = 초대 화면)
+      restoreBrandSession();
+      return;
+    }
+    // 로그인 경로(대기 초대만 있는 계정) — 세션을 두면 틀 없이 로그인된 채 남는다. 이 기기에서 로그아웃
     brandSignOutLocal();
   }
   if (name === 'email-change') fillEmailChangeScreen();
   if (name === 'forgot') {
+    clearBrandInviteLink();   // 비밀번호 찾기로 빠지면 보관한 초대 링크를 지운다
     // 로그인 칸에 넣던 이메일을 이어받는다
     const f = document.getElementById('forgotEmail');
     if (!f.value) f.value = document.getElementById('loginEmail').value.trim();
@@ -228,7 +238,8 @@ let _brandCheckPending = false;   // 새로고침 판정 실패 화면(check-fai
 function updatePreviewVisibility() {
   const bar = document.getElementById('brandPreview');
   if (!bar) return;
-  bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending || !!_brandInviteCtx;
+  bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending || !!_brandInviteCtx
+    || !!_brandInviteLanding || !!_brandInviteNewCtx;
 }
 
 function initPreviewBar() {
@@ -314,6 +325,11 @@ async function bootBrand() {
 
   // 메일 링크 착지가 해시 라우팅보다 먼저다(해시가 #access_token=… 이면 routeBrand 는 login 으로 떨어진다 — stale 3)
   const params = new URLSearchParams(location.search);
+  // 초대 메일 링크(?link=…&kind=invite) — 일회용 인증 값이 없는 링크라 설정·재설정 착지와 따로 처리한다
+  if (params.get('kind') === 'invite') {
+    await handleBrandInviteLanding(params);
+    return;
+  }
   if (params.has('link') || params.has('mode')) {
     await handleBrandLinkLanding(params);
     return;
