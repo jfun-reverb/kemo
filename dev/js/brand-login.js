@@ -6,23 +6,23 @@
 //   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
-  emailEmpty: '이메일을 입력해 주세요.',
-  emailFormat: '이메일 형식이 올바르지 않습니다. 「@」 뒤에 「company.com」처럼 「.(점)」까지 입력해 주세요.',
-  pwEmpty: '비밀번호를 입력해 주세요.',
+  emailEmpty: '이메일을 입력해 주십시오.',
+  emailFormat: '이메일 형식이 올바르지 않습니다. 「@」 뒤에 「company.com」처럼 「.(점)」까지 입력해 주십시오.',
+  pwEmpty: '비밀번호를 입력해 주십시오.',
   // ④ 계정 열거 방지 — 「없는 이메일」·「틀린 비밀번호」를 나누지 않는다 (.claude/rules/security.md)
-  loginFail: '이메일 또는 비밀번호가 올바르지 않습니다. 비밀번호가 기억나지 않으면 아래 「비밀번호를 잊으셨나요?」를 눌러 주세요.',
-  tooMany: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+  loginFail: '이메일 또는 비밀번호가 올바르지 않습니다. 비밀번호가 기억나지 않으면 아래 「비밀번호를 잊으셨습니까?」를 눌러 주십시오.',
+  tooMany: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주십시오.',
   // 비밀번호는 맞았는데 로그인 뒤 판정을 못 받았을 때 / 연결이 끊겼을 때 — 일반 실패와 구분한다
-  checkFail: '로그인을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-  nameEmpty: '이름을 입력해 주세요.',
-  pw2Empty: '비밀번호를 한 번 더 입력해 주세요.',
-  pwMismatch: '두 비밀번호가 같지 않습니다.',
-  agreeRequired: '필수 약관 두 개에 모두 동의해 주세요.',
-  samePassword: '지금 쓰는 비밀번호와 다른 비밀번호로 정해 주세요.',
-  weakPassword: '쓸 수 없는 비밀번호입니다. 8자 이상, 영문 소문자와 기호를 넣어 다른 비밀번호로 정해 주세요.',
-  saveFail: '비밀번호를 저장하지 못했습니다. 잠시 후 다시 눌러 주세요.',
-  setupFinishFail: '비밀번호 설정을 마치지 못했습니다. 잠시 후 「비밀번호 설정하고 시작하기」를 다시 눌러 주세요.',
-  setupDoneRelogin: '비밀번호를 설정했어요. 새 비밀번호로 로그인해 주세요.',
+  checkFail: '로그인을 확인하지 못했습니다. 잠시 후 다시 시도해 주십시오.',
+  nameEmpty: '이름을 입력해 주십시오.',
+  pw2Empty: '비밀번호를 한 번 더 입력해 주십시오.',
+  pwMismatch: '비밀번호가 서로 다릅니다. 한 번 더 확인해 주십시오.',
+  agreeRequired: '필수 항목에 모두 동의해 주십시오. 동의하지 않으면 계정을 쓸 수 없습니다.',
+  samePassword: '지금 쓰는 비밀번호와 다른 비밀번호로 정해 주십시오.',
+  weakPassword: '쓸 수 없는 비밀번호입니다. 8자 이상, 영문 소문자와 기호를 넣어 다른 비밀번호로 정해 주십시오.',
+  saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오. 계속되면 REVERB 운영팀에 문의해 주십시오.',
+  setupFinishFail: '비밀번호 설정을 마치지 못했습니다. 잠시 후 「비밀번호 설정하고 시작하기」를 다시 눌러 주십시오.',
+  setupDoneRelogin: '비밀번호를 설정했습니다. 새 비밀번호로 로그인해 주십시오.',
   previewOnly: '미리보기 화면이라 저장하지 않습니다. 실제 설정은 메일 속 링크로 들어와야 합니다.'
 };
 
@@ -31,14 +31,14 @@ const BRAND_TERMS_VERSION = 'dev-2026-10-14';
 
 // 미리보기 화면에 채우는 예시 값 (Figma 화면의 예시 그대로)
 const BRAND_SAMPLE = {
-  setpwOwner: { email: 'manager@company.com', desc: '레버브 운영팀이 「레버브」 브랜드 계정을 만들었어요. 비밀번호를 정하면 바로 시작할 수 있어요.' },
-  setpwMember: { email: 'park@harudam.co.kr', desc: '「하루담」 브랜드의 김대표님이 회원님을 멤버로 초대했어요. 이름과 비밀번호를 정하면 바로 시작할 수 있어요.' },
-  invite: { email: 'manager@company.com', desc: '「하루담」 브랜드의 대표 담당자 김대표님이 회원님을 멤버로 초대했어요.' },
+  setpwOwner: { email: 'manager@company.com', desc: '레버브 운영팀이 「레버브」 브랜드 계정을 만들었습니다. 비밀번호를 정하면 바로 시작할 수 있습니다.' },
+  setpwMember: { email: 'park@harudam.co.kr', desc: '「하루담」 브랜드의 김대표님이 회원님을 멤버로 초대했습니다. 이름과 비밀번호를 정하면 바로 시작할 수 있습니다.' },
+  invite: { email: 'manager@company.com', desc: '「하루담」 브랜드의 대표 담당자 김대표님이 회원님을 멤버로 초대했습니다.' },
   emailChange: { next: 'kim@harudam.co.kr', current: 'ceo@harudam.co.kr' },
   resetEmail: 'manager@company.com'
 };
 // 실제 설정 화면 설명 — 로그인 전이라 브랜드 이름을 알 수 없어(링크 판정 함수는 유효 여부만 돌려준다) 이름 없이 쓴다
-const BRAND_SETPW_REAL_DESC = 'REVERB 운영팀이 브랜드 계정을 만들었어요. 비밀번호를 정하면 바로 시작할 수 있어요.';
+const BRAND_SETPW_REAL_DESC = 'REVERB 운영팀이 브랜드 계정을 만들었습니다. 비밀번호를 정하면 바로 시작할 수 있습니다.';
 
 // 아직 서버와 연결하지 않은 화면(초대 수락·이메일 변경) 미리보기 전용
 function brandFakeRequest(result) {
@@ -210,7 +210,7 @@ function readBrandConfirmTarget(raw) {
 
 function fillConfirmScreen(mode, target) {
   document.getElementById('confirmTitle').textContent =
-    mode === 'reset' ? '비밀번호를 다시 정할까요?' : '비밀번호를 설정할까요?';
+    mode === 'reset' ? '비밀번호를 다시 정하시겠습니까?' : '비밀번호를 설정하시겠습니까?';
   _brandConfirmTarget = target || null;
   const btn = document.getElementById('confirmBtn');
   btn.disabled = false; btn.textContent = '계속하기';
@@ -509,7 +509,7 @@ function initInvite() {
   btn.addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = '수락하는 중…';
     await brandFakeRequest('ok');
-    btn.textContent = '수락했어요';
+    btn.textContent = '수락했습니다';
     setNotice('inviteResult', '미리보기: 「하루담」 브랜드가 계정에 연결됐다고 가정합니다.');
   });
 }
@@ -518,7 +518,7 @@ function initInvite() {
 function fillEmailChangeScreen() {
   document.getElementById('emailChangeNew').value = BRAND_SAMPLE.emailChange.next;
   document.getElementById('emailChangeNote').textContent =
-    '요청하지 않았다면 이 화면을 닫아 주세요. 지금 이메일(' + BRAND_SAMPLE.emailChange.current + ')은 그대로예요.';
+    '요청하지 않았다면 이 화면을 닫아 주십시오. 지금 이메일(' + BRAND_SAMPLE.emailChange.current + ')은 그대로입니다.';
   setNotice('emailChangeResult', '');
   const btn = document.getElementById('emailChangeSubmit');
   btn.disabled = false; btn.textContent = '확인';
@@ -529,8 +529,8 @@ function initEmailChange() {
   btn.addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = '바꾸는 중…';
     await brandFakeRequest('ok');
-    btn.textContent = '바꿨어요';
-    setNotice('emailChangeResult', '로그인 이메일이 ' + BRAND_SAMPLE.emailChange.next + ' 로 바뀌었어요. 다음부터 이 이메일로 로그인해 주세요.');
+    btn.textContent = '바꿨습니다';
+    setNotice('emailChangeResult', '로그인 이메일이 ' + BRAND_SAMPLE.emailChange.next + ' 로 바뀌었습니다. 다음부터 이 이메일로 로그인해 주십시오.');
   });
 }
 

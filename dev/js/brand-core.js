@@ -93,11 +93,11 @@ function showBrandScreen(name) {
     el.hidden = el.dataset.screen !== name;
   });
   const titles = {
-    closed: '브랜드 페이지', login: '브랜드 로그인', forgot: '비밀번호 찾기', 'forgot-sent': '메일을 확인해 주세요',
-    setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨어요', confirm: '링크 확인',
-    invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없어요',
-    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요',
-    'check-fail': '로그인을 확인하지 못했어요'
+    closed: '브랜드 페이지', login: '브랜드 로그인', forgot: '비밀번호 찾기', 'forgot-sent': '메일을 확인해 주십시오',
+    setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨습니다', confirm: '링크 확인',
+    invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없습니다',
+    'not-brand': '브랜드 계정이 아닙니다', 'no-brand': '연결된 브랜드가 없습니다',
+    'check-fail': '로그인을 확인하지 못했습니다'
   };
   document.title = (titles[name] || '브랜드') + ' · REVERB JP';
 }
@@ -135,10 +135,12 @@ function isEmailFormat(v) {
 // 비밀번호 규칙 — 8자 + 영문 소문자 + 기호.
 //   ⚠️ 같은 규칙의 사본이 셋이다: ui.js passwordPolicyIssue · admin-setpw.html validateAdminPassword · 여기.
 //      규칙을 바꾸면 셋을 함께 고친다. (ui.js 를 싣지 않아 사본을 둔다 — 파일 머리말 참고)
+//   문구는 피그마 w01-92 ① 한 줄(빠진 조건과 상관없이 같은 안내).
+const BRAND_PW_RULE_MSG = '8자 이상으로, 영문 소문자와 기호(! @ # 등)를 넣어 주십시오.';
 function brandPasswordIssue(pw) {
-  if (!pw || pw.length < 8) return '비밀번호는 8자 이상으로 정해 주세요.';
-  if (!/[a-z]/.test(pw)) return '영문 소문자를 하나 이상 넣어 주세요.';
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return '기호(! @ # 같은 글자)를 하나 이상 넣어 주세요.';
+  if (!pw || pw.length < 8) return BRAND_PW_RULE_MSG;
+  if (!/[a-z]/.test(pw)) return BRAND_PW_RULE_MSG;
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return BRAND_PW_RULE_MSG;
   return '';
 }
 

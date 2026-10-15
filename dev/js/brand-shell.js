@@ -27,8 +27,8 @@ function _brandComingSoon(title) {
     render(host) {
       host.innerHTML =
         '<div class="brand-page-head"><h1>' + brandEsc(title) + '</h1></div>' +
-        '<div class="brand-empty"><p class="brand-empty-title">준비 중이에요</p>' +
-        '<p class="brand-empty-desc">이 화면은 곧 열려요.</p></div>';
+        '<div class="brand-empty"><p class="brand-empty-title">준비 중입니다</p>' +
+        '<p class="brand-empty-desc">이 화면은 곧 열립니다.</p></div>';
     }
   };
 }
@@ -49,14 +49,32 @@ function getCurrentBrand() {
 function onBrandChanged(fn) { _brandChangeHandlers.push(fn); }
 function _emitBrandChanged() { _brandChangeHandlers.forEach(fn => { try { fn(getCurrentBrandId()); } catch (e) { /* 한 페이지 실패가 다른 페이지를 막지 않게 */ } }); }
 
-// 판정 결과를 세션 상태로 옮긴다. 첫 브랜드 = preferBrandId(활성 연결에 있을 때만) → last_brand_id → 서버 순서 첫 브랜드.
-//   ⚠️ 조각 2 가 「서버 순서 첫 브랜드」를 이름순 첫 브랜드(sortBrandsForPicker)로 바꾼다.
+// 브랜드 이름 정렬 — 한글 가나다 → 그 밖(영문 ABC 등). 서버 순서(대표 먼저·데이터베이스 이름순)와 다르다(사양서 16-4).
+//   브라우저 한국어 정렬만으로는 한글이 영문보다 앞선다는 보장이 없어 글자 종류를 먼저 가른다.
+const _brandCollator = (typeof Intl !== 'undefined' && Intl.Collator) ? new Intl.Collator('ko', { sensitivity: 'base', numeric: true }) : null;
+function _brandNameGroup(name) { return /^[\s]*[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(name || '') ? 0 : 1; }
+function compareBrandNames(a, b) {
+  const ga = _brandNameGroup(a), gb = _brandNameGroup(b);
+  if (ga !== gb) return ga - gb;
+  return _brandCollator ? _brandCollator.compare(a || '', b || '') : String(a || '').localeCompare(String(b || ''));
+}
+// 고르기 목록 순서 — 지금 브랜드 맨 위 + 나머지 이름순. 역할(대표/멤버)은 싣지 않는다(16-4 ①).
+function sortBrandsForPicker(brands, currentId) {
+  const list = (brands || []).slice().sort((x, y) => compareBrandNames(x.name, y.name));
+  const i = list.findIndex(b => b.id === currentId);
+  if (i > 0) list.unshift(list.splice(i, 1)[0]);
+  return list;
+}
+
+// 판정 결과를 세션 상태로 옮긴다. 첫 브랜드 = preferBrandId(활성 연결에 있을 때만) → 이미 보던 브랜드 → last_brand_id → 이름순 첫 브랜드.
+//   last_brand_id 는 서버가 「지금 활성 연결일 때만」 값을 준다(532) — NULL 이면 이름순 첫 브랜드(화면 몫).
 function _brandSessionFromState(state, preferBrandId) {
   const brands = Array.isArray(state.brands) ? state.brands.map(b => ({ id: b.id, name: b.name || '', role: b.role })) : [];
   const has = (id) => !!id && brands.some(b => b.id === id);
   const keep = brandSession && has(brandSession.currentBrandId) ? brandSession.currentBrandId : null;
+  const first = sortBrandsForPicker(brands, null)[0];
   const current = has(preferBrandId) ? preferBrandId
-    : keep || (has(state.last_brand_id) ? state.last_brand_id : (brands[0] ? brands[0].id : null));
+    : keep || (has(state.last_brand_id) ? state.last_brand_id : (first ? first.id : null));
   return {
     name: state.name || '',
     email: state.email || '',
@@ -84,7 +102,8 @@ function enterBrandApp(state, opts) {
 }
 
 // 판정을 다시 받아 세션 상태를 갱신 — 반환 state 또는 null(호출 실패).
-//   지금 브랜드가 연결 목록에서 빠졌으면 첫 브랜드로 옮긴다(조각 2 가 handleBrandNotLinked 로 바꾼다).
+//   지금 브랜드가 연결 목록에서 빠졌으면 이름순 첫 브랜드로 옮긴다(_brandSessionFromState).
+//   연결이 하나도 안 남으면 로그인 판정 갈래(applyBrandLoginState)를 따른다 — 조각 3 전까지는 로그아웃 + 「연결된 브랜드 없음」.
 async function refreshBrandLoginState() {
   const state = await fetchBrandLoginState();
   if (!state) return null;
@@ -95,6 +114,47 @@ async function refreshBrandLoginState() {
   }
   setBrandSessionFromState(state);
   return state;
+}
+
+// 브랜드 바꾸기 — 서버에 「마지막으로 본 브랜드」를 남기고 보던 메뉴를 새 브랜드로 다시 그린다.
+//   반환 'ok' | 'not_linked' | 'error'. 사람이 고른 것이므로 활동으로 센다(S0-4).
+let _brandSwitching = false;
+async function switchBrand(id) {
+  if (!brandSession || _brandSwitching) return 'error';
+  if (id === brandSession.currentBrandId) return 'ok';
+  _brandSwitching = true;
+  try {
+    const { data, error } = await brandRpc('set_my_brand_last_viewed', { p_brand_id: id });
+    if (error || (data !== 'ok' && data !== 'not_linked')) {
+      brandToast('브랜드를 바꾸지 못했습니다. 잠시 후 다시 시도해 주십시오.');
+      return 'error';
+    }
+    if (!brandSession) return 'error';   // 응답을 기다리는 사이 로그아웃됨
+    if (data === 'not_linked') { await handleBrandNotLinked(); return 'not_linked'; }
+    brandSession.currentBrandId = id;
+    renderBrandShellChrome();
+    _emitBrandChanged();
+    rerenderCurrentBrandPage();
+    brandTouchActivity();
+    return 'ok';
+  } finally {
+    _brandSwitching = false;
+  }
+}
+
+// 서버가 「이 브랜드에 연결돼 있지 않다」고 답했을 때(바꾸기·페이지 함수 공용 — 조각 5·7 도 부른다)
+async function handleBrandNotLinked() {
+  brandToast('이 브랜드에서 빠져서 바꿀 수 없습니다.');   // 피그마 w03-90
+  // 판정 조회가 실패(null)하면 목록을 그대로 둔다 — 다음 판정(새로고침·다음 동작)에서 바로잡힌다
+  const state = await refreshBrandLoginState();
+  if (state && state.state === 'ok') rerenderCurrentBrandPage();
+}
+
+// 지금 보던 틀 페이지를 다시 그린다(브랜드가 바뀌었을 때)
+function rerenderCurrentBrandPage() {
+  if (!brandAuthed) return;
+  const hash = location.hash.replace(/^#/, '');
+  showBrandShellPage(isBrandShellPage(hash) ? hash : BRAND_FIRST_PAGE);
 }
 
 // 「마지막 접속」 기록 — 지금 브랜드로. 사람이 누른 메뉴 이동·저장 성공·브랜드 바꾸기 때만 부른다.
@@ -114,6 +174,7 @@ function renderBrandShellChrome() {
   const who = brandSession.name || brandSession.email;
   document.querySelectorAll('[data-brand-user-name]').forEach(el => { el.textContent = who; });
   document.querySelectorAll('[data-brand-user-initial]').forEach(el => { el.textContent = Array.from(who || '')[0] || ''; });
+  renderBrandPickers();
   refreshInviteDot();
 }
 
@@ -122,7 +183,7 @@ function refreshInviteDot() {
   const on = !!(brandSession && brandSession.newInviteDot);
   document.querySelectorAll('.brand-dot, .brand-dot-sr').forEach(el => { el.hidden = !on; });
   const menuBtn = document.getElementById('brandTopbarMenuBtn');
-  if (menuBtn) menuBtn.setAttribute('aria-label', on ? '메뉴 열기 (새 초대가 있어요)' : '메뉴 열기');
+  if (menuBtn) menuBtn.setAttribute('aria-label', on ? '메뉴 열기 (새 초대가 있습니다)' : '메뉴 열기');
 }
 
 function _brandMenuHtml(active) {
@@ -148,11 +209,12 @@ function showBrandShellPage(hash) {
     if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
   });
   renderBrandShellChrome();
+  closeBrandPickerFull();   // 뒤로 가기 등 주소가 바뀌면 고르기 화면을 남기지 않는다
   closeBrandDrawer(false);
   const host = document.getElementById('brandPageHost');
   host.innerHTML = '';
   try { page.render(host); }
-  catch (e) { host.innerHTML = '<div class="brand-empty"><p class="brand-empty-title">화면을 그리지 못했어요</p><p class="brand-empty-desc">새로고침해 주세요.</p></div>'; }
+  catch (e) { host.innerHTML = '<div class="brand-empty"><p class="brand-empty-title">화면을 그리지 못했습니다</p><p class="brand-empty-desc">새로고침해 주십시오.</p></div>'; }
   document.title = (page.title || '브랜드') + ' · REVERB JP';
   window.scrollTo(0, 0);
   const main = document.getElementById('brandMain');
@@ -161,6 +223,8 @@ function showBrandShellPage(hash) {
 
 // 틀을 감춘다(로그인 전 카드 화면으로 갈 때) — showBrandScreen 이 부른다
 function hideBrandShell() {
+  closeBrandPickerPop(false);
+  closeBrandPickerFull();
   const shell = document.getElementById('brandShell');
   if (shell) shell.hidden = true;
   // 로그아웃 뒤 이전 계정의 페이지 내용(멤버 이메일 등)을 DOM 에 남기지 않는다
@@ -200,6 +264,7 @@ async function brandLogout() {
 
 function initBrandShell() {
   document.querySelectorAll('[data-brand-menu]').forEach(el => { el.innerHTML = _brandMenuHtml(''); });
+  initBrandPicker();
   // 메뉴 이동 — 사람이 눌렀을 때만 활동으로 센다(마이페이지는 세지 않는다 — S0-4).
   //   지금 페이지를 다시 누르면 해시가 안 바뀌어 화면 전환이 없으므로 서랍은 여기서 닫는다.
   document.getElementById('brandShell').addEventListener('click', (e) => {
@@ -214,6 +279,7 @@ function initBrandShell() {
   drawer.addEventListener('click', (e) => { if (e.target === drawer) closeBrandDrawer(); });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || drawer.hidden) return;
+    if (document.getElementById('brandPickerFull')) { closeBrandPickerFull(); return; }   // 위에 뜬 고르기 화면부터
     closeBrandDrawer();
   });
   // 서랍 안에서만 초점이 돌게
@@ -230,4 +296,200 @@ function initBrandShell() {
     btn.disabled = true;
     try { await brandLogout(); } finally { btn.disabled = false; }
   }));
+}
+
+// ── 좌측 위 브랜드 고르기 (피그마 w03-01·01a·01b · m03-01·01a·02·02a, 작업표 조각 2)
+//   연결 브랜드 2개 이상일 때만 ⌃⌄. 8개 이상이면 웹은 검색 칸 + 7줄 반 높이 스크롤, 모바일 서랍은 한 줄 → 전체 화면 고르기.
+//   🔴 「8개」 기준은 로그인 판정이 준 활성 연결 브랜드 수(brandSession.brands — 초대 대기·해제 제외).
+const BRAND_PICKER_SEARCH_MIN = 8;
+
+// 검색 — 이름 일부 일치, 영문 대소문자·띄어쓰기 무시
+function _brandSearchKey(v) { return String(v || '').toLowerCase().replace(/\s+/g, ''); }
+function filterBrandsForPicker(list, q) {
+  const k = _brandSearchKey(q);
+  return k ? list.filter(b => _brandSearchKey(b.name).includes(k)) : list;
+}
+function _brandNoMatchText(q) { return '‘' + q + '’와 일치하는 브랜드가 없습니다'; }
+
+function _brandPickerRowsHtml(list) {
+  const cur = getCurrentBrandId();
+  return list.map(b => {
+    const on = b.id === cur;
+    return '<button type="button" class="brand-pick-row' + (on ? ' is-current' : '') + '" role="option" aria-selected="' + on + '" data-pick-brand="' + brandEsc(b.id) + '">' +
+      '<span class="brand-pick-name">' + brandEsc(b.name) + '</span>' +
+      (on ? '<span class="material-icons-round notranslate" translate="no" aria-hidden="true">check</span>' : '') +
+    '</button>';
+  }).join('');
+}
+
+function renderBrandPickers() {
+  if (!brandSession) return;
+  const many = brandSession.brands.length >= 2;
+  const cur = getCurrentBrand();
+  // 웹 — 브랜드명 단추
+  const host = document.getElementById('brandSwitcherHost');
+  if (host) {
+    const name = brandEsc(cur ? cur.name : '');
+    host.innerHTML = many
+      ? '<button type="button" class="brand-switcher-btn" id="brandSwitcherBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="brandPickerPop">' +
+          '<span class="brand-switcher-name">' + name + '</span>' +
+          '<span class="material-icons-round notranslate" translate="no" aria-hidden="true">unfold_more</span></button>' +
+        '<div class="brand-pick-pop" id="brandPickerPop" hidden></div>'
+      : '<span class="brand-switcher-name">' + name + '</span>';
+  }
+  // 모바일 서랍 — 브랜드 묶음
+  const box = document.getElementById('brandDrawerBrands');
+  if (box) {
+    box.hidden = !many;
+    if (!many) box.innerHTML = '';
+    else if (brandSession.brands.length >= BRAND_PICKER_SEARCH_MIN) {
+      box.innerHTML = '<p class="brand-pick-sub">브랜드</p>' +
+        '<button type="button" class="brand-pick-row is-current brand-pick-more" id="brandDrawerPickMore">' +
+          '<span class="brand-pick-name">' + brandEsc(cur ? cur.name : '') + '</span>' +
+          '<span class="brand-pick-count">바꾸기 · ' + brandSession.brands.length + '개</span>' +
+          '<span class="material-icons-round notranslate" translate="no" aria-hidden="true">chevron_right</span></button>';
+    } else {
+      box.innerHTML = '<p class="brand-pick-sub">브랜드</p><div role="listbox" aria-label="브랜드">' +
+        _brandPickerRowsHtml(sortBrandsForPicker(brandSession.brands, getCurrentBrandId())) + '</div>';
+    }
+  }
+}
+
+// 웹 펼친 목록
+function _renderPickerPop(q) {
+  const pop = document.getElementById('brandPickerPop');
+  if (!pop) return;
+  const all = sortBrandsForPicker(brandSession.brands, getCurrentBrandId());
+  const withSearch = all.length >= BRAND_PICKER_SEARCH_MIN;
+  const list = withSearch ? filterBrandsForPicker(all, q) : all;
+  const listHtml = list.length ? _brandPickerRowsHtml(list)
+    : '<p class="brand-pick-empty">' + brandEsc(_brandNoMatchText(q)) + '</p>';
+  if (pop.dataset.ready === '1' && withSearch) {
+    pop.querySelector('.brand-pick-list').innerHTML = listHtml;
+    return;
+  }
+  pop.dataset.ready = '1';
+  pop.innerHTML = '<p class="brand-pick-sub">브랜드 바꾸기</p>' +
+    (withSearch ? '<label class="brand-pick-search"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>' +
+      '<input type="search" class="brand-pick-input" placeholder="브랜드 이름으로 찾기" aria-label="브랜드 이름으로 찾기" autocomplete="off"></label>' : '') +
+    '<div class="brand-pick-list' + (withSearch ? ' is-scroll' : '') + '" role="listbox" aria-label="브랜드">' + listHtml + '</div>';
+}
+function openBrandPickerPop() {
+  const pop = document.getElementById('brandPickerPop');
+  const btn = document.getElementById('brandSwitcherBtn');
+  if (!pop || !btn) return;
+  pop.dataset.ready = '';
+  _renderPickerPop('');                 // 다시 열면 검색어는 비어 있다
+  pop.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  const input = pop.querySelector('.brand-pick-input');
+  (input || pop.querySelector('.brand-pick-row.is-current') || pop.querySelector('.brand-pick-row') || btn).focus();
+}
+function closeBrandPickerPop(restoreFocus) {
+  const pop = document.getElementById('brandPickerPop');
+  if (!pop || pop.hidden) return;
+  pop.hidden = true;
+  const btn = document.getElementById('brandSwitcherBtn');
+  if (btn) { btn.setAttribute('aria-expanded', 'false'); if (restoreFocus) btn.focus(); }
+}
+
+// 모바일 전체 화면 고르기(m03-02) — 8개 이상일 때만 서랍의 한 줄에서 연다
+function openBrandPickerFull() {
+  closeBrandPickerFull();
+  const wrap = document.createElement('div');
+  wrap.className = 'brand-pick-full';
+  wrap.id = 'brandPickerFull';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', 'brandPickFullTitle');
+  wrap.innerHTML =
+    '<div class="brand-pick-full-head">' +
+      '<button type="button" class="brand-pick-back" data-pick-back aria-label="메뉴로 돌아가기">' +
+        '<span class="material-icons-round notranslate" translate="no" aria-hidden="true">arrow_back</span></button>' +
+      '<h2 id="brandPickFullTitle">브랜드 바꾸기</h2></div>' +
+    '<div class="brand-pick-full-search"><label class="brand-pick-search"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">search</span>' +
+      '<input type="search" class="brand-pick-input" placeholder="브랜드 이름으로 찾기" aria-label="브랜드 이름으로 찾기" autocomplete="off"></label></div>' +
+    '<div class="brand-pick-list" role="listbox" aria-label="브랜드"></div>';
+  const listEl = wrap.querySelector('.brand-pick-list');
+  const draw = (q) => {
+    const list = filterBrandsForPicker(sortBrandsForPicker(brandSession.brands, getCurrentBrandId()), q);
+    listEl.innerHTML = list.length ? _brandPickerRowsHtml(list) : '<p class="brand-pick-empty">' + brandEsc(_brandNoMatchText(q)) + '</p>';
+  };
+  draw('');
+  wrap.querySelector('.brand-pick-input').addEventListener('input', (e) => draw(e.target.value.trim()));
+  wrap.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-pick-back]')) { closeBrandPickerFull(); return; }
+    const row = e.target.closest('[data-pick-brand]');
+    if (!row) return;
+    closeBrandPickerFull();
+    closeBrandDrawer(false);
+    await switchBrand(row.dataset.pickBrand);   // 지금 브랜드를 다시 고르면 화면과 메뉴만 닫힌다
+  });
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closeBrandPickerFull(); return; }
+    if (e.key !== 'Tab') return;
+    // 화면 안에서만 초점이 돌게(aria-modal)
+    const items = Array.from(wrap.querySelectorAll('button, input'));
+    const i = items.indexOf(document.activeElement);
+    if (i === -1) { e.preventDefault(); items[0].focus(); return; }
+    if (e.shiftKey && i === 0) { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (!e.shiftKey && i === items.length - 1) { e.preventDefault(); items[0].focus(); }
+  });
+  document.body.appendChild(wrap);
+  wrap.querySelector('[data-pick-back]').focus();
+}
+function closeBrandPickerFull() {
+  const el = document.getElementById('brandPickerFull');
+  if (!el) return;
+  el.remove();
+  const more = document.getElementById('brandDrawerPickMore');
+  if (more && !document.getElementById('brandDrawer').hidden) more.focus();
+}
+
+function initBrandPicker() {
+  const side = document.getElementById('brandSideMenu');
+  side.addEventListener('click', async (e) => {
+    if (e.target.closest('#brandSwitcherBtn')) {
+      const pop = document.getElementById('brandPickerPop');
+      if (pop && pop.hidden) openBrandPickerPop(); else closeBrandPickerPop(true);
+      return;
+    }
+    const row = e.target.closest('#brandPickerPop [data-pick-brand]');
+    if (row) {
+      closeBrandPickerPop(false);
+      await switchBrand(row.dataset.pickBrand);   // 지금 브랜드를 다시 고르면 아무 일도 없다
+      // 브랜드명 단추는 다시 그려져 새 요소다 — 초점을 그 단추로 돌려 놓는다
+      const btn = document.getElementById('brandSwitcherBtn');
+      if (btn && brandAuthed) btn.focus();
+    }
+  });
+  side.addEventListener('input', (e) => {
+    if (e.target.matches('#brandPickerPop .brand-pick-input')) _renderPickerPop(e.target.value.trim());
+  });
+  // 바깥 누르기·ESC → 닫힘(그대로)
+  document.addEventListener('mousedown', (e) => {
+    const pop = document.getElementById('brandPickerPop');
+    if (pop && !pop.hidden && !e.target.closest('#brandSwitcherHost')) closeBrandPickerPop(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    const pop = document.getElementById('brandPickerPop');
+    if (e.key === 'Escape' && pop && !pop.hidden) { closeBrandPickerPop(true); return; }
+    // 목록 안 위·아래 화살표
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && pop && !pop.hidden && pop.contains(document.activeElement)) {
+      const rows = Array.from(pop.querySelectorAll('.brand-pick-row'));
+      if (!rows.length) return;
+      e.preventDefault();
+      const i = rows.indexOf(document.activeElement);
+      const next = e.key === 'ArrowDown' ? (i < 0 ? 0 : Math.min(i + 1, rows.length - 1)) : (i <= 0 ? 0 : i - 1);
+      rows[next].focus();
+    }
+  });
+  // 모바일 서랍 — 7개까지는 서랍에서 바로 고르고, 8개 이상은 한 줄 → 전체 화면
+  document.getElementById('brandDrawerBrands').addEventListener('click', async (e) => {
+    if (e.target.closest('#brandDrawerPickMore')) { openBrandPickerFull(); return; }
+    const row = e.target.closest('[data-pick-brand]');
+    if (!row) return;
+    closeBrandDrawer(false);
+    await switchBrand(row.dataset.pickBrand);
+  });
 }
