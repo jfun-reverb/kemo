@@ -70,7 +70,15 @@ function routeBrand() {
   if (name === 'setpw') fillSetpwScreen(brandPreviewState.setpwKind);
   if (name === 'resetpw') fillResetpwScreen(BRAND_SAMPLE.resetEmail);
   if (name === 'confirm') fillConfirmScreen(brandPreviewState.confirmKind, null);
-  if (name === 'invite') fillInviteScreen();
+  if (name === 'invite') {
+    // 실제 초대 맥락이 있으면 그 화면 그대로(뒤로·앞으로 가기로 돌아온 경우), 없으면 미리보기 예시
+    if (_brandInviteCtx) { paintBrandScreen('invite'); return; }
+    fillInviteScreen();
+  } else if (_brandInviteCtx) {
+    // 초대 수락 화면을 떠남 — 세션은 대기 초대 전용이라 그대로 두면 틀 없이 로그인된 채 남는다. 이 기기에서 로그아웃
+    _brandInviteCtx = null;
+    brandSignOutLocal();
+  }
   if (name === 'email-change') fillEmailChangeScreen();
   if (name === 'forgot') {
     // 로그인 칸에 넣던 이메일을 이어받는다
@@ -220,7 +228,7 @@ let _brandCheckPending = false;   // 새로고침 판정 실패 화면(check-fai
 function updatePreviewVisibility() {
   const bar = document.getElementById('brandPreview');
   if (!bar) return;
-  bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending;
+  bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending || !!_brandInviteCtx;
 }
 
 function initPreviewBar() {
@@ -251,7 +259,9 @@ function initBrandAuthEvents() {
       // 우리가 스스로 로그아웃한 것(로그아웃 단추·판정 뒤 정리)은 무시
       if (_brandSigningOut) return;
       // 그 밖 = 토큰 갱신 실패 등으로 세션이 끊김 → 로그인 시간 만료 안내
-      if (brandAuthed) {
+      // 대기 초대만 있는 계정(초대 수락 화면)도 세션이 있으므로 같이 본다
+      if (brandAuthed || _brandInviteCtx) {
+        _brandInviteCtx = null;
         setBrandAuthed(null);
         setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
         goBrandScreen('login');
