@@ -193,6 +193,7 @@
 > 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(묶음 ① 서버만 완료 — 화면 묶음 ②·③ 미착수) · 인수인계 `…-brand-login-handoff.md`
 
 **현재 원본 번호**
+- `get_brand_invite_link_state` — **534**(베이스 532 — 새 이메일 초대만 `email`, 두 갈래 `issued_at` 추가. 🔴 `CREATE OR REPLACE` 로만 — 비로그인 실행 권한 유지) · ⚠️ 534 도 개발서버만, 운영 묶음은 526 → … → 533 → 534
 - 527 함수 여섯(`get_my_brand_login_state`·`get_brand_link_state`·`service_issue_brand_account_link`·`complete_brand_account_setup`·`complete_brand_password_reset`·`service_mark_brand_setup_mail_sent`) — **532**(마지막은 4인자 — 옛 3인자 지움) · `admin_upsert_brand_owner_account`·`admin_get_brand_account_status` — **533**. 🔴 527 을 베이스로 잡으면 532·533 의 새 칸·`can_manage`·권한 가드가 사라진다
 - 표 `brand_invites`·`brand_member_limits`·권한 항목 `brand.account_manage`(시드 3행) — **530** · 대표 함수 — **531** · 관리자 쓰기 — **533**. ⚠️ 운영 적용은 526 → 527 → 528 → 530 → 531 → 532 → 533 한 묶음(순서는 사양서 「운영 반영 전 남은 관문」)
 > 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
@@ -379,7 +380,7 @@
 ## Test Accounts
 - 관리자: admin@kemo.jp / admin1234
 - 테스트 인플루언서: sakura.test@reverb.jp, yui.test@reverb.jp, haruka.test@reverb.jp (비밀번호: test1234)
-- 브랜드 페이지(개발서버만, 비밀번호 둘 다 zzBrand-test1!): zz-b2-owner@example.com — 시험 브랜드 셋(「zz-묶음2 시험 하루담」·「가나다 시험」·「Aroma Farm 시험」)의 대표 / zz-b2-second@example.com — 「가나다 시험」 멤버(2026-10-15 묶음 ② 시험용)
+- 브랜드 페이지(개발서버만, 비밀번호 둘 다 zzBrand-test1!): zz-b2-owner@example.com — 시험 브랜드 셋(「zz-묶음2 시험 하루담」·「가나다 시험」·「Aroma Farm 시험」)의 대표 / zz-b2-second@example.com — 「가나다 시험」·「Aroma Farm 시험」 멤버 / zz-b2-new@example.com — 초대로 가입한 「가나다 시험」 멤버(2026-10-15 묶음 ② 시험용)
 
 ## Dev Workflow
 - 개발: dev/ 에서 수정 → dev/index.html 로 확인

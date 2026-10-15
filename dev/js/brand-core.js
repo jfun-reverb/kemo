@@ -200,6 +200,7 @@ function brandToast(msg) {
 
 // 확인 창 — Promise<boolean>. 모달을 그때그때 만든다(index.html 을 화면마다 고치지 않게).
 //   Esc·바깥 누르기 = 취소. 열 때 「취소」에 초점(되돌릴 수 없는 동작을 엔터 한 번에 누르지 않게), 닫으면 원래 초점으로.
+//   단추는 실행(왼쪽) · 취소(오른쪽) — 피그마 순서.
 function brandConfirm(opts) {
   const o = opts || {};
   return new Promise(resolve => {
@@ -213,9 +214,10 @@ function brandConfirm(opts) {
       '<div class="brand-modal-box">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
         (o.body ? '<p>' + brandEsc(o.body) + '</p>' : '') +
+        // 단추 순서는 피그마(w01-10 「거절 · 취소」) — 실행 단추가 왼쪽. 처음 초점은 그래도 「취소」(실수로 엔터 한 번에 실행되지 않게)
         '<div class="brand-modal-actions">' +
-          '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>' +
           '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
+          '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>' +
         '</div>' +
       '</div>';
     let done = false;

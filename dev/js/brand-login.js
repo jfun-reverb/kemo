@@ -138,8 +138,11 @@ function initLoginForm() {
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
           pwInput.value = '';
-          enterBrandApp(state);
+          // 초대 메일 링크로 왔다가 로그인하러 온 경우 — 그 초대 화면으로 돌아간다(w01-03 「로그인 뒤 이 화면으로」)
+          if (!(await resumeBrandInviteLink())) enterBrandApp(state);
         } else {
+          // 대기 초대만 있는 계정은 초대 화면이 받은 초대를 모두 보여 준다 — 보관한 링크는 버린다
+          clearBrandInviteLink();
           pwInput.value = '';
         }
         return;
@@ -219,6 +222,7 @@ function readBrandConfirmTarget(raw) {
 function fillConfirmScreen(mode, target) {
   document.getElementById('confirmTitle').textContent =
     mode === 'reset' ? '비밀번호를 다시 정하시겠습니까?' : '비밀번호를 설정하시겠습니까?';
+  document.getElementById('confirmDesc').textContent = '아래 「계속하기」를 누르면 비밀번호 설정 화면으로 넘어갑니다.';
   _brandConfirmTarget = target || null;
   const btn = document.getElementById('confirmBtn');
   btn.disabled = false; btn.textContent = '계속하기';
@@ -228,6 +232,7 @@ function initConfirm() {
   const btn = document.getElementById('confirmBtn');
   btn.addEventListener('click', () => {
     if (btn.disabled) return;
+    if (_brandInviteLanding) { continueBrandInviteLanding(); return; }   // 초대 메일 링크(brand-invite.js)
     if (!_brandConfirmTarget) { showBrandLinkInvalid(); return; }
     btn.disabled = true;
     btn.textContent = '이동하는 중…';
@@ -386,8 +391,9 @@ function initSetpwForm() {
     if (busy) return;
     setNotice('setpwResult', '');
     const isReal = !!(brandLinkCtx && brandLinkCtx.mode === 'setup' && brandLinkCtx.hasSession);
+    const isInviteNew = !isReal && !!_brandInviteNewCtx;   // 초대 메일 링크로 온 새 이메일 멤버(w01-02b)
     let firstBad = null;
-    const isMember = !isReal && brandPreviewState.setpwKind === 'member';
+    const isMember = isInviteNew || (!isReal && brandPreviewState.setpwKind === 'member');
     if (isMember) {
       const name = document.getElementById('setpwName').value.trim();
       setFieldError('setpwName', name ? '' : BRAND_MSG.nameEmpty);
@@ -407,13 +413,14 @@ function initSetpwForm() {
     if (!agreed) firstBad = firstBad || 'agreeTerms';
     if (firstBad) { document.getElementById(firstBad).focus(); return; }
 
-    if (!isReal) { setNotice('setpwResult', BRAND_MSG.previewOnly); return; }
+    if (!isReal && !isInviteNew) { setNotice('setpwResult', BRAND_MSG.previewOnly); return; }
 
     busy = true;
     setFormBusy(form, true);
     btn.textContent = '설정하는 중…';
     try {
-      await submitSetpwReal(pw);
+      if (isInviteNew) await submitInviteNew(pw);
+      else await submitSetpwReal(pw);
     } catch (ex) {
       setNotice('setpwResult', BRAND_MSG.saveFail);
     } finally {
