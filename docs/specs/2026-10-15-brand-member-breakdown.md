@@ -28,7 +28,7 @@
 
 | # | 선결 조건 | 결과 (2026-10-15 사용자 결정) | 막던 조각 |
 |---|---|---|---|
-| S0-1 | 관리자가 대표를 해제할 때 남은 「초대 대기」 | ✅ **함께 자동 취소 — 그 브랜드의 대기 초대 전부**(누가 보냈든, 만료 전후 무관. 대표를 넘기고 내려간 옛 대표가 보낸 초대도 포함) — 대표 없는 브랜드에 멤버가 생기는 길을 막는다 | 4 |
+| S0-1 | 관리자가 대표를 해제할 때 남은 「초대 대기」 | ✅ **함께 자동 취소 — 그 브랜드의 상태가 대기인 초대 전부(`status='pending'` 전부)**(누가 보냈든, 만료 전후 무관. 대표를 넘기고 내려간 옛 대표가 보낸 초대도 포함) — 대표 없는 브랜드에 멤버가 생기는 길을 막는다 | 4 |
 | S0-2 | 「브랜드 연결 추가」로 이은 계정이 비밀번호 미설정 | ✅ **설정 메일로 대신** — 연결 안내 메일 대신 비밀번호 설정 메일. 대표 줄은 「설정 메일 보냄」 | 4·7 |
 | S0-3 | 공용 링크 유효 시간 1시간 → 24시간 적용 시점 | ✅ **개발서버만 지금**, 운영은 브랜드 페이지 출시 때(운영 관문 목록에 추가). 운영의 인플루언서·관리자 링크는 그때까지 1시간 | 7(문구) · ③ 「~까지 유효(예상)」 |
 | S0-4 | 새 이메일로 두 브랜드에서 받은 초대 중 하나를 수락해 계정이 생김 | ✅ **남은 초대 살리기** — 남은 초대는 「로그인해서 수락」(ⓑ)으로 바뀌어 메일 링크·마이페이지에서 그대로 수락. 「링크는 보낼 때의 상태에 묶인다」(16-3 1번)의 예외 — 보낼 때 새 이메일이었는데 **지금 비밀번호를 정한 브랜드 계정**이면(계정이 생긴 경로 무관 — 다른 초대 수락이든 관리자 계정 만들기든) 수락 가능. 같은 초대의 재시도 예외는 조각 1 도우미 참조 | 1(판정 도우미)·3 |
@@ -75,13 +75,13 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
 
 | 번호 | 제목 | 담당 파일 | 산출 계약(요지) | 선행 | 병렬? | 담당 |
 |---|---|---|---|---|---|---|
-| 1 | 기초: 표·칸·권한 시드·판정 도우미 | 새 마이그레이션 | `brand_invites` · `brand_member_limits` · `brand_accounts` 칸 6개 · `brand.account_manage` · `my_brand_role` · `is_my_brand` | S1 | ✗ | 개발 |
+| 1 | 기초: 표·칸·권한 시드·판정 도우미 | 새 마이그레이션 | `brand_invites` · `brand_member_limits` · `brand_accounts` 칸 5개 · 연결 칸 1개 · `brand.account_manage` · `my_brand_role` · `is_my_brand` | S1 | ✗ | 개발 |
 | 2 | 대표 함수 | 새 마이그레이션 | `create/resend/cancel/hide_brand_invite` · `transfer_brand_ownership` · `release_brand_member` · `get_brand_members` | 1 | ✗ | 개발 |
-| 3 | 받는 사람·본인 함수 + 527 넓히기 | 새 마이그레이션 | `get_brand_invite_link_state` · `respond_brand_invite` · `get_my_brand_invites` · 본인 기록 4종 · 로그인 판정 확장 · 서비스 키 둘 | 2 | ✗ | 개발 |
-| 4 | 관리자 함수 + 527 권한 교체 | 새 마이그레이션 | `admin_change_brand_owner` · `admin_set_brand_member_limit` · `admin_release_brand_account` · `admin_link_brand_owner_account` · 상태 조회 확장 | 3 | ✗ | 개발 |
+| 3 | 받는 사람·본인 함수 + 527 넓히기 | 새 마이그레이션 | `get_brand_invite_link_state` · `respond_brand_invite` · `get_my_brand_invites` · 본인 기록 5종 · 로그인 판정 확장 · 서비스 키 둘 | 2 | ✗ | 개발 |
+| 4 | 관리자 함수 + 527 권한 교체(`admin_upsert_brand_owner_account` 판정 교체) | 새 마이그레이션 | 쓰기: `admin_change_brand_owner` · `admin_set_brand_member_limit` · `admin_release_brand_account` · `admin_link_brand_owner_account` · `admin_upsert_brand_owner_account`(판정만) / 조회(관리자 전원): 상태 조회 확장 · `admin_check_brand_account_email`(겹침 확인 창) | 3 | ✗ | 개발 |
 | 5 | 초대 메일 서버 함수 + 양식 3 | `supabase/functions/notify-brand-invite/` · `docs/email-templates/brand-invite-{new,existing,blocked}.html` · `scripts/sync-email-templates.sh` · `docs/email-templates/index.html` | `POST {invite_id}` → `{sent, reason?, dev_mail?}` | 3 | ✗ | 개발 |
 | 6 | 새 이메일 수락 서버 함수(비로그인) | `supabase/functions/brand-invite-accept/` | `POST {link_id,password,name,phone,terms_version}` → `{ok,email}` | 3 | △(7과) | 개발 |
-| 7 | 기존 메일 두 함수 확장 | `supabase/functions/notify-brand-account-setup/` · `brand-password-reset-request/` · `docs/email-templates/brand-link-notice.html` · 동기화 스크립트 · 양식 목록 | 권한 항목 판정 · `mail_kind:'link'`(연결 안내 + S0-2 갈래) · 24시간 문구 · 보낸 쪽 기록 | 4·5 | △(6과) | 개발 |
+| 7 | 기존 메일 두 함수 확장 | `supabase/functions/notify-brand-account-setup/` · `brand-password-reset-request/` · `docs/email-templates/brand-link-notice.html` · `docs/email-templates/brand-account-setup.html` · 동기화 스크립트 · 양식 목록 | 권한 항목 판정 · `mail_kind:'link'`(연결 안내 + S0-2 갈래) · 24시간 문구 · 보낸 쪽 기록 | 4·5 | △(6과) | 개발 |
 | 8 | 문서 | 사양서 「구현 결과」 · `docs/FEATURE_SPEC.md` · `CLAUDE.md` | 실제 번호·결과값 기록 | 1~7 | ✗ | 개발(규칙 파일은 고문에게 넘김) |
 
 > S0-2 결정으로 **「브랜드 연결 안내」 메일 양식이 두 갈래**가 된다 — 비밀번호를 정한 계정은 연결 안내 양식(`brand-link-notice.html`, 16-3 9번 개인정보 이용 안내 포함), 안 정한 계정은 기존 설정 메일. 양식 파일은 조각 7에서 만든다.
@@ -92,7 +92,7 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
 
 ### 작업 1 — 기초 (표·칸·권한 시드·판정 도우미)
 
-- **하는 일:** 초대 기록·브랜드별 상한 자리를 만들고, 계정에 마지막 접속·마이페이지·마지막 브랜드·비밀번호 변경일 칸을 더한다. 권한 항목을 등록하고, 브랜드 범위 판정과 「수락 가능한 초대」 판정을 **각각 한 곳에** 둔다.
+- **하는 일:** 초대 기록·브랜드별 상한 자리를 만들고, 계정에 마이페이지·마지막 브랜드·비밀번호 변경일 칸을, 연결에 브랜드별 마지막 활동 칸을 더한다. 권한 항목을 등록하고, 브랜드 범위 판정과 「수락 가능한 초대」 판정을 **각각 한 곳에** 둔다.
 - **담당 파일:** 새 마이그레이션(번호는 작성 시 확정).
 - **산출 계약 — 표 `brand_invites`**
 
@@ -116,7 +116,8 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
 
   부분 유일 `(brand_id, email) WHERE status='pending'`. 읽기 정책은 **관리자만** — 대표·멤버·받는 사람은 함수로만 본다(멤버에게 대기 줄을 숨기는 규칙을 서버가 지키게). 쓰기 정책 없음.
 - **산출 계약 — 표 `brand_member_limits`**: `brand_id`(기본 키, 연쇄 삭제) · `member_limit`(1~50 정수 검사 — **대표를 포함한 인원**. 상한 1이면 대표만 있고 초대할 수 없다) · `updated_at` · `updated_by`. 행이 없으면 5. 읽기 관리자, 쓰기 함수만.
-- **산출 계약 — `brand_accounts` 칸 6개**: `last_seen_on date`(일본 날짜) · `mypage_seen_at` · `last_brand_id`(브랜드 참조, 삭제되면 비움) · `password_changed_at`(기존 행은 `password_set_at` 으로 채움) · `setup_mail_sent_by`(`admin`/`self`) · `created_via_invite_id`.
+- **산출 계약 — `brand_account_links` 칸 1개**: `last_active_at timestamptz` — 그 브랜드에서의 마지막 페이지 활동 시각(16-4 「화면 정책 넷」 ③, 브랜드별).
+- **산출 계약 — `brand_accounts` 칸 5개**: `mypage_seen_at` · `last_brand_id`(브랜드 참조, 삭제되면 비움) · `password_changed_at`(기존 행은 `password_set_at` 으로 채움) · `setup_mail_sent_by`(`admin`/`self`) · `created_via_invite_id`.
 - **산출 계약 — 권한 시드**: `role_permissions` 에 `brand.account_manage` 세 등급(최고 관리자 쓰기 · 캠페인 관리자 쓰기 · 캠페인 매니저 숨김), `default_level` 도 같은 값. 🔴 행이 없으면 판정이 등급별로 반대가 된다(269) → 같은 마이그레이션에서. 화면 카탈로그(shared.js) 등록은 ③ 몫.
 - **산출 계약 — 함수**
 
@@ -126,9 +127,9 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
   | `is_my_brand(p_brand_id uuid) → boolean` | 로그인 사용자 | ②의 조회 정책이 `(SELECT public.is_my_brand(...))` 형태로 쓴다(415 방식) |
   | `_brand_member_limit(uuid)` | 안쪽 전용 | 상한 |
   | `_brand_seat_usage(uuid)` | 안쪽 전용 | 대표 연결이 있으면 1 + 활성 멤버 + **`pending` 이고 만료 전인 초대**(ⓒ·상태가 바뀐 초대도 센다) |
-  | `_brand_invite_acceptable(p_invite_id uuid, p_auth_id uuid, p_via_link boolean)` | 안쪽 전용 | 🔴 이 도우미는 **초대가 유효한가**만 본다 — 받는 계정의 비밀번호 설정 여부는 수락 조건이 아니다(아래 예외 둘의 갈래를 가를 때만 쓴다). 셋째 인자는 **예외 1(재시도)만** 켜고 끈다: `true` = 비로그인 새 이메일 경로(`get_brand_invite_link_state`·`service_brand_invite_*`·`brand-invite-accept`), `false` = 그 밖 전부(받은 초대 목록·대기 초대 표시·빨간 점·`respond_brand_invite`, 그리고 527 을 넓히는 `get_brand_link_state`·`service_issue_brand_account_link`·비밀번호 찾기 판정). 비밀번호 요구는 **수락하는 순간** `respond_brand_invite` 가 따로 본다 — 비밀번호를 안 정한 브랜드 계정이면 `setup_incomplete`(Figma w01-03 「아직 비밀번호를 정하지 않은 계정이면 먼저 받은 설정 메일로 정한 뒤 수락」). 그 사람은 넓힌 527 판정 덕에 설정 링크·비밀번호 찾기를 쓸 수 있고(어긋남 2번), 비밀번호를 정한 뒤 로그인해서 수락한다. 나머지 조건: 대기 · 만료 전 · 브랜드 활성 · ⓒ 아님 · 지금 이메일 소유 상태 = 보낼 때 상태 — **예외 둘**(갈래 기호 ⓐⓑⓒ 와 구분해 「예외 1·2」로 부른다. 「비밀번호를 정했는가」는 두 예외 모두 **`brand_accounts.password_set_at` 하나**로 본다 — 인증 계정의 비밀번호 유무가 아니다): **예외 1(재시도)** — 보낼 때 `new` 였고 지금 그 이메일의 계정이 `created_via_invite_id` = 이 초대 + 비밀번호 미설정이면 수락 가능(`new` 그대로 — 조각 6 의 중간 실패 재시도) **예외 2(S0-4)** — 보낼 때 `new` 였고 지금 그 이메일이 **비밀번호를 정한 브랜드 계정**이면 수락 가능(ⓑ로 취급) · (계정이 주어지면) 계정 이메일 = 초대 이메일 |
+  | `_brand_invite_acceptable(p_invite_id uuid, p_auth_id uuid, p_via_link boolean)` | 안쪽 전용 | 🔴 이 도우미는 **초대가 유효한가**만 본다 — 받는 계정의 비밀번호 설정 여부는 수락 조건이 아니다(아래 예외 둘의 갈래를 가를 때만 쓴다). 셋째 인자는 **예외 1(재시도)만** 켜고 끈다: `true` = 비로그인 새 이메일 경로(`get_brand_invite_link_state`·`service_brand_invite_*`·`brand-invite-accept`), `false` = 그 밖 전부(받은 초대 목록·로그인 판정의 `has_pending_invite`(대기 초대만 있는 계정의 갈래)·빨간 점·`respond_brand_invite`, 그리고 527 을 넓히는 `get_brand_link_state`·`service_issue_brand_account_link`·비밀번호 찾기 판정). 비밀번호 요구는 **수락하는 순간** `respond_brand_invite` 가 따로 본다 — 비밀번호를 안 정한 브랜드 계정이면 `setup_incomplete`(Figma w01-03 「아직 비밀번호를 정하지 않은 계정이면 먼저 받은 설정 메일로 정한 뒤 수락」 — 사양서 16-3 1번이 「또는 로그인 화면의 「비밀번호 찾기」」로 넓혔다, Figma 문구는 기획 몫으로 고친다). 그 사람은 넓힌 527 판정 덕에 설정 링크·비밀번호 찾기를 쓸 수 있고(어긋남 2번), 비밀번호를 정한 뒤 로그인해서 수락한다. 나머지 조건: 대기 · 만료 전 · 브랜드 활성 · ⓒ 아님 · 지금 이메일 소유 상태 = 보낼 때 상태 — **예외 둘**(갈래 기호 ⓐⓑⓒ 와 구분해 「예외 1·2」로 부른다. 「비밀번호를 정했는가」는 두 예외 모두 **`brand_accounts.password_set_at` 하나**로 본다 — 인증 계정의 비밀번호 유무가 아니다): **예외 1(재시도)** — 보낼 때 `new` 였고 지금 그 이메일의 계정이 `created_via_invite_id` = 이 초대 + 비밀번호 미설정이면 수락 가능(`new` 그대로 — 조각 6 의 중간 실패 재시도) **예외 2(S0-4)** — 보낼 때 `new` 였고 지금 그 이메일이 **비밀번호를 정한 브랜드 계정**이면 수락 가능(ⓑ로 취급) · (계정이 주어지면) 계정 이메일 = 초대 이메일 |
 
-  🔴 「자리를 차지하는가」(`_brand_seat_usage`)와 「수락할 수 있는가」(`_brand_invite_acceptable`)는 **다른 판정**이다 — 합치면 겹침이 대표의 숫자로 드러나거나 ⓒ가 자리를 안 차지한다. 잠금 열쇠는 **527 과 같은 열쇠**(`'brand_account_upsert:'||brand_id` · `'brand_account_email:'||email`)를 다시 써서 527 대표 계정 만들기와 직렬화한다.
+  대표의 멤버 관리 표(`get_brand_members`)와 관리자 상태 조회의 초대 줄은 이 도우미를 쓰지 않고 저장 상태·`expires_at` 으로 가른다(§16 머리 정의 ① — 수락 가능 여부와 무관). 🔴 「자리를 차지하는가」(`_brand_seat_usage`)와 「수락할 수 있는가」(`_brand_invite_acceptable`)는 **다른 판정**이다 — 합치면 겹침이 대표의 숫자로 드러나거나 ⓒ가 자리를 안 차지한다. 잠금 열쇠는 **527 과 같은 열쇠**(`'brand_account_upsert:'||brand_id` · `'brand_account_email:'||email`)를 다시 써서 527 대표 계정 만들기와 직렬화한다.
 - **선행 의존:** S1.
 - **완료 정의:** 두 표의 행 접근 정책 켜짐 + 읽기 정책 1개씩 · 함수 권한 조회에서 `proacl` 맨 앞에 `=X/` 없음, 도우미 셋은 로그인 사용자도 실행 불가 · `role_permissions` 에 `brand.account_manage` 3행 · 되돌림 묶음 시험(527 V4 방식: `set_config` 로 로그인 흉내 + 끝의 `RAISE EXCEPTION`)에서 대표/멤버/무관 계정의 `my_brand_role` 이 `owner`/`member`/`NULL`, 좌석 수(대표 + 멤버 1 + 대기 1 + 만료 1 + 거절 1 = **3**), 시험 뒤 잔여 0건.
 - **필요 검문소:** `reverb-supabase-expert`, `reverb-reviewer`.
@@ -143,26 +144,26 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
   |---|---|---|
   | `create_brand_invite(p_brand_id uuid, p_email text)` | jsonb `{result, invite_id, seat_used, member_limit}` | `ok` · `not_owner` · `brand_inactive` · `invalid_email` · `self_email` · `already_member` · `already_pending` · `seat_full` |
   | `resend_brand_invite(p_invite_id uuid)` | jsonb `{result, invite_id}` | `ok` · `not_owner` · `not_found` · `not_resendable` · `seat_full`(만료된 초대일 때만) |
-  | `cancel_brand_invite(p_invite_id uuid)` | text | `ok` · `not_owner` · `not_pending` |
+  | `cancel_brand_invite(p_invite_id uuid)` | text | `ok` · `not_owner` · `not_pending`. **`pending` 이고 만료 전일 때만** 취소 — 만료 줄(저장 상태는 `pending`)도 `not_pending` 으로 거부(만료 줄은 「다시 보내기」·「삭제」만, 16-4 `06`) |
   | `hide_brand_invite(p_invite_id uuid)` | text | `ok` · `not_owner` · `not_hideable`. 만료·거절만 「삭제」 → `owner_hidden_at` |
   | `transfer_brand_ownership(p_brand_id uuid, p_new_owner_auth_id uuid)` | text | `ok` · `not_owner` · `not_member` |
   | `release_brand_member(p_brand_id uuid, p_auth_id uuid)` | text | `ok` · `not_owner` · `not_member` |
   | `get_brand_members(p_brand_id uuid)` | jsonb | 아래 |
 
   - `create_brand_invite`: ⓐⓑⓒ 갈래는 서버가 고르지만 **응답에 싣지 않는다**. 판정 순서: ① 같은 이메일의 대기 초대가 **만료됐으면**(발송 기록과 무관) 아래 「만료 초대」 갈래 ② **만료 전**이고 지금 링크로 발송 기록이 없으면(`mail_sent_link_id` ≠ `link_id`) `ok` + 같은 `invite_id`(멱등 재시도) — 이때도 `resend_brand_invite` 와 같이 **링크·시각·갈래·보낼 때 상태·보낸 사람을 새로 정한다**(자리 검사는 하지 않는다 — 만료 전 대기라 이미 한 자리를 차지하고 있다) ③ 만료 전이고 발송 기록이 있으면 `already_pending`(16-7 — 「다시 보내기」로 안내). 「만료 초대」 갈래: 같은 이메일의 **만료 초대**가 있으면 그 줄로 다시 보내기(자리 검사 포함) — 대표가 「삭제」해 둔 줄이면 `owner_hidden_at` 을 비워 되살린다. 거절함 줄은 다시 쓰지 않고 새 줄을 만든다(거절한 초대는 살리지 않는다 — w07-02).
-  - `resend_brand_invite`: 새 `link_id`·`issued_at`·`expires_at`, 갈래와 「보낼 때 상태」를 다시 판정, `mail_sent_*` 비움, **`invited_by`·`inviter_name` 을 지금 누른 대표로 바꾼다**(대표를 넘긴 뒤 다시 보내면 새 대표 이름이 메일·링크 화면에 뜬다). 만료 줄 되살리기와 멱등 재시도도 같다.
+  - `resend_brand_invite`: 새 `link_id`·`issued_at`·`expires_at`, 갈래와 「보낼 때 상태」를 다시 판정, `mail_sent_*` 비움, **`invited_by`·`inviter_name` 을 지금 누른 대표로 바꾼다**(대표를 넘긴 뒤 다시 보내면 새 대표 이름이 메일·링크 화면에 뜬다). 만료 줄 되살리기와 멱등 재시도도 같다. ⚠️ 새 이메일 초대를 수락하다 끊겨 계정만 생긴 뒤 다시 보내면 갈래가 ⓐ → ⓑ 로 바뀐다(옛 재시도 링크는 무효, 그 사람은 비밀번호 찾기로 설정 메일을 받아 비밀번호를 정한 뒤 로그인해서 수락 — 사양서 16-4 「비밀번호 재설정」 ⓑ).
   - `transfer_brand_ownership`: **옛 대표 연결을 해제하고 멤버 연결을 새로 만들고, 새 대표 쪽도 같은 방식**(역할을 덮어쓰지 않는다 → 연결 표에 이력). 대표가 0명·2명인 순간이 없게 한 트랜잭션. 담당자 목록 대표 표시 이동은 안쪽 전용 `_brand_contacts_mark_primary(brand, auth_id)`(이메일로 같은 사람 판정, 없으면 계정 이름·이메일·연락처로 한 줄 추가, 옛 줄은 표시만 뗌). 메일 없음.
-  - 대표 전환 본체는 안쪽 전용 `_brand_transfer_owner(p_brand_id uuid, p_new_owner_auth_id uuid)` 로 둔다(옛 대표 해제 + 멤버 연결, 새 대표 쪽 같은 방식, 담당자 표시 이동까지). `transfer_brand_ownership`(대표 판정 뒤)과 조각 4 `admin_change_brand_owner`(권한 판정 뒤)가 둘 다 이것을 부른다.
+  - 대표 전환 본체는 안쪽 전용 `_brand_transfer_owner(p_brand_id uuid, p_new_owner_auth_id uuid)` 로 둔다(옛 대표 해제 + 멤버 연결, 새 대표 쪽 같은 방식, 담당자 표시 이동까지. **두 사람 모두 옛 연결의 `last_active_at` 을 새 연결로 옮겨 적는다** — 같은 사람·같은 브랜드의 활동이라 넘긴 순간 「—」로 바뀌지 않게). `transfer_brand_ownership`(대표 판정 뒤)과 조각 4 `admin_change_brand_owner`(권한 판정 뒤)가 둘 다 이것을 부른다.
 - `release_brand_member`: 대표·본인·이미 해제된 사람은 `not_member`.
-  - `get_brand_members` 반환 `{my_role, seat_used, member_limit, rows[]}`, 행 `{kind:'account'|'invite', auth_id, invite_id, name, email, role, status:'active'|'pending'|'expired'|'declined', issued_at, expires_at, declined_at, last_seen_on}`. 🔴 **멤버가 부르면** `kind='account'` 행만, `auth_id`·`last_seen_on` 은 뺀다(16-7). 연결이 없으면 `{result:'not_linked'}`. 초대 행의 `name` 은 늘 비운다(겹침 비노출). 숨김·취소·수락된 초대는 싣지 않는다.
+  - `get_brand_members` 반환 `{my_role, seat_used, member_limit, rows[]}`, 행 `{kind:'account'|'invite', auth_id, invite_id, name, email, role, status:'active'|'pending'|'expired'|'declined', issued_at, expires_at, declined_at, last_active_at}`. 🔴 **멤버가 부르면** `kind='account'` 행만, `auth_id` 는 뺀다 — `last_active_at` 은 멤버에게도 준다(16-4 「화면 정책 넷」 ③ · 16-7). 연결이 없으면 `{result:'not_linked'}`. 초대 행의 `name` 은 늘 비운다(겹침 비노출). 숨김·취소·수락된 초대는 싣지 않는다.
 - **선행 의존:** 1.
-- **완료 정의:** 되돌림 묶음 시험에서 — ⓐⓑⓒ 세 이메일로 `create` 한 **응답 jsonb 의 키 집합이 같고 `result` 가 모두 `ok`, `seat_used` 는 매번 1씩 증가**(갈래를 짐작할 값이 없다) · 상한 5에서 대표 + 초대 4건 뒤 **다섯째 초대** `seat_full` · 만료 초대 `resend` 는 자리 있으면 `ok`/없으면 `seat_full`, 대기 초대 `resend` 는 가득 차도 `ok` · 멤버의 `create` → `not_owner` · 멤버 호출 `get_brand_members` 에 초대 행 0 + `last_seen_on` 키 없음 · 넘기기 뒤 `brands.contacts` 대표 표시가 새 대표 이메일 줄 · 잔여 0.
+- **완료 정의:** 되돌림 묶음 시험에서 — ⓐⓑⓒ 세 이메일로 `create` 한 **응답 jsonb 의 키 집합이 같고 `result` 가 모두 `ok`, `seat_used` 는 매번 1씩 증가**(갈래를 짐작할 값이 없다) · 상한 5에서 대표 + 초대 4건 뒤 **다섯째 초대** `seat_full` · 만료 초대 `resend` 는 자리 있으면 `ok`/없으면 `seat_full`, 대기 초대 `resend` 는 가득 차도 `ok` · 만료 초대 `cancel` → `not_pending` · 멤버의 `create` → `not_owner` · 멤버 호출 `get_brand_members` 에 초대 행 0 + `auth_id` 키 없음 + `last_active_at` 있음 · 넘기기 뒤 `brands.contacts` 대표 표시가 새 대표 이메일 줄 · 넘기기 전후 두 사람의 `last_active_at` 이 같다 · 잔여 0.
 - **필요 검문소:** `reverb-supabase-expert`, `reverb-reviewer`.
 - **주의·롤백:** 함수만 추가. `brands.contacts` 를 서버가 고치는 첫 경로라 「공유 지점 경고」의 덮어쓰기 위험을 병합 요청 본문에 적는다.
 
 ### 작업 3 — 받는 사람·본인 함수 + 527 넓히기
 
-- **하는 일:** 메일 링크 판정, 수락·거절, 받은 초대 목록과 빨간 점, 마지막 접속·마이페이지·마지막 브랜드·이름/연락처·비밀번호 변경 기록. 527 판정 둘(`get_brand_link_state`·`service_issue_brand_account_link`)을 「연결 또는 수락 가능한 대기 초대」로 넓히고, 로그인 판정은 `state` 를 그대로 두고 새 칸으로 알린다(어긋남 4번). 설정·재설정을 **마치는** 함수 둘(`complete_brand_account_setup`·`complete_brand_password_reset`)은 지금도 연결을 보지 않고 링크 번호 일치만 본다(527 확인) — 그대로 둔다.
+- **하는 일:** 메일 링크 판정, 수락·거절, 받은 초대 목록과 빨간 점, 브랜드별 마지막 활동·마이페이지·마지막 브랜드·이름/연락처·비밀번호 변경 기록. 527 판정 둘(`get_brand_link_state`·`service_issue_brand_account_link`)을 「연결 또는 수락 가능한 대기 초대」로 넓히고, 로그인 판정은 `state` 를 그대로 두고 새 칸으로 알린다(어긋남 4번). 설정·재설정을 **마치는** 함수 둘(`complete_brand_account_setup`·`complete_brand_password_reset`)은 지금도 연결을 보지 않고 링크 번호 일치만 본다(527 확인) — 그대로 둔다.
 - **산출 계약 — 새 함수**
 
   | 함수 | 반환 | 결과 값 / 동작 |
@@ -171,36 +172,39 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
   | `respond_brand_invite(p_invite_id uuid, p_link_id uuid, p_action text)` | jsonb `{result, brand_id}` | `ok` · `already_member` · `invalid` · `not_brand` · `setup_incomplete`. 메일 링크는 `p_link_id`, 마이페이지는 `p_invite_id` 로 지목 — **같은 함수**. `p_action` 은 `'accept'`/`'decline'`. 무효 사유는 나누지 않는다. 수락은 비밀번호 설정을 마친 계정만, 자리는 다시 검사하지 않는다(보낼 때 막는다) |
   | `get_my_brand_invites()` | jsonb 배열 `[{invite_id, brand_id, brand_name, inviter_name, issued_at, expires_at}]` | 수락 가능한 초대만 |
   | `mark_my_brand_mypage_seen()` | | 빨간 점 끄기 |
+  | `touch_my_brand_activity(p_brand_id uuid)` | text | `ok` · `not_linked`. 그 브랜드 연결의 `last_active_at` 을 지금으로 — **5분 안에 이미 기록됐으면 건너뛴다**(몇 분에 한 번으로 묶기). 화면(②)이 **사람이 누른 화면 이동·저장 때만** 부른다 — 열어 둔 탭·자동 저장·로그인 직후 자동으로 옮겨진 첫 화면은 부르지 않는다(16-4 「화면 정책 넷」 ③) |
   | `set_my_brand_last_viewed(p_brand_id uuid)` | text | `ok` · `not_linked` |
   | `update_my_brand_profile(p_name text, p_phone text)` | text | `ok` · `name_required` · `not_brand`. 앞뒤 공백 제거. 담당자 목록과 맞추지 않는다 |
   | `mark_my_brand_password_changed()` | text | 마이페이지 비밀번호 변경 뒤 화면이 부른다 |
 
-- **산출 계약 — `get_my_brand_login_state()` 재정의(베이스 527)**: **`state` 값은 그대로**(`ok`·`not_brand`·`setup_incomplete`·`no_active_brand`). 칸 추가 `last_brand_id` · `has_pending_invite` · `new_invite_dot` · `password_changed_at`. **마지막 접속 하루 한 번 기록도 이 안에서**(`last_seen_on < 오늘(일본 날짜)` 일 때만) — 화면이 부르기를 잊을 수 없게.
+- **산출 계약 — `get_my_brand_login_state()` 재정의(베이스 527)**: **`state` 값은 그대로**(`ok`·`not_brand`·`setup_incomplete`·`no_active_brand`). 칸 추가 `last_brand_id` · `has_pending_invite` · `new_invite_dot` · `password_changed_at`. 마지막 접속은 여기서 기록하지 않는다 — 로그인만 한 것은 활동으로 세지 않는다(16-4 「화면 정책 넷」 ③).
 - **산출 계약 — 527 재정의**(베이스 527, `CREATE OR REPLACE`): `get_brand_link_state` · `service_issue_brand_account_link` → 「활성 연결 **또는** 수락 가능한 대기 초대」 · `complete_brand_account_setup` · `complete_brand_password_reset` → `password_changed_at` 기록 · `service_mark_brand_setup_mail_sent(p_auth_id uuid, p_link_id uuid, p_sent_to text, p_sent_by text DEFAULT 'admin')` — 🔴 인자가 늘어 **옛 3인자를 `DROP` 후 만들고 실행 권한 회수를 다시 건다**(두 벌이면 호출이 모호).
+- 🔴 **수락 경로의 잠금**: `respond_brand_invite`·`service_brand_invite_create_account`·`service_brand_invite_finalize` 셋 모두 **527 과 같은 브랜드 잠금 열쇠**(`'brand_account_upsert:'||brand_id`)를 잡고(이메일 잠금은 필요한 곳에 더해) 그 안에서 `_brand_invite_acceptable` 을 판정한다 — 대표 해제(조각 4, 같은 열쇠)와 순서가 정해져, 16-3 5번 「수락이 먼저면 해제 거부 · 해제가 먼저면 수락 거부」가 지켜진다.
 - **산출 계약 — 서비스 키 전용(조각 6이 씀)**
-  - `service_brand_invite_create_account(p_link_id uuid, p_name text, p_phone text, p_terms_version text)` → `{ok, auth_id, email, reason}` — 초대 잠금 + 이메일 잠금 → 수락 가능 확인 **그리고 지금 갈래가 `new`(재시도 예외 포함)** — S0-4 갈래(이미 비밀번호를 정한 계정)면 `invalid_link` 로 거부(로그인해서 수락할 길이다) → 인증 계정 직접 삽입(527 방식, 비밀번호 빈칸, `account_kind='brand'`) + `brand_accounts`(이름·연락처·약관 동의 시각·판, `created_via_invite_id`). 같은 초대로 이미 만든 계정(비밀번호 미설정)이 있으면 다시 쓴다.
-  - `service_brand_invite_finalize(p_link_id uuid, p_auth_id uuid)` → `{ok, brand_id, reason}` — 인증 계정에 비밀번호가 실제로 있는지 확인 → `password_set_at`·`password_changed_at` → 멤버 연결 → 초대 `accepted`.
+  - `service_brand_invite_create_account(p_link_id uuid, p_name text, p_phone text, p_terms_version text)` → `{ok, auth_id, email, reason}` — 브랜드 잠금 + 이메일 잠금(위 「수락 경로의 잠금」과 같은 열쇠) → 수락 가능 확인 **그리고 지금 갈래가 `new`(재시도 예외 포함)** — S0-4 갈래(이미 비밀번호를 정한 계정)면 `invalid_link` 로 거부(로그인해서 수락할 길이다) → 인증 계정 직접 삽입(527 방식, 비밀번호 빈칸, `account_kind='brand'`) + `brand_accounts`(이름·연락처·약관 동의 시각·판, `created_via_invite_id`). 같은 초대로 이미 만든 계정(비밀번호 미설정)이 있으면 다시 쓴다.
+  - `service_brand_invite_finalize(p_link_id uuid, p_auth_id uuid)` → `{ok, brand_id, reason}` — 인증 계정에 브랜드 잠금 안에서 `_brand_invite_acceptable` 을 **다시 판정**(두 호출 사이에 초대가 취소됐을 수 있다 — 아니면 `invalid_link`) → 비밀번호가 실제로 있는지 확인 → `password_set_at`·`password_changed_at` → 멤버 연결 → 초대 `accepted`.
 - **설계 메모 — 마이페이지 현재 비밀번호 확인(w07-01)**: 서버 함수 안에서 비밀번호 원문 비교는 **권하지 않는다**(원문이 호출 인자로 들어가고 횟수 제한이 없다). 권고: ②가 저장하지 않는 별도 연결로 「현재 비밀번호 로그인」을 한 번 해 확인한 뒤 `updateUser` — 로그인 체계 횟수 제한을 그대로 받는다. ①은 `mark_my_brand_password_changed` 만 낸다. 로그인 체계에 「현재 비밀번호 요구」 설정이 있는지는 `reverb-supabase-expert` 가 확인.
 - **선행 의존:** 2.
-- **완료 정의:** `get_brand_invite_link_state(무작위 번호)` → `{"state":"invalid"}` · 되돌림 묶음 시험에서 ⓑ 계정 흉내 `respond_brand_invite(link,'accept')` → `ok` + 연결 생김, 재호출 `invalid`, 다른 계정 흉내 `invalid`, 거절 → 좌석 1 감소 · 연결 모두 해제된 계정 + 대기 초대 → 로그인 판정 `no_active_brand` + `has_pending_invite=true`, 같은 계정 `service_issue_brand_account_link(...)` → `ok`, `get_brand_link_state` → `valid`, 그 링크 번호로 `complete_brand_password_reset` 까지 `ok`(재설정을 끝까지 마침) · 다시 보내기 뒤 `new_invite_dot=true`, `mark_my_brand_mypage_seen` 뒤 `false` · **S0-4**: 새 이메일로 두 브랜드 초대 → 하나 수락(`service_brand_invite_create_account` → **SQL 로 그 인증 계정의 비밀번호를 채운 뒤**(조각 6 ③ 대신) → `service_brand_invite_finalize`) → 남은 초대의 `get_brand_invite_link_state` 가 `recipient:'existing'` 으로 `valid` · 회귀: 기존 대표 설정 → 로그인 → 비밀번호 찾기 시험 묶음(527 V5) 통과.
+- **완료 정의:** `get_brand_invite_link_state(무작위 번호)` → `{"state":"invalid"}` · 되돌림 묶음 시험에서 ⓑ 계정 흉내 `respond_brand_invite(link,'accept')` → `ok` + 연결 생김, 재호출 `invalid`, 다른 계정 흉내 `invalid`, 거절 → 좌석 1 감소 · 연결 모두 해제된 계정 + 대기 초대 → 로그인 판정 `no_active_brand` + `has_pending_invite=true`, 같은 계정 `service_issue_brand_account_link(...)` → `ok`, `get_brand_link_state` → `valid`, 그 링크 번호로 `complete_brand_password_reset` 까지 `ok`(재설정을 끝까지 마침) · `touch_my_brand_activity` 를 두 번 연달아 부르면 `last_active_at` 은 첫 번째 값 그대로(5분 묶기), 연결 없는 브랜드면 `not_linked` · 다시 보내기 뒤 `new_invite_dot=true`, `mark_my_brand_mypage_seen` 뒤 `false` · **S0-4**: 새 이메일로 두 브랜드 초대 → 하나 수락(`service_brand_invite_create_account` → **SQL 로 그 인증 계정의 비밀번호를 채운 뒤**(조각 6 ③ 대신) → `service_brand_invite_finalize`) → 남은 초대의 `get_brand_invite_link_state` 가 `recipient:'existing'` 으로 `valid` · 회귀: 기존 대표 설정 → 로그인 → 비밀번호 찾기 시험 묶음(527 V5) 통과.
 - **필요 검문소:** `reverb-supabase-expert`, `reverb-reviewer`.
 - **주의·롤백:** 🔴 527 함수 **여섯**을 재정의한다(`get_my_brand_login_state` + 위 다섯) — 되돌리려면 **먼저 4인자 `service_mark_brand_setup_mail_sent` 를 `DROP`** 한 뒤 527 해당 구문 여섯을 재실행하고 실행 권한 회수도 다시 건다(4인자를 남긴 채 3인자를 되살리면 기본값 때문에 3인자 호출이 모호 오류). 🔴 **조각 7 배포 뒤에** 조각 3 을 되돌리려면 조각 7(두 메일 함수 — 넷째 인자를 넘긴다)을 **먼저** 되돌린다. `service_mark_brand_setup_mail_sent` 는 넷째 인자 `p_sent_by` 에 **기본값 `'admin'`** 을 준다 — 옛 3인자를 지우고 4인자를 만들어도 지금 서버 함수 둘의 3인자 호출이 그대로 돈다. 그래서 조각 7(두 함수가 `'self'` 를 넘기게 고치는 것)과 같은 날 배포할 필요가 없다. 조각 7 전까지 비밀번호 찾기 재발송도 `admin` 으로 기록되는 것은 개발서버에서만 생기는 일이라 받아들인다.
 
 ### 작업 4 — 관리자 함수 + 527 권한 교체
 
-- **산출 계약** — 쓰기 함수 다섯(`admin_change_brand_owner` · `admin_set_brand_member_limit` · `admin_release_brand_account` · `admin_link_brand_owner_account` · `admin_upsert_brand_owner_account`)은 `has_permission('brand.account_manage','write')`, 거부는 `forbidden`. 상태 조회 `admin_get_brand_account_status` 만 **관리자 전원**(527 그대로 — 관리자가 아니면 권한 오류)이고 `can_manage` 로 쓰기 권한 여부를 알려 준다
+- **산출 계약** — 쓰기 함수 다섯(`admin_change_brand_owner` · `admin_set_brand_member_limit` · `admin_release_brand_account` · `admin_link_brand_owner_account` · `admin_upsert_brand_owner_account`)은 `has_permission('brand.account_manage','write')`, 거부는 `forbidden`. 조회 둘 — 상태 조회 `admin_get_brand_account_status`(527 그대로 — 관리자가 아니면 권한 오류, `can_manage` 로 쓰기 권한 여부를 알려 준다)와 겹침 확인 `admin_check_brand_account_email` — 은 **관리자 전원**이다
 
   | 함수 | 반환 | 결과 값 / 동작 |
   |---|---|---|
   | `admin_change_brand_owner(p_brand_id uuid, p_new_owner_auth_id uuid, p_expected_owner_auth_id uuid)` | text | `ok` · `forbidden` · `owner_changed`(a03-02b) · `not_member`. 작업 2의 안쪽 전용 `_brand_transfer_owner` 를 그대로 쓴다 |
   | `admin_set_brand_member_limit(p_brand_id uuid, p_limit int)` | jsonb `{result, member_limit, seat_used}` | `ok` · `forbidden` · `invalid_limit`(1~50 밖) · `brand_not_found`. 지금 인원보다 작아도 받는다. 이력 없음 |
-  | `admin_release_brand_account(p_brand_id uuid, p_auth_id uuid)` | jsonb `{result, cancelled_invites}` | `ok` · `forbidden` · `not_linked` · `owner_has_members`(활성 멤버가 있는 대표). **S0-1: 대표를 해제하면 그 브랜드의 대기 초대를 함께 `cancelled`** — 취소한 수를 돌려준다 |
+  | `admin_release_brand_account(p_brand_id uuid, p_auth_id uuid)` | jsonb `{result, cancelled_invites}` | `ok` · `forbidden` · `not_linked` · `owner_has_members`(활성 멤버가 있는 대표). **S0-1: 대표를 해제하면 그 브랜드의 상태가 대기인 초대(`status='pending'` 전부 — 만료·ⓒ·상태가 바뀐 줄 포함)를 함께 `cancelled`** — 취소한 수를 돌려준다 |
   | `admin_link_brand_owner_account(p_brand_id uuid, p_email text)` | jsonb `{result, auth_id, password_set, email_kind}` | `ok` · `forbidden` · `owner_exists` · `not_brand_account` · `brand_archived` · `invalid_email`. 대표 없는 브랜드에만, 대표로만. 다른 브랜드에 연결된 계정 허용(527 `conflict_brand` 를 이 경로에서만 푼다). `email_kind` 는 a03-04a 문구용 `none`/`influencer`/`admin`(관리자에겐 숨길 이유가 없다). 담당자 표시 이동. 연결 뒤 화면은 메일 함수를 `mail_kind:'link'` 하나로 부르고 **양식은 서버가 고른다**(조각 7 — S0-2). `password_set` 은 표시용 |
-  | `admin_get_brand_account_status(p_brand_id uuid)` 확장 | jsonb | 기존 칸 유지 + `setup_mail_sent_by` · `owner_auth_id` · `members[]`(이름·이메일·연락처·`last_seen_on`·`password_set_at`) · `invites[]`(대기·만료·거절, `owner_hidden_at` 포함 — 보일지는 ③ 결정 16-5 11번) · `seat_used` · `member_limit` · `can_manage`. jsonb 그대로라 `CREATE OR REPLACE` |
-  | `admin_upsert_brand_owner_account` | | 본문은 527 그대로, 가드만 `is_campaign_admin()` → 권한 항목. 🔴 **16-3 1번 겹침**: 「계정 만들기」의 이메일이 다른 브랜드 계정이면 527 대로 `conflict_brand` 를 돌려주고, **③ 화면이 이어서 `admin_link_brand_owner_account` 로 연결 + 연결 안내 메일**로 처리한다(이 함수 본문은 바꾸지 않는다) |
+  | `admin_check_brand_account_email(p_brand_id uuid, p_email text)` | jsonb `{result, email_kind, name, linked_brand_count, released_from_this_brand}` | 겹침 확인 창(사양서 16-3 1번)용 조회 — 상태 조회와 같이 **관리자 전원**(쓰기 아님). `email_kind` = `none`/`brand`/`influencer`/`admin`, `released_from_this_brand` = 이 브랜드에서 해제된 연결 이력이 있는가. 관리자에게는 숨길 이유가 없다 |
+  | `admin_get_brand_account_status(p_brand_id uuid)` 확장 | jsonb | 기존 칸 유지 + `setup_mail_sent_by` · `owner_auth_id` · `members[]`(이름·이메일·연락처·`last_active_at`·`password_set_at`) · `invites[]`(대기·만료·거절, `owner_hidden_at` 포함 — 보일지는 ③ 결정 16-5 11번) · `seat_used` · `member_limit` · `can_manage`. jsonb 그대로라 `CREATE OR REPLACE` |
+  | `admin_upsert_brand_owner_account` | | 본문은 527 그대로, 가드만 `is_campaign_admin()` → 권한 항목. 🔴 **16-3 1번 겹침**: 「계정 만들기」의 이메일이 브랜드 계정이면 527 대로 `conflict_brand` 를 돌려준다(이 함수 본문은 바꾸지 않는다). **③ 화면은 바로 잇지 않고 겹침 확인 창**(2026-10-15 사용자 결정 — 사양서 16-3 1번)을 띄우고, 관리자가 「연결」을 누르면 `admin_link_brand_owner_account` → 메일(`mail_kind:'link'` — 양식은 서버가 고른다, 조각 7·S0-2). 창에 쓸 정보는 아래 `admin_check_brand_account_email` |
 
 - **선행 의존:** 3.
-- **완료 정의:** 되돌림 묶음 시험(최고 관리자·캠페인 관리자·매니저 흉내)에서 매니저 → 쓰기 함수 다섯 모두 `forbidden`(상태 조회는 `can_manage=false` 로 성공), 캠페인 관리자 → `ok` · 멤버가 있는 대표 해제 → `owner_has_members` · 멤버 없는 대표 + 대기 초대 2건 해제 → `ok` + `cancelled_invites=2` · 다른 브랜드 대표 계정 연결 → `ok` + 담당자 표시 이동 · 대표가 있는 브랜드에 연결 → `owner_exists` · 상한 0 → `invalid_limit` · 매니저 권한을 SQL 로 「쓰기」로 바꾸면 같은 호출이 `ok`(서버가 설정을 실제로 따른다) · 로그인한 관리자 브라우저에서 상태 조회 1회.
+- **완료 정의:** 되돌림 묶음 시험(최고 관리자·캠페인 관리자·매니저 흉내)에서 매니저 → 쓰기 함수 다섯 모두 `forbidden`(조회 둘은 성공 — 상태 조회는 `can_manage=false`), 캠페인 관리자 → `ok` · 멤버가 있는 대표 해제 → `owner_has_members` · 멤버 없는 대표 + 대기 초대 2건 해제 → `ok` + `cancelled_invites=2` · 새 이메일 초대의 계정 만들기 단계 뒤 대표를 해제하면 같은 초대의 마무리 호출(`service_brand_invite_finalize`)이 `invalid_link` · 다른 브랜드 대표 계정 연결 → `ok` + 담당자 표시 이동 · 이 브랜드에서 해제한 옛 대표 이메일로 `admin_check_brand_account_email` → `email_kind='brand'` + `released_from_this_brand=true` · 대표가 있는 브랜드에 연결 → `owner_exists` · 상한 0 → `invalid_limit` · 매니저 권한을 SQL 로 「쓰기」로 바꾸면 같은 호출이 `ok`(서버가 설정을 실제로 따른다) · 로그인한 관리자 브라우저에서 상태 조회 1회.
 - **필요 검문소:** `reverb-supabase-expert`, `reverb-reviewer`.
 - **주의·롤백:** 가드 교체로 지금 개발서버의 「저장 시 자동 발송」 경로(③이 걷을 예정)는 판정 기준만 바뀌고 계속 돈다. 되돌리려면 527 구문 재실행.
 
@@ -225,10 +229,11 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
 
 - **B 절차:** ① 화면이 `{link_id, password, name, phone, terms_version}` 전송 ② `service_brand_invite_create_account` ③ `auth.admin.updateUserById(auth_id, {password})` ④ `service_brand_invite_finalize` ⑤ `{ok:true, email}` ⑥ 화면이 그 이메일·비밀번호로 로그인(② 몫).
 - **걸리는 장치 대조:** 497 가입 관문 — 삽입은 정의자 권한(소유자 postgres)이라 통과, 비밀번호 저장은 `email_confirmed_at` 이 채워진 행이라 고쳐 쓰기 관문 첫 줄에서 통과 · 526 가입 트리거 — `account_kind=brand` 라 인플루언서 행 없음 · 498 미인증 정리 — 대상 아님.
+- **마무리 거부 때 정리:** ④ 마무리가 `invalid_link` 로 거부되면(두 호출 사이에 대표 해제 등으로 초대가 취소됨) 함수가 **이 초대로 만든 계정(앞선 재시도에서 만든 것 포함)을 지운다** — 연결이 없고 · `created_via_invite_id` = 이 초대이고 · `password_set_at` 이 빈칸일 때만(인증 계정 삭제 → `brand_accounts` 연쇄 삭제). 「수락 전에는 계정 없음」을 지키기 위해서다. 삭제마저 실패하면 오류 기록에 남기고, 그 계정은 비밀번호를 정하지 않은 브랜드 계정으로 남는다 — 연결도 대기 초대도 없으니 비밀번호 찾기로는 메일이 가지 않고(16-4 재설정 ⓒ), 같은 이메일로 새 초대가 오면 ⓑ로 가서 넓힌 판정으로 설정 링크를 받을 수 있다. 관리자 「계정 만들기」에서는 겹침으로 보인다. 연결이 없어 지금의 「해제」로는 지울 수 없으므로, 이런 계정은 개발 세션이 SQL 로 정리한다(드문 이중 실패라 관리자 화면 기능은 두지 않는다).
 - **위험:** 비밀번호 원문이 우리 서버 함수를 지나감 → 로그에 요청 본문을 남기지 않는다 · 단계 사이 실패 → `created_via_invite_id` 로 멱등 재시도 · 비밀번호 규칙(8자·소문자·기호)은 지금처럼 화면에서만, 서버는 로그인 체계 최소값만(셋째 사본을 만들지 않는다).
 - **산출 계약:** `POST {link_id, password, name, phone, terms_version}` → `{ok:true, email}` | `{ok:false, reason:'invalid_link'|'password_rejected'|'server_error'}`. 교차 출처 허용·`OPTIONS` 있음, 공개 키 거부 없음. 응답·로그에 링크·비밀번호를 싣지 않는다. 무효 사유는 나누지 않는다.
 - **선행 의존:** 3.
-- **완료 정의:** 개발서버에서 시험 초대(ⓐ)의 `link_id` 로 호출 → `ok`, 데이터베이스에 인증 계정 1 + `brand_accounts`(이름·동의 시각) + 멤버 연결 + 초대 `accepted` + 인플루언서 행 0 · 같은 링크 재호출 `invalid_link` · `updateUserById` 단계를 일부러 실패시킨 뒤 재호출 → 같은 계정으로 완료 · ④ 마무리 단계만 실패시킨 뒤(비밀번호는 저장됨, `password_set_at` 은 빈칸) 재호출 → 재시도 예외로 같은 계정이 완료(로그인 경로로 새지 않는다).
+- **완료 정의:** 개발서버에서 시험 초대(ⓐ)의 `link_id` 로 호출 → `ok`, 데이터베이스에 인증 계정 1 + `brand_accounts`(이름·동의 시각) + 멤버 연결 + 초대 `accepted` + 인플루언서 행 0 · 같은 링크 재호출 `invalid_link` · `updateUserById` 단계를 일부러 실패시킨 뒤 재호출 → 같은 계정으로 완료 · ④ 마무리 단계만 실패시킨 뒤(비밀번호는 저장됨, `password_set_at` 은 빈칸) 재호출 → 재시도 예외로 같은 계정이 완료(로그인 경로로 새지 않는다). · ③까지 마친 뒤 대표를 해제해 초대를 취소하고 ④를 부르게 한 시험 → `invalid_link` + 그 이메일의 인증 계정·`brand_accounts` 남은 행 0.
 - **필요 검문소:** `reverb-supabase-expert`(필수 — 인증 계정 직접 삽입·관문 대조), `reverb-reviewer`.
 - **주의·롤백:** 시험 계정은 528 가드 때문에 **연결부터** SQL 로 지운 뒤 인증 계정을 지운다. 함수는 개발서버에서 삭제·재배포로 되돌린다.
 
@@ -236,7 +241,7 @@ S1 → 1 기초 → 2 대표 함수 → 3 받는 사람·본인 함수(+527 넓�
 
 - **`notify-brand-account-setup`:** 호출자 역할 목록 판정 → `has_permission('brand.account_manage','write')` 를 사용자 연결로 묻는다 · 요청 칸 `mail_kind:'link'` 추가(기존 호출은 칸 없음 = 설정 메일) — 「브랜드 연결 추가」 뒤 화면이 부른다. **양식은 서버가 고른다** — 비밀번호를 정한 계정이면 연결 안내 양식, 아니면 S0-2 갈래로 기존 설정 메일(대표 줄 「설정 메일 보냄」) · 유효 시간 문구 24시간(개발서버 설정 변경 뒤 — S0-3) · 발송 기록 `p_sent_by='admin'`.
 - **`brand-password-reset-request`:** 갈래 판정은 조각 3 의 함수가 이미 넓혀 주므로 판정 쪽 변경은 없다 · 설정 메일 재발송 기록 `p_sent_by='self'` · 유효 시간 문구 24시간(어긋남 1번의 사본) · ⚠️ 「다시 보냄」 문구 사본이 두 함수에 있다 — 둘 다 고친다.
-- **양식:** `docs/email-templates/brand-link-notice.html`(16-3 9번 개인정보 이용 안내 포함). 인플루언서 `reset-password.html` 의 「1時間後」("1시간 뒤 무효")·양식 목록 「1시간 만료」는 **운영 설정을 바꿀 때**(S0-3 — 출시 관문) 고친다.
+- **양식:** `docs/email-templates/brand-link-notice.html`(16-3 9번 개인정보 이용 안내 포함) · 기존 설정 메일 `brand-account-setup.html` 에도 **같은 16-3 9번 안내**를 넣고, `mail_kind:'link'` 갈래로 보낼 때는 「운영팀이 이 브랜드를 계정에 연결해 보내는 메일」이라는 문장을 넣는다(관리자가 대표를 세우는 두 길 모두에 같은 안내 — 16-3 9번). 인플루언서 `reset-password.html` 의 「1時間後」("1시간 뒤 무효")·양식 목록 「1시간 만료」는 **운영 설정을 바꿀 때**(S0-3 — 출시 관문) 고친다.
 - **선행 의존:** 4·5(5 와 동기화 스크립트·양식 목록을 공유).
 - **완료 정의:** 개발서버에서 매니저 토큰 → 403, 권한 설정을 「쓰기」로 바꾸면 200 · `mail_kind:'link'` → 비밀번호 정한 계정은 연결 안내, 안 정한 계정은 설정 메일(`dev_link` 또는 `sent:true`) · `brand_accounts.setup_mail_sent_by` 값 확인.
 - **필요 검문소:** `reverb-reviewer`.
