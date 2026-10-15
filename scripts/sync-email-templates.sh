@@ -43,7 +43,7 @@ SYNC_GROUPS=(
   "notify-orient-submitted|orient-submitted-notify.html"
   "notify-brand-daily-digest|brand-daily-digest.html,brand-daily-digest.section.html"
   "notify-admin-invite|admin-invite.html"
-  "notify-brand-account-setup|brand-account-setup.html"
+  "notify-brand-account-setup|brand-account-setup.html,brand-link-notice.html"
   "notify-brand-invite|brand-invite-new.html,brand-invite-existing.html,brand-invite-blocked.html"
   "admin-password-reset-request|admin-password-reset.html"
   "brand-password-reset-request|brand-password-reset.html,brand-account-setup.html"

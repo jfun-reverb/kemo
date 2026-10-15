@@ -506,14 +506,14 @@
     <div class="card-desc">관리자가 브랜드 대표 담당자 계정을 만들면, 그 담당자에게 비밀번호를 직접 설정하라는 링크를 보냅니다.</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
-      <div class="cc-text">관리자가 브랜드 상세에서 「계정 만들기」 또는 「다시 보내기」를 누르는 순간 보냅니다. 받는 사람은 요청 내용이 아니라 서버가 브랜드의 대표 담당자 계정에서 다시 읽습니다. 링크는 보낸 지 1시간 안에만 열리고, 새로 보내면 앞서 보낸 링크는 모두 무효가 됩니다.</div>
+      <div class="cc-text">관리자가 브랜드 상세에서 「계정 만들기」 또는 「다시 보내기」를 누르는 순간 보냅니다. 받는 사람은 요청 내용이 아니라 서버가 브랜드의 대표 담당자 계정에서 다시 읽습니다. 링크는 보낸 지 24시간 안에만 열리고(개발서버 설정 기준 — 운영은 브랜드 페이지 출시 때 24시간으로 바꾼다), 새로 보내면 앞서 보낸 링크는 모두 무효가 됩니다. 「브랜드 연결 추가」로 이은 계정이 비밀번호 미설정이면 같은 메일이 「브랜드가 계정에 연결되었습니다」 제목으로 나갑니다.</div>
       <div class="cc-timing"><strong>발송 시점:</strong> 관리자가 누른 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> 브랜드 상세의 계정 만들기/다시 보내기 → notify-brand-account-setup 호출</div>
       <div><b>수신자:</b> 브랜드 대표 담당자 본인</div>
       <div><b>언어:</b> KO</div>
-      <div><b>용도 안내 문구:</b> 약관 확정 뒤 채울 자리가 있다(사양서 §16-3 9번)</div>
+      <div><b>개인정보 이용 안내:</b> 16-3 9번 초안 문장이 들어 있다 — /약관확인 뒤 확정</div>
     </div>
     <div class="card-actions">
       <a class="btn btn-primary" href="brand-account-setup.preview.html">미리보기</a>
@@ -583,11 +583,32 @@
 
   <div class="card">
     <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">브랜드 연결 안내</div>
+    <div class="card-desc">관리자가 이미 비밀번호를 정한 브랜드 계정에 새 브랜드를 연결하면, 그 담당자에게 「로그인하면 보입니다」를 알립니다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자가 「브랜드 연결 추가」를 마친 직후 notify-brand-account-setup 을 mail_kind:'link' 로 부를 때, 서버가 대표 계정을 다시 읽어 <b>비밀번호를 정한 계정</b>이면 이 메일을 보냅니다(비밀번호 미설정 계정은 「브랜드 계정 비밀번호 설정」 메일로 대신). 단추는 브랜드 페이지 로그인 화면 일반 주소이고 일회용 링크가 아니라 유효 시간이 없습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 관리자가 누른 즉시</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 브랜드 연결 추가 직후 → notify-brand-account-setup (mail_kind:link)</div>
+      <div><b>수신자:</b> 브랜드 대표 담당자 본인</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>개인정보 이용 안내:</b> 16-3 9번 초안 문장이 들어 있다 — /약관확인 뒤 확정</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-link-notice.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-link-notice.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">브랜드 비밀번호 찾기</div>
     <div class="card-desc">브랜드 담당자가 비밀번호를 잊었을 때 재설정 링크를 보냅니다.</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
-      <div class="cc-text">브랜드 로그인 화면의 「비밀번호를 잊으셨나요」를 눌렀을 때, 그 이메일이 <b>비밀번호 설정을 마친 브랜드 계정</b>이면 보냅니다. 설정 전 계정에는 이 메일이 아니라 처음 받은 「브랜드 계정 비밀번호 설정」 메일을 다시 보냅니다. ⚠️ <b>브랜드가 아닌 이메일(인플루언서·관리자·없는 주소)을 넣어도 화면과 응답이 똑같습니다</b> — 등록 여부를 알려주지 않기 위해서입니다(요청이 몰려 제한에 걸렸을 때도 마찬가지). 링크는 1시간 안에만 열리고, 새로 보내면 앞서 보낸 링크는 무효가 됩니다.</div>
+      <div class="cc-text">브랜드 로그인 화면의 「비밀번호를 잊으셨나요」를 눌렀을 때, 그 이메일이 <b>비밀번호 설정을 마친 브랜드 계정</b>이면 보냅니다. 설정 전 계정에는 이 메일이 아니라 처음 받은 「브랜드 계정 비밀번호 설정」 메일을 다시 보냅니다. ⚠️ <b>브랜드가 아닌 이메일(인플루언서·관리자·없는 주소)을 넣어도 화면과 응답이 똑같습니다</b> — 등록 여부를 알려주지 않기 위해서입니다(요청이 몰려 제한에 걸렸을 때도 마찬가지). 링크는 24시간 안에만 열리고(개발서버 설정 기준 — 운영은 브랜드 페이지 출시 때), 새로 보내면 앞서 보낸 링크는 무효가 됩니다.</div>
       <div class="cc-timing"><strong>발송 시점:</strong> 요청 즉시 (같은 이메일 5분에 1회·하루 5회, 전체 시간당 30건 제한)</div>
     </div>
     <div class="card-meta">

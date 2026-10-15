@@ -211,7 +211,7 @@ async function process(rawEmail: unknown): Promise<void> {
   // ★메일에는 Supabase 검증 주소를 그대로 싣지 않는다 — 우리 페이지의 # 뒤에 담는다
   //   (메일 보안 검사기·클릭 추적 서버가 먼저 열어도 1회용 토큰이 소진되지 않게 — notify-admin-invite 와 같은 이유).
   const mailLink = `${landing}#confirm=${encodeURIComponent(rawLink)}`;
-  const expiresNote = "이 링크는 보낸 때부터 1시간 동안 유효합니다.";
+  const expiresNote = "이 링크는 보낸 때부터 24시간 동안 유효합니다.";
 
   let subject: string;
   let html: string;
@@ -254,6 +254,7 @@ async function process(rawEmail: unknown): Promise<void> {
       `REVERB 운영팀이 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`;
     const tpl = TEMPLATES["brand-account-setup"].replace(/<!--[\s\S]*?-->/g, "");
     html = render(tpl, {
+      heading: escapeHtml(`「${brandName}」 브랜드 계정이 만들어졌습니다`),
       brand_name: escapeHtml(brandName),
       contact_name: escapeHtml(contactName),
       link: escapeHtml(mailLink),
@@ -266,6 +267,7 @@ async function process(rawEmail: unknown): Promise<void> {
       `${intro}\n` +
       `아래 링크에서 사용하실 비밀번호를 설정해 주세요. 설정을 마치면 REVERB 브랜드 페이지에 로그인하실 수 있습니다.\n\n` +
       `링크: ${mailLink}\n\n` +
+      `REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주세요.\n\n` +
       `${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 REVERB 운영팀에 다시 보내 달라고 요청해 주세요.\n\n` +
       `본인이 요청하지 않았거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n`;
   }
@@ -285,6 +287,7 @@ async function process(rawEmail: unknown): Promise<void> {
       p_auth_id: acct.auth_id,
       p_link_id: linkId,
       p_sent_to: toEmail,
+      p_sent_by: "self", // 본인 비밀번호 찾기 재발송 — 관리자 화면 「보낸 쪽」 표시가 admin 과 갈린다(532)
     });
     if (markErr) console.error("[brand-password-reset-request] mark failed", markErr.message);
   }
