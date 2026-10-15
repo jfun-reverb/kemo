@@ -157,6 +157,13 @@ body.kb-open .page.active { padding-bottom: 8px; }
 .gnb-burger { display: none !important; }
 /* 메시지 페이지는 상단바를 숨기고 자체 헤더를 쓴다(app.js) → 상태바 높이만 비운다 */
 #page-messages.page.active { padding-top: env(safe-area-inset-top); }
+/* 문의(#page-inquiry)·질문(#page-faq) 화면은 mypage.css 가 `padding:0` 으로 덮어써 위 .page.active 여백이
+   사라지고 **화면 자체 헤더(제목·탭·뒤로 단추)가 글라스 상단바 밑에 숨는다**(2026-10-15 시뮬레이터 실측 —
+   #page-messages 와 같은 함정). 상단바를 그대로 쓰는 화면이라 여백을 되살린다. */
+#page-inquiry.page.active, #page-faq.page.active {
+  padding-top: calc(var(--ios-nav-h) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--ios-tab-space) + 8px);
+}
 /* 입장 티켓·응모 취소도 같은 구조(자체 헤더 .detail-back). app.js 의 _selfHeaderPages 와 짝 —
    한쪽만 고치면 상단바가 숨은 자리에 빈 띠가 남거나 헤더가 두 줄로 겹친다. */
 #page-ticket.page.active,
