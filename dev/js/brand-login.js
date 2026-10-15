@@ -1,8 +1,8 @@
 // 브랜드 페이지 — 로그인·비밀번호 찾기·메일 링크(설정·재설정) 화면 동작
 //   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
 //   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
-//   ⚠️ 초대 수락(w01-03)·이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
-//      초대 수락은 묶음 ② 조각 3·4 에서 실제로 바뀐다(작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md).
+//   초대 수락(w01-03) 동작은 brand-invite.js(묶음 ② 조각 3). 여기는 미리보기 예시 채우기(fillInviteScreen)만.
+//   ⚠️ 이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
 //   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
@@ -78,12 +78,20 @@ async function fetchBrandLoginState() {
 //   loginError 문구는 로그인 화면으로 돌아갈 때만 쓴다.
 async function applyBrandLoginState(state) {
   if (state && state.state === 'ok') {
+    _brandInviteCtx = null;
     setBrandAuthed(state);
     return 'ok';
   }
+  const kind = state ? state.state : null;
+  // 연결된 브랜드는 없지만 수락할 초대가 있다 — 로그아웃하지 않고 초대 수락 화면으로(조각 3).
+  //   초대 목록을 못 받으면(실패·그사이 만료) 아래 원래 갈래(로그아웃 + 연결된 브랜드 없음)로 간다.
+  if (kind === 'no_active_brand' && state.has_pending_invite) {
+    setBrandAuthed(null);
+    if (await enterInviteOnly(state)) return 'invite';
+  }
+  _brandInviteCtx = null;
   await brandSignOutLocal();
   setBrandAuthed(null);
-  const kind = state ? state.state : null;
   if (kind === 'not_brand') { goBrandScreen('not-brand'); return kind; }
   if (kind === 'no_active_brand') { goBrandScreen('no-brand'); return kind; }
   // setup_incomplete — 비밀번호가 비어 실제로는 로그인 자체가 실패하는 상태라 일반 실패 문구
@@ -495,23 +503,12 @@ function initResetpwForm() {
   });
 }
 
-// ── w01-03 초대 수락
+// ── w01-03 초대 수락 — 미리보기 예시 값(실제 동작은 brand-invite.js)
 function fillInviteScreen() {
   document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
   document.getElementById('inviteEmail').value = BRAND_SAMPLE.invite.email;
   setNotice('inviteResult', '');
-  const btn = document.getElementById('inviteSubmit');
-  btn.disabled = false; btn.textContent = '초대 수락';
-}
-
-function initInvite() {
-  const btn = document.getElementById('inviteSubmit');
-  btn.addEventListener('click', async () => {
-    btn.disabled = true; btn.textContent = '수락하는 중…';
-    await brandFakeRequest('ok');
-    btn.textContent = '수락했습니다';
-    setNotice('inviteResult', '미리보기: 「하루담」 브랜드가 계정에 연결됐다고 가정합니다.');
-  });
+  _setInviteBusy(false);
 }
 
 // ── w01-04 이메일 변경 확인

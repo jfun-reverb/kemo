@@ -379,7 +379,7 @@
 ## Test Accounts
 - 관리자: admin@kemo.jp / admin1234
 - 테스트 인플루언서: sakura.test@reverb.jp, yui.test@reverb.jp, haruka.test@reverb.jp (비밀번호: test1234)
-- 브랜드 페이지(개발서버만): zz-b2-owner@example.com / zzBrand-test1! — 시험 브랜드 「zz-묶음2 시험 하루담」의 대표 담당자(2026-10-15 묶음 ② 시험용으로 만듦)
+- 브랜드 페이지(개발서버만, 비밀번호 둘 다 zzBrand-test1!): zz-b2-owner@example.com — 시험 브랜드 셋(「zz-묶음2 시험 하루담」·「가나다 시험」·「Aroma Farm 시험」)의 대표 / zz-b2-second@example.com — 「가나다 시험」 멤버(2026-10-15 묶음 ② 시험용)
 
 ## Dev Workflow
 - 개발: dev/ 에서 수정 → dev/index.html 로 확인
