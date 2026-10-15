@@ -2,6 +2,8 @@
 //   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
 //   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
 //   ⚠️ 초대 수락(w01-03)·이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
+//      초대 수락은 묶음 ② 조각 3·4 에서 실제로 바뀐다(작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md).
+//   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
   emailEmpty: '이메일을 입력해 주세요.',
@@ -128,7 +130,7 @@ function initLoginForm() {
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
           pwInput.value = '';
-          goBrandScreen('home');
+          enterBrandApp(state);
         } else {
           pwInput.value = '';
         }
@@ -351,7 +353,7 @@ async function submitSetpwReal(pw) {
   }
   const state = await fetchBrandLoginState();
   const r2 = await applyBrandLoginState(state);
-  if (r2 === 'ok') goBrandScreen('home');
+  if (r2 === 'ok') enterBrandApp(state);
 }
 
 function initSetpwForm() {
@@ -493,32 +495,6 @@ function initResetpwForm() {
   });
 }
 
-// ── 임시 첫 화면(home)
-function fillHomeScreen(state) {
-  const s = state || {};
-  document.getElementById('homeTitle').textContent = s.name ? (s.name + '님, 로그인했어요') : '로그인했어요';
-  document.getElementById('homeEmail').value = s.email || '';
-  const brands = Array.isArray(s.brands) ? s.brands : [];
-  document.getElementById('homeBrands').innerHTML = brands.length
-    ? brands.map(b => '<li>' + brandEsc(b.name) + ' (' + (b.role === 'owner' ? '대표 담당자' : '멤버') + ')</li>').join('')
-    : '<li>연결된 브랜드가 없어요</li>';
-}
-
-function initHome() {
-  const btn = document.getElementById('logoutBtn');
-  btn.addEventListener('click', async () => {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    try {
-      await brandSignOutLocal();
-      setBrandAuthed(null);
-      goBrandScreen('login');
-    } finally {
-      btn.disabled = false;
-    }
-  });
-}
-
 // ── w01-03 초대 수락
 function fillInviteScreen() {
   document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
@@ -586,7 +562,6 @@ function initBrandLoginScreens() {
   initConfirm();
   initSetpwForm();
   initResetpwForm();
-  initHome();
   initInvite();
   initEmailChange();
   initLegalModal();

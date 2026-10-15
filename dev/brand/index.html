@@ -352,29 +352,65 @@
     </div>
   </section>
 
-  <!-- 로그인 뒤 임시 첫 화면 — 오리엔시트 목록(w04-00)이 생기면 바꾼다(피그마 F-7, 이번 범위 밖) -->
-  <section class="brand-card" data-screen="home" hidden>
-    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
-    <div class="brand-head">
-      <h1 id="homeTitle">로그인했어요</h1>
-      <p>브랜드 페이지의 다른 화면은 준비 중이에요.</p>
-    </div>
-    <div class="brand-fields">
-      <div class="brand-field">
-        <label for="homeEmail">로그인 이메일</label>
-        <input type="email" id="homeEmail" class="brand-input" readonly>
-      </div>
-      <div class="brand-field">
-        <span class="brand-field-label">연결된 브랜드</span>
-        <ul class="brand-guide" id="homeBrands"></ul>
-      </div>
-    </div>
-    <div class="brand-actions">
-      <button type="button" class="brand-btn" id="logoutBtn">로그아웃</button>
-    </div>
-  </section>
-
 </main>
+
+<!-- 로그인 뒤 틀 — 웹 좌측 메뉴 · 모바일 맨 위 막대 + 오른쪽 메뉴 서랍 (brand-shell.js, 작업표 조각 1 · 피그마 w04-00·m04-00·m03-01) -->
+<div class="brand-shell" id="brandShell" hidden>
+  <aside class="brand-side" id="brandSideMenu" aria-label="브랜드 메뉴">
+    <!-- 브랜드 고르기 자리 — 조각 2 가 ⌃⌄·펼친 목록을 채운다 -->
+    <div class="brand-switcher" id="brandSwitcherHost"><span class="brand-switcher-name" data-brand-current-name></span></div>
+    <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
+    <div class="brand-side-bottom">
+      <a class="brand-me" href="#mypage" data-brand-nav="mypage" id="brandMyPageLink">
+        <span class="brand-me-avatar" aria-hidden="true"><span data-brand-user-initial></span><span class="brand-dot" hidden></span></span>
+        <span class="brand-me-text"><span class="brand-me-name" data-brand-user-name></span><span class="brand-me-sub">마이페이지</span></span>
+        <span class="brand-sr brand-dot-sr" hidden>새 초대가 있어요</span>
+      </a>
+      <button type="button" class="brand-logout" id="brandLogoutBtn" data-brand-logout>
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">logout</span>
+        <span>로그아웃</span>
+      </button>
+    </div>
+  </aside>
+
+  <header class="brand-shell-topbar">
+    <span class="brand-shell-topbar-name" data-brand-current-name></span>
+    <button type="button" class="brand-shell-menu-btn" id="brandTopbarMenuBtn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="brandDrawer">
+      <span class="brand-burger" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-dot" hidden></span>
+    </button>
+  </header>
+
+  <main class="brand-main" id="brandMain">
+    <div class="brand-page" id="brandPageHost"></div>
+  </main>
+
+  <div class="brand-drawer" id="brandDrawer" role="dialog" aria-modal="true" aria-labelledby="brandDrawerTitle" hidden>
+    <div class="brand-drawer-panel">
+      <div class="brand-drawer-head">
+        <span class="brand-drawer-title" id="brandDrawerTitle">메뉴</span>
+        <button type="button" class="brand-drawer-close" id="brandDrawerClose" aria-label="메뉴 닫기">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
+        </button>
+      </div>
+      <!-- 서랍 브랜드 묶음 — 조각 2 가 채운다 -->
+      <div class="brand-drawer-brands" id="brandDrawerBrands" hidden></div>
+      <div class="brand-drawer-line"></div>
+      <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
+      <div class="brand-drawer-line"></div>
+      <a class="brand-drawer-item brand-drawer-sub" href="#mypage" data-brand-nav="mypage">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">account_circle</span>
+        <span><span data-brand-user-name></span> · 마이페이지</span>
+        <span class="brand-dot brand-dot-inline" hidden></span>
+        <span class="brand-sr brand-dot-sr" hidden>새 초대가 있어요</span>
+      </a>
+      <button type="button" class="brand-drawer-item brand-drawer-sub" data-brand-logout>
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">logout</span>
+        <span>로그아웃</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- 약관 「보기」 — 브랜드용 약관이 아직 없어 안내만 띄운다 -->
 <div class="brand-modal" id="legalModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" hidden>
@@ -421,6 +457,10 @@
 <script src="../lib/supabase.js"></script>
 <script src="../js/brand-core.js"></script>
 <script src="../js/brand-login.js"></script>
+<script src="../js/brand-invite.js"></script>
+<script src="../js/brand-shell.js"></script>
+<script src="../js/brand-members.js"></script>
+<script src="../js/brand-mypage.js"></script>
 <script src="../js/brand-app.js"></script>
 </body>
 </html>

@@ -10,7 +10,7 @@ const brandPreviewState = {
   confirmKind: 'setup'   // w01-08 제목 — 'setup' | 'reset'
 };
 
-// 미리보기 목록 — 로그인 뒤 첫 화면(home)은 세션이 있어야 해서 넣지 않는다.
+// 미리보기 목록 — 로그인 뒤 틀(brand-shell.js)은 세션이 있어야 해서 넣지 않는다.
 //   w01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
 const BRAND_PREVIEW_SCREENS = [
   { hash: 'login', label: 'w01-00 로그인' },
@@ -27,16 +27,16 @@ const BRAND_PREVIEW_SCREENS = [
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
+//   화면 쪽 세션 값(brandSession — 지금 브랜드 등)은 brand-shell.js 가 함께 갱신한다.
 let brandAuthed = null;
-function setBrandAuthed(state) {
+function setBrandAuthed(state, opts) {
   brandAuthed = state || null;
-  if (brandAuthed) fillHomeScreen(brandAuthed);
+  setBrandSessionFromState(brandAuthed, opts);
   updatePreviewVisibility();
 }
 
-function currentBrandScreen() {
-  const h = location.hash.replace(/^#/, '');
-  return BRAND_SCREENS.includes(h) ? h : 'login';
+function currentBrandHash() {
+  return location.hash.replace(/^#/, '');
 }
 
 // 해시로 화면을 바꾼다 — 이미 그 해시면 hashchange 가 안 나므로 직접 그린다
@@ -54,10 +54,17 @@ function routeBrand() {
     history.replaceState(null, '', location.pathname + location.hash);
   }
   _brandCheckPending = false;
-  let name = currentBrandScreen();
-  // 로그인돼 있으면 첫 화면만 / 로그인 안 했으면 첫 화면으로 못 간다
-  if (brandAuthed) name = 'home';
-  else if (name === 'home') name = 'login';
+  const hash = currentBrandHash();
+  // 로그인돼 있으면 틀 안 페이지만(카드 화면 해시로 오면 첫 페이지) / 로그인 안 했으면 틀 페이지로 못 간다
+  if (brandAuthed) {
+    const page = isBrandShellPage(hash) ? hash : BRAND_FIRST_PAGE;
+    // 카드 화면 해시(#login 등)·빈 해시로 왔으면 주소창도 실제 페이지로 맞춘다
+    if (page !== hash) history.replaceState(null, '', location.pathname + location.search + '#' + page);
+    showBrandShellPage(page);
+    updatePreviewVisibility();
+    return;
+  }
+  const name = BRAND_SCREENS.includes(hash) ? hash : 'login';
 
   // 들어올 때마다 그 화면을 처음 상태로 채운다(미리보기 예시 값 — 실제 링크 흐름은 showBrandFlowScreen)
   if (name === 'setpw') fillSetpwScreen(brandPreviewState.setpwKind);
@@ -75,6 +82,7 @@ function routeBrand() {
 }
 
 function paintBrandScreen(name) {
+  hideBrandShell();
   showBrandScreen(name);
   updatePreviewBar(name);
   updatePreviewVisibility();
@@ -289,6 +297,7 @@ async function bootBrand() {
     return;
   }
   initBrandLoginScreens();
+  initBrandShell();
   initBrandAuthEvents();
   initPreviewBar();
   window.addEventListener('hashchange', routeBrand);

@@ -8,8 +8,9 @@ const BRAND_AUTH_STORAGE_KEY = 'reverb.brandAuth';
 // 메일 링크로 생기는 임시 세션 칸 이름 — persistSession:false 라 실제로는 쓰지 않는다(안전장치)
 const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
 
+// 로그인 전 카드 화면. 로그인 뒤 틀 안 페이지(#orient·#members 등)는 brand-shell.js 의 등록부가 따로 갖는다.
 const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
-  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'home', 'check-fail'];
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail'];
 
 // ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
 //   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
@@ -95,7 +96,7 @@ function showBrandScreen(name) {
     closed: '브랜드 페이지', login: '브랜드 로그인', forgot: '비밀번호 찾기', 'forgot-sent': '메일을 확인해 주세요',
     setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨어요', confirm: '링크 확인',
     invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없어요',
-    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요', home: '브랜드 페이지',
+    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요',
     'check-fail': '로그인을 확인하지 못했어요'
   };
   document.title = (titles[name] || '브랜드') + ' · REVERB JP';
@@ -172,4 +173,131 @@ function resetPasswordToggles(scope) {
 // 폼 칸·버튼 잠금 (Figma ⑤ 로그인 중)
 function setFormBusy(form, busy) {
   form.querySelectorAll('input, button').forEach(el => { el.disabled = busy; });
+}
+
+// ── 공용 부품 (묶음 ② 작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 1)
+//   ui.js 를 싣지 않는 자립형 화면이라 토스트·확인 창·날짜 표기를 여기 따로 둔다.
+
+// 토스트 — 글자만(아이콘·이모지 없음). 화면 아래에 잠깐 떴다 사라진다.
+let _brandToastTimer = null;
+function brandToast(msg) {
+  let el = document.getElementById('brandToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'brandToast';
+    el.className = 'brand-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg || '';
+  el.classList.add('is-show');
+  clearTimeout(_brandToastTimer);
+  _brandToastTimer = setTimeout(() => el.classList.remove('is-show'), 3200);
+}
+
+// 확인 창 — Promise<boolean>. 모달을 그때그때 만든다(index.html 을 화면마다 고치지 않게).
+//   Esc·바깥 누르기 = 취소. 열 때 「취소」에 초점(되돌릴 수 없는 동작을 엔터 한 번에 누르지 않게), 닫으면 원래 초점으로.
+function brandConfirm(opts) {
+  const o = opts || {};
+  return new Promise(resolve => {
+    const prevFocus = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'brand-modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
+    wrap.innerHTML =
+      '<div class="brand-modal-box">' +
+        '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
+        (o.body ? '<p>' + brandEsc(o.body) + '</p>' : '') +
+        '<div class="brand-modal-actions">' +
+          '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>' +
+          '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
+        '</div>' +
+      '</div>';
+    let done = false;
+    const close = (val) => {
+      if (done) return;
+      done = true;
+      document.removeEventListener('keydown', onKey, true);
+      wrap.remove();
+      if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === 'function') prevFocus.focus();
+      resolve(val);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(false); return; }
+      if (e.key === 'Tab') {
+        // 창 안에서만 초점이 돌게
+        const btns = Array.from(wrap.querySelectorAll('button'));
+        const i = btns.indexOf(document.activeElement);
+        if (i === -1) { e.preventDefault(); btns[0].focus(); return; }   // 바깥으로 나간 초점을 창 안으로
+        if (e.shiftKey && i <= 0) { e.preventDefault(); btns[btns.length - 1].focus(); }
+        else if (!e.shiftKey && i === btns.length - 1) { e.preventDefault(); btns[0].focus(); }
+      }
+    };
+    wrap.addEventListener('click', (e) => {
+      if (e.target === wrap) { close(false); return; }
+      const act = e.target.closest('[data-act]');
+      if (act) close(act.dataset.act === 'ok');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-act="cancel"]').focus();
+  });
+}
+
+// 서버 함수(Edge Function) 호출 — { status, body }. 2xx 가 아니어도 본문(JSON)을 읽는다
+//   (functions.invoke 는 2xx 가 아니면 본문을 오류 객체 안에 감춰 reason 을 못 읽는다 — 묶음 ① 넘김 3).
+//   opts.auth=true 면 로그인 연결의 접근 토큰을 싣고, 401 이면 토큰을 한 번 갱신해 다시 부른다.
+//   연결 끊김·운영 주소(brandDb 없음)는 { status:0, body:null }.
+async function brandCallFunction(name, payload, opts) {
+  if (!brandDb) return { status: 0, body: null };
+  const auth = !!(opts && opts.auth);
+  const send = async () => {
+    let token = SUPABASE_ANON_KEY;
+    if (auth) {
+      try {
+        const { data } = await brandDb.auth.getSession();
+        token = data && data.session ? data.session.access_token : '';
+      } catch (e) { token = ''; }
+      if (!token) return { status: 401, body: null };
+    }
+    const res = await fetch(SUPABASE_URL + '/functions/v1/' + name, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(payload || {})
+    });
+    let body = null;
+    try { body = await res.json(); } catch (e) { body = null; }
+    return { status: res.status, body };
+  };
+  try {
+    let r = await send();
+    if (auth && r.status === 401) {
+      try {
+        const { error } = await brandDb.auth.refreshSession();
+        if (!error) r = await send();
+      } catch (e) { /* 아래에서 그대로 돌려준다 */ }
+    }
+    return r;
+  } catch (e) {
+    return { status: 0, body: null };
+  }
+}
+
+// 날짜 표기 — 관리자 formatDate(2026/10/15)·formatDateTime(2026/10/15 14:05)과 같은 모양.
+//   ⚠️ ui.js 를 싣지 않아 사본을 둔다. 빈 값·잘못된 값은 빈 문자열.
+function _brandPad2(n) { return String(n).padStart(2, '0'); }
+function brandFormatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '/' + _brandPad2(d.getMonth() + 1) + '/' + _brandPad2(d.getDate());
+}
+function brandFormatDateTime(iso) {
+  const day = brandFormatDate(iso);
+  if (!day) return '';
+  const d = new Date(iso);
+  return day + ' ' + _brandPad2(d.getHours()) + ':' + _brandPad2(d.getMinutes());
 }

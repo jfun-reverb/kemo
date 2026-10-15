@@ -32,6 +32,10 @@
   --b-error-bg: #fff0f0;
   --b-info: #2b59c3;
   --b-info-bg: #eef4ff;
+  --b-accent: #625ebd;      /* 보라 강조 — 브랜드 고르기 체크(피그마 w03-01) */
+  --b-dot: #ef4444;         /* 새 초대 빨간 점(피그마 w07-03) */
+  --b-danger: #dc2626;      /* 위험 단추 글자 */
+  --b-danger-line: #fecaca; /* 위험 단추 테두리 */
   --b-radius-card: 16px;
   --b-radius: 8px;
   --b-font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
@@ -289,8 +293,167 @@ button, input { font-family: inherit; }
   .brand-preview { left: 16px; right: 16px; width: auto; }
 }
 
-/* 임시 첫 화면(home) — 라벨처럼 보이는 글자(입력 칸이 아닌 묶음 제목) */
-.brand-field-label { font-size: 13px; color: var(--b-label); }
+/* 화면 읽기 프로그램만 읽는 글자 */
+.brand-sr {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── 공용 부품 — 토스트 · 확인 창 단추 (brand-core.js brandToast · brandConfirm) */
+.brand-toast {
+  position: fixed; left: 50%; bottom: 32px; z-index: 60;
+  transform: translate(-50%, 16px);
+  max-width: calc(100% - 32px);
+  padding: 12px 18px;
+  border-radius: var(--b-radius);
+  background: var(--b-ink); color: #fff;
+  font-size: 13px; line-height: 1.4;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.brand-toast.is-show { opacity: 1; transform: translate(-50%, 0); }
+.brand-modal-actions { display: flex; gap: 8px; }
+.brand-modal-actions .brand-btn { flex: 1; }
+.brand-btn-line { background: var(--b-surface); color: var(--b-ink); border-color: var(--b-line); }
+.brand-btn-danger { background: var(--b-danger); border-color: var(--b-danger); }
+@media (prefers-reduced-motion: reduce) { .brand-toast { transition: none; } }
+
+/* ── 로그인 뒤 틀 (피그마 w04-00 · m04-00 · m03-01, 작업표 조각 1)
+   웹: 화면 바탕 위 좌측 메뉴 240 + 오른쪽 흰 본문 카드. 좁은 화면: 맨 위 검은 막대 + 오른쪽 메뉴 서랍 */
+body.is-shell .brand-topbar { display: none !important; }
+.brand-shell { display: flex; min-height: 100vh; }
+.brand-side {
+  position: sticky; top: 0;
+  width: 240px; height: 100vh; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  padding-top: 17px;
+}
+.brand-switcher {
+  min-height: 44px; padding: 8px 24px;
+  display: flex; align-items: center; gap: 8px;
+}
+.brand-switcher-name { font-size: 18px; font-weight: 700; color: var(--b-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-side .brand-menu { display: flex; flex-direction: column; gap: 4px; padding: 6px 24px 0; }
+.brand-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 46px; padding: 13px 8px;
+  border-radius: var(--b-radius);
+  font-size: 14px; color: #000; text-decoration: none;
+}
+.brand-menu-item .material-icons-round { font-size: 20px; color: var(--b-guide); }
+.brand-menu-item:hover { background: rgba(255, 255, 255, .55); }
+/* 선택된 메뉴 — 피그마에 없어 코드가 정했다 */
+.brand-menu-item.is-active { background: var(--b-surface); font-weight: 600; }
+.brand-menu-item.is-active .material-icons-round { color: var(--b-ink); }
+.brand-side-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 16px; }
+.brand-me {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px; border-radius: var(--b-radius);
+  text-decoration: none; color: var(--b-ink);
+}
+.brand-me:hover, .brand-me.is-active { background: rgba(255, 255, 255, .55); }
+.brand-me-avatar {
+  position: relative; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--b-ink); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.brand-me-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.brand-me-name { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-me-sub { font-size: 11px; color: var(--b-muted); }
+.brand-logout {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 0; background: none; border-radius: var(--b-radius);
+  font-size: 13px; color: var(--b-guide); cursor: pointer; text-align: left;
+}
+.brand-logout .material-icons-round { font-size: 18px; color: var(--b-muted); }
+.brand-logout:hover { background: rgba(255, 255, 255, .55); }
+/* 새 초대 빨간 점 — 동그라미 오른쪽 위(피그마 w07-03: 지름 9, 바탕색 테두리 1.5) */
+.brand-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--b-dot); box-shadow: 0 0 0 1.5px var(--b-bg);
+}
+.brand-dot-inline { position: static; margin-left: auto; box-shadow: none; width: 7px; height: 7px; }
+
+.brand-main { flex: 1; min-width: 0; padding: 20px 11px 20px 0; }
+.brand-page {
+  min-height: calc(100vh - 40px);
+  background: var(--b-surface);
+  border-radius: var(--b-radius-card);
+  padding: 30px 24px;
+  display: flex; flex-direction: column; gap: 32px;
+}
+.brand-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.brand-page-head h1 { margin: 0; font-size: 18px; font-weight: 700; color: var(--b-ink); }
+.brand-page-head p { margin: 4px 0 0; font-size: 12px; color: var(--b-muted); line-height: 1.4; }
+/* 빈 상태·준비 중·불러오기 실패 */
+.brand-empty {
+  padding: 48px 16px; text-align: center;
+  border: 1px dashed var(--b-line); border-radius: var(--b-radius);
+}
+.brand-empty-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.brand-empty-desc { margin: 6px 0 0; font-size: 12px; color: var(--b-muted); }
+.brand-menu-item:focus-visible, .brand-me:focus-visible, .brand-logout:focus-visible,
+.brand-shell-menu-btn:focus-visible, .brand-drawer-close:focus-visible, .brand-drawer-item:focus-visible {
+  outline: 2px solid var(--b-info); outline-offset: 2px;
+}
+
+/* 모바일 맨 위 막대 · 메뉴 서랍 */
+.brand-shell-topbar { display: none; }
+.brand-drawer { position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .4); display: flex; justify-content: flex-end; }
+.brand-drawer-panel {
+  width: 300px; max-width: 85%; height: 100%; overflow-y: auto;
+  background: var(--b-surface);
+  padding: 16px 16px 24px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.brand-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0 8px 4px; }
+.brand-drawer-title { font-size: 17px; font-weight: 700; color: var(--b-ink); }
+.brand-drawer-close {
+  width: 44px; height: 44px; margin: -10px -10px -10px 0;
+  border: 0; background: none; color: var(--b-ink); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-drawer-close .material-icons-round { font-size: 22px; }
+.brand-drawer-line { height: 1px; background: var(--b-line); margin: 4px 0; }
+.brand-drawer .brand-menu { display: flex; flex-direction: column; }
+.brand-drawer .brand-menu-item,
+.brand-drawer-item {
+  min-height: 44px; padding: 12px; gap: 12px;
+  font-size: 15px; color: var(--b-ink);
+  display: flex; align-items: center;
+  border: 0; background: none; border-radius: var(--b-radius);
+  text-decoration: none; text-align: left; cursor: pointer; width: 100%;
+}
+.brand-drawer .brand-menu-item .material-icons-round,
+.brand-drawer-item .material-icons-round { font-size: 20px; color: var(--b-ink); }
+.brand-drawer .brand-menu-item.is-active { background: var(--b-disabled-bg); }
+.brand-drawer-sub, .brand-drawer-sub .material-icons-round { color: var(--b-muted) !important; }
+
+@media (max-width: 600px) {
+  .brand-shell { flex-direction: column; }
+  .brand-side { display: none; }
+  .brand-shell-topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 45px; padding: 0 4px 0 16px;
+    background: var(--b-ink); color: #fff;
+  }
+  .brand-shell-topbar-name { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-shell-menu-btn {
+    position: relative; width: 44px; height: 44px; flex-shrink: 0;
+    border: 0; background: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .brand-burger { display: flex; flex-direction: column; gap: 4px; width: 18px; }
+  .brand-burger i { display: block; height: 2px; border-radius: 1px; background: #fff; }
+  .brand-shell-menu-btn .brand-dot { top: 9px; right: 8px; width: 8px; height: 8px; box-shadow: 0 0 0 1.5px var(--b-ink); }
+  .brand-main { padding: 0; background: #f9f9f9; }
+  .brand-page { min-height: calc(100vh - 45px); border-radius: 0; background: #f9f9f9; padding: 20px 16px 32px; gap: 16px; }
+  .brand-page-head h1 { font-size: 20px; }
+}
 
 </style>
 </head>
@@ -634,29 +797,65 @@ button, input { font-family: inherit; }
     </div>
   </section>
 
-  <!-- 로그인 뒤 임시 첫 화면 — 오리엔시트 목록(w04-00)이 생기면 바꾼다(피그마 F-7, 이번 범위 밖) -->
-  <section class="brand-card" data-screen="home" hidden>
-    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
-    <div class="brand-head">
-      <h1 id="homeTitle">로그인했어요</h1>
-      <p>브랜드 페이지의 다른 화면은 준비 중이에요.</p>
-    </div>
-    <div class="brand-fields">
-      <div class="brand-field">
-        <label for="homeEmail">로그인 이메일</label>
-        <input type="email" id="homeEmail" class="brand-input" readonly>
-      </div>
-      <div class="brand-field">
-        <span class="brand-field-label">연결된 브랜드</span>
-        <ul class="brand-guide" id="homeBrands"></ul>
-      </div>
-    </div>
-    <div class="brand-actions">
-      <button type="button" class="brand-btn" id="logoutBtn">로그아웃</button>
-    </div>
-  </section>
-
 </main>
+
+<!-- 로그인 뒤 틀 — 웹 좌측 메뉴 · 모바일 맨 위 막대 + 오른쪽 메뉴 서랍 (brand-shell.js, 작업표 조각 1 · 피그마 w04-00·m04-00·m03-01) -->
+<div class="brand-shell" id="brandShell" hidden>
+  <aside class="brand-side" id="brandSideMenu" aria-label="브랜드 메뉴">
+    <!-- 브랜드 고르기 자리 — 조각 2 가 ⌃⌄·펼친 목록을 채운다 -->
+    <div class="brand-switcher" id="brandSwitcherHost"><span class="brand-switcher-name" data-brand-current-name></span></div>
+    <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
+    <div class="brand-side-bottom">
+      <a class="brand-me" href="#mypage" data-brand-nav="mypage" id="brandMyPageLink">
+        <span class="brand-me-avatar" aria-hidden="true"><span data-brand-user-initial></span><span class="brand-dot" hidden></span></span>
+        <span class="brand-me-text"><span class="brand-me-name" data-brand-user-name></span><span class="brand-me-sub">마이페이지</span></span>
+        <span class="brand-sr brand-dot-sr" hidden>새 초대가 있어요</span>
+      </a>
+      <button type="button" class="brand-logout" id="brandLogoutBtn" data-brand-logout>
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">logout</span>
+        <span>로그아웃</span>
+      </button>
+    </div>
+  </aside>
+
+  <header class="brand-shell-topbar">
+    <span class="brand-shell-topbar-name" data-brand-current-name></span>
+    <button type="button" class="brand-shell-menu-btn" id="brandTopbarMenuBtn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="brandDrawer">
+      <span class="brand-burger" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-dot" hidden></span>
+    </button>
+  </header>
+
+  <main class="brand-main" id="brandMain">
+    <div class="brand-page" id="brandPageHost"></div>
+  </main>
+
+  <div class="brand-drawer" id="brandDrawer" role="dialog" aria-modal="true" aria-labelledby="brandDrawerTitle" hidden>
+    <div class="brand-drawer-panel">
+      <div class="brand-drawer-head">
+        <span class="brand-drawer-title" id="brandDrawerTitle">메뉴</span>
+        <button type="button" class="brand-drawer-close" id="brandDrawerClose" aria-label="메뉴 닫기">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">close</span>
+        </button>
+      </div>
+      <!-- 서랍 브랜드 묶음 — 조각 2 가 채운다 -->
+      <div class="brand-drawer-brands" id="brandDrawerBrands" hidden></div>
+      <div class="brand-drawer-line"></div>
+      <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
+      <div class="brand-drawer-line"></div>
+      <a class="brand-drawer-item brand-drawer-sub" href="#mypage" data-brand-nav="mypage">
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">account_circle</span>
+        <span><span data-brand-user-name></span> · 마이페이지</span>
+        <span class="brand-dot brand-dot-inline" hidden></span>
+        <span class="brand-sr brand-dot-sr" hidden>새 초대가 있어요</span>
+      </a>
+      <button type="button" class="brand-drawer-item brand-drawer-sub" data-brand-logout>
+        <span class="material-icons-round notranslate" translate="no" aria-hidden="true">logout</span>
+        <span>로그아웃</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- 약관 「보기」 — 브랜드용 약관이 아직 없어 안내만 띄운다 -->
 <div class="brand-modal" id="legalModal" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" hidden>
@@ -786,8 +985,9 @@ const BRAND_AUTH_STORAGE_KEY = 'reverb.brandAuth';
 // 메일 링크로 생기는 임시 세션 칸 이름 — persistSession:false 라 실제로는 쓰지 않는다(안전장치)
 const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
 
+// 로그인 전 카드 화면. 로그인 뒤 틀 안 페이지(#orient·#members 등)는 brand-shell.js 의 등록부가 따로 갖는다.
 const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
-  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'home', 'check-fail'];
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail'];
 
 // ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
 //   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
@@ -873,7 +1073,7 @@ function showBrandScreen(name) {
     closed: '브랜드 페이지', login: '브랜드 로그인', forgot: '비밀번호 찾기', 'forgot-sent': '메일을 확인해 주세요',
     setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨어요', confirm: '링크 확인',
     invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없어요',
-    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요', home: '브랜드 페이지',
+    'not-brand': '브랜드 계정이 아니에요', 'no-brand': '연결된 브랜드가 없어요',
     'check-fail': '로그인을 확인하지 못했어요'
   };
   document.title = (titles[name] || '브랜드') + ' · REVERB JP';
@@ -952,10 +1152,139 @@ function setFormBusy(form, busy) {
   form.querySelectorAll('input, button').forEach(el => { el.disabled = busy; });
 }
 
+// ── 공용 부품 (묶음 ② 작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 1)
+//   ui.js 를 싣지 않는 자립형 화면이라 토스트·확인 창·날짜 표기를 여기 따로 둔다.
+
+// 토스트 — 글자만(아이콘·이모지 없음). 화면 아래에 잠깐 떴다 사라진다.
+let _brandToastTimer = null;
+function brandToast(msg) {
+  let el = document.getElementById('brandToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'brandToast';
+    el.className = 'brand-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg || '';
+  el.classList.add('is-show');
+  clearTimeout(_brandToastTimer);
+  _brandToastTimer = setTimeout(() => el.classList.remove('is-show'), 3200);
+}
+
+// 확인 창 — Promise<boolean>. 모달을 그때그때 만든다(index.html 을 화면마다 고치지 않게).
+//   Esc·바깥 누르기 = 취소. 열 때 「취소」에 초점(되돌릴 수 없는 동작을 엔터 한 번에 누르지 않게), 닫으면 원래 초점으로.
+function brandConfirm(opts) {
+  const o = opts || {};
+  return new Promise(resolve => {
+    const prevFocus = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'brand-modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
+    wrap.innerHTML =
+      '<div class="brand-modal-box">' +
+        '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
+        (o.body ? '<p>' + brandEsc(o.body) + '</p>' : '') +
+        '<div class="brand-modal-actions">' +
+          '<button type="button" class="brand-btn brand-btn-line" data-act="cancel">' + brandEsc(o.cancelLabel || '취소') + '</button>' +
+          '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
+        '</div>' +
+      '</div>';
+    let done = false;
+    const close = (val) => {
+      if (done) return;
+      done = true;
+      document.removeEventListener('keydown', onKey, true);
+      wrap.remove();
+      if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === 'function') prevFocus.focus();
+      resolve(val);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(false); return; }
+      if (e.key === 'Tab') {
+        // 창 안에서만 초점이 돌게
+        const btns = Array.from(wrap.querySelectorAll('button'));
+        const i = btns.indexOf(document.activeElement);
+        if (i === -1) { e.preventDefault(); btns[0].focus(); return; }   // 바깥으로 나간 초점을 창 안으로
+        if (e.shiftKey && i <= 0) { e.preventDefault(); btns[btns.length - 1].focus(); }
+        else if (!e.shiftKey && i === btns.length - 1) { e.preventDefault(); btns[0].focus(); }
+      }
+    };
+    wrap.addEventListener('click', (e) => {
+      if (e.target === wrap) { close(false); return; }
+      const act = e.target.closest('[data-act]');
+      if (act) close(act.dataset.act === 'ok');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-act="cancel"]').focus();
+  });
+}
+
+// 서버 함수(Edge Function) 호출 — { status, body }. 2xx 가 아니어도 본문(JSON)을 읽는다
+//   (functions.invoke 는 2xx 가 아니면 본문을 오류 객체 안에 감춰 reason 을 못 읽는다 — 묶음 ① 넘김 3).
+//   opts.auth=true 면 로그인 연결의 접근 토큰을 싣고, 401 이면 토큰을 한 번 갱신해 다시 부른다.
+//   연결 끊김·운영 주소(brandDb 없음)는 { status:0, body:null }.
+async function brandCallFunction(name, payload, opts) {
+  if (!brandDb) return { status: 0, body: null };
+  const auth = !!(opts && opts.auth);
+  const send = async () => {
+    let token = SUPABASE_ANON_KEY;
+    if (auth) {
+      try {
+        const { data } = await brandDb.auth.getSession();
+        token = data && data.session ? data.session.access_token : '';
+      } catch (e) { token = ''; }
+      if (!token) return { status: 401, body: null };
+    }
+    const res = await fetch(SUPABASE_URL + '/functions/v1/' + name, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(payload || {})
+    });
+    let body = null;
+    try { body = await res.json(); } catch (e) { body = null; }
+    return { status: res.status, body };
+  };
+  try {
+    let r = await send();
+    if (auth && r.status === 401) {
+      try {
+        const { error } = await brandDb.auth.refreshSession();
+        if (!error) r = await send();
+      } catch (e) { /* 아래에서 그대로 돌려준다 */ }
+    }
+    return r;
+  } catch (e) {
+    return { status: 0, body: null };
+  }
+}
+
+// 날짜 표기 — 관리자 formatDate(2026/10/15)·formatDateTime(2026/10/15 14:05)과 같은 모양.
+//   ⚠️ ui.js 를 싣지 않아 사본을 둔다. 빈 값·잘못된 값은 빈 문자열.
+function _brandPad2(n) { return String(n).padStart(2, '0'); }
+function brandFormatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '/' + _brandPad2(d.getMonth() + 1) + '/' + _brandPad2(d.getDate());
+}
+function brandFormatDateTime(iso) {
+  const day = brandFormatDate(iso);
+  if (!day) return '';
+  const d = new Date(iso);
+  return day + ' ' + _brandPad2(d.getHours()) + ':' + _brandPad2(d.getMinutes());
+}
+
 // 브랜드 페이지 — 로그인·비밀번호 찾기·메일 링크(설정·재설정) 화면 동작
 //   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
 //   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
 //   ⚠️ 초대 수락(w01-03)·이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
+//      초대 수락은 묶음 ② 조각 3·4 에서 실제로 바뀐다(작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md).
+//   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
   emailEmpty: '이메일을 입력해 주세요.',
@@ -1082,7 +1411,7 @@ function initLoginForm() {
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
           pwInput.value = '';
-          goBrandScreen('home');
+          enterBrandApp(state);
         } else {
           pwInput.value = '';
         }
@@ -1305,7 +1634,7 @@ async function submitSetpwReal(pw) {
   }
   const state = await fetchBrandLoginState();
   const r2 = await applyBrandLoginState(state);
-  if (r2 === 'ok') goBrandScreen('home');
+  if (r2 === 'ok') enterBrandApp(state);
 }
 
 function initSetpwForm() {
@@ -1447,32 +1776,6 @@ function initResetpwForm() {
   });
 }
 
-// ── 임시 첫 화면(home)
-function fillHomeScreen(state) {
-  const s = state || {};
-  document.getElementById('homeTitle').textContent = s.name ? (s.name + '님, 로그인했어요') : '로그인했어요';
-  document.getElementById('homeEmail').value = s.email || '';
-  const brands = Array.isArray(s.brands) ? s.brands : [];
-  document.getElementById('homeBrands').innerHTML = brands.length
-    ? brands.map(b => '<li>' + brandEsc(b.name) + ' (' + (b.role === 'owner' ? '대표 담당자' : '멤버') + ')</li>').join('')
-    : '<li>연결된 브랜드가 없어요</li>';
-}
-
-function initHome() {
-  const btn = document.getElementById('logoutBtn');
-  btn.addEventListener('click', async () => {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    try {
-      await brandSignOutLocal();
-      setBrandAuthed(null);
-      goBrandScreen('login');
-    } finally {
-      btn.disabled = false;
-    }
-  });
-}
-
 // ── w01-03 초대 수락
 function fillInviteScreen() {
   document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
@@ -1540,11 +1843,255 @@ function initBrandLoginScreens() {
   initConfirm();
   initSetpwForm();
   initResetpwForm();
-  initHome();
   initInvite();
   initEmailChange();
   initLegalModal();
 }
+
+// 브랜드 페이지 — 받은 초대 수락·거절(w01-03 · w01-10)과 메일 링크 초대 착지(w01-02b)
+//   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 3·4 가 채운다(지금은 빈 파일 — 빌드 목록에 미리 등록).
+
+// 브랜드 페이지 — 로그인 뒤 틀(좌측 메뉴 · 모바일 맨 위 막대·메뉴 서랍)과 세션 상태
+//   (Figma 「[1차] 03」 틀, 사양서 docs/specs/2026-07-15-brand-portal.md §16-4,
+//    작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 1)
+//   페이지 파일(brand-members.js·brand-mypage.js)은 registerBrandPage 로 자기를 등록한다 — 이 파일이 먼저 실린다.
+
+// 로그인 판정(get_my_brand_login_state)을 화면 쪽 이름으로 옮긴 값. 서버 키 → 화면 키 대응은 작업표 조각 1 이 정본.
+//   { name, email, brands:[{id,name,role}], currentBrandId, hasPendingInvite, newInviteDot, passwordChangedAt }
+let brandSession = null;
+const _brandChangeHandlers = [];
+
+// 메뉴 — 순서·이름·아이콘은 피그마 w04-00·m03-01 그대로. 「마이페이지」는 메뉴 맨 아래 「이름 · 마이페이지」 자리.
+//   ⚠️ 피그마에 「선택된 메뉴」 모양이 없다 — 코드가 정했다(흰 바탕·굵은 글자, brand.css .is-active).
+const BRAND_MENU = [
+  { hash: 'brand', label: '브랜드', icon: 'business' },
+  { hash: 'orient', label: '오리엔시트', icon: 'assignment_turned_in' },
+  { hash: 'campaigns', label: '캠페인', icon: 'campaign' },
+  { hash: 'members', label: '멤버관리', icon: 'group' }
+];
+const BRAND_FIRST_PAGE = 'orient';   // 로그인 뒤 첫 페이지 = 오리엔시트(사양서 16-4 · 작업표 S0-1)
+
+// 페이지 등록부 — hash → { title, render(host) }. 아직 없는 페이지는 「준비 중」(작업표 S0-1).
+const _brandPages = {};
+function registerBrandPage(hash, def) { _brandPages[hash] = def; }
+function _brandComingSoon(title) {
+  return {
+    title,
+    render(host) {
+      host.innerHTML =
+        '<div class="brand-page-head"><h1>' + brandEsc(title) + '</h1></div>' +
+        '<div class="brand-empty"><p class="brand-empty-title">준비 중이에요</p>' +
+        '<p class="brand-empty-desc">이 화면은 곧 열려요.</p></div>';
+    }
+  };
+}
+registerBrandPage('orient', _brandComingSoon('오리엔시트'));
+registerBrandPage('campaigns', _brandComingSoon('캠페인'));
+registerBrandPage('brand', _brandComingSoon('브랜드'));
+registerBrandPage('members', _brandComingSoon('멤버 관리'));
+registerBrandPage('mypage', _brandComingSoon('마이페이지'));
+
+function isBrandShellPage(hash) { return Object.prototype.hasOwnProperty.call(_brandPages, hash); }
+
+function getCurrentBrandId() { return brandSession ? brandSession.currentBrandId : null; }
+function getCurrentBrand() {
+  if (!brandSession) return null;
+  return brandSession.brands.find(b => b.id === brandSession.currentBrandId) || null;
+}
+// 브랜드가 바뀌면 각 페이지가 자기 목록을 다시 받는다
+function onBrandChanged(fn) { _brandChangeHandlers.push(fn); }
+function _emitBrandChanged() { _brandChangeHandlers.forEach(fn => { try { fn(getCurrentBrandId()); } catch (e) { /* 한 페이지 실패가 다른 페이지를 막지 않게 */ } }); }
+
+// 판정 결과를 세션 상태로 옮긴다. 첫 브랜드 = preferBrandId(활성 연결에 있을 때만) → last_brand_id → 서버 순서 첫 브랜드.
+//   ⚠️ 조각 2 가 「서버 순서 첫 브랜드」를 이름순 첫 브랜드(sortBrandsForPicker)로 바꾼다.
+function _brandSessionFromState(state, preferBrandId) {
+  const brands = Array.isArray(state.brands) ? state.brands.map(b => ({ id: b.id, name: b.name || '', role: b.role })) : [];
+  const has = (id) => !!id && brands.some(b => b.id === id);
+  const keep = brandSession && has(brandSession.currentBrandId) ? brandSession.currentBrandId : null;
+  const current = has(preferBrandId) ? preferBrandId
+    : keep || (has(state.last_brand_id) ? state.last_brand_id : (brands[0] ? brands[0].id : null));
+  return {
+    name: state.name || '',
+    email: state.email || '',
+    brands,
+    currentBrandId: current,
+    hasPendingInvite: !!state.has_pending_invite,
+    newInviteDot: !!state.new_invite_dot,
+    passwordChangedAt: state.password_changed_at || null
+  };
+}
+
+function setBrandSessionFromState(state, opts) {
+  if (!state) { brandSession = null; return; }
+  const prevBrand = getCurrentBrandId();
+  brandSession = _brandSessionFromState(state, opts && opts.preferBrandId);
+  renderBrandShellChrome();
+  if (prevBrand && prevBrand !== brandSession.currentBrandId) _emitBrandChanged();
+}
+
+// 로그인 직후·초대 수락 뒤 — 첫 페이지로. 🔴 활동 기록은 남기지 않는다(로그인만 한 것은 활동이 아니다 — 사양서 16-4 ③).
+function enterBrandApp(state, opts) {
+  brandSession = null;          // 로그인 직후에는 이전 브랜드를 이어받지 않는다
+  setBrandAuthed(state, opts);
+  goBrandScreen(BRAND_FIRST_PAGE);
+}
+
+// 판정을 다시 받아 세션 상태를 갱신 — 반환 state 또는 null(호출 실패).
+//   지금 브랜드가 연결 목록에서 빠졌으면 첫 브랜드로 옮긴다(조각 2 가 handleBrandNotLinked 로 바꾼다).
+async function refreshBrandLoginState() {
+  const state = await fetchBrandLoginState();
+  if (!state) return null;
+  if (state.state !== 'ok') {
+    // 연결이 모두 사라졌거나 계정 상태가 바뀜 — 로그인 판정 갈래를 그대로 따른다
+    await applyBrandLoginState(state);
+    return state;
+  }
+  setBrandSessionFromState(state);
+  return state;
+}
+
+// 「마지막 접속」 기록 — 지금 브랜드로. 사람이 누른 메뉴 이동·저장 성공·브랜드 바꾸기 때만 부른다.
+//   마이페이지 이동·마이페이지 안의 저장·로그인 직후 자동 이동은 부르지 않는다(작업표 S0-4). 결과는 화면에 쓰지 않는다.
+function brandTouchActivity() {
+  const id = getCurrentBrandId();
+  if (!id) return;
+  brandRpc('touch_my_brand_activity', { p_brand_id: id }).catch(() => {});
+}
+
+// ── 틀 그리기
+function renderBrandShellChrome() {
+  if (!brandSession) return;
+  const cur = getCurrentBrand();
+  const curName = cur ? cur.name : '';
+  document.querySelectorAll('[data-brand-current-name]').forEach(el => { el.textContent = curName; });
+  const who = brandSession.name || brandSession.email;
+  document.querySelectorAll('[data-brand-user-name]').forEach(el => { el.textContent = who; });
+  document.querySelectorAll('[data-brand-user-initial]').forEach(el => { el.textContent = Array.from(who || '')[0] || ''; });
+  refreshInviteDot();
+}
+
+// 빨간 점 — 새 초대(new_invite_dot). 마이페이지 화면 안에는 그리지 않는다(조각 7 이 들어올 때 끈다).
+function refreshInviteDot() {
+  const on = !!(brandSession && brandSession.newInviteDot);
+  document.querySelectorAll('.brand-dot, .brand-dot-sr').forEach(el => { el.hidden = !on; });
+  const menuBtn = document.getElementById('brandTopbarMenuBtn');
+  if (menuBtn) menuBtn.setAttribute('aria-label', on ? '메뉴 열기 (새 초대가 있어요)' : '메뉴 열기');
+}
+
+function _brandMenuHtml(active) {
+  return BRAND_MENU.map(m =>
+    '<a class="brand-menu-item' + (m.hash === active ? ' is-active' : '') + '" href="#' + m.hash + '" data-brand-nav="' + m.hash + '"' +
+      (m.hash === active ? ' aria-current="page"' : '') + '>' +
+      '<span class="material-icons-round notranslate" translate="no" aria-hidden="true">' + m.icon + '</span>' +
+      '<span>' + brandEsc(m.label) + '</span></a>'
+  ).join('');
+}
+
+// 틀 안 페이지를 그린다 — routeBrand 가 부른다
+function showBrandShellPage(hash) {
+  const page = _brandPages[hash] || _brandPages[BRAND_FIRST_PAGE];
+  document.getElementById('brandStage').hidden = true;
+  document.querySelectorAll('.brand-card[data-screen]').forEach(el => { el.hidden = true; });
+  document.getElementById('brandShell').hidden = false;
+  document.body.classList.add('is-shell');
+  // 메뉴는 한 번만 그리고 표시만 바꾼다(다시 그리면 키보드 초점이 사라진다)
+  document.querySelectorAll('#brandShell [data-brand-nav]').forEach(el => {
+    const on = el.dataset.brandNav === hash;
+    el.classList.toggle('is-active', on);
+    if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
+  });
+  renderBrandShellChrome();
+  closeBrandDrawer(false);
+  const host = document.getElementById('brandPageHost');
+  host.innerHTML = '';
+  try { page.render(host); }
+  catch (e) { host.innerHTML = '<div class="brand-empty"><p class="brand-empty-title">화면을 그리지 못했어요</p><p class="brand-empty-desc">새로고침해 주세요.</p></div>'; }
+  document.title = (page.title || '브랜드') + ' · REVERB JP';
+  window.scrollTo(0, 0);
+  const main = document.getElementById('brandMain');
+  if (main) main.scrollTop = 0;
+}
+
+// 틀을 감춘다(로그인 전 카드 화면으로 갈 때) — showBrandScreen 이 부른다
+function hideBrandShell() {
+  const shell = document.getElementById('brandShell');
+  if (shell) shell.hidden = true;
+  // 로그아웃 뒤 이전 계정의 페이지 내용(멤버 이메일 등)을 DOM 에 남기지 않는다
+  const host = document.getElementById('brandPageHost');
+  if (host) host.innerHTML = '';
+  const stage = document.getElementById('brandStage');
+  if (stage) stage.hidden = false;
+  document.body.classList.remove('is-shell');
+  closeBrandDrawer(false);
+}
+
+// ── 모바일 메뉴 서랍(오른쪽에서 나온다)
+let _brandDrawerReturnFocus = null;
+function openBrandDrawer() {
+  const d = document.getElementById('brandDrawer');
+  if (!d) return;
+  _brandDrawerReturnFocus = document.activeElement;
+  d.hidden = false;
+  document.getElementById('brandTopbarMenuBtn').setAttribute('aria-expanded', 'true');
+  const first = d.querySelector('a, button');
+  if (first) first.focus();
+}
+function closeBrandDrawer(restoreFocus) {
+  const d = document.getElementById('brandDrawer');
+  if (!d || d.hidden) return;
+  d.hidden = true;
+  const btn = document.getElementById('brandTopbarMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  if (restoreFocus !== false && _brandDrawerReturnFocus) _brandDrawerReturnFocus.focus();
+}
+
+async function brandLogout() {
+  await brandSignOutLocal();
+  setBrandAuthed(null);
+  goBrandScreen('login');
+}
+
+function initBrandShell() {
+  document.querySelectorAll('[data-brand-menu]').forEach(el => { el.innerHTML = _brandMenuHtml(''); });
+  // 메뉴 이동 — 사람이 눌렀을 때만 활동으로 센다(마이페이지는 세지 않는다 — S0-4).
+  //   지금 페이지를 다시 누르면 해시가 안 바뀌어 화면 전환이 없으므로 서랍은 여기서 닫는다.
+  document.getElementById('brandShell').addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-brand-nav]');
+    if (!nav) return;
+    if (nav.dataset.brandNav !== 'mypage') brandTouchActivity();
+    closeBrandDrawer(false);
+  });
+  document.getElementById('brandTopbarMenuBtn').addEventListener('click', openBrandDrawer);
+  document.getElementById('brandDrawerClose').addEventListener('click', () => closeBrandDrawer());
+  const drawer = document.getElementById('brandDrawer');
+  drawer.addEventListener('click', (e) => { if (e.target === drawer) closeBrandDrawer(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || drawer.hidden) return;
+    closeBrandDrawer();
+  });
+  // 서랍 안에서만 초점이 돌게
+  drawer.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const items = Array.from(drawer.querySelectorAll('a, button')).filter(el => el.offsetParent !== null);
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (!e.shiftKey && i === items.length - 1) { e.preventDefault(); items[0].focus(); }
+  });
+  document.querySelectorAll('[data-brand-logout]').forEach(btn => btn.addEventListener('click', async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try { await brandLogout(); } finally { btn.disabled = false; }
+  }));
+}
+
+// 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기·취소·삭제·대표 넘기기·해제
+//   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5·6 이 채운다.
+//   그 전까지 #members 는 brand-shell.js 의 「준비 중」 페이지다(이 파일이 registerBrandPage 로 덮어쓴다).
+
+// 브랜드 페이지 — 마이페이지(07): 계정 정보·연결된 브랜드·받은 초대·빨간 점·비밀번호 변경
+//   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 7·8 이 채운다.
+//   그 전까지 #mypage 는 brand-shell.js 의 「준비 중」 페이지다(이 파일이 registerBrandPage 로 덮어쓴다).
 
 // 브랜드 페이지 — 부팅·화면 주소(#해시) 전환·메일 링크 착지·개발서버 미리보기 막대. 맨 마지막에 싣는다.
 //   운영 주소(IS_STAGING=false — dev/lib/supabase.js 의 도메인 판정)에서는 「준비 중」 카드만 보이고
@@ -1558,7 +2105,7 @@ const brandPreviewState = {
   confirmKind: 'setup'   // w01-08 제목 — 'setup' | 'reset'
 };
 
-// 미리보기 목록 — 로그인 뒤 첫 화면(home)은 세션이 있어야 해서 넣지 않는다.
+// 미리보기 목록 — 로그인 뒤 틀(brand-shell.js)은 세션이 있어야 해서 넣지 않는다.
 //   w01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
 const BRAND_PREVIEW_SCREENS = [
   { hash: 'login', label: 'w01-00 로그인' },
@@ -1575,16 +2122,16 @@ const BRAND_PREVIEW_SCREENS = [
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
+//   화면 쪽 세션 값(brandSession — 지금 브랜드 등)은 brand-shell.js 가 함께 갱신한다.
 let brandAuthed = null;
-function setBrandAuthed(state) {
+function setBrandAuthed(state, opts) {
   brandAuthed = state || null;
-  if (brandAuthed) fillHomeScreen(brandAuthed);
+  setBrandSessionFromState(brandAuthed, opts);
   updatePreviewVisibility();
 }
 
-function currentBrandScreen() {
-  const h = location.hash.replace(/^#/, '');
-  return BRAND_SCREENS.includes(h) ? h : 'login';
+function currentBrandHash() {
+  return location.hash.replace(/^#/, '');
 }
 
 // 해시로 화면을 바꾼다 — 이미 그 해시면 hashchange 가 안 나므로 직접 그린다
@@ -1602,10 +2149,17 @@ function routeBrand() {
     history.replaceState(null, '', location.pathname + location.hash);
   }
   _brandCheckPending = false;
-  let name = currentBrandScreen();
-  // 로그인돼 있으면 첫 화면만 / 로그인 안 했으면 첫 화면으로 못 간다
-  if (brandAuthed) name = 'home';
-  else if (name === 'home') name = 'login';
+  const hash = currentBrandHash();
+  // 로그인돼 있으면 틀 안 페이지만(카드 화면 해시로 오면 첫 페이지) / 로그인 안 했으면 틀 페이지로 못 간다
+  if (brandAuthed) {
+    const page = isBrandShellPage(hash) ? hash : BRAND_FIRST_PAGE;
+    // 카드 화면 해시(#login 등)·빈 해시로 왔으면 주소창도 실제 페이지로 맞춘다
+    if (page !== hash) history.replaceState(null, '', location.pathname + location.search + '#' + page);
+    showBrandShellPage(page);
+    updatePreviewVisibility();
+    return;
+  }
+  const name = BRAND_SCREENS.includes(hash) ? hash : 'login';
 
   // 들어올 때마다 그 화면을 처음 상태로 채운다(미리보기 예시 값 — 실제 링크 흐름은 showBrandFlowScreen)
   if (name === 'setpw') fillSetpwScreen(brandPreviewState.setpwKind);
@@ -1623,6 +2177,7 @@ function routeBrand() {
 }
 
 function paintBrandScreen(name) {
+  hideBrandShell();
   showBrandScreen(name);
   updatePreviewBar(name);
   updatePreviewVisibility();
@@ -1837,6 +2392,7 @@ async function bootBrand() {
     return;
   }
   initBrandLoginScreens();
+  initBrandShell();
   initBrandAuthEvents();
   initPreviewBar();
   window.addEventListener('hashchange', routeBrand);
@@ -1853,6 +2409,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1791962055 -->
+<!-- v1792052506 -->
 </body>
 </html>
