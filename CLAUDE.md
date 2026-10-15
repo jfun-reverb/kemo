@@ -50,8 +50,10 @@
 - 웹훅 메일(광고주 접수·오리엔시트 제출 과다 발송 게이트 2단·🔴 알림 1건 = 메일 1통은 「선점 먼저」·요청 본문을 믿지 않는다·같은 호출자 검사 본문 12개) — 상세 `.claude/rules/mail-webhooks.md`
 - 캠페인 홍보 메일(🔴 채널 문지기는 네 채널만 — Qoo10·LIPS·@cosme 만 쓰는 캠페인은 대상 아님, 결정 · 실행 권한 회수 순서는 부여 먼저) — 상세 `.claude/rules/promo-mail.md`
 - **약관·방침 개정 통지 메일**(`notify-policy-change`, **수동 1회 호출**. 전 회원 1인 1통, 수신 동의 무관): 🔴 **통지마다 갈아 끼울 자리가 넷** — ①`docs/email-templates/policy-change-notice.html`(→ 동기화 스크립트가 `_templates/` 와 **`templates.ts`** 생성, 함수는 `templates.ts` 를 읽는다) ②`CURRENT_NOTICE`(키·시행일) ③제목 ④텍스트 판 — **뒤 셋은 `index.ts` 에 박혀** 템플릿만 바꾸면 옛 제목으로 나간다. **탈퇴 확정 회원**(`@deleted.reverbjp.invalid`)은 `skipped`/`withdrawn`(진행 중 회원은 받는다). `noticeKey`·`effectiveDate` 가 `CURRENT_NOTICE` 와 다르면 **시험 발송까지 거부**(`notice_mismatch`) — 옛 키면 받은 회원이 「이미 받음」으로 빠진다. ⚠️ 짝인 **앱 안 공지**는 `POLICY_NOTICE`(shared.js) + `policyNotice.*`(ja·ko) — `id` 도 통지마다 새 값(옛 값이면 공지를 닫은 회원에게 안 뜬다). 메일 템플릿에 지금 든 것 = 개인정보처리방침 개정(메타 픽셀, 시행 2026-10-17). ⚠️ **앱 안 공지는 일반 문의 창구 공지(`inquiryDesk2026`, 시행 2026-10-06, 메일 통지 없음)로 바뀌어 메일과 짝이 아니다** — 공지 틀이 하나뿐이라 픽셀 공지를 대체했다(사용자 결정). 사양서 `docs/specs/2026-09-17-meta-pixel-policy-notice.md`
-- **브랜드 계정 설정 메일**(`notify-brand-account-setup`, 관리자 화면이 브라우저에서 직접 부름 — CORS 있음·공개 키 거부 없음, 캠페인 관리자 이상, 받는 사람은 서버가 `brand_id` 로 다시 읽음 · 🔴 **개발서버 두 겹 잠금** `BRAND_SETUP_DEV_ECHO=1` **그리고** 개발 프로젝트 주소일 때만 메일 대신 응답에 `dev_link` — 하나라도 지우면 운영에서 링크가 응답에 실린다. 🔴 **운영에 `BRAND_SETUP_DEV_ECHO` 를 넣지 않는다** · 비밀값 `PUBLIC_BRAND_URL` 기본값 없음 · 링크 번호를 발송 **전에** 교체하므로 발송 실패면 옛 링크도 무효 — 「다시 보내기」로 복구) — 개발서버만, 운영 보류
-- **브랜드 비밀번호 찾기**(`brand-password-reset-request`, 비로그인 공개 — 늘 `200 {ok:true}`·최소 2.5초) · 🔴 **실제 처리는 `EdgeRuntime.waitUntil` 로 응답 뒤에** — 기다렸다 응답하면 걸린 시간으로 브랜드 계정 여부가 드러난다 · 🔴 개발서버 잠금이어도 **응답·로그에 링크를 싣지 않는다**(공개 함수라 누구나 남의 재설정 링크를 받게 된다) · 설정 메일 「다시 보냄」 문구 사본이 `notify-brand-account-setup` 과 두 벌 — 개발서버만, 운영 보류
+- **브랜드 계정 설정 메일**(`notify-brand-account-setup`, 관리자 화면이 브라우저에서 직접 부름 — CORS 있음·공개 키 거부 없음, 판정은 호출자 토큰으로 `has_permission('brand.account_manage','write')`(533 관리자 함수와 같은 판정), `mail_kind:'link'` 면 양식을 서버가 고름(비밀번호 정한 계정 = 연결 안내 `brand-link-notice`), 받는 사람은 서버가 `brand_id` 로 다시 읽음 · 🔴 **개발서버 두 겹 잠금** `BRAND_SETUP_DEV_ECHO=1` **그리고** 개발 프로젝트 주소일 때만 메일 대신 응답에 `dev_link` — 하나라도 지우면 운영에서 링크가 응답에 실린다. 🔴 **운영에 `BRAND_SETUP_DEV_ECHO` 를 넣지 않는다** · 비밀값 `PUBLIC_BRAND_URL` 기본값 없음 · 링크 번호를 발송 **전에** 교체하므로 발송 실패면 옛 링크도 무효 — 「다시 보내기」로 복구) — 개발서버만, 운영 보류
+- **브랜드 비밀번호 찾기**(`brand-password-reset-request`, 비로그인 공개 — 늘 `200 {ok:true}`·최소 2.5초) · 🔴 **실제 처리는 `EdgeRuntime.waitUntil` 로 응답 뒤에** — 기다렸다 응답하면 걸린 시간으로 브랜드 계정 여부가 드러난다 · 🔴 개발서버 잠금이어도 **응답·로그에 링크를 싣지 않는다**(공개 함수라 누구나 남의 재설정 링크를 받게 된다) · 설정 메일 「다시 보냄」 문구 사본이 `notify-brand-account-setup` 과 두 벌 · 재발송 기록은 `p_sent_by='self'` — 개발서버만, 운영 보류
+- 🔴 **브랜드 메일 링크 「24시간」 문구**(설정·재설정 — 2026-10-15): 인증 설정 Email OTP Expiration 86400 이 전제다(개발서버는 바꿈). **운영은 설정을 먼저 바꾸고 그 뒤 함수 배포** — 반대면 메일이 거짓 안내. 같은 날 인플루언서 `reset-password.html` 「1時間後」도 고친다. 설정 메일 양식 `{{heading}}` 칸은 두 함수가 넘긴다(빠뜨리면 제목이 빈 채로 나간다)
+- **브랜드 초대 메일**(`notify-brand-invite`, 대표 브랜드 계정이 브라우저에서 부름 — CORS·공개 키 거부 없음 · 갈래(새 이메일·브랜드 계정·만들 수 없는 이메일)를 응답에 싣지 않는다 · 위 두 겹 잠금 스위치를 공유) · **새 이메일 초대 수락**(`brand-invite-accept`, 비로그인 공개 — CORS·공개 키 거부 없음·새 비밀값 없음 · 비밀번호 원문이 지나가므로 로그에 본문을 남기지 않는다) — 개발서버만, 운영 보류
 - **공통 패턴**: ①인플 대상 메일은 **4줄 푸터 필수**(自動送信 안내·LINE @reverb.jp·© JFUN·사이트 URL, 글자색 #999) — 신규 인플 메일 추가 시 의무 ②관리자 일괄 발송은 **1명당 1통 분리**(To 헤더 노출 차단) ③부분 실패는 `status='sent'`+실패 명단 누적(전원 실패만 `failed`)
 - **메일 템플릿**: `docs/email-templates/` 가 source of truth(카탈로그 `index.html`). Edge Function 은 `_templates/` 미러를 `render({{key}})` 로 읽음 — 배포 전 `scripts/sync-email-templates.sh` 동기화 필수
 
@@ -186,13 +188,19 @@
 - `campaign_caution_history` — 주의사항/참여방법/NG 변경 audit + `app_count_at_change`. RLS SELECT super_admin, INSERT 는 `record_caution_history()` 만(campaign_admin 이상)
 - `campaign_change_history` — **캠페인 전체 항목 변경 audit**(마이그레이션 265·266). 「바뀐 항목 1개 = 1행」 + `change_group_id` + `changed_by`/`changed_by_name`/`changed_at` + `field_name`(CHECK 화이트리스트 **48개**) + `old_value`/`new_value` jsonb + `change_source`(admin / auto / system). RLS SELECT `is_super_admin()`, 쓰기는 트리거만(`record_campaign_change_history()` AFTER UPDATE — 구 `record_caution_history` 와 달리 같은 트랜잭션이라 감사 공백 없음). ⚠️ **화이트리스트는 세 곳(265 CHECK · 266 v_fields · 266 트리거 `AFTER UPDATE OF` 목록)이 항상 같은 집합** — 어긋나면 CHECK 위반으로 INSERT 실패. 조회수·신청 수·수정일·순서·채번 제외. 3영역은 기존 표와 병존. 사양서 `docs/specs/2026-07-27-campaign-full-change-history.md`
 
-### 브랜드 계정·로그인 (마이그레이션 526~ — 🔴 **개발서버만**, 운영 반영 보류)
+### 브랜드 계정·로그인·멤버 관리 (마이그레이션 526~528 · 530~533 — 🔴 **개발서버만**, 운영 반영 보류)
 > 상세는 **`.claude/rules/brand-account.md`** — 브랜드 화면(`dev/brand/**`·`dev/js/brand-*.js`)·관리자 브랜드 상세(`admin-brand.js`)·브랜드 메일 함수 둘·526~528을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 인수인계 `…-brand-login-handoff.md`
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(묶음 ① 서버만 완료 — 화면 묶음 ②·③ 미착수) · 인수인계 `…-brand-login-handoff.md`
+
+**현재 원본 번호**
+- 527 함수 여섯(`get_my_brand_login_state`·`get_brand_link_state`·`service_issue_brand_account_link`·`complete_brand_account_setup`·`complete_brand_password_reset`·`service_mark_brand_setup_mail_sent`) — **532**(마지막은 4인자 — 옛 3인자 지움) · `admin_upsert_brand_owner_account`·`admin_get_brand_account_status` — **533**. 🔴 527 을 베이스로 잡으면 532·533 의 새 칸·`can_manage`·권한 가드가 사라진다
+- 표 `brand_invites`·`brand_member_limits`·권한 항목 `brand.account_manage`(시드 3행) — **530** · 대표 함수 — **531** · 관리자 쓰기 — **533**. ⚠️ 운영 적용은 526 → 527 → 528 → 530 → 531 → 532 → 533 한 묶음(순서는 사양서 「운영 반영 전 남은 관문」)
 > 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
 - 🔴 **인플루언서 표 삽입 거부 트리거**(526)가 인플루언서 앱 `handleLogin` 의 프로필 자동 생성을 막는다 — 인플루언서 앱 차단(`auth.js`·`app.js`)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
 - 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`**(사용자 메타데이터는 누구나 채운다) · 계정 생성에 `auth.admin.createUser` 를 쓰지 않는다(497 가입 관문에 걸린다)
-- ⚠️ 528 이 기존 함수 셋(`merge_brands`·`delete_brand`·`invite_admin`)에 브랜드 계정 거부를 넣었다 — 현재 원본 번호는 「브랜드 서베이」·「기준 데이터」 절. ⚠️ **연결 해제 기능이 아직 없다**
+- ⚠️ 528 이 기존 함수 셋(`merge_brands`·`delete_brand`·`invite_admin`)에 브랜드 계정 거부를 넣었다 — 현재 원본 번호는 「브랜드 서베이」·「기준 데이터」 절. ⚠️ **연결 해제는 함수만 있다**(대표 `release_brand_member` 531 · 관리자 `admin_release_brand_account` 533 — 화면 없음). 해제 이력이 있는 브랜드는 해제 뒤에도 삭제가 막힌다(528 — 병합으로)
+- 🔴 묶음 ③ 전까지 관리자 브랜드 편집 폼이 `brands.contacts` 를 **통째로** 저장한다 — 서버가 옮긴 대표 표시(531 `_brand_contacts_mark_primary`)가 폼을 연 채 저장하면 되돌아간다
+- ⚠️ 권한 「브랜드 계정 관리」(`brand.account_manage`)는 데이터베이스 시드만 있고 관리자 권한 카탈로그(`shared.js`)에는 아직 없다(묶음 ③). 등급을 바꾸면 계정 함수·설정 메일 함수가 함께 따른다
 - ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
 
 ### 광고주 신청(브랜드 서베이)

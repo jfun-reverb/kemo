@@ -841,14 +841,42 @@
 - 아직 안 본 것: 비밀번호 재설정 흐름 끝까지(w01-07 → w01-07a — 개발서버 비밀번호 찾기는 공개 함수라 링크를 내보내지 않는다. 운영 출시 때 또는 관리자 전용 시험 경로가 생기면) · 관리자 「새 브랜드」 등록 시 계정 생성·인플루언서 이메일 겹침 안내 · 캠페인 매니저 화면(비활성 단추)
 - 🧪 개발서버 시험 데이터: 브랜드 `zz-브랜드로그인-시험`(BR-2026-0051) + 계정 `zz-brand-owner@example.com`(비밀번호 설정 완료, 오늘 비밀번호 찾기 요청 4/5회 사용)
 
+### 멤버 관리·여러 브랜드 — 묶음 ① 서버·데이터베이스·메일 (2026-10-15, 개발서버만 · 운영 보류)
+- 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(조각 8개 · 선결 결정 S0-1~S0-4). 결과 값은 작업표 「산출 계약」 그대로이고 **아래 「작업표와 달라진 것」만 더해졌다.** 화면은 없다(묶음 ② 브랜드 화면 · ③ 관리자 화면)
+- 개발서버 적용·`dev` 병합, **운영 미적용(보류 — 526~528 과 한 묶음, 약관 관문 뒤)**:
+
+| 조각 | 산출물 | PR |
+|---|---|---|
+| 1 | 마이그레이션 **530** — 표 `brand_invites`·`brand_member_limits` · 계정 칸 5개(`mypage_seen_at`·`last_brand_id`·`password_changed_at`·`setup_mail_sent_by`·`created_via_invite_id`) + 연결 칸 `last_active_at` · 권한 항목 `brand.account_manage` 시드 3행(최고·캠페인 관리자 쓰기 / 매니저 숨김) · 판정 `my_brand_role`·`is_my_brand`·`_brand_member_limit`·`_brand_seat_usage`·`_brand_invite_acceptable` | #2060 |
+| 2 | 마이그레이션 **531** — 대표 함수 7개(`create_brand_invite`·`resend_brand_invite`·`cancel_brand_invite`·`hide_brand_invite`·`transfer_brand_ownership`·`release_brand_member`·`get_brand_members`) + 안쪽 `_brand_transfer_owner`·`_brand_contacts_mark_primary` + 도우미 6개 | #2063 |
+| 3 | 마이그레이션 **532** — 새 함수 11개(공개 `get_brand_invite_link_state` · 로그인 사용자 7개 · 서비스 키 전용 `service_brand_invite_create_account`·`service_brand_invite_finalize` · 안쪽 `_brand_acceptable_invites_for`) + **527 함수 여섯 재정의**(`get_my_brand_login_state`·`get_brand_link_state`·`service_issue_brand_account_link`·`complete_brand_account_setup`·`complete_brand_password_reset`·`service_mark_brand_setup_mail_sent` — 마지막은 4인자로 바뀌어 옛 3인자를 지움) | #2067 |
+| 4 | 마이그레이션 **533** — 관리자 쓰기 넷 신설(`admin_change_brand_owner`·`admin_set_brand_member_limit`·`admin_release_brand_account`·`admin_link_brand_owner_account`) + `admin_check_brand_account_email` 신설 + **527 두 함수 재정의**(`admin_upsert_brand_owner_account` 가드 교체·이메일 교체 때 `setup_mail_sent_by` 비움, `admin_get_brand_account_status` 칸 확장) | #2069 |
+| 5 | 서버 함수 `notify-brand-invite` + 양식 `brand-invite-new`·`-existing`·`-blocked` (대표 계정이 브라우저에서 부름 · 갈래를 응답에 싣지 않음) | #2071 |
+| 6 | 서버 함수 `brand-invite-accept` (비로그인 공개 · 수락 순간 계정 생성 — 작업표 방식 B · 새 비밀값 없음) | #2072 |
+| 7 | 기존 서버 함수 `notify-brand-account-setup`·`brand-password-reset-request` 확장 + 양식 `brand-link-notice` 신설 | #2073 |
+
+- **현재 원본 번호**: 527 함수 여섯 → **532** · `admin_upsert_brand_owner_account`·`admin_get_brand_account_status` → **533**. 🔴 527 을 베이스로 재작성하면 532·533 의 새 칸·`can_manage`·권한 가드가 사라진다
+- **작업표와 달라진 것** (조각별 마이그레이션·함수 머리말이 정본)
+  - 531: 멤버도 `seat_used`·`member_limit` 를 받는다 · 다시 보내기 응답 키 4개 · 취소·숨기기는 대표가 아니면 전부 `not_owner` · 없는 초대 줄의 다시 보내기는 `not_found` · 다시 보내기는 이메일 잠금도 잡는다 · 옛 대표는 멤버 목록 맨 뒤
+  - 532: 도우미 `_brand_acceptable_invites_for` 추가 · `mark_my_brand_*` 반환값(text) · 서비스 함수 사유 값(`invalid_link`·`name_required`·`terms_required`·`password_not_set`·`already_member`) · 설정 완료도 `password_changed_at` 기록 · `p_sent_by` 허용값 밖은 오류 22023 · 로그인 판정 `last_brand_id` 폴백은 NULL(이름순 첫 브랜드 고르기는 화면 몫) · 이름 100자·연락처 50자 길이 안전 장치
+  - 533: 연결 함수에 `brand_not_found` 추가 · 상태 조회 `members[]` 에 `role` 칸 · 해제 때 `last_brand_id` 를 바꾸지 않는다(로그인 판정이 해제된 브랜드를 가리키면 폴백 — 묶음 ② 몫)
+  - 6: `invalid_request`(400) 추가 · 비밀번호 거부(`password_rejected`) 때 정리하지 않는다(확인·삭제 사이 잠금이 없어 동시 두 요청이면 정상 계정을 지울 수 있다 — 남는 반쪽 계정은 비밀번호가 없어 로그인 불가, 같은 링크로 다시 오면 재사용)
+  - 7: 설정 메일 함수 판정 `is_campaign_admin()` → `has_permission('brand.account_manage','write')`(호출자 토큰으로 — 533 과 같은 판정, 판정 호출 오류는 500) · `mail_kind`(없음·`setup`·`link`, 그 밖 400) · `link` 갈래 양식은 서버가 `password_set_at` 으로 고른다(정함 = 연결 안내, **발송 기록 안 남김** — 그 칸은 설정 메일 전용 / 안 정함 = 설정 메일 + 「운영팀이 이 브랜드를 계정에 연결해」 문장, 기록 `admin`) · 성공 응답에 `template`(`setup`·`link_notice`), 개발서버 잠금의 연결 안내 갈래는 링크가 없어 `dev_echo:true` · 🔴 **비밀번호 찾기 재발송이 `p_sent_by` 를 안 넘겨 `admin` 으로 기록되던 결함**(532 이후)을 `self` 로 고쳤다 · 설정 메일 양식에 `{{heading}}` 칸 신설(⚠️ 이 양식을 쓰는 새 호출 경로가 값을 빠뜨리면 제목 줄이 오류 없이 빈 채로 나간다) · 링크 유효 시간 문구 24시간 · 16-3 9번 개인정보 이용 안내는 **초안**(설정 메일·연결 안내 두 양식, `/약관확인` 뒤 확정)
+- 개발서버 확인(조각마다 시험 데이터를 만들고 지움, 잔여 0): 530 [V1]~[V6] · 531 권한·시험 완전 일치 · 532 [V1] 17행·[V2] 57항목 · 533 권한 7행·[V1]~[V26] · 5 OPTIONS 200·토큰 없음/공개 키 401·멤버 403·대표 ⓐⓑⓒ 응답 키 동일·두 번째 `already_sent` · 6 정상 수락·재사용 링크·ⓑⓒ 링크 거부·단계 사이 재시도 같은 계정 · 7 매니저 403 → 권한 「쓰기」 200 → 원복, `link` 두 갈래, 기록 `admin`/`self`·비밀번호 정한 계정 기록 안 됨. 개발서버 인증 설정 Email OTP Expiration 은 2026-10-15 86400초로 바꿨다(S0-3)
+- **넘기는 것**
+  - 묶음 ②(브랜드 화면): 로그인 판정이 `no_active_brand` + `has_pending_invite` 면 로그아웃하지 말고 받은 초대 화면으로 · `last_brand_id` NULL 이면 이름순 첫 브랜드 · 수락 함수 오류가 400·500 이라 `functions.invoke` 오류 객체에서 본문을 읽는다 · 약관 판 값은 서버가 길이만 본다 · 비밀번호 거부·일시 장애 뒤 떠나면 비밀번호 없는 계정이 남는다(자동 정리 없음) · 개발서버 초대 메일은 `mail_sent_at` 을 안 남겨 「보냄」 표시가 빈다 · ⓐ 로 보낸 뒤 그 이메일이 브랜드 계정이 되면 메일 문구와 착지 화면이 어긋난다 · 만료 틈에 `not_pending` 대신 `already_sent` 가 올 수 있다
+  - 묶음 ③(관리자 화면): 🔴 그 전까지 관리자 편집 폼이 `brands.contacts` 를 통째로 저장해 서버가 옮긴 대표 표시가 되돌아갈 수 있다 · `link` 갈래 설정 메일이 판정과 발급 사이 비밀번호 설정으로 `password_already_set`(`sent:false`)가 될 수 있다 · 상태 조회 `members[]` 연락처·겹침 확인의 인플루언서 이름이 매니저에게도 보인다(작업표 계약대로 — 착수 전 사용자 의도 확인) · 권한 카탈로그(`shared.js`)에 `brand.account_manage` 등록
+  - 시험 팁: 기본 상한 5라 초대 5건째부터 `seat_full` — 시험 브랜드는 `brand_member_limits` 를 올려 둔다 · 개발서버에 캠페인 관리자·매니저 등급 계정이 없어 시험이 임시로 만들어 썼다
+
 ### 운영 반영 전 남은 관문 (2026-10-14 기준)
 1. 브랜드용 이용약관·개인정보처리방침 + `/약관확인`(P-7) — 약관 판 문자열 `BRAND_TERMS_VERSION` 교체
-2. 계정 연결 **해제 기능** — 없으면 계정이 연결된 브랜드는 병합을 못 한다(해제 이력이 있는 브랜드는 해제 뒤에도 삭제는 계속 막힌다 — 이력 보존, 병합으로 안내, 528). → 멤버 관리 작업표 조각 2 `release_brand_member`(대표)·조각 4 `admin_release_brand_account`(관리자)가 이것이다(2026-10-15)
+2. 계정 연결 **해제 기능** — 없으면 계정이 연결된 브랜드는 병합을 못 한다(해제 이력이 있는 브랜드는 해제 뒤에도 삭제는 계속 막힌다 — 이력 보존, 병합으로 안내, 528). → 멤버 관리 작업표 조각 2 `release_brand_member`(대표, 531)·조각 4 `admin_release_brand_account`(관리자, 533)로 **함수는 생겼다**(2026-10-15, 개발서버). 화면(묶음 ②·③)이 아직 없다
 3. 운영 주소 결정 — `resolveSupabaseEnv` 는 `globalreverb.com`·`www` 만 운영. 새 주소면 함께 수정
-4. 운영 적용 순서: 데이터베이스 526 → 527 → 528(한 묶음) → 서버 함수 두 개 + 비밀값 `PUBLIC_BRAND_URL`(🔴 `BRAND_SETUP_DEV_ECHO` 는 넣지 않는다) → 화면 판정 `_brandAccountEnabled()` 걷기
+4. 운영 적용 순서: 데이터베이스 526 → 527 → 528 → 530 → 531 → 532 → 533(한 묶음 — 🔴 528 단독이나 중간에서 끊으면 없는 표·함수를 부른다) → 인증 설정 Email OTP Expiration 86400(7번 — 🔴 함수보다 **먼저**) → 서버 함수 넷(`notify-brand-account-setup`·`brand-password-reset-request`·`notify-brand-invite`·`brand-invite-accept`) + 비밀값 `PUBLIC_BRAND_URL`(🔴 `BRAND_SETUP_DEV_ECHO` 는 넣지 않는다 — 넷 중 셋이 이 스위치를 공유) → 화면 판정 `_brandAccountEnabled()` 걷기
 5. 알려진 틈(다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호가 브랜드 이메일에도 동작 · 매니저가 대표 이메일을 바꾸면 로그인 이메일은 옛 주소 · 비밀번호 찾기 재발송 소개문이 「운영팀이 보냄」 문구
-6. 고문 세션에 넘길 것: 규칙 파일 옛 원본 번호 — `.claude/rules/brand-admin.md`(merge_brands 「467」→528) · `admin-accounts-notices.md`(invite_admin 「417」→528) · `member-signup-auth.md`(가입 트리거 「420」→526) · `mail-webhooks.md` 에 두 메일 함수 경로 추가
-7. 공용 메일 링크 유효 시간 1시간 → 24시간을 **운영** 인증 설정에도(16-7 — 개발서버만 먼저). 운영의 인플루언서 비밀번호 찾기·관리자 초대 링크도 함께 바뀌므로 인플루언서 재설정 양식 `reset-password.html` 의 「1時間後」("1시간 뒤 무효")·양식 목록 「1시간 만료」 문구를 같은 날 고친다(2026-10-15 추가)
+6. 고문 세션에 넘길 것: 규칙 파일 옛 원본 번호 — `.claude/rules/brand-admin.md`(merge_brands 「467」→528) · `admin-accounts-notices.md`(invite_admin 「417」→528) · `member-signup-auth.md`(가입 트리거 「420」→526) · `mail-webhooks.md` 에 브랜드 메일 함수 **넷** 경로 추가 · `brand-account.md` 에 530~533 원본 번호(2026-10-15 묶음 ①)
+7. 공용 메일 링크 유효 시간 1시간 → 24시간을 **운영** 인증 설정(Email OTP Expiration 86400)에도(16-7 — 개발서버는 2026-10-15 바꿈). 🔴 **설정을 먼저 바꾸고 그 뒤에** 24시간 문구를 담은 브랜드 메일 함수 둘(`notify-brand-account-setup`·`brand-password-reset-request`)을 배포한다 — 반대면 운영 메일이 「24시간」이라고 거짓 안내한다. 운영의 인플루언서 비밀번호 찾기·관리자 초대 링크도 함께 바뀌므로 인플루언서 재설정 양식 `reset-password.html` 의 「1時間後」("1시간 뒤 무효")·양식 목록(`docs/email-templates/index.html`) 「1시간 만료」 문구를 같은 날 고친다(2026-10-15 추가)
 8. (2026-10-15) 외부 결과물(다른 서비스 결과 파일)을 브랜드 페이지에 보이는 기능 — 16-5 15번(⑥ 약관 확인 포함). 만들어지기 전에는 1차를 운영에 내지 않는다
 9. (2026-10-15) 브랜드 공개 기본 열의 처음 값 — 16-5 17번(담당자 회의 뒤)
+10. (2026-10-15) 16-3 9번 개인정보 이용 안내 — 설정 메일(`brand-account-setup.html`)·연결 안내(`brand-link-notice.html`) 두 양식에 **초안**으로 들어가 있다(양식 주석 「16-3 9번 초안 — /약관확인 뒤 확정」). 1번 `/약관확인` 때 문구를 확정하고 양식 동기화 뒤 함수를 다시 배포한다 · 같은 판단에서 `brand_invites`(계정 없는 사람의 이메일)·「마지막 접속」(이용 기록) 보관 기간도 정한다
 
