@@ -1,5 +1,6 @@
 // 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기 (작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5)
-//   취소·삭제·대표 넘기기·해제는 조각 6. 피그마 w06-00(대표 화면)·w06-00a(멤버 화면)·w06-01(초대 모달)·w06-01a(가득 참)·w06-90(토스트)
+//   + 조각 6 정리 동작: 대기 초대 취소·만료/거절 줄 삭제·대표 담당자 넘기기(w06-02)·해제(w06-03)
+//   피그마 w06-00(대표 화면)·w06-00a(멤버 화면)·w06-01(초대 모달)·w06-01a(가득 참)·w06-02·w06-03·w06-90(토스트)
 //   🔴 단추를 숨기는 것은 보기일 뿐이다 — 서버가 「지금 그 브랜드의 대표인가」를 다시 판정한다. 동작 뒤에는 목록을 다시 받는다.
 //   🔴 겹침 비노출 — 받는 이메일이 다른 브랜드 계정·인플루언서·관리자여도 대표 화면은 늘 같은 토스트·「초대 대기」.
 
@@ -13,7 +14,13 @@ const BRAND_MEMBERS_MSG = {
   failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // w06-90
   alreadyPending: '이미 초대한 이메일입니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   alreadyMember: '이미 이 브랜드의 멤버입니다.',
-  selfEmail: '본인 이메일은 초대할 수 없습니다.'
+  selfEmail: '본인 이메일은 초대할 수 없습니다.',
+  cancelled: '초대를 취소했습니다.',                                       // w06-90
+  transferred: '대표 담당자를 넘겼습니다.',                                 // w06-90
+  // 아래 셋은 피그마에 아직 문구가 없다(w06-90 「아직 정하지 않은 것」) — 같은 문체로 임시
+  actionFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.',
+  inviteEnded: '이미 끝난 초대입니다. 목록을 새로 불러왔습니다.',
+  notMember: '이미 해제된 멤버입니다. 목록을 새로 불러왔습니다.'
 };
 
 // 지금 그린 목록 — { brandId, my_role, seat_used, member_limit, rows } · 실패면 null
@@ -42,7 +49,7 @@ function _brandMemberStatusPill(r) {
   return '';
 }
 
-// 관리 칸 — 조각 5 는 다시 보내기만. 조각 6 이 넘기기·해제·취소·삭제를 더한다(_brandMemberExtraActions).
+// 관리 칸 — 다시 보내기(조각 5) + 넘기기·해제·취소·삭제(조각 6, _brandMemberExtraActions).
 function _brandMemberActions(r, full) {
   const btns = [];
   if (r.kind === 'invite' && (r.status === 'pending' || r.status === 'expired')) {
@@ -51,7 +58,7 @@ function _brandMemberActions(r, full) {
     btns.push('<button type="button" class="brand-row-btn" data-mem-act="resend" data-invite="' + brandEsc(r.invite_id) + '"' +
       (off ? ' disabled title="멤버가 가득 찼습니다"' : '') + '>다시 보내기</button>');
   }
-  if (typeof _brandMemberExtraActions === 'function') btns.push(..._brandMemberExtraActions(r));
+  btns.push(..._brandMemberExtraActions(r));
   return btns.length ? btns.join('') : '<span class="brand-dash">—</span>';
 }
 
@@ -308,5 +315,103 @@ document.addEventListener('click', async (e) => {
   if (act === 'reload') { loadBrandMembers(); return; }
   if (act === 'invite') { openBrandInviteModal(btn.dataset.full === '1'); return; }
   if (act === 'resend') { await resendBrandInviteRow(btn.dataset.invite, btn); return; }
-  if (typeof _brandMemberExtraClick === 'function') await _brandMemberExtraClick(act, btn);
+  await _brandMemberExtraClick(act, btn);
 });
+
+// ── 조각 6 — 정리 동작(대표만 보이는 단추. 최종 판정은 서버)
+//   피그마 w06-00 단추: 멤버 줄 「대표 담당자 넘기기」(기본)·「해제」(빨강) / 대기 줄 「취소」(빨강, 확인 없이 바로)
+//   / 만료·거절 줄 「삭제」(기본, 확인·토스트 없음 — 줄이 사라지는 것으로 충분)
+function _brandMemberExtraActions(r) {
+  const btn = (act, label, attrs, danger) =>
+    '<button type="button" class="brand-row-btn' + (danger ? ' is-danger' : '') + '" data-mem-act="' + act + '" ' + attrs + '>' + label + '</button>';
+  if (r.kind === 'account' && r.role === 'member' && r.auth_id) {
+    const a = 'data-auth="' + brandEsc(r.auth_id) + '" data-name="' + brandEsc(_brandMemberDisplayName(r)) + '"';
+    return [btn('transfer', '대표 담당자 넘기기', a, false), btn('release', '해제', a, true)];
+  }
+  if (r.kind !== 'invite') return [];
+  const inv = 'data-invite="' + brandEsc(r.invite_id) + '"';
+  if (r.status === 'pending') return [btn('cancel', '취소', inv, true)];
+  if (r.status === 'expired' || r.status === 'declined') return [btn('hide', '삭제', inv, false)];
+  return [];
+}
+
+function _brandMemberDisplayName(r) { return (r.name && String(r.name).trim()) || r.email || ''; }
+
+async function _brandMemberExtraClick(act, btn) {
+  if (act === 'cancel') return cancelBrandInviteRow(btn.dataset.invite, btn);
+  if (act === 'hide') return hideBrandInviteRow(btn.dataset.invite, btn);
+  if (act === 'transfer') return transferBrandOwnerRow(btn.dataset.auth, btn.dataset.name, btn);
+  if (act === 'release') return releaseBrandMemberRow(btn.dataset.auth, btn.dataset.name, btn);
+}
+
+// 서버 결과(글자 하나) — 실패·모르는 값은 null
+async function _brandMemberRpcText(name, args) {
+  const { data, error } = await brandRpc(name, args);
+  return (!error && typeof data === 'string') ? data : null;
+}
+
+// 대기 초대 취소 — 피그마: 확인 모달 없이 바로 취소 + 토스트
+async function cancelBrandInviteRow(inviteId, btn) {
+  btn.disabled = true;
+  const res = await _brandMemberRpcText('cancel_brand_invite', { p_invite_id: inviteId });
+  if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
+  if (res === 'ok') { brandToast(BRAND_MEMBERS_MSG.cancelled); await _brandMembersAfterAction(true); return; }
+  // not_pending(그사이 만료·수락·거절·다른 쪽에서 취소) · not_owner(그사이 대표가 바뀜) — 목록 새로 받기
+  brandToast(res === 'not_pending' ? BRAND_MEMBERS_MSG.inviteEnded : res === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.actionFail, { error: true });
+  await loadBrandMembers();
+}
+
+// 만료·거절 줄 삭제 — 목록에서만 지운다(초대 이력은 서버에 남는다)
+async function hideBrandInviteRow(inviteId, btn) {
+  btn.disabled = true;
+  const res = await _brandMemberRpcText('hide_brand_invite', { p_invite_id: inviteId });
+  if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
+  if (res === 'ok') { await _brandMembersAfterAction(true); return; }
+  // not_hideable(그사이 다시 보내 대기가 됨) — 조용히 새로 받기 · not_owner — 안내 + 새로 받기
+  if (res === 'not_owner') brandToast(BRAND_MEMBERS_MSG.notOwner, { error: true });
+  await loadBrandMembers();
+}
+
+// 대표 담당자 넘기기 — 피그마 w06-02 「취소 · 대표 담당자 넘기기」(검정). 메일 없음.
+//   🔴 서버가 brands.contacts 의 대표 표시도 옮긴다 — 묶음 ③ 전에는 관리자 브랜드 상세 편집 폼을 연 채 저장하면 되돌아간다
+async function transferBrandOwnerRow(authId, name, btn) {
+  const ok = await brandConfirm({
+    title: name + '님에게 대표 담당자를 넘기시겠습니까?',
+    body: '· ' + name + '님이 대표 담당자가 됩니다.\n' +
+      '· 회원님은 멤버가 되고, 초대·해제·대표 담당자 넘기기를 더 할 수 없습니다.\n' +
+      '· 오리엔시트·캠페인·브랜드 정보는 지금처럼 쓸 수 있습니다.',
+    card: true, okLabel: '대표 담당자 넘기기'
+  });
+  if (!ok) return;
+  btn.disabled = true;
+  const res = await _brandMemberRpcText('transfer_brand_ownership', { p_brand_id: getCurrentBrandId(), p_new_owner_auth_id: authId });
+  if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
+  if (res === 'ok') {
+    brandToast(BRAND_MEMBERS_MSG.transferred);
+    brandTouchActivity();
+    // 내 역할이 바뀌었다 — 로그인 판정(브랜드 목록의 역할)을 새로 받고, 목록을 멤버 화면(w06-00a)으로 다시 그린다
+    await refreshBrandLoginState();
+    await loadBrandMembers();
+    return;
+  }
+  brandToast(res === 'not_member' ? BRAND_MEMBERS_MSG.notMember : res === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.actionFail, { error: true });
+  await loadBrandMembers();
+}
+
+// 해제 — 피그마 w06-03 「취소 · 해제」(빨강). 연결 이력은 서버에 남는다
+async function releaseBrandMemberRow(authId, name, btn) {
+  const ok = await brandConfirm({
+    title: name + '님을 해제하시겠습니까?',
+    body: '· 이 브랜드에 바로 로그인할 수 없게 됩니다. (다른 브랜드에 연결돼 있으면 그 브랜드는 그대로)\n' +
+      '· ' + name + '님이 만든 오리엔시트는 브랜드에 남습니다.\n' +
+      '· 다시 함께하려면 새로 초대해야 합니다.',
+    card: true, okLabel: '해제', danger: true
+  });
+  if (!ok) return;
+  btn.disabled = true;
+  const res = await _brandMemberRpcText('release_brand_member', { p_brand_id: getCurrentBrandId(), p_auth_id: authId });
+  if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
+  if (res === 'ok') { brandToast(name + '님을 해제했습니다.'); await _brandMembersAfterAction(true); return; }   // w06-90
+  brandToast(res === 'not_member' ? BRAND_MEMBERS_MSG.notMember : res === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.actionFail, { error: true });
+  await loadBrandMembers();
+}
