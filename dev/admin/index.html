@@ -1788,18 +1788,19 @@
             </div>
             <div class="admin-table-wrap">
               <table class="data-table">
-                <thead><tr>
+                <!-- 열 정렬: 클릭은 th 전체(화살표만 걸면 활성 뒤 한 글자로 줄어 빗나간다). 화살표는 renderSettlementsList 가 그릴 때마다 _settleApplySortArrows 로 맞춘다(캠페인 목록의 전역 화살표 갱신이 덮어써도 복원). data-sort 는 settle- 머리말 -->
+                <thead id="settlementsTableHead"><tr>
                   <!-- 선택 칸 — 「정산대기」 탭에서만 체크박스가 그려진다(다른 상태는 일괄 대상이 아니다) -->
                   <th style="width:34px"><input type="checkbox" id="settlementSelectAll" onchange="settlementToggleAll(this)" title="보이는 정산대기 건 전체 선택"></th>
-                  <th>이름</th>
-                  <th style="min-width:240px">캠페인</th>
-                  <th style="width:110px">금액</th>
+                  <th style="cursor:pointer" onclick="toggleSettlementSort('name')">이름 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-name">▲▼</span></th>
+                  <th style="min-width:240px;cursor:pointer" onclick="toggleSettlementSort('camp')">캠페인 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-camp">▲▼</span></th>
+                  <th style="width:110px;cursor:pointer" onclick="toggleSettlementSort('amount')">금액 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-amount">▲▼</span></th>
                   <!-- 실제로 보낸 금액. 계산값과 같으면 「계산액 그대로」 — 「0원」이 아니다 -->
-                  <th style="width:110px">보낸 금액</th>
-                  <th style="width:200px">페이팔</th>
-                  <th style="width:90px">상태</th>
-                  <th style="width:120px">인증 성공일</th>
-                  <th style="width:120px">송금일</th>
+                  <th style="width:120px;white-space:nowrap;cursor:pointer" onclick="toggleSettlementSort('paidAmount')">보낸 금액 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-paidAmount">▲▼</span></th>
+                  <th style="width:200px;cursor:pointer" onclick="toggleSettlementSort('paypal')">페이팔 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-paypal">▲▼</span></th>
+                  <th style="width:90px;cursor:pointer" onclick="toggleSettlementSort('status')" title="정산대기 → 송금완료 → 보류 → 취소 순">상태 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-status">▲▼</span></th>
+                  <th style="width:120px;white-space:nowrap;cursor:pointer" onclick="toggleSettlementSort('cert')">인증 성공일 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-cert">▲▼</span></th>
+                  <th style="width:120px;cursor:pointer" onclick="toggleSettlementSort('paidAt')">송금일 <span class="sort-arrows" style="padding:0 2px" data-sort="settle-paidAt">▲▼</span></th>
                   <th style="width:300px">처리</th>
                 </tr></thead>
                 <tbody id="settlementsTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(24,24,27,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
