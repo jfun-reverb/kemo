@@ -1,8 +1,8 @@
 // 브랜드 페이지 — 로그인·비밀번호 찾기·메일 링크(설정·재설정) 화면 동작
 //   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
 //   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
-//   초대 수락(w01-03) 동작은 brand-invite.js(묶음 ② 조각 3). 여기는 미리보기 예시 채우기(fillInviteScreen)만.
-//   ⚠️ 이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
+//   초대 수락(bw01-03) 동작은 brand-invite.js(묶음 ② 조각 3). 여기는 미리보기 예시 채우기(fillInviteScreen)만.
+//   ⚠️ 이메일 변경(bw01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
 //   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
@@ -100,7 +100,7 @@ async function applyBrandLoginState(state) {
   return kind || 'error';
 }
 
-// ── w01-00 로그인
+// ── bw01-00 로그인
 function initLoginForm() {
   const form = document.getElementById('loginForm');
   const btn = document.getElementById('loginSubmit');
@@ -138,7 +138,7 @@ function initLoginForm() {
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
           pwInput.value = '';
-          // 초대 메일 링크로 왔다가 로그인하러 온 경우 — 그 초대 화면으로 돌아간다(w01-03 「로그인 뒤 이 화면으로」)
+          // 초대 메일 링크로 왔다가 로그인하러 온 경우 — 그 초대 화면으로 돌아간다(bw01-03 「로그인 뒤 이 화면으로」)
           if (!(await resumeBrandInviteLink())) enterBrandApp(state);
         } else {
           // 대기 초대만 있는 계정은 초대 화면이 받은 초대를 모두 보여 준다 — 보관한 링크는 버린다
@@ -162,7 +162,7 @@ function initLoginForm() {
   });
 }
 
-// ── w01-01 비밀번호 찾기 → w01-01a 메일 발송
+// ── bw01-01 비밀번호 찾기 → bw01-01a 메일 발송
 //   🔴 brandDb.auth.resetPasswordForEmail 을 쓰지 않는다 — pkce 검증값이 요청한 브라우저에 묶여
 //      다른 기기에서 메일을 열면 실패하고, 인플루언서 메일 양식과 섞인다. 서버 함수만 부른다(조각 5).
 //   서버 함수는 계정이 있든 없든 같은 응답(최소 2.5초)이라 결과를 보지 않고 다음 화면으로 간다.
@@ -204,7 +204,7 @@ function initForgotForm() {
   document.getElementById('forgotEmail').addEventListener('input', () => setFieldError('forgotEmail', ''));
 }
 
-// ── w01-08 「계속하기」 — 메일 링크의 #confirm= 에 담긴 인증 서비스 주소로 직접 누를 때만 넘긴다
+// ── bw01-08 「계속하기」 — 메일 링크의 #confirm= 에 담긴 인증 서비스 주소로 직접 누를 때만 넘긴다
 //   ★목적지는 현재 환경 프로젝트 주소 + /auth/v1/verify 정확 일치(admin-setpw.html readConfirmTarget 과 같은 방식).
 //     *.supabase.co 를 통짜로 허용하면 남의 프로젝트를 거쳐 피싱 사이트로 넘어갈 수 있다.
 function readBrandConfirmTarget(raw) {
@@ -240,7 +240,7 @@ function initConfirm() {
   });
 }
 
-// ── w01-02 비밀번호 설정 · w01-02b 초대받은 멤버
+// ── bw01-02 비밀번호 설정 · bw01-02b 초대받은 멤버
 //   실제(메일 링크로 들어옴)면 brandLinkCtx.mode==='setup', 아니면 미리보기 예시 값
 function resetSetpwForm() {
   const form = document.getElementById('setpwForm');
@@ -391,7 +391,7 @@ function initSetpwForm() {
     if (busy) return;
     setNotice('setpwResult', '');
     const isReal = !!(brandLinkCtx && brandLinkCtx.mode === 'setup' && brandLinkCtx.hasSession);
-    const isInviteNew = !isReal && !!_brandInviteNewCtx;   // 초대 메일 링크로 온 새 이메일 멤버(w01-02b)
+    const isInviteNew = !isReal && !!_brandInviteNewCtx;   // 초대 메일 링크로 온 새 이메일 멤버(bw01-02b)
     let firstBad = null;
     const isMember = isInviteNew || (!isReal && brandPreviewState.setpwKind === 'member');
     if (isMember) {
@@ -431,7 +431,7 @@ function initSetpwForm() {
   });
 }
 
-// ── w01-07 새 비밀번호 정하기(재설정) → w01-07a 완료
+// ── bw01-07 새 비밀번호 정하기(재설정) → bw01-07a 완료
 function fillResetpwScreen(email) {
   const form = document.getElementById('resetpwForm');
   form.reset();
@@ -510,7 +510,7 @@ function initResetpwForm() {
   });
 }
 
-// ── w01-03 초대 수락 — 미리보기 예시 값(실제 동작은 brand-invite.js)
+// ── bw01-03 초대 수락 — 미리보기 예시 값(실제 동작은 brand-invite.js)
 function fillInviteScreen() {
   document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
   document.getElementById('inviteEmail').value = BRAND_SAMPLE.invite.email;
@@ -518,7 +518,7 @@ function fillInviteScreen() {
   _setInviteBusy(false);
 }
 
-// ── w01-04 이메일 변경 확인
+// ── bw01-04 이메일 변경 확인
 function fillEmailChangeScreen() {
   document.getElementById('emailChangeNew').value = BRAND_SAMPLE.emailChange.next;
   document.getElementById('emailChangeNote').textContent =

@@ -7,23 +7,23 @@ const BRAND_EXPIRED_MSG = '로그인 시간이 지났습니다. 다시 로그인
 // 미리보기 막대에서 고른 값 — brand-login.js 가 읽는다(서버와 연결 안 된 화면 전용)
 const brandPreviewState = {
   setpwKind: 'owner',    // 'owner'(운영팀이 만든 계정) | 'member'(초대받은 멤버)
-  confirmKind: 'setup'   // w01-08 제목 — 'setup' | 'reset'
+  confirmKind: 'setup'   // bw01-08 제목 — 'setup' | 'reset'
 };
 
 // 미리보기 목록 — 로그인 뒤 틀(brand-shell.js)은 세션이 있어야 해서 넣지 않는다.
-//   w01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
+//   bw01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
 const BRAND_PREVIEW_SCREENS = [
-  { hash: 'login', label: 'w01-00 로그인' },
-  { hash: 'forgot', label: 'w01-01 비밀번호 찾기' },
-  { hash: 'forgot-sent', label: 'w01-01a 메일 발송' },
-  { hash: 'setpw', label: 'w01-02 비밀번호 설정' },
-  { hash: 'invite', label: 'w01-03 초대 수락' },
-  { hash: 'link-invalid', label: 'w01-05 쓸 수 없는 링크' },
-  { hash: 'not-brand', label: 'w01-06 브랜드 계정이 아님' },
-  { hash: 'no-brand', label: 'w01-06a 연결된 브랜드 없음' },
-  { hash: 'resetpw', label: 'w01-07 새 비밀번호 정하기' },
-  { hash: 'reset-done', label: 'w01-07a 비밀번호 바꾸기 완료' },
-  { hash: 'confirm', label: 'w01-08 계속하기' }
+  { hash: 'login', label: 'bw01-00 로그인' },
+  { hash: 'forgot', label: 'bw01-01 비밀번호 찾기' },
+  { hash: 'forgot-sent', label: 'bw01-01a 메일 발송' },
+  { hash: 'setpw', label: 'bw01-02 비밀번호 설정' },
+  { hash: 'invite', label: 'bw01-03 초대 수락' },
+  { hash: 'link-invalid', label: 'bw01-05 쓸 수 없는 링크' },
+  { hash: 'not-brand', label: 'bw01-06 브랜드 계정이 아님' },
+  { hash: 'no-brand', label: 'bw01-06a 연결된 브랜드 없음' },
+  { hash: 'resetpw', label: 'bw01-07 새 비밀번호 정하기' },
+  { hash: 'reset-done', label: 'bw01-07a 비밀번호 바꾸기 완료' },
+  { hash: 'confirm', label: 'bw01-08 계속하기' }
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
