@@ -442,7 +442,7 @@ function validateAdminPassword(pw) {
 }
 
 // 흔한(유출 목록에 있는) 비밀번호 판정 — 'common' | 'ok' | 'unknown'.
-//   ⚠️ dev/js/ui.js commonPasswordCheck 의 사본(이 화면은 ui.js 를 안 싣는다) — 고치면 두 곳을 함께.
+//   ⚠️ dev/js/ui.js commonPasswordCheck 의 사본(이 화면은 ui.js 를 안 싣는다) — 브랜드 화면 dev/js/brand-core.js brandCommonPasswordCheck 까지 고치면 세 곳을 함께.
 //   'unknown'(실패·3초 초과)은 통과로 다룬다. 사양서 docs/specs/2026-09-29-common-password-warning.md
 async function commonPasswordCheck(pw) {
   try {
