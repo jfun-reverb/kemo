@@ -334,6 +334,8 @@ async function bootBrand() {
     await handleBrandLinkLanding(params);
     return;
   }
+  // 「가려던 시트」(?orient= · ?orient_token=) — 링크 착지 갈래들 뒤, 해시 라우팅 앞. 주소에서 곧바로 지우고 세션 저장소에 둔다(brand-orient.js)
+  captureBrandOrientTarget(params);
   await restoreBrandSession();
 }
 
