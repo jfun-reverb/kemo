@@ -1,7 +1,7 @@
 // 브랜드 페이지 — 로그인 뒤 틀(좌측 메뉴 · 모바일 맨 위 막대·메뉴 서랍)과 세션 상태
 //   (Figma 「[1차] 03」 틀, 사양서 docs/specs/2026-07-15-brand-portal.md §16-4,
 //    작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 1)
-//   페이지 파일(brand-members.js·brand-mypage.js)은 registerBrandPage 로 자기를 등록한다 — 이 파일이 먼저 실린다.
+//   페이지 파일(brand-info.js·brand-members.js·brand-mypage.js)은 registerBrandPage 로 자기를 등록한다 — 이 파일이 먼저 실린다.
 
 // 로그인 판정(get_my_brand_login_state)을 화면 쪽 이름으로 옮긴 값. 서버 키 → 화면 키 대응은 작업표 조각 1 이 정본.
 //   { name, email, brands:[{id,name,role}], currentBrandId, hasPendingInvite, newInviteDot, passwordChangedAt }
@@ -34,7 +34,6 @@ function _brandComingSoon(title) {
 }
 registerBrandPage('orient', _brandComingSoon('오리엔시트'));
 registerBrandPage('campaigns', _brandComingSoon('캠페인'));
-registerBrandPage('brand', _brandComingSoon('브랜드'));
 registerBrandPage('members', _brandComingSoon('멤버 관리'));
 registerBrandPage('mypage', _brandComingSoon('마이페이지'));
 
