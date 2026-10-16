@@ -1205,6 +1205,8 @@ function openApplyResultModal(camp, myApp) {
     title.textContent = t('applyResult.neutral');
     intro.textContent = '';
   }
+  // 도입 문장이 없는 갈래(중립)는 그 칸을 숨긴다 — 비워 두면 제목 아래 빈 여백만 남는다(2026-10-16 화면 확인)
+  intro.style.display = intro.textContent ? '' : 'none';
   // 체크는 열 때마다 끈다. 중립 갈래만 체크 없이 바로 누를 수 있다(결정 3·7)
   const needAck = kind !== 'neutral';
   ackRow.style.display = needAck ? '' : 'none';
