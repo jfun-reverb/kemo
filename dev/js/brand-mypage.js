@@ -1,5 +1,5 @@
 // 브랜드 페이지 — 마이페이지(07): 계정 정보 보기·수정 · 연결된 브랜드와 역할 · 받은 초대 수락·거절 · 빨간 점 끄기 · 로그아웃
-//   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 7 (비밀번호 변경 모달은 조각 8)
+//   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 7 · 조각 8(비밀번호 변경 모달 bw07-01·01a·01b)
 //   피그마 bw07-00(보기)·bw07-00a(수정 중)·bw07-00b(받은 초대)·bw07-02(거절 확인)·bw07-90(토스트)
 //   🔴 마이페이지는 계정 단위다 — 브랜드를 바꿔도 내용이 같다. 그래서 이 페이지의 저장·수락·거절은
 //      brandTouchActivity(「마지막 접속」)를 부르지 않는다(작업표 S0-4).
@@ -15,7 +15,11 @@ const BRAND_MYPAGE_MSG = {
   declined: '초대를 거절했습니다.',                                    // bw07-90
   invalid: '이 초대는 더 이상 쓸 수 없습니다.',                        // bw07-90
   acceptFail: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',   // 초대 수락 화면(bw01-92 ⑥)과 같은 문구
-  declineFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.'           // 피그마에 없음 — 멤버 관리 임시 문구와 같게
+  declineFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // 피그마에 없음 — 멤버 관리 임시 문구와 같게
+  pwChanged: '비밀번호를 바꿨습니다.',                                  // bw07-90
+  pwWrong: '현재 비밀번호가 맞지 않습니다.',                            // bw07-01a
+  pwTooMany: '시도가 너무 많습니다. 잠시 후 다시 시도해 주십시오.',     // 피그마에 상태 없음(bw07-01 「확인 필요」) — 칸 아래에 낸다
+  pwRelogin: '비밀번호를 바꿨습니다. 새 비밀번호로 다시 로그인해 주십시오.'
 };
 function _brandMyAcceptedMsg(brandName) { return (brandName || '') + ' 브랜드가 연결됐습니다.'; }   // bw07-90
 
@@ -172,9 +176,8 @@ function _brandMyPasswordHtml() {
   const a = _brandMyAccount;
   const at = a ? a.password_changed_at : (brandSession ? brandSession.passwordChangedAt : null);
   const day = brandFormatDate(at);
-  // 「비밀번호 변경」 단추(bw07-01 모달)는 조각 8 이 붙인다
   return '<section class="brand-my-section" aria-labelledby="brandMyPwTitle">' +
-    _brandMySectionHead('비밀번호').replace('<h2>', '<h2 id="brandMyPwTitle">') +
+    _brandMySectionHead('비밀번호', _brandMyBtn('비밀번호 변경', 'password')).replace('<h2>', '<h2 id="brandMyPwTitle">') +
     '<p class="brand-my-small">마지막 변경 ' + (day ? brandEsc(day) : '—') + '</p>' +
   '</section>';
 }
@@ -272,6 +275,115 @@ async function declineMyBrandInvite(inviteId) {
   await reloadMyBrandInvites();
 }
 
+// ── 비밀번호 변경 모달(피그마 bw07-01 · 01a 현재 비밀번호 틀림 · 01b 규칙 미달)
+//   회색 상자 + 흰 카드 + 오른쪽 「취소 · 변경」, 보기(눈) 단추 없음. 검사 순서: 빈 칸 → 규칙 → 두 칸 일치 → 서버의 현재 비밀번호 확인.
+//   흔한 비밀번호 경고(bw07-01c)는 조각 9. 바꾸는 순서·세션 처리는 brandChangePasswordWithCurrent(brand-core.js).
+const BRAND_PW_HINT = '8자 이상 · 영문 소문자와 기호 포함';
+function openBrandPasswordModal() {
+  closeBrandPasswordModal();
+  const prevFocus = document.activeElement;
+  const wrap = document.createElement('div');
+  wrap.className = 'brand-modal';
+  wrap.id = 'brandPwModal';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', 'brandPwTitle');
+  const field = (id, label, opts) =>
+    '<div class="brand-field">' +
+      '<label for="' + id + '">' + label + '</label>' +
+      '<input type="password" id="' + id + '" class="brand-input" autocomplete="' + opts.ac + '"' + (opts.ph ? ' placeholder="' + opts.ph + '"' : '') + '>' +
+      (opts.hint ? '<p class="brand-pw-hint" id="' + id + 'Hint">' + opts.hint + '</p>' : '') +
+      '<p class="brand-field-error" id="' + id + 'Error" hidden></p>' +
+    '</div>';
+  wrap.innerHTML =
+    '<form class="brand-modal-box brand-modal-form is-pw" novalidate>' +
+      '<h2 id="brandPwTitle">비밀번호 변경</h2>' +
+      '<p class="brand-modal-sub">현재 비밀번호를 확인한 뒤 바꿉니다.</p>' +
+      '<div class="brand-modal-card">' +
+        field('brandPwCurrent', '현재 비밀번호', { ac: 'current-password' }) +
+        field('brandPwNew', '새 비밀번호', { ac: 'new-password', ph: BRAND_PW_HINT, hint: BRAND_PW_HINT }) +
+        field('brandPwNew2', '새 비밀번호 확인', { ac: 'new-password', ph: '한 번 더 입력해 주십시오' }) +
+      '</div>' +
+      '<div class="brand-modal-actions is-right">' +
+        '<button type="button" class="brand-btn brand-btn-line" data-pw="cancel">취소</button>' +
+        '<button type="submit" class="brand-btn" data-pw="ok">변경</button>' +
+      '</div>' +
+    '</form>';
+  const form = wrap.querySelector('form');
+  let busy = false;
+  const close = () => {
+    if (busy) return;
+    wrap.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (prevFocus && prevFocus.isConnected) prevFocus.focus();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+    if (e.key !== 'Tab') return;
+    const items = Array.from(form.querySelectorAll('input, button')).filter(el => !el.disabled);
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement);
+    if (i === -1) { e.preventDefault(); items[0].focus(); }
+    else if (e.shiftKey && i === 0) { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (!e.shiftKey && i === items.length - 1) { e.preventDefault(); items[0].focus(); }
+  };
+  // 오류가 나면 규칙 안내 자리를 오류 문구가 대신한다(bw07-01b)
+  const setErr = (id, msg) => {
+    setFieldError(id, msg);
+    const hint = document.getElementById(id + 'Hint');
+    if (hint) hint.hidden = !!msg;
+  };
+  wrap._close = close;
+  wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-pw="cancel"]')) close(); });
+  form.querySelectorAll('input').forEach(el => el.addEventListener('input', () => setErr(el.id, '')));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    const cur = form.querySelector('#brandPwCurrent');
+    const nw = form.querySelector('#brandPwNew');
+    const nw2 = form.querySelector('#brandPwNew2');
+    ['brandPwCurrent', 'brandPwNew', 'brandPwNew2'].forEach(id => setErr(id, ''));
+    if (!cur.value) { setErr('brandPwCurrent', BRAND_MSG.pwEmpty); cur.focus(); return; }
+    const rule = brandPasswordIssue(nw.value);
+    if (rule) { setErr('brandPwNew', rule); nw.focus(); return; }
+    if (!nw2.value) { setErr('brandPwNew2', BRAND_MSG.pw2Empty); nw2.focus(); return; }
+    if (nw.value !== nw2.value) { setErr('brandPwNew2', BRAND_MSG.pwMismatch); nw2.focus(); return; }
+    const email = (_brandMyAccount && _brandMyAccount.email) || (brandSession && brandSession.email) || '';
+    if (!email) { brandToast(BRAND_MYPAGE_MSG.saveFail, { error: true }); return; }
+    busy = true;
+    form.querySelectorAll('input, button').forEach(el => { el.disabled = true; });
+    const okBtn = form.querySelector('[data-pw="ok"]');
+    okBtn.textContent = '바꾸는 중…';
+    const res = await brandChangePasswordWithCurrent(email, cur.value, nw.value);
+    busy = false;
+    if (res === 'ok' || res === 'relogin') {
+      // 「마지막 변경」 기록은 brandChangePasswordWithCurrent 가 남긴다
+      cur.value = nw.value = nw2.value = '';
+      close();
+      if (res === 'relogin') { brandToast(BRAND_MYPAGE_MSG.pwRelogin); await brandLogout(); return; }
+      brandToast(BRAND_MYPAGE_MSG.pwChanged);
+      const acct = await fetchMyBrandAccount();
+      if (acct) { _brandMyAccount = acct; _rerenderMypageIfShown(); }
+      return;
+    }
+    form.querySelectorAll('input, button').forEach(el => { el.disabled = false; });
+    okBtn.textContent = '변경';
+    if (res === 'wrong') { setErr('brandPwCurrent', BRAND_MYPAGE_MSG.pwWrong); cur.focus(); return; }   // 새 칸 값은 그대로(01a)
+    if (res === 'too_many') { setErr('brandPwCurrent', BRAND_MYPAGE_MSG.pwTooMany); cur.focus(); return; }
+    if (res === 'same') { setErr('brandPwNew', BRAND_MSG.samePassword); nw.focus(); return; }
+    if (res === 'weak') { setErr('brandPwNew', BRAND_MSG.weakPassword); nw.focus(); return; }
+    brandToast(BRAND_MYPAGE_MSG.saveFail, { error: true });
+    okBtn.focus();   // 잠그는 동안 빠진 초점을 창 안으로
+  });
+  document.addEventListener('keydown', onKey, true);
+  document.body.appendChild(wrap);
+  form.querySelector('#brandPwCurrent').focus();
+}
+function closeBrandPasswordModal() {
+  const m = document.getElementById('brandPwModal');
+  if (m && m._close) m._close(); else if (m) m.remove();
+}
+
 // 들어올 때마다 — 점 끄기 → 판정 다시 받기(연결 브랜드·역할을 서버가 지금 허용하는 것으로) → 계정·초대 받기
 async function enterBrandMypage() {
   await markMyBrandMypageSeen();
@@ -314,6 +426,7 @@ document.addEventListener('click', async (e) => {
   if (act === 'edit-save') { await saveMyBrandProfile(); return; }
   if (act === 'accept') { await acceptMyBrandInvite(btn.dataset.invite); return; }
   if (act === 'decline') { await declineMyBrandInvite(btn.dataset.invite); return; }
+  if (act === 'password') { openBrandPasswordModal(); return; }
   if (act === 'logout') {
     _brandMySetBusy(true);
     try { await brandLogout(); } finally { _brandMySetBusy(false); }   // 실패해 화면에 남아도 단추가 잠긴 채로 두지 않는다
