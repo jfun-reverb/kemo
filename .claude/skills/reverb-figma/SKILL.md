@@ -75,5 +75,6 @@ description: REVERB JP 화면을 피그마로 그리거나 고치기 전에 **�
 | 파일 | 키 | 관련 사양서 |
 |---|---|---|
 | 레버브시딩_브랜드 | `XG4hXdgySeN45Ele3EnN8H` | `docs/specs/2026-07-15-brand-portal.md` |
+| 레버브시딩_브랜드 **Client 페이지**(인플루언서 앱 · 노드 `360:8166`) | 같은 파일 | `docs/specs/2026-10-15-client-figma-reviewer-apply-screens.md` §3 — 화면 코드는 `현행 c02-05` 식(단계 `현행` · 기기 `c` · 페이지는 햄버거 메뉴 순). 화면은 한국어 모드(ko.js)로 그린다 |
 
 새 파일을 만들면 이 표에 한 줄 추가한다.
