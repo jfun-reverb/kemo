@@ -297,6 +297,12 @@ async function handleRecoveryTokenLink(tokenHash) {
 
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
+  // 응모 완료 모달이 떠 있으면 뒤로가기를 무시하고 상세에 붙잡아 둔다(사양서 2026-10-15 결정 9).
+  //   안 그러면 뒤 화면만 목록으로 바뀌고 모달이 남아, 「확인」 뒤 목록에 떨어진다. 닫는 길은 「확인」 하나.
+  if (typeof isApplyResultModalOpen === 'function' && isApplyResultModalOpen() && typeof currentCampaignId !== 'undefined' && currentCampaignId) {
+    history.pushState({ page: 'detail-' + currentCampaignId }, '', '#detail-' + currentCampaignId);
+    return;
+  }
   const page = e.state?.page || location.hash.replace('#','') || 'home';
   // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
   // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.

@@ -454,7 +454,8 @@ function formatReviewer(name) {
 
 // 신청 사유: 2줄 말줄임 + 더보기 모달
 function msgCell(text, app) {
-  const consent = app ? consentBadge(app) : '';
+  // 주의사항 동의 + 응모 완료 모달 안내 확인(537) — 두 배지는 신청 사유가 빈 행에도 나온다
+  const consent = app ? consentBadge(app) + guideAckBadge(app) : '';
   if (!text) return consent || '—';
   const safe = esc(text);
   const short = `<div style="max-width:280px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink)">${safe}</div>`;
@@ -477,6 +478,12 @@ function consentBadge(app) {
   _cautionConsentCache[app.id] = { agreed_at: app.caution_agreed_at, snapshot: app.caution_snapshot || null };
   const dt = formatDateTime(app.caution_agreed_at);
   return `<div style="margin-top:6px"><a href="javascript:void(0)" onclick="event.stopPropagation();openCautionConsentModal('${esc(app.id)}')" style="font-size:10px;color:var(--green);text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>주의사항 동의 ${esc(dt)}</a></div>`;
+}
+// 응모 완료 모달 「확인」 시각(applications.guide_acknowledged_at — 마이그레이션 537). 값이 있을 때만.
+//   신청자 표 두 곳(캠페인 상세 신청자 · 신청 관리 목록)이 msgCell 로 같이 그린다. 엑셀 열은 없다(사양서 7-5)
+function guideAckBadge(app) {
+  if (!app || !app.guide_acknowledged_at) return '';
+  return `<div style="margin-top:4px;font-size:10px;color:var(--muted);display:inline-flex;align-items:center;gap:3px" title="응모 직후 안내 창에서 회원이 「확인」을 누른 시각"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">task_alt</span>안내 확인 ${esc(formatDateTime(app.guide_acknowledged_at))}</div>`;
 }
 function openCautionConsentModal(appId) {
   const cached = _cautionConsentCache[appId];

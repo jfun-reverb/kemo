@@ -1077,6 +1077,43 @@ async function insertApplication(app) {
   });
 }
 
+// 응모 저장 직후 내 응모를 다시 읽는다 — 응모 완료 모달의 갈래 판정용(사양서 2026-10-15 §7-4 ②).
+//   ⚠️ insertApplication 에 .select() 를 붙이지 않는다 — 반환 실패가 「저장됐는데 실패 토스트」가 된다(작업표 조각 2 ③).
+//   반환: {id, status} / 오류·0건·시연 모드 모두 null(null = 중립 갈래). 오류는 기록만.
+async function fetchMyActiveApplication(userId, campaignId) {
+  if (!db || !userId || !campaignId) return null;
+  try {
+    const {data, error} = await db.from('applications')
+      .select('id, status')
+      .eq('user_id', userId)
+      .eq('campaign_id', campaignId)
+      .neq('status', 'cancelled')
+      .maybeSingle();
+    if (error) { logAppError('fetchMyActiveApplication', error); return null; }
+    return data || null;
+  } catch (e) {
+    logAppError('fetchMyActiveApplication', e);
+    return null;
+  }
+}
+
+// 응모 완료 모달 「확인」 — 안내 확인 시각을 응모 행에 남긴다(마이그레이션 537, 이미 있으면 그 값).
+//   성공 {ok:true, acknowledgedAt} / 실패 {ok:false, error}. 실패해도 모달은 닫는다(사양서 §7-4 ⑤).
+async function acknowledgeApplicationGuide(applicationId) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('acknowledge_application_guide', { p_application_id: applicationId });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, acknowledgedAt: result};
+  } catch (e) {
+    logAppError('acknowledgeApplicationGuide', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
 async function updateApplication(appId, updates) {
   if (!db) return;
   await retryWithRefresh(async () => {
