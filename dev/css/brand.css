@@ -717,3 +717,134 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-input.is-warn:not(.is-error) { border-color: #b45309; }
 .brand-modal-form.is-pw .brand-field-warn { font-size: 11px; color: #c2410c; }
 .brand-modal-form.is-pw .brand-input.is-warn:not(.is-error) { border-color: #c2410c; }
+
+/* 오리엔시트 목록(피그마 bw04-00·00a·00b·00c·00e·bm04-00 — 작업표 조각 5) */
+.bo-page { display: flex; flex-direction: column; gap: 16px; }
+.bo-page .brand-page-head { margin-bottom: 16px; }
+.bo-page .brand-page-head p { color: var(--b-faint); }
+.bo-tabs { display: flex; border-bottom: 1px solid var(--b-line); }
+.bo-tab {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 8px 12px; margin-bottom: -1px;
+  border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--b-ink);
+}
+.bo-tab.is-on { border-bottom-color: #000; }
+.bo-tab:focus-visible, .bo-view-btn:focus-visible, .bo-detail-btn:focus-visible, .bo-start-btn:focus-visible,
+.bo-card-hit:focus-visible, .bo-row[tabindex]:focus-visible, .bo-state-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.bo-tab-count { font-size: 11px; font-weight: 400; opacity: .5; margin-left: 4px; }
+.bo-tab .bo-tab-count { margin-left: 0; }
+.bo-panel { background: #fcfcfc; border: 1px solid var(--b-line); border-radius: 20px; overflow: hidden; }
+.bo-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--b-surface); }
+.bo-panel-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.bo-view { display: inline-flex; gap: 2px; padding: 2px; background: var(--b-disabled-bg); border-radius: 8px; }
+.bo-view-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 10px;
+  border: 0; border-radius: 6px; background: none; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 400; color: var(--b-muted);
+}
+.bo-view-btn.is-on { background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); font-weight: 600; color: var(--b-ink); }
+.bo-view-icon { display: inline-grid; color: var(--b-faint); }
+.bo-view-btn.is-on .bo-view-icon { color: var(--b-ink); }
+.bo-view-icon i { display: block; background: currentColor; border-radius: 1px; }
+.bo-view-icon.is-list { grid-template-rows: repeat(3, 2px); row-gap: 3px; }
+.bo-view-icon.is-list i { width: 12px; height: 2px; }
+.bo-view-icon.is-list i:nth-of-type(4) { display: none; }
+.bo-view-icon.is-card { grid-template-columns: 5px 5px; gap: 2px; }
+.bo-view-icon.is-card i { width: 5px; height: 5px; }
+
+/* 리스트(표) — 오른쪽 열은 가로 스크롤(bw04-00d) */
+.bo-table-scroll { overflow-x: auto; }
+.bo-table { width: 100%; min-width: 1733px; border-collapse: collapse; table-layout: fixed; }
+.bo-table th {
+  height: 33px; padding: 8px 16px; background: var(--b-ink); color: #fff;
+  font-size: 14px; font-weight: 400; text-align: center; border: 1px solid rgba(228, 228, 231, .5);
+}
+.bo-table .w-no { width: 134px; } .bo-table .w-type { width: 103px; } .bo-table .w-ch { width: 200px; }
+.bo-table .w-opt { width: 200px; } .bo-table .w-goods { width: 116px; } .bo-table .w-st { width: 140px; }
+.bo-table .w-iss { width: 120px; } .bo-table .w-dl { width: 161px; } .bo-table .w-sub { width: 151px; }
+.bo-table .w-ed { width: 240px; } .bo-table .w-act { width: 100px; }
+.bo-table td {
+  height: 48px; padding: 8px 16px; background: #fff; border: 1px solid rgba(228, 228, 231, .5);
+  font-size: 14px; color: var(--b-ink); vertical-align: middle; overflow-wrap: anywhere;
+}
+.bo-table .c-center { text-align: center; }
+.bo-table .c-act { text-align: center; }
+.bo-row { cursor: pointer; }
+.bo-row:hover td { background: #fafafb; }
+.bo-row.is-new td { font-weight: 600; }
+.bo-row.is-expired td { opacity: .3; }
+.bo-dleft { display: inline-block; margin-left: 8px; padding: 2px 4px; border-radius: 5px; background: #efefef; font-size: 11px; font-weight: 400; color: rgba(26, 26, 26, .5); }
+.bo-dleft.is-card { margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--b-disabled-bg); font-weight: 600; color: var(--b-muted); }
+.bo-edited-name { margin-right: 8px; }
+.bo-edited-at { font-size: 12px; opacity: .5; }
+.bo-draft-mark { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: #fff7ed; color: #c2410c; font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.bo-detail-btn {
+  padding: 8px 12px; border: 1px solid var(--b-line); border-radius: 8px; background: #fff;
+  font-family: inherit; font-size: 14px; color: var(--b-ink); cursor: pointer;
+}
+
+/* 카드(bw04-00a) */
+.bo-cards { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px 16px; }
+.bo-card {
+  position: relative; width: 358px; padding: 18px; display: flex; flex-direction: column; gap: 12px;
+  background: #fff; border: 1px solid var(--b-line); border-radius: 14px;
+}
+.bo-card.is-expired { opacity: .55; }
+.bo-card-hit { position: absolute; inset: 0; z-index: 1; border: 0; border-radius: 14px; background: none; cursor: pointer; }
+.bo-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bo-card-no { font-size: 12px; color: var(--b-muted); }
+.bo-badge { display: inline-block; padding: 3px 9px; border-radius: 100px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.bo-badge.is-new { background: var(--b-ink); color: #fff; }
+.bo-badge.is-editing { background: #fff0f0; color: #ed1e1e; }
+.bo-badge.is-submitted { background: #eef4ff; color: #2b59c3; }
+.bo-badge.is-registered { background: #e8f7ee; color: #00873a; }
+.bo-badge.is-expired { background: var(--b-disabled-bg); color: var(--b-muted); }
+.bo-card-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bo-card-name { margin: 0; font-size: 16px; font-weight: 700; color: var(--b-ink); }
+.bo-card-sub { margin: 2px 0 0; font-size: 13px; color: #52525b; }
+.bo-card-chev { font-size: 22px; color: #c4c4c8; line-height: 1; }
+.bo-card-info { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #f0f0f2; }
+.bo-card-info-row { display: flex; align-items: baseline; gap: 8px; }
+.bo-card-info-label { flex: 0 0 72px; font-size: 12px; color: var(--b-faint); }
+.bo-card-info-val { font-size: 13px; color: var(--b-ink); }
+.bo-card-info-val .bo-edited-at { font-size: 13px; opacity: 1; }
+.bo-card-info-val .bo-edited-name { margin-right: 0; }
+.bo-card-info-val .bo-edited-name::after { content: ' · '; }
+.bo-start-btn {
+  position: relative; z-index: 2; width: 100%; padding: 11px 0; border: 0; border-radius: 8px;
+  background: var(--b-ink); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+
+/* 실패·0건·고른 탭 0건(bw04-00b·00c·00e) */
+.bo-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 16px; text-align: center; }
+.bo-state-icon { width: 56px; height: 56px; border-radius: 100px; display: inline-flex; align-items: center; justify-content: center; }
+.bo-state-icon.is-error { width: 50px; height: 50px; background: #fde8e8; color: #b42318; font-size: 22px; font-weight: 700; }
+.bo-state-icon.is-empty { background: var(--b-disabled-bg); color: #52525b; }
+.bo-state-icon .material-icons-round { font-size: 28px; }
+.bo-state-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--b-ink); }
+.bo-state-desc { margin: 0; max-width: 420px; font-size: 13px; color: var(--b-muted); line-height: 1.5; }
+.bo-state-btn { width: auto; padding: 11px 18px; }
+
+/* 모바일(bm04-00) — 카드만 · 탭은 가로 넘김 알약 */
+@media (max-width: 600px) {
+  .bo-page { gap: 16px; }
+  .bo-page .brand-page-head { margin-bottom: 0; }
+  .bo-page .brand-page-head h1 { font-size: 20px; }
+  .bo-tabs { gap: 8px; border-bottom: 0; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .bo-tabs::-webkit-scrollbar { display: none; }
+  .bo-tab {
+    flex-shrink: 0; align-items: center; min-height: 36px; padding: 8px 14px; margin: 0;
+    border: 1px solid var(--b-line); border-radius: 100px; background: #fff;
+    font-size: 13px; font-weight: 400;
+  }
+  .bo-tab.is-on { background: var(--b-ink); border-color: var(--b-ink); color: #fff; font-weight: 600; }
+  .bo-tab .bo-tab-count { font-size: 12px; opacity: 1; color: var(--b-faint); }
+  .bo-tab.is-on .bo-tab-count { color: #d4d4d8; }
+  .bo-panel { background: none; border: 0; border-radius: 0; overflow: visible; }
+  .bo-panel-head { display: none; }
+  .bo-cards { padding: 0; gap: 16px; }
+  .bo-card { width: 100%; padding: 16px; gap: 10px; }
+  .bo-card-info { padding-top: 10px; }
+  .bo-start-btn { padding: 12px 0; }
+  .bo-state { padding: 56px 8px; }
+}
