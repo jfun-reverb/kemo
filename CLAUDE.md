@@ -190,7 +190,7 @@
 
 ### 브랜드 계정·로그인·멤버 관리 (마이그레이션 526~528 · 530~533 — 🔴 **개발서버만**, 운영 반영 보류)
 > 상세는 **`.claude/rules/brand-account.md`** — 브랜드 화면(`dev/brand/**`·`dev/js/brand-*.js`)·관리자 브랜드 상세(`admin-brand.js`)·브랜드 메일 함수 둘·526~528을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(묶음 ① 서버만 완료 — 화면 묶음 ②·③ 미착수) · 인수인계 `…-brand-login-handoff.md`
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(묶음 ① 서버) · 화면 작업표 `docs/specs/2026-10-15-brand-member-screen-breakdown.md`(묶음 ② 브랜드 화면 완료 2026-10-16 — 관리자 화면 묶음 ③ 미착수) · 인수인계 `…-brand-login-handoff.md`
 
 **현재 원본 번호**
 - `get_brand_invite_link_state` — **534**(베이스 532 — 새 이메일 초대만 `email`, 두 갈래 `issued_at` 추가. 🔴 `CREATE OR REPLACE` 로만 — 비로그인 실행 권한 유지) · ⚠️ 534 도 개발서버만, 운영 묶음은 526 → … → 533 → 534
@@ -198,6 +198,7 @@
 - 표 `brand_invites`·`brand_member_limits`·권한 항목 `brand.account_manage`(시드 3행) — **530** · 대표 함수 — **531** · 관리자 쓰기 — **533**. ⚠️ 운영 적용은 526 → 527 → 528 → 530 → 531 → 532 → 533 한 묶음(순서는 사양서 「운영 반영 전 남은 관문」)
 > 🔴 **운영 관문**: 브랜드용 이용약관·개인정보처리방침 + `/약관확인` 전에는 운영 데이터베이스에 넣지 않는다. 화면 코드는 `IS_STAGING` 일 때만 계정 생성·판정을 부른다(작업표 P-1) — 출시 때 그 조건을 걷는다
 - 🔴 **인플루언서 표 삽입 거부 트리거**(526)가 인플루언서 앱 `handleLogin` 의 프로필 자동 생성을 막는다 — 인플루언서 앱 차단(`auth.js`·`app.js`)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
+- 🔴 **브랜드 비밀번호를 바꾸면 서버가 같은 계정의 다른 로그인을 모두 끊는다**(2026-10-16 실측) — 마이페이지 변경은 일회 연결로 바꾼 세션을 로그인 연결에 옮겨 담는다(`brandChangePasswordWithCurrent`, 일회 연결을 로그아웃하면 옮긴 세션까지 끊긴다)
 - 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`**(사용자 메타데이터는 누구나 채운다) · 계정 생성에 `auth.admin.createUser` 를 쓰지 않는다(497 가입 관문에 걸린다)
 - ⚠️ 528 이 기존 함수 셋(`merge_brands`·`delete_brand`·`invite_admin`)에 브랜드 계정 거부를 넣었다 — 현재 원본 번호는 「브랜드 서베이」·「기준 데이터」 절. ⚠️ **연결 해제는 함수만 있다**(대표 `release_brand_member` 531 · 관리자 `admin_release_brand_account` 533 — 화면 없음). 해제 이력이 있는 브랜드는 해제 뒤에도 삭제가 막힌다(528 — 병합으로)
 - 🔴 묶음 ③ 전까지 관리자 브랜드 편집 폼이 `brands.contacts` 를 **통째로** 저장한다 — 서버가 옮긴 대표 표시(531 `_brand_contacts_mark_primary`)가 폼을 연 채 저장하면 되돌아간다
