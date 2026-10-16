@@ -619,3 +619,73 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-modal-card .brand-modal-lines { color: var(--b-label); line-height: 1.6; }
 .brand-modal-box.is-card { background: #f9f9f9; }
 .brand-modal-box.is-card h2 { font-size: 18px; }
+
+/* ── 마이페이지(피그마 bw07-00·00a·00b·02, 작업표 조각 7) */
+.brand-my-section { display: flex; flex-direction: column; gap: 14px; }
+.brand-my-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--b-ink);
+}
+.brand-my-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.brand-my-tools { display: flex; gap: 8px; flex-shrink: 0; }
+.brand-my-btn {
+  height: 33px; padding: 0 14px;
+  border: 1px solid var(--b-line); border-radius: var(--b-radius); background: var(--b-surface);
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--b-ink); cursor: pointer; white-space: nowrap;
+}
+.brand-my-btn.is-fill { background: var(--b-ink); border-color: var(--b-ink); color: #fff; }
+.brand-my-btn:disabled { opacity: .5; cursor: default; }
+.brand-my-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-my-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.brand-my-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.brand-my-field label, .brand-my-label { font-size: 13px; color: var(--b-label); }
+/* 읽기 전용 칸 — 바탕 #fbfbfb · 이메일은 늘 회색(#f4f4f5) */
+.brand-my-value, .brand-my-input {
+  min-height: 45px; padding: 12px 13px;
+  border: 1px solid var(--b-line); border-radius: var(--b-radius); background: #fbfbfb;
+  font-family: inherit; font-size: 14px; color: var(--b-ink); line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.brand-my-value.is-locked { background: var(--b-disabled-bg); color: var(--b-muted); }
+/* 수정 중(bw07-00a) — 흰 바탕 · 테두리 #a1a1aa */
+.brand-my-input { width: 100%; background: var(--b-surface); border-color: var(--b-faint); outline: none; -webkit-appearance: none; appearance: none; }
+.brand-my-input:focus { border-color: var(--b-ink); box-shadow: inset 0 0 0 .5px var(--b-ink); }
+.brand-my-input.is-error { border-color: var(--b-error); box-shadow: inset 0 0 0 .5px var(--b-error); }
+.brand-my-input:disabled { color: var(--b-muted); }
+.brand-my-brand-list, .brand-my-invite-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.brand-my-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--b-line); border-radius: var(--b-radius); background: #fbfbfb;
+}
+.brand-my-brand-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--b-ink); overflow-wrap: anywhere; }
+.brand-my-small { margin: 0; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
+.brand-my-invites { display: flex; flex-direction: column; gap: 8px; }
+.brand-my-invites-head { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--b-ink); }
+.brand-my-invites-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--b-dot); }
+.brand-my-invite {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px 10px 15px; border: 1px solid var(--b-line); border-radius: var(--b-radius); background: var(--b-soft);
+}
+.brand-my-invite-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.brand-my-invite-name { margin: 0; font-size: 14px; font-weight: 600; color: var(--b-ink); overflow-wrap: anywhere; }
+.brand-my-invite-meta { margin: 0; font-size: 12px; color: var(--b-muted); line-height: 1.4; }
+.brand-my-invite-btns { display: flex; gap: 8px; flex-shrink: 0; }
+/* 받은 초대 단추 — 라운드 6 · 여백 16(피그마 bw07-00b, 페이지의 다른 단추와 조금 다르다) */
+.brand-my-invite .brand-my-btn { border-radius: 6px; padding: 0 16px; }
+.brand-my-invite .brand-my-btn:not(.is-fill) { border-color: var(--b-disabled-btn); }
+.brand-my-foot { display: flex; justify-content: flex-end; }
+/* 거절 확인 모달(bw07-02) — 폭 480 · 제목 아래 회색 한 줄 · 카드 본문 14 */
+.brand-modal-box.is-wide { width: 480px; }
+.brand-modal-box .brand-modal-sub { margin-top: -12px; font-size: 12px; color: var(--b-muted); }   /* 상자 간격 16 에서 제목과 4 만 띄운다 */
+.brand-modal-box.is-wide .brand-modal-lines { font-size: 14px; color: var(--b-ink); }
+.brand-modal-box.is-wide .brand-modal-actions.is-right .brand-btn { height: 33px; padding: 0 14px; border-radius: var(--b-radius); }
+.brand-modal-box.is-wide .brand-modal-actions.is-right .brand-btn-line { border-color: var(--b-line); }
+
+/* 좁은 화면 — 칸·초대 줄을 세로로 접는다(작업표 S0-6) */
+@media (max-width: 600px) {
+  .brand-my-fields { grid-template-columns: minmax(0, 1fr); }
+  .brand-my-input { font-size: 16px; }   /* iOS 확대 방지 */
+  .brand-my-invite { flex-direction: column; align-items: stretch; }
+  .brand-my-invite-btns { justify-content: flex-end; }
+  .brand-my-btn { height: 40px; }
+}
