@@ -168,6 +168,62 @@ function settlementAmountNote(s) {
 // 헬퍼는 전부 기존 공용(campThumbUrl·getRecruitTypeBadgeKoSm — ui.js / campPreviewBtn — lib/shared.js).
 // 빌드 순서상 셋 다 이 파일보다 먼저 로드된다. 썸네일·모집타입은 fetchSettlements 가
 // campaigns 임베드로 이미 가져오는 img1·recruit_type 사용(추가 조회 없음).
+// ════════════════════════════════════════════════════════════════════
+// SECTION: 열 정렬 공용 (정산 목록 · 회차 상세 회원별/캠페인별 · 송금 내역 목록)
+// ════════════════════════════════════════════════════════════════════
+//   상태는 `{ col, dir }` 하나. 토글은 신청 화면과 같은 3단(오름 → 내림 → 해제)인 `_cycleSort`(admin-applications.js —
+//   관리자 빌드에 같이 실리는 전역 함수)를 그대로 쓴다. **해제하면 지금까지의 기본 순서**로 돌아간다
+//   (정산 목록=등록 순 · 송금 내역=송금일 순 · 회원별=이름순 · 캠페인별=미지급 합계 내림차순).
+//   🔴 엑셀은 화면과 **같은 비교 함수**를 부른다 — 표와 파일의 줄 순서가 다르면 대조가 안 된다(2026-10-16 사용자 요청의 출발점).
+//   ⚠️ 빈 값은 방향과 무관하게 **뒤로**(결과물·캠페인 목록과 같은 규칙).
+//   ⚠️ `data-sort` 값에 `settle-` 머리말을 붙인다 — 캠페인 목록의 `updateSortArrows`(admin.js)가 **문서 전체** `.sort-arrows`
+//      를 훑어 자기 열쇠말과 같은 칸에 불을 켠다. 머리말이 없으면 「created」 같은 이름이 겹쳐 엉뚱한 칸이 켜진다.
+//      같은 이유로 정적 머리글(정산 목록)은 그릴 때마다 `_settleApplySortArrows` 로 글자를 다시 맞춘다.
+function _settleSortEmpty(v) {
+  return v === null || v === undefined || v === '' || (typeof v === 'number' && isNaN(v));
+}
+// rows 를 state 대로 정렬한 **복사본**을 돌려준다(원본 캐시는 건드리지 않는다). sort 는 안정 정렬이라 같은 값은 기본 순서를 지킨다.
+function _settleSortRows(rows, state, getters) {
+  if (!state || !state.col || !state.dir) return rows;
+  const fn = getters[state.col];
+  if (!fn) return rows;
+  const dir = state.dir === 'asc' ? 1 : -1;
+  return rows.slice().sort(function (a, b) {
+    const va = fn(a), vb = fn(b);
+    const ea = _settleSortEmpty(va), eb = _settleSortEmpty(vb);
+    if (ea && eb) return 0;
+    if (ea) return 1;
+    if (eb) return -1;
+    if (typeof va === 'string' || typeof vb === 'string') return String(va).localeCompare(String(vb)) * dir;
+    return (va - vb) * dir;
+  });
+}
+// 머리글 한 칸 — 동적으로 그리는 표(회원별·캠페인별·송금 내역 목록)용.
+function _settleSortTh(label, col, state, toggleFn, style, title) {
+  const on = state.col === col;
+  // ⚠️ 클릭은 **머리글 칸 전체**(th)에 건다 — 다른 화면처럼 화살표 글자에만 걸면, 정렬이 걸린 뒤 「▲▼」가 「▲」 한 글자(8px)로 줄어
+  //    다음 클릭이 빗나간다(2026-10-16 실측 — 브라우저 도구로는 활성 뒤 한 번도 안 맞았다). 화살표는 표시만 한다.
+  // 머리글은 한 줄로 — 화살표가 붙어 글자가 길어진다. 너비 고정 표(캠페인별)는 칸 너비를 글자에 맞춰 준다(「미지급」 84px)
+  return `<th style="white-space:nowrap;cursor:pointer${style ? ';' + style : ''}" onclick="${toggleFn}('${col}')"${title ? ` title="${esc(title)}"` : ''}>${label} <span class="sort-arrows" data-sort="settle-${col}"
+      style="padding:0 2px${on ? ';color:var(--accent-ink);font-weight:700' : ''}">${on ? (state.dir === 'asc' ? '▲' : '▼') : '▲▼'}</span></th>`;
+}
+// 정적 머리글(정산 목록)의 화살표를 상태값에 맞춘다 — 범위를 그 머리글 안으로 좁힌다(다른 표의 화살표를 건드리지 않게).
+function _settleApplySortArrows(headId, state) {
+  const head = $(headId);
+  if (!head) return;
+  head.querySelectorAll('.sort-arrows').forEach(function (el) {
+    const on = !!state.col && el.getAttribute('data-sort') === 'settle-' + state.col;
+    el.textContent = on ? (state.dir === 'asc' ? '▲' : '▼') : '▲▼';
+    el.style.color = on ? 'var(--accent-ink)' : '';   // 머리글 안에서는 흰색(admin.css 가 th 안에서 재정의) — 캠페인 목록 화살표와 같은 색
+    el.style.fontWeight = on ? '700' : '';
+  });
+}
+// 엑셀 머리 줄에 적는 「정렬: …」 — 파일만 봐도 어떤 순서로 내려받았는지 알 수 있게.
+function _settleSortLabel(state, labels, defaultText) {
+  if (!state || !state.col || !state.dir) return defaultText;
+  return (labels[state.col] || state.col) + ' ' + (state.dir === 'asc' ? '오름차순' : '내림차순');
+}
+
 // 실제로 보낸 금액 칸.
 //   ⚠️ 빈 값은 「계산 금액과 같음」이지 **0원이 아니다.** 그래서 0 이 아니라 말로 그린다.
 //   계산값과 다를 때만 눈에 띄게 — 대부분은 같아서, 늘 강조하면 다른 건이 묻힌다.
@@ -486,6 +542,30 @@ function openSettlementsPending() {
   enterSettlementsWithView('list');
 }
 
+// ─── 정산 목록 열 정렬 ───────────────────────────────────────────────
+//   「처리」·선택 칸에는 정렬이 없다. 거르기 함수 끝에서 정렬하므로 **목록·일괄 선택·엑셀이 같은 순서**를 쓴다.
+const _settlementSort = { col: null, dir: null };
+const SETTLEMENT_SORT_STATUS_ORDER = { pending: 0, paid: 1, on_hold: 2, cancelled: 3 };
+const SETTLEMENT_SORT_GETTERS = {
+  name:   function (s) { return (s.influencers || {}).name || null; },
+  camp:   function (s) { return (s.campaigns || {}).title || null; },
+  amount: function (s) { return s.amount_jpy == null ? null : Number(s.amount_jpy); },
+  // 「보낸 금액」 칸이 그리는 규칙 그대로 — 실제 송금액이 있으면 그 값, 송금완료인데 비었으면 「계산액 그대로」=계산값, 그 밖은 빈 값.
+  //   ⚠️ 칸 값(paid_amount_jpy)만 보면 「계산액 그대로」 보낸 건이 전부 빈 값으로 뒤에 몰린다.
+  paidAmount: function (s) {
+    if (s.paid_amount_jpy != null) return Number(s.paid_amount_jpy);
+    return s.status === 'paid' && s.amount_jpy != null ? Number(s.amount_jpy) : null;
+  },
+  paypal: function (s) { return s.paypal_email || null; },
+  status: function (s) { return SETTLEMENT_SORT_STATUS_ORDER[s.status]; },
+  cert:   function (s) { return s.cert_at || null; },
+  paidAt: function (s) { return s.paid_at || null; },
+};
+function toggleSettlementSort(col) {
+  _cycleSort(_settlementSort, col);
+  renderSettlementsList();
+}
+
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
 function getFilteredSettlements() {
   readSettlementFilters();
@@ -497,7 +577,8 @@ function getFilteredSettlements() {
     const inf = s.influencers || {};
     return matchSearchTokens(search, [inf.name, inf.name_kana, inf.email]);
   });
-  return rows;
+  // 정렬은 맨 끝 — 기본(해제)은 fetchSettlements 가 돌려준 created_at 오름차순 그대로.
+  return _settleSortRows(rows, _settlementSort, SETTLEMENT_SORT_GETTERS);
 }
 
 // 캠페인 검색형 다중필터 옵션 동기화 — 결과물 관리 페인(delivCampMulti)과 동일 패턴.
@@ -538,7 +619,8 @@ function renderSettlementsList() {
   if (!tbody) return;
   syncSettlementCampaignOptions();
   renderSettlementStatusTabs();           // 상태 탭 건수·활성 표시 갱신
-  const rows = getFilteredSettlements();  // readSettlementFilters 내부 호출
+  const rows = getFilteredSettlements();  // readSettlementFilters 내부 호출 — 정렬까지 끝난 순서
+  _settleApplySortArrows('settlementsTableHead', _settlementSort);
 
   // ⚠️ 필터·탭이 바뀌어 **화면에서 사라진 선택은 버린다.** 안 보이는 행에 돈 처리가
   //    걸리는 것을 막는다(고른 뒤 탭을 옮기면 선택이 남아 있던 상태가 된다).
@@ -554,7 +636,7 @@ function renderSettlementsList() {
     sumEl.textContent = rows.length ? `합계 ${settlementAmountYen(sum)}` : '';
   }
 
-  // 정렬은 fetchSettlements 가 created_at 오름차순(오래된 순)으로 이미 반환 — filter 는 순서 보존
+  // 순서는 getFilteredSettlements 가 정한다(기본 = fetchSettlements 의 created_at 오름차순, 열 정렬이 있으면 그 순서) — 엑셀도 같은 함수를 쓴다
   const scrollRoot = tbody.closest('.admin-table-wrap');
   if (settlementsLazy) settlementsLazy.destroy();
   settlementsLazy = mountLazyList({
@@ -2466,6 +2548,9 @@ function _resetPayoutSubState() {
   _payoutSearchTokens = [];
   _payoutPeriodFrom = ''; _payoutPeriodTo = '';
   _payoutSelected.clear();
+  // 열 정렬은 회차를 드나들 때는 유지하고, 다른 탭에서 지급 준비로 들어올 때만 푼다(회원별/캠페인별 보기와 같은 수명)
+  _payoutPersonSort.col = null; _payoutPersonSort.dir = null;
+  _payoutCampSort.col = null; _payoutCampSort.dir = null;
 }
 
 async function openSettlementTab(key) {
@@ -2657,7 +2742,7 @@ function exportPickedPayoutRounds() {
 function payoutRoundExcelBtnHtml(due) {
   return `<button class="btn btn-ghost btn-sm"
       title="이 회차의 송금 명단을 내려받습니다. 검색어·회원별/캠페인별 보기와 상관없이 회차 전체가 대상입니다"
-      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid, includeEarlier:_payoutExportIncludeEarlier})">${_DOWNLOAD_XLSX_HTML}</button>`;
+      onclick="exportPayoutRoundExcel('${esc(due)}', {includePaid:_payoutExportIncludePaid, includeEarlier:_payoutExportIncludeEarlier, followView:true})">${_DOWNLOAD_XLSX_HTML}</button>`;
 }
 
 // 「송금완료 포함」 체크박스 — id 만 다르고 두 화면이 같은 변수를 본다.
@@ -2951,6 +3036,7 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   ws.columns = [14, 16, 26, 30, 8, 12, 8, 10, 12].map(function(w) { return { width: w }; });
   ws.addRow(['지급 예정(회차) ' + (opts.dueLabel || due) + ' · 회차 전체 ' + roundAll.length + '건 / 담은 것 ' + rows.length + '건('
     + (opts.includePaid ? '송금완료 포함' : '미지급만') + ') · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
+  ws.addRow(['정렬: ' + (opts.sortNote || '이름(한자) 오름차순') + ' — 화면 표와 같은 순서']);
   if (opts.includeEarlier) {
     ws.addRow([opts.carryCount
       ? '이전 회차 미지급 ' + opts.carryCount + '건 포함(' + PAYOUT_CARRYOVER_FROM + ' 회차부터) — 사람별 「미지급」 합계가 한 번에 보낼 금액'
@@ -2962,7 +3048,8 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   ws.addRow([]);
   ws.addRow(['이름(한자)', '후리가나', '이메일', '페이팔', '건수', '합계', '미확정', '상태', '이전 회차 포함']).font = { bold: true };
   const byPerson = groupSettlementsByPerson(rows);
-  Object.keys(byPerson).forEach(function(id) {
+  // 사람 순서 = 화면 회원별 표와 같은 비교(이번 회차 행만·검색 무시). 밀린 건만 있어 화면에 없는 사람은 뒤에 이름순.
+  _payoutExcelPersonOrder(roundAll, rows, opts.personSort).forEach(function(id) {
     const entry = byPerson[id];
     // 미지급은 **여러 회차(이 회차 + 합친 이전 회차)를 한 줄로** — 한 번에 보낼 금액이다.
     //   포함 모드면 송금완료가 따로 한 줄 더 생긴다 — 합치지 않는다.
@@ -2980,8 +3067,21 @@ function _payoutExcelSummarySheet(wb, due, roundAll, rows, opts) {
   });
 }
 
-// 시트 2 「건별」
-function _payoutExcelItemSheet(wb, rows, brandMap) {
+// 시트 2 「건별」 — 줄 순서는 **화면 보기를 그대로** 따른다(2026-10-16 사용자 결정).
+//   · 회원별: 「회차 합계」 시트와 같은 사람 순서, 사람 안은 화면 펼침과 같은 순서(미지급 회차 → 인증 성공일 → 송금완료)
+//   · 캠페인별: 캠페인별 표의 정렬 순서, 캠페인 안은 금액 내림차순(화면 펼침과 같다). 사람 묶음을 잃는 대신 화면과 한 줄도 안 어긋난다
+//   order = { groupBy, personKeys, campSort } — exportPayoutRoundExcel 이 만든다.
+function _payoutExcelItemRow(ws, r, brandMap) {
+  const p = _payoutExcelPersonCells([r]);
+  const paid = r.paidAt ? formatDate(r.paidAt) + (r.recordDateOnly ? ' (기록일)' : '') : '';
+  ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '', _payoutBrandOf(r, brandMap),
+    PAST_UNREG_TYPE_LABELS[r.recruitType] || r.recruitType || '',
+    r.certAt ? formatDate(r.certAt) : '', r.due || '',
+    // ⚠️ 미확정은 빈칸 — 「¥0」으로 적으면 0원을 보내라는 뜻이 된다
+    r.amountUnknown ? '' : r.amount, r.amountUnknown ? 'O' : '',
+    PAYOUT_EXCEL_STATUS_KO[r.status] || r.status || '', paid, p.paypal]);
+}
+function _payoutExcelItemSheet(wb, rows, brandMap, order) {
   const ws = wb.addWorksheet('건별');
   ws.columns = [
     { header: '이름(한자)', width: 14 }, { header: '후리가나', width: 16 },
@@ -2992,15 +3092,19 @@ function _payoutExcelItemSheet(wb, rows, brandMap) {
     { header: '송금일', width: 18 }, { header: '페이팔', width: 30 },
   ];
   ws.getRow(1).font = { bold: true };
-  rows.forEach(function(r) {
-    const p = _payoutExcelPersonCells([r]);
-    const paid = r.paidAt ? formatDate(r.paidAt) + (r.recordDateOnly ? ' (기록일)' : '') : '';
-    ws.addRow([p.name, p.kana, r.campaignNo || '', r.campaignTitle || '', _payoutBrandOf(r, brandMap),
-      PAST_UNREG_TYPE_LABELS[r.recruitType] || r.recruitType || '',
-      r.certAt ? formatDate(r.certAt) : '', r.due || '',
-      // ⚠️ 미확정은 빈칸 — 「¥0」으로 적으면 0원을 보내라는 뜻이 된다
-      r.amountUnknown ? '' : r.amount, r.amountUnknown ? 'O' : '',
-      PAYOUT_EXCEL_STATUS_KO[r.status] || r.status || '', paid, p.paypal]);
+  if (order.groupBy === 'campaign') {
+    const byCamp = groupPayoutRowsByCampaign(rows);
+    const list = _payoutSortedCampEntries(Object.keys(byCamp).map(function (k) { return byCamp[k]; }), order.campSort);
+    list.forEach(function (e) {
+      _payoutCampItemOrder(e.rows).forEach(function (r) { _payoutExcelItemRow(ws, r, brandMap); });
+    });
+    return;
+  }
+  const byPerson = groupSettlementsByPerson(rows);
+  order.personKeys.forEach(function (id) {
+    const g = _payoutPersonItemGroups(byPerson[id]);
+    g.dues.forEach(function (d) { d.list.forEach(function (r) { _payoutExcelItemRow(ws, r, brandMap); }); });
+    g.paid.forEach(function (r) { _payoutExcelItemRow(ws, r, brandMap); });
   });
 }
 
@@ -3009,6 +3113,12 @@ function _payoutExcelItemSheet(wb, rows, brandMap) {
 async function exportPayoutRoundExcel(dueArg, opts) {
   const includePaid = !!(opts && opts.includePaid);
   const includeEarlier = !!(opts && opts.includeEarlier);
+  // followView = 회차 상세의 단추에서만 true — 지금 보는 보기(회원별/캠페인별)와 열 정렬을 그대로 따른다.
+  //   요약 화면의 단추는 기본 순서(이름순)로 — 상세에서 골랐던 정렬이 요약 쪽 파일에 몰래 따라가지 않게.
+  const followView = !!(opts && opts.followView);
+  const groupBy = followView ? _payoutGroupBy : 'person';
+  const personSort = followView ? _payoutPersonSort : null;
+  const campSort = followView ? _payoutCampSort : null;
   // 미등록 조회 실패면 회차 자체를 믿을 수 없다 — 「보낼 게 없음」으로 내보내지 않는다.
   if (_payoutRows === null) { toast('미등록 건을 불러오지 못해 내보낼 수 없습니다', 'error'); return; }
   const dues = (Array.isArray(dueArg) ? dueArg : [dueArg]).filter(function (d) { return d && d !== PAYOUT_NO_DUE; }).sort();
@@ -3029,8 +3139,13 @@ async function exportPayoutRoundExcel(dueArg, opts) {
     if (_payoutPersonInfo === undefined || _payoutPersonInfo === null) await ensurePayoutPersonInfo();
     await loadExcelJS();
     const wb = new ExcelJS.Workbook();
-    _payoutExcelSummarySheet(wb, due, roundAll, rows, { includePaid: includePaid, includeEarlier: includeEarlier, carryCount: carry.length, dueLabel: dueLabel, firstDue: dues[0] });
-    _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows));
+    const sortNote = groupBy === 'campaign'
+      ? '회차 합계는 이름(한자) 오름차순 · 건별은 캠페인별 보기(' + _settleSortLabel(campSort, PAYOUT_CAMP_SORT_LABELS, '미지급 금액 합계 내림차순') + ')'
+      : _settleSortLabel(personSort, PAYOUT_PERSON_SORT_LABELS, '이름(한자) 오름차순');
+    const personKeys = _payoutExcelPersonOrder(roundAll, rows, personSort);
+    _payoutExcelSummarySheet(wb, due, roundAll, rows, { includePaid: includePaid, includeEarlier: includeEarlier, carryCount: carry.length, dueLabel: dueLabel, firstDue: dues[0],
+      personSort: personSort, sortNote: sortNote });
+    _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows), { groupBy: groupBy, personKeys: personKeys, campSort: campSort });
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
     await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
@@ -3096,12 +3211,14 @@ function _payoutItemRowHtml(r, sent, showDue) {
 //   1건뿐인 회차에 달면 머리 줄과 건 줄이 같은 금액·같은 「보냄」을 두 번 말한다(2026-09-30). 그때는 건 줄에 회차를 적는다.
 function _payoutPersonDetailHtml(entry) {
   const p = entry.person;
-  const dues = Object.keys(entry.dues).sort();
+  // 줄 순서는 _payoutPersonItemGroups 가 정한다 — 엑셀 「건별」 시트가 같은 함수를 써서 화면 펼침과 같은 순서로 나간다.
+  const groups = _payoutPersonItemGroups(entry);
+  const dues = groups.dues.map(function (g) { return g.due; });
   let html = `<div style="${_PAYOUT_ITEM_COLS};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3">
       <div>캠페인</div><div>인증 성공일</div><div>지급 예정(회차)</div><div>송금일</div><div style="text-align:right">금액</div><div>상태</div>
     </div>`;
-  dues.forEach(function (d) {
-    const list = entry.dues[d];
+  groups.dues.forEach(function (g) {
+    const d = g.due, list = g.list;
     const groupHead = dues.length > 1 && list.length > 1;
     if (groupHead) {
       html += `<div style="${_PAYOUT_ITEM_COLS};font-size:12px;border-top:1px solid var(--line);background:#FAFAFA">
@@ -3116,10 +3233,7 @@ function _payoutPersonDetailHtml(entry) {
   });
   // 이미 기록된 건 — 건수·합계 머리 줄은 두지 않는다(사람 줄의 「지급 금액」 칸과 같은 말이라, 2026-09-30 사용자 결정).
   //   건 줄의 「기록됨」 표시와 흐린 글자로 갈린다.
-  if (entry.paid.length) {
-    entry.paid.slice().sort(function (a, b) { return String(a.due || '').localeCompare(String(b.due || '')); })
-      .forEach(function (r) { html += _payoutItemRowHtml(r, true, true); });
-  }
+  groups.paid.forEach(function (r) { html += _payoutItemRowHtml(r, true, true); });
   return `<div style="background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden">${html}</div>`;
 }
 
@@ -3153,12 +3267,13 @@ function _payoutPersonTableHtml(entries) {
           : ''}</td>
       </tr>${open ? `<tr><td colspan="9" style="background:#FAFAFA;padding:10px 16px 12px 16px">${_payoutPersonDetailHtml(e)}</td></tr>` : ''}`;
   }).join('');
+  const S = _payoutPersonSort, T = 'togglePayoutPersonSort';
   return `<table class="data-table" style="width:100%">
       <thead><tr>
         <th style="width:36px"></th><th style="width:28px"></th>
-        <th style="width:140px">이름(한자)</th><th style="width:140px">후리가나</th><th>페이팔</th>
-        <th style="width:70px;text-align:right">미지급</th><th style="width:120px;text-align:right">미지급 금액</th>
-        <th style="width:150px;text-align:right" title="송금완료로 기록된 건수·금액">지급 금액</th><th style="width:70px"></th>
+        ${_settleSortTh('이름(한자)', 'name', S, T, 'width:140px')}${_settleSortTh('후리가나', 'kana', S, T, 'width:140px')}${_settleSortTh('페이팔', 'paypal', S, T)}
+        ${_settleSortTh('미지급', 'unsentCount', S, T, 'width:84px;text-align:right')}${_settleSortTh('미지급 금액', 'unsentSum', S, T, 'width:120px;text-align:right')}
+        ${_settleSortTh('지급 금액', 'paidSum', S, T, 'width:150px;text-align:right', '송금완료로 기록된 건수·금액')}<th style="width:70px"></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -3385,6 +3500,95 @@ function _payoutPruneHiddenSelection() {
 //      고르면 「이 사람에게 얼마를 보내나」가 갈라져 오히려 금액을 틀리게 만든다.
 let _payoutGroupBy = 'person';   // 'person' | 'campaign'
 
+// ─── 회차 상세 열 정렬 (회원별·캠페인별 각각) ──────────────────────────
+//   회차를 드나들 때는 유지, 다른 탭에서 들어올 때 초기화(_resetPayoutSubState). 「사람별」 탭(전 기간)도 같은 표라 함께 걸린다.
+//   🔴 회차 엑셀(exportPayoutRoundExcel, followView)이 **같은 함수**로 사람·캠페인 순서를 정한다 — 여기만 고치면 파일이 어긋난다.
+const _payoutPersonSort = { col: null, dir: null };
+const _payoutCampSort = { col: null, dir: null };
+const PAYOUT_PERSON_SORT_LABELS = { name: '이름(한자)', kana: '후리가나', paypal: '페이팔', unsentCount: '미지급 건수', unsentSum: '미지급 금액', paidSum: '지급 금액' };
+const PAYOUT_CAMP_SORT_LABELS = { no: '캠페인 번호', title: '캠페인', people: '인원', unsentCount: '미지급 건수', unsentSum: '미지급 금액', paidSum: '지급 금액' };
+function _payoutEntryUnsent(e) {
+  return Object.keys(e.dues).reduce(function (a, d) { return a.concat(e.dues[d]); }, []);
+}
+// 금액 열의 빈 값 규칙: 건이 없으면(「—」) 빈 값, **전부 미확정**이면 빈 값(0원으로 맨 앞에 끼지 않게). 일부만 미확정이면 보이는 합계 그대로.
+function _payoutSumOrEmpty(list) {
+  if (!list.length) return null;
+  if (list.every(function (r) { return r.amountUnknown; })) return null;
+  return _payoutSum(list);
+}
+const PAYOUT_PERSON_SORT_GETTERS = {
+  name:   function (e) { return e.person.name || null; },
+  kana:   function (e) { return e.person.kana || null; },
+  paypal: function (e) { return e.person.paypal || null; },
+  unsentCount: function (e) { const u = _payoutEntryUnsent(e); return u.length || null; },
+  unsentSum:   function (e) { return _payoutSumOrEmpty(_payoutEntryUnsent(e)); },
+  paidSum:     function (e) { return _payoutSumOrEmpty(e.paid); },
+};
+const PAYOUT_CAMP_SORT_GETTERS = {
+  no:     function (e) { return e.no || null; },
+  title:  function (e) { return e.title || null; },
+  people: function (e) { return new Set(e.rows.map(function (r) { return r.influencerId; })).size; },
+  unsentCount: function (e) { return e.rows.filter(_payoutUnsent).length || null; },
+  unsentSum:   function (e) { return _payoutSumOrEmpty(e.rows.filter(_payoutUnsent)); },
+  paidSum:     function (e) { return _payoutSumOrEmpty(e.rows.filter(function (r) { return r.status === 'paid'; })); },
+};
+// 회원별 표 순서 — 기본은 이름(한자) 오름차순(로케일 인자 없는 localeCompare — 바꾸면 기본 순서 자체가 바뀐다), 그 위에 열 정렬.
+function _payoutSortedPersonEntries(entries, state) {
+  const base = entries.slice().sort(function (a, b) { return String(a.person.name || '').localeCompare(String(b.person.name || '')); });
+  return _settleSortRows(base, state, PAYOUT_PERSON_SORT_GETTERS);
+}
+// 캠페인별 표 순서 — 기본은 금액 합계(미지급+지급) 내림차순(종전과 같다), 그 위에 열 정렬.
+function _payoutSortedCampEntries(list, state) {
+  const base = list.slice().sort(function (a, b) { return _payoutSum(b.rows) - _payoutSum(a.rows); });
+  return _settleSortRows(base, state, PAYOUT_CAMP_SORT_GETTERS);
+}
+// 한 사람의 건 순서 — 회차 오름차순 → 같은 회차 안은 인증 성공일 오름차순(빈 값 뒤). 2026-10-16 사용자 결정.
+function _payoutSortByCert(list) {
+  return list.slice().sort(function (a, b) {
+    const d = String(a.due || '').localeCompare(String(b.due || ''));
+    if (d) return d;
+    const ea = !a.certAt, eb = !b.certAt;
+    if (ea && eb) return 0;
+    if (ea) return 1;
+    if (eb) return -1;
+    return String(a.certAt).localeCompare(String(b.certAt));
+  });
+}
+// 회원별 펼침(화면)과 엑셀 「건별」 시트가 함께 쓰는 **사람 안 줄 순서** — 미지급을 회차별로(회차 오름차순), 그다음 송금완료.
+function _payoutPersonItemGroups(entry) {
+  const dues = Object.keys(entry.dues).sort();
+  return {
+    dues: dues.map(function (d) { return { due: d, list: _payoutSortByCert(entry.dues[d]) }; }),
+    paid: _payoutSortByCert(entry.paid),
+  };
+}
+// 캠페인별 펼침(화면)과 엑셀 「건별」 시트(캠페인별 보기)가 함께 쓰는 **캠페인 안 줄 순서** — 금액 내림차순(종전과 같다).
+function _payoutCampItemOrder(rows) {
+  return rows.slice().sort(function (a, b) { return b.amount - a.amount; });
+}
+// 회차 엑셀의 사람 순서 — 화면 회원별 표와 같은 비교를 **이번 회차 행만·검색 무시**로 돌린다(roundAll).
+//   엑셀 행(rows)에는 「이전 회차 미지급」이 더해져 사람별 금액이 화면과 달라질 수 있어, 순서를 rows 로 정하면 화면과 어긋난다.
+//   밀린 건만 있어 화면에 없는 사람은 맨 뒤에 이름순. 돌려주는 것은 groupSettlementsByPerson 의 열쇠(회원 id 또는 '(미상)') 목록.
+function _payoutExcelPersonOrder(roundAll, rows, state) {
+  const screen = groupSettlementsByPerson(roundAll);
+  const all = groupSettlementsByPerson(rows);
+  const keyOf = function (byPerson) {
+    return Object.keys(byPerson).map(function (k) { const e = byPerson[k]; e._key = k; return e; });
+  };
+  const head = _payoutSortedPersonEntries(keyOf(screen), state).map(function (e) { return e._key; }).filter(function (k) { return !!all[k]; });
+  const seen = new Set(head);
+  const rest = _payoutSortedPersonEntries(keyOf(all).filter(function (e) { return !seen.has(e._key); }), null).map(function (e) { return e._key; });
+  return head.concat(rest);
+}
+function togglePayoutPersonSort(col) {
+  _cycleSort(_payoutPersonSort, col);
+  renderPayoutPersonBody();
+}
+function togglePayoutCampSort(col) {
+  _cycleSort(_payoutCampSort, col);
+  renderPayoutPersonBody();
+}
+
 // 회원별 / 캠페인별 전환 스위치.
 //   ⚠️ 화면 공용 탭 클래스(`status-tab`)를 쓰면 이 자리에서는 **스타일이 안 먹어 글자만**
 //      보인다(그 클래스는 페인 머리글의 탭 바 안에서만 모양이 잡힌다). 여기서는 주변
@@ -3434,7 +3638,7 @@ function togglePayoutCampOpen(i) {
   renderPayoutPersonBody();
 }
 function _payoutCampDetailHtml(entry) {
-  const rows = entry.rows.slice().sort(function (a, b) { return b.amount - a.amount; });
+  const rows = _payoutCampItemOrder(entry.rows);   // 엑셀 「건별」(캠페인별 보기)과 같은 함수 — 순서 사본을 두지 않는다
   let html = `<div style="${_PAYOUT_CAMP_ITEM_COLS};font-size:11px;font-weight:600;color:var(--muted);background:#F1F1F3">
       <div>이름(한자)</div><div>후리가나</div><div>인증 성공일</div><div>지급 예정(회차)</div><div>송금일</div><div style="text-align:right">금액</div><div>상태</div>
     </div>`;
@@ -3478,10 +3682,10 @@ function _payoutCampTableHtml(list) {
       <thead><tr>
         <!-- ⚠️ 너비 고정 표라 칸 너비가 그대로 지켜진다 — 28px 에 여백 12px 씩이면 아이콘(18px)이 칸 밖으로 삐져나온다 -->
         <th style="width:44px"></th>
-        <th style="width:140px">캠페인 번호</th><th>캠페인</th>
-        <th style="width:70px;text-align:right">인원</th>
-        <th style="width:70px;text-align:right">미지급</th><th style="width:120px;text-align:right">미지급 금액</th>
-        <th style="width:150px;text-align:right" title="송금완료로 기록된 건수·금액">지급 금액</th>
+        ${_settleSortTh('캠페인 번호', 'no', _payoutCampSort, 'togglePayoutCampSort', 'width:140px')}${_settleSortTh('캠페인', 'title', _payoutCampSort, 'togglePayoutCampSort')}
+        ${_settleSortTh('인원', 'people', _payoutCampSort, 'togglePayoutCampSort', 'width:80px;text-align:right')}
+        ${_settleSortTh('미지급', 'unsentCount', _payoutCampSort, 'togglePayoutCampSort', 'width:84px;text-align:right')}${_settleSortTh('미지급 금액', 'unsentSum', _payoutCampSort, 'togglePayoutCampSort', 'width:120px;text-align:right')}
+        ${_settleSortTh('지급 금액', 'paidSum', _payoutCampSort, 'togglePayoutCampSort', 'width:150px;text-align:right', '송금완료로 기록된 건수·금액')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -3616,8 +3820,8 @@ function renderPayoutPersonBody() {
       });
     }
     const byCamp = groupPayoutRowsByCampaign(cr);
-    const list = Object.keys(byCamp).map(function (k) { return byCamp[k]; })
-      .sort(function (a, b) { return _payoutSum(b.rows) - _payoutSum(a.rows); });
+    // 정렬은 _payoutCampList 에 넣기 **전에** 끝낸다 — 펼침은 목록 순번으로 지목한다(togglePayoutCampOpen)
+    const list = _payoutSortedCampEntries(Object.keys(byCamp).map(function (k) { return byCamp[k]; }), _payoutCampSort);
     // 요약 줄은 회원별과 같은 자리(고정 영역 payoutStickyInfo)에 둔다 — 선택 줄은 없다(보기 전용).
     const info = $('payoutStickyInfo');
     if (info) info.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">
@@ -3640,7 +3844,7 @@ function renderPayoutPersonBody() {
       return payoutSearchHit([p.name, p.kana, p.paypal], _payoutSearchTokens);
     });
   }
-  entries.sort(function(a, b) { return String(a.person.name || '').localeCompare(String(b.person.name || '')); });
+  entries = _payoutSortedPersonEntries(entries, _payoutPersonSort);
 
   const selectedRows = [];
   entries.forEach(function(e) {
@@ -3950,6 +4154,28 @@ let _transferLoadSeq = 0;
 //   ⚠️ 월별·회차별은 **서버 집계값**이라 사람으로 다시 거를 수 없다(합계는 서버 저장값만 — 위 규칙). 그 보기에선 칸을 잠근다.
 let _transferSearch = '';
 let _transferSearchTokens = [];
+// ─── 송금 내역 「전체」 목록 열 정렬 ────────────────────────────────────
+//   송금 내역에 들어올 때마다 푼다(요약에서 시작하는 것과 같은 수명). 기간·검색을 바꿔도 유지.
+//   🔴 엑셀(exportTransferHistoryExcel)도 같은 비교 함수로 **_transferRows 전체**를 정렬한다 — 대상은 종전처럼 검색과 무관, 순서만 화면을 따른다.
+//   ⚠️ _transferRows 자체를 정렬하지 않는다(복사본만) — 월별 상세·정정 창이 그 배열을 그대로 본다.
+const _transferSort = { col: null, dir: null };
+const TRANSFER_SORT_LABELS = { sentAt: '송금일', name: '이름(한자)', paypal: '페이팔', count: '건수', sent: '보낸 금액', fee: '수수료', total: '총지출', txn: '페이팔 거래번호' };
+const TRANSFER_SORT_GETTERS = {
+  sentAt: function (t) { return t.sent_at || null; },
+  name:   function (t) { return t.influencer_name || null; },
+  paypal: function (t) { return _transferPaypalOf(t) || null; },
+  count:  function (t) { return Array.isArray(t.items) ? t.items.length : 0; },
+  sent:   function (t) { return Number(t.sent_total_jpy) || 0; },
+  fee:    function (t) { return Number(t.fee_jpy) || 0; },
+  total:  function (t) { return Number(t.total_spend_jpy) || 0; },
+  txn:    function (t) { return t.paypal_txn_id || null; },
+};
+// 기본(해제)은 서버가 준 순서(get_settlement_transfers — 송금일 오름차순, 같은 날은 id).
+function _transferSortedRows(list) { return _settleSortRows(list, _transferSort, TRANSFER_SORT_GETTERS); }
+function toggleTransferSort(col) {
+  _cycleSort(_transferSort, col);
+  _renderTransferBody();
+}
 
 function _hideTransferView() {
   const v = $('settlementTransferView');
@@ -3962,6 +4188,7 @@ async function openTransferHistoryView() {
   // 들어올 때마다 요약에서 시작한다 — 보던 상세를 남겨 두면, 아래 재조회가 전 기간 묶음(_transferAllRows)을 비워
   //   회차별 상세가 「불러오는 중…」에 영영 멈춘다(그 자료는 openTransferSumDetail 만 받는다. 2026-09-30 리뷰).
   _transferDetail = null;
+  _transferSort.col = null; _transferSort.dir = null;
   closeTransferHelp();
   hideUnregisteredTab();               // 미등록 닫기(안에서 _hideTransferView 도 부르므로 아래에서 켠다)
   if (main) main.style.display = 'none';
@@ -4338,7 +4565,7 @@ function _transferListHtml() {
     if (t.sent_at_estimated || t.fee_estimated) est += 1;
   });
   const canEdit = canWrite('settlement.pay');
-  const body = rows.map(function (t) {
+  const body = _transferSortedRows(rows).map(function (t) {
     const open = _transferOpen.has(t.id);
     const items = Array.isArray(t.items) ? t.items : [];
     const paypal = _transferPaypalOf(t);
@@ -4386,9 +4613,13 @@ function _transferListHtml() {
       </tr>${detail}`;
   }).join('');
   return `<div class="admin-table-wrap"><table class="data-table">
-      <thead><tr><th style="width:28px"></th><th style="width:130px">송금일</th>${_TRANSFER_PAYEE_HEAD}<th style="width:60px;text-align:right">건수</th>
-        <th style="width:100px;text-align:right">보낸 금액</th><th style="width:210px;text-align:right">수수료</th><th style="width:100px;text-align:right">총지출</th>
-        <th>페이팔 거래번호</th><th style="width:124px"></th></tr></thead>
+      <!-- 목록 전용 머리글 — _TRANSFER_PAYEE_HEAD 를 안 쓴다(그 조각은 정렬이 없는 월별·회차별 상세 표도 같이 쓴다) -->
+      <thead><tr><th style="width:28px"></th>${_settleSortTh('송금일', 'sentAt', _transferSort, 'toggleTransferSort', 'width:130px')}${
+        _settleSortTh('이름(한자)', 'name', _transferSort, 'toggleTransferSort', 'width:130px')}${_settleSortTh('페이팔', 'paypal', _transferSort, 'toggleTransferSort', 'width:220px')}${
+        _settleSortTh('건수', 'count', _transferSort, 'toggleTransferSort', 'width:60px;text-align:right')}
+        ${_settleSortTh('보낸 금액', 'sent', _transferSort, 'toggleTransferSort', 'width:100px;text-align:right')}${_settleSortTh('수수료', 'fee', _transferSort, 'toggleTransferSort', 'width:210px;text-align:right')}${
+        _settleSortTh('총지출', 'total', _transferSort, 'toggleTransferSort', 'width:100px;text-align:right')}
+        ${_settleSortTh('페이팔 거래번호', 'txn', _transferSort, 'toggleTransferSort')}<th style="width:124px"></th></tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr class="transfer-foot"><td></td><td colspan="3" style="white-space:nowrap">합계 · 송금 ${rows.length}번${est ? ` <span style="font-weight:400;color:#B45309" title="${esc(_TRANSFER_EST_TIP)}">· 추정 포함 송금 ${est}번</span>` : ''}</td>
         <td style="text-align:right;white-space:nowrap">${cnt}건</td><td style="text-align:right;white-space:nowrap">${esc(settlementAmountYen(sent))}</td>
@@ -4583,14 +4814,15 @@ async function exportTransferHistoryExcel() {
     const ws1 = wb.addWorksheet('송금 내역');
     // ⚠️ 열 위치가 넷(폭·머리글·합계 줄·숫자 형식 열 번호)에 묶여 있다 — 열을 끼우면 넷을 함께 고친다
     ws1.columns = [12, 18, 30, 8, 12, 10, 22, 22, 10, 10, 12, 22, 30].map(function (w) { return { width: w }; });
-    ws1.addRow(['송금 내역 · 송금일 ' + (_transferFrom || '처음') + ' ~ ' + (_transferTo || '지금') + ' · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
+    ws1.addRow(['송금 내역 · 송금일 ' + (_transferFrom || '처음') + ' ~ ' + (_transferTo || '지금') + ' · 정렬: ' + _settleSortLabel(_transferSort, TRANSFER_SORT_LABELS, '송금일 오름차순') + '(화면 「전체」 목록과 같은 순서) · 내려받은 시각 ' + formatDateTime(new Date())]).font = { bold: true };
     ws1.addRow([]);
     ws1.addRow(['송금일', '이름(한자)', '페이팔', '건수', '보낸 금액', '수수료', '수수료 요율', '수수료 고정액', '송금일 추정', '수수료 추정', '총지출', '페이팔 거래번호', '메모']).font = { bold: true };
     const ws2 = wb.addWorksheet('포함 건');
     ws2.columns = [12, 18, 14, 34, 12, 12, 10].map(function (w) { return { width: w }; });
     ws2.addRow(['송금일', '이름(한자)', '캠페인 번호', '캠페인', '지급 예정(회차)', '보낸 금액', '현재 연결']).font = { bold: true };
     let sent = 0, fee = 0;
-    rows.forEach(function (t) {
+    // 줄 순서 = 화면 「전체」 목록의 정렬(검색은 무관 — 대상은 기간 전체). 「포함 건」 시트도 묶음 순서를 그대로 따라간다
+    _transferSortedRows(rows).forEach(function (t) {
       const day = _settlementDateInputValue(t.sent_at);
       const items = Array.isArray(t.items) ? t.items : [];
       sent += Number(t.sent_total_jpy) || 0; fee += Number(t.fee_jpy) || 0;
