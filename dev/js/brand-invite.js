@@ -1,13 +1,13 @@
-// 브랜드 페이지 — 받은 초대 수락·거절(w01-03 · w01-10 · w01-90 · w01-92 ⑥)
+// 브랜드 페이지 — 받은 초대 수락·거절(bw01-03 · bw01-10 · bw01-90 · bw01-92 ⑥)
 //   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 3(로그인 경로) · 조각 4(메일 링크 경로가 같은 화면을 쓴다)
 //   🔴 연결된 브랜드가 없고 받은 초대만 있는 계정은 로그아웃하지 않고 이 화면으로 온다(applyBrandLoginState).
 //      이때 brandAuthed 는 null(틀 페이지에 못 들어간다) — 세션만 살아 있고 이 화면의 맥락은 _brandInviteCtx 가 갖는다.
 
 const BRAND_INVITE_MSG = {
-  invalid: '이 초대는 더 이상 쓸 수 없습니다.',                               // w01-90 토스트 2
-  declined: '초대를 거절했습니다.',                                          // w01-90 토스트 1
-  failed: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // w01-92 ⑥
-  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.'                // w01-03 「나중에」(대기 초대만 있는 계정)
+  invalid: '이 초대는 더 이상 쓸 수 없습니다.',                               // bw01-90 토스트 2
+  declined: '초대를 거절했습니다.',                                          // bw01-90 토스트 1
+  failed: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // bw01-92 ⑥
+  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.'                // bw01-03 「나중에」(대기 초대만 있는 계정)
 };
 
 // 지금 보고 있는 초대 — { source:'login'|'link', invite:{invite_id, brand_id, brand_name, inviter_name, expires_at}, linkId? }
@@ -108,7 +108,7 @@ async function declineCurrentInvite() {
     title: brand + ' 브랜드 초대를 거절하시겠습니까?',
     body: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : '') +
       '\n거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다. 다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.',
-    okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 w01-10 「거절 · 취소」
+    okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 bw01-10 「거절 · 취소」
   });
   if (!ok || _brandInviteCtx !== ctx) return;
   _setInviteBusy(true, '처리하는 중…');
@@ -157,14 +157,14 @@ function initInvite() {
   });
 }
 
-// ── 메일 링크 초대 착지 (작업표 조각 4 — 피그마 w01-08 → w01-02b(새 이메일) / w01-03(이미 브랜드 계정))
+// ── 메일 링크 초대 착지 (작업표 조각 4 — 피그마 bw01-08 → bw01-02b(새 이메일) / bw01-03(이미 브랜드 계정))
 //   메일 링크: …/brand/?link=<번호>&kind=invite (notify-brand-invite). 이 링크는 일회용 인증 값이 없어 열어도 소진되지 않지만,
-//   모든 메일 링크는 w01-08 「계속하기」를 거친다(피그마 공통 규칙).
+//   모든 메일 링크는 bw01-08 「계속하기」를 거친다(피그마 공통 규칙).
 //   🔴 링크 번호는 주소에서 바로 걷어 메모리와 세션 저장소(reverb.brandInviteLink — 로그인을 거치는 ⓑ 갈래·새로고침용)에만 둔다.
 //      쓰면 지운다 · 로그아웃·비밀번호 찾기로 빠지면 지운다 · 로그·토스트·오류 보고에 싣지 않는다.
 const BRAND_INVITE_LINK_KEY = 'reverb.brandInviteLink';
-let _brandInviteLanding = null;   // { linkId, state } — w01-08 화면에 있는 동안
-let _brandInviteNewCtx = null;    // { linkId, email } — w01-02b(새 이메일 멤버 설정) 화면에 있는 동안
+let _brandInviteLanding = null;   // { linkId, state } — bw01-08 화면에 있는 동안
+let _brandInviteNewCtx = null;    // { linkId, email } — bw01-02b(새 이메일 멤버 설정) 화면에 있는 동안
 
 function _saveInviteLink(linkId) { try { sessionStorage.setItem(BRAND_INVITE_LINK_KEY, linkId); } catch (e) { /* 저장소 막힘 — 메모리만 */ } }
 function _readInviteLink() { try { return sessionStorage.getItem(BRAND_INVITE_LINK_KEY) || ''; } catch (e) { return ''; } }
@@ -181,7 +181,7 @@ async function fetchBrandInviteLinkState(linkId) {
   } catch (e) { return null; }
 }
 
-// 착지 — 링크를 연 것만으로는 아무것도 하지 않고 w01-08 을 보인다
+// 착지 — 링크를 연 것만으로는 아무것도 하지 않고 bw01-08 을 보인다
 async function handleBrandInviteLanding(params) {
   const linkId = params.get('link') || '';
   history.replaceState(null, '', location.pathname);   // 주소창·방문 기록에 링크 번호를 남기지 않는다
@@ -222,7 +222,7 @@ async function continueBrandInviteLanding() {
   }
 }
 
-// 로그인된 세션이 있고 보관한 초대 링크가 있으면 w01-03 을 링크 번호로 띄운다. 반환 true(띄움) / false
+// 로그인된 세션이 있고 보관한 초대 링크가 있으면 bw01-03 을 링크 번호로 띄운다. 반환 true(띄움) / false
 async function resumeBrandInviteLink() {
   const linkId = _readInviteLink();
   if (!linkId || !brandDb) return false;
@@ -241,14 +241,14 @@ async function resumeBrandInviteLink() {
   return true;
 }
 
-// ⓐ 새 이메일 — w01-02b 비밀번호 설정(이름 필수 · 연락처 선택 · 약관 동의)
+// ⓐ 새 이메일 — bw01-02b 비밀번호 설정(이름 필수 · 연락처 선택 · 약관 동의)
 function showInviteNewSetpw(linkId, st) {
   _brandInviteNewCtx = { linkId, email: st.email || '' };
   document.querySelectorAll('#setpwForm [data-member-only]').forEach(el => { el.hidden = false; });
   resetSetpwForm();
   document.getElementById('setpwDesc').textContent =
     '「' + (st.brand_name || '') + '」 브랜드의 ' + (st.inviter_name || '') + '님이 회원님을 멤버로 초대했습니다. 이름과 비밀번호를 정하면 바로 시작할 수 있습니다.';
-  // 이메일 칸 — 피그마 w01-02b 읽기 전용(작업표 S0-2). 서버가 이메일을 안 주면(534 전) 칸을 숨긴다
+  // 이메일 칸 — 피그마 bw01-02b 읽기 전용(작업표 S0-2). 서버가 이메일을 안 주면(534 전) 칸을 숨긴다
   const emailInput = document.getElementById('setpwEmail');
   emailInput.value = st.email || '';
   emailInput.closest('.brand-field').hidden = !st.email;

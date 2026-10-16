@@ -32,8 +32,8 @@
   --b-error-bg: #fff0f0;
   --b-info: #2b59c3;
   --b-info-bg: #eef4ff;
-  --b-accent: #625ebd;      /* 보라 강조 — 브랜드 고르기 체크(피그마 w03-01) */
-  --b-dot: #ef4444;         /* 새 초대 빨간 점(피그마 w07-03) */
+  --b-accent: #625ebd;      /* 보라 강조 — 브랜드 고르기 체크(피그마 bw03-01) */
+  --b-dot: #ef4444;         /* 새 초대 빨간 점(피그마 bw07-03) */
   --b-danger: #dc2626;      /* 위험 단추 글자 */
   --b-danger-line: #fecaca; /* 위험 단추 테두리 */
   --b-radius-card: 16px;
@@ -53,7 +53,7 @@ body {
 [hidden] { display: none !important; }
 button, input { font-family: inherit; }
 
-/* ── 모바일 머리 띠 (m01-00) — 좁은 화면에서만 */
+/* ── 모바일 머리 띠 (bm01-00) — 좁은 화면에서만 */
 .brand-topbar {
   display: none;
   height: 45px;
@@ -128,7 +128,7 @@ button, input { font-family: inherit; }
 /* 잠김 — Figma ⑤ 로그인 중, 읽기 전용 칸 */
 .brand-input:disabled,
 .brand-input[readonly] { background: var(--b-disabled-bg); color: var(--b-faint); }
-/* 읽기 전용(바꿀 수 없는 이메일)은 잠김보다 진하게 — Figma w01-02 #52525b */
+/* 읽기 전용(바꿀 수 없는 이메일)은 잠김보다 진하게 — Figma bw01-02 #52525b */
 .brand-input[readonly]:not(:disabled) { color: var(--b-guide); }
 .brand-input[readonly]:focus { border: 1px solid var(--b-line); padding: 0 12px; }
 
@@ -162,7 +162,7 @@ button, input { font-family: inherit; }
 /* 폼 안에서는 칸 묶음과 버튼 사이 간격(32px)을 반으로 */
 .brand-form .brand-notice { margin: -16px 0; }
 
-/* 안내 상자 (w01-01a·w01-05) */
+/* 안내 상자 (bw01-01a·bw01-05) */
 .brand-guide {
   margin: 0;
   padding: 14px 16px;
@@ -203,7 +203,7 @@ button, input { font-family: inherit; }
 .brand-sub-text { margin: 0; font-size: 12px; color: var(--b-faint); text-align: center; line-height: 1.25; }
 .brand-sub-text a { color: var(--b-faint); }
 
-/* 약관 동의 상자 (w01-02) */
+/* 약관 동의 상자 (bw01-02) */
 .brand-agree {
   background: var(--b-agree-bg);
   border-radius: var(--b-radius);
@@ -282,7 +282,7 @@ button, input { font-family: inherit; }
 .brand-preview-row select { flex: 1; min-width: 0; height: 28px; font-size: 12px; font-family: inherit; }
 .brand-preview-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 
-/* ── 좁은 화면 (m01-00) */
+/* ── 좁은 화면 (bm01-00) */
 @media (max-width: 600px) {
   .brand-topbar { display: flex; }
   .brand-stage { min-height: calc(100vh - 45px); padding: 40px 25px; align-items: flex-start; }
@@ -318,7 +318,7 @@ button, input { font-family: inherit; }
 .brand-btn-danger { background: var(--b-danger); border-color: var(--b-danger); }
 @media (prefers-reduced-motion: reduce) { .brand-toast { transition: none; } }
 
-/* ── 로그인 뒤 틀 (피그마 w04-00 · m04-00 · m03-01, 작업표 조각 1)
+/* ── 로그인 뒤 틀 (피그마 bw04-00 · bm04-00 · bm03-01, 작업표 조각 1)
    웹: 화면 바탕 위 좌측 메뉴 240 + 오른쪽 흰 본문 카드. 좁은 화면: 맨 위 검은 막대 + 오른쪽 메뉴 서랍 */
 body.is-shell .brand-topbar { display: none !important; }
 .brand-shell { display: flex; min-height: 100vh; }
@@ -369,7 +369,7 @@ body.is-shell .brand-topbar { display: none !important; }
 }
 .brand-logout .material-icons-round { font-size: 18px; color: var(--b-muted); }
 .brand-logout:hover { background: rgba(255, 255, 255, .55); }
-/* 새 초대 빨간 점 — 동그라미 오른쪽 위(피그마 w07-03: 지름 9, 바탕색 테두리 1.5) */
+/* 새 초대 빨간 점 — 동그라미 오른쪽 위(피그마 bw07-03: 지름 9, 바탕색 테두리 1.5) */
 .brand-dot {
   position: absolute; top: -3px; right: -3px;
   width: 9px; height: 9px; border-radius: 50%;
@@ -455,7 +455,7 @@ body.is-shell .brand-topbar { display: none !important; }
   .brand-page-head h1 { font-size: 20px; }
 }
 
-/* ── 좌측 위 브랜드 고르기 (피그마 w03-01·01a·01b · m03-01·01a·02·02a, 작업표 조각 2) */
+/* ── 좌측 위 브랜드 고르기 (피그마 bw03-01·01a·01b · bm03-01·01a·02·02a, 작업표 조각 2) */
 .brand-switcher { position: relative; }
 .brand-switcher-btn {
   display: flex; align-items: center; gap: 8px; max-width: 100%;
@@ -510,7 +510,7 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-pick-more .brand-pick-count { font-size: 12px; font-weight: 400; color: var(--b-muted); flex-shrink: 0; }
 .brand-pick-more .material-icons-round { color: var(--b-muted); }
 
-/* 모바일 전체 화면 고르기(m03-02) */
+/* 모바일 전체 화면 고르기(bm03-02) */
 .brand-pick-full {
   position: fixed; inset: 0; z-index: 50;
   background: var(--b-surface);
@@ -542,7 +542,7 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-text-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
 .brand-modal-box p { white-space: pre-line; }
 
-/* ── 멤버 관리(피그마 w06-00·w06-00a, 작업표 조각 5) — 표·알약·관리 단추 */
+/* ── 멤버 관리(피그마 bw06-00·bw06-00a, 작업표 조각 5) — 표·알약·관리 단추 */
 .brand-page-tools { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .brand-seat { font-size: 13px; font-weight: 600; color: var(--b-ink); }
 .brand-tool-btn {
@@ -616,7 +616,7 @@ body.is-shell .brand-topbar { display: none !important; }
   .brand-row-btn { height: 36px; }
 }
 
-/* 실패 토스트(피그마 w06-90 빨강) · 초대 모달(w06-01 — 520 폭, 회색 바탕 + 흰 카드, 오른쪽 정렬 단추) */
+/* 실패 토스트(피그마 bw06-90 빨강) · 초대 모달(bw06-01 — 520 폭, 회색 바탕 + 흰 카드, 오른쪽 정렬 단추) */
 .brand-toast.is-error { background: #b42318; }
 .brand-modal-form { width: 520px; background: #f9f9f9; padding: 30px 24px; gap: 20px; }
 .brand-modal-form h2 { font-size: 18px; }
@@ -707,7 +707,7 @@ body.is-shell .brand-topbar { display: none !important; }
 </head>
 <body>
 
-<!-- 모바일 머리 띠 (m01-00) — 좁은 화면에서만 보인다 -->
+<!-- 모바일 머리 띠 (bm01-00) — 좁은 화면에서만 보인다 -->
 <header class="brand-topbar" aria-hidden="true">Reverb</header>
 
 <main class="brand-stage" id="brandStage">
@@ -721,7 +721,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-00 · m01-00 로그인 (+ w01-91 입력 상태) -->
+  <!-- 1차 bw01-00 · bm01-00 로그인 (+ bw01-91 입력 상태) -->
   <section class="brand-card" data-screen="login" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-notice brand-notice-info" id="loginExpiredNotice" role="status" hidden>로그인 시간이 지났습니다. 다시 로그인해 주십시오.</div>
@@ -755,7 +755,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </form>
   </section>
 
-  <!-- 1차 w01-01 비밀번호 찾기 -->
+  <!-- 1차 bw01-01 비밀번호 찾기 -->
   <section class="brand-card" data-screen="forgot" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -777,7 +777,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </form>
   </section>
 
-  <!-- 1차 w01-01a 비밀번호 찾기 — 메일 발송 -->
+  <!-- 1차 bw01-01a 비밀번호 찾기 — 메일 발송 -->
   <section class="brand-card" data-screen="forgot-sent" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -795,7 +795,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-02 비밀번호 설정 (메일 링크로 들어옴) · w01-02b 초대받은 멤버 -->
+  <!-- 1차 bw01-02 비밀번호 설정 (메일 링크로 들어옴) · bw01-02b 초대받은 멤버 -->
   <section class="brand-card" data-screen="setpw" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -868,7 +868,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </form>
   </section>
 
-  <!-- 1차 w01-07 새 비밀번호 정하기 (재설정 메일 링크로 들어옴 — 약관 칸 없음, 피그마 F-1) -->
+  <!-- 1차 bw01-07 새 비밀번호 정하기 (재설정 메일 링크로 들어옴 — 약관 칸 없음, 피그마 F-1) -->
   <section class="brand-card" data-screen="resetpw" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -910,7 +910,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </form>
   </section>
 
-  <!-- 1차 w01-07a 비밀번호 바꾸기 완료 — 로그아웃 상태로 끝난다(자동 로그인 안 함, 피그마 F-1) -->
+  <!-- 1차 bw01-07a 비밀번호 바꾸기 완료 — 로그아웃 상태로 끝난다(자동 로그인 안 함, 피그마 F-1) -->
   <section class="brand-card" data-screen="reset-done" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -925,7 +925,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-08 링크 확인 「계속하기」 (메일 링크 공통 — 제목만 메일 종류별, 피그마 F-6)
+  <!-- 1차 bw01-08 링크 확인 「계속하기」 (메일 링크 공통 — 제목만 메일 종류별, 피그마 F-6)
        메일 프로그램이 링크를 미리 열어도 인증 링크가 소진되지 않게, 직접 누를 때만 인증 서비스로 넘긴다 -->
   <section class="brand-card" data-screen="confirm" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
@@ -942,7 +942,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-03 초대 수락 (이미 브랜드 계정이 있는 사람) -->
+  <!-- 1차 bw01-03 초대 수락 (이미 브랜드 계정이 있는 사람) -->
   <section class="brand-card" data-screen="invite" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -962,7 +962,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-04 이메일 변경 확인 (메일 링크로 들어옴) -->
+  <!-- 1차 bw01-04 이메일 변경 확인 (메일 링크로 들어옴) -->
   <section class="brand-card" data-screen="email-change" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -982,7 +982,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-05 쓸 수 없는 링크 (비밀번호 설정·초대·이메일 변경 공용) -->
+  <!-- 1차 bw01-05 쓸 수 없는 링크 (비밀번호 설정·초대·이메일 변경 공용) -->
   <section class="brand-card" data-screen="link-invalid" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -999,7 +999,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-06 브랜드 계정이 아님 — 비밀번호가 맞은 뒤에만 온다(틀렸으면 w01-91 공통 실패 문구, 피그마 F-3) -->
+  <!-- 1차 bw01-06 브랜드 계정이 아님 — 비밀번호가 맞은 뒤에만 온다(틀렸으면 bw01-91 공통 실패 문구, 피그마 F-3) -->
   <section class="brand-card" data-screen="not-brand" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -1015,7 +1015,7 @@ body.is-shell .brand-topbar { display: none !important; }
     </div>
   </section>
 
-  <!-- 1차 w01-06a 연결된 브랜드가 없음 (모든 브랜드에서 해제된 계정, 피그마 F-4) -->
+  <!-- 1차 bw01-06a 연결된 브랜드가 없음 (모든 브랜드에서 해제된 계정, 피그마 F-4) -->
   <section class="brand-card" data-screen="no-brand" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -1047,7 +1047,7 @@ body.is-shell .brand-topbar { display: none !important; }
 
 </main>
 
-<!-- 로그인 뒤 틀 — 웹 좌측 메뉴 · 모바일 맨 위 막대 + 오른쪽 메뉴 서랍 (brand-shell.js, 작업표 조각 1 · 피그마 w04-00·m04-00·m03-01) -->
+<!-- 로그인 뒤 틀 — 웹 좌측 메뉴 · 모바일 맨 위 막대 + 오른쪽 메뉴 서랍 (brand-shell.js, 작업표 조각 1 · 피그마 bw04-00·bm04-00·bm03-01) -->
 <div class="brand-shell" id="brandShell" hidden>
   <aside class="brand-side" id="brandSideMenu" aria-label="브랜드 메뉴">
     <!-- 브랜드 고르기 자리 — 조각 2 가 ⌃⌄·펼친 목록을 채운다 -->
@@ -1130,8 +1130,8 @@ body.is-shell .brand-topbar { display: none !important; }
   <div class="brand-preview-row" data-preview-for="setpw">
     <label for="previewSetpwKind">계정 종류</label>
     <select id="previewSetpwKind">
-      <option value="owner">w01-02 운영팀이 만든 계정</option>
-      <option value="member">w01-02b 초대받은 멤버</option>
+      <option value="owner">bw01-02 운영팀이 만든 계정</option>
+      <option value="member">bw01-02b 초대받은 멤버</option>
     </select>
   </div>
   <div class="brand-preview-row" data-preview-for="confirm">
@@ -1360,7 +1360,7 @@ function isEmailFormat(v) {
 // 비밀번호 규칙 — 8자 + 영문 소문자 + 기호.
 //   ⚠️ 같은 규칙의 사본이 셋이다: ui.js passwordPolicyIssue · admin-setpw.html validateAdminPassword · 여기.
 //      규칙을 바꾸면 셋을 함께 고친다. (ui.js 를 싣지 않아 사본을 둔다 — 파일 머리말 참고)
-//   문구는 피그마 w01-92 ① 한 줄(빠진 조건과 상관없이 같은 안내).
+//   문구는 피그마 bw01-92 ① 한 줄(빠진 조건과 상관없이 같은 안내).
 const BRAND_PW_RULE_MSG = '8자 이상으로, 영문 소문자와 기호(! @ # 등)를 넣어 주십시오.';
 function brandPasswordIssue(pw) {
   if (!pw || pw.length < 8) return BRAND_PW_RULE_MSG;
@@ -1418,7 +1418,7 @@ function brandToast(msg, opts) {
     document.body.appendChild(el);
   }
   el.textContent = msg || '';
-  el.classList.toggle('is-error', !!(opts && opts.error));   // 실패 토스트는 빨강(피그마 w06-90)
+  el.classList.toggle('is-error', !!(opts && opts.error));   // 실패 토스트는 빨강(피그마 bw06-90)
   el.classList.add('is-show');
   clearTimeout(_brandToastTimer);
   _brandToastTimer = setTimeout(() => el.classList.remove('is-show'), 3200);
@@ -1439,15 +1439,15 @@ function brandConfirm(opts) {
     wrap.setAttribute('aria-modal', 'true');
     wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
     wrap.innerHTML =
-      // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 w06-02·03, 초대 모달 w06-01 과 같은 모양)
+      // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 bw06-02·03, 초대 모달 bw06-01 과 같은 모양)
       '<div class="brand-modal-box' + (o.card ? ' is-card' : '') + (o.wide ? ' is-wide' : '') + '">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
         // o.sub — 제목 아래 회색 한 줄(피그마 bw07-02 「초대한 사람 … 초대입니다.」)
         (o.sub ? '<p class="brand-modal-sub">' + brandEsc(o.sub) + '</p>' : '') +
-        // o.card 면 내용을 흰 카드 안에(피그마 w06-02·03 — 「· 」로 시작하는 여러 줄)
+        // o.card 면 내용을 흰 카드 안에(피그마 bw06-02·03 — 「· 」로 시작하는 여러 줄)
         (o.body ? (o.card ? '<div class="brand-modal-card"><p class="brand-modal-lines">' + brandEsc(o.body) + '</p></div>' : '<p>' + brandEsc(o.body) + '</p>') : '') +
-        // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(w06-02·03), o.okFirst 면 「실행 · 취소」(w01-10).
-        //   o.single 이면 「확인」 하나(w06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
+        // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(bw06-02·03), o.okFirst 면 「실행 · 취소」(bw01-10).
+        //   o.single 이면 「확인」 하나(bw06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
         '<div class="brand-modal-actions' + (o.single ? ' is-single' : '') + (o.card ? ' is-right' : '') + '">' +
           (o.single ? '' : (o.okFirst ? '' : _cancelBtn)) +
           '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +
@@ -1543,8 +1543,8 @@ function brandFormatDateTime(iso) {
 // 브랜드 페이지 — 로그인·비밀번호 찾기·메일 링크(설정·재설정) 화면 동작
 //   (Figma 「[1차] 01 로그인」, 사양서 docs/specs/2026-07-15-brand-portal.md §16-6, 분해표 「조각 8」)
 //   연결(brandDb·brandSetupDb)은 brand-core.js, 부팅·주소 착지는 brand-app.js.
-//   초대 수락(w01-03) 동작은 brand-invite.js(묶음 ② 조각 3). 여기는 미리보기 예시 채우기(fillInviteScreen)만.
-//   ⚠️ 이메일 변경(w01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
+//   초대 수락(bw01-03) 동작은 brand-invite.js(묶음 ② 조각 3). 여기는 미리보기 예시 채우기(fillInviteScreen)만.
+//   ⚠️ 이메일 변경(bw01-04)은 아직 서버와 연결하지 않았다 — 미리보기 막대 전용(brandFakeRequest).
 //   로그인 뒤 틀·세션 상태는 brand-shell.js.
 
 const BRAND_MSG = {
@@ -1642,7 +1642,7 @@ async function applyBrandLoginState(state) {
   return kind || 'error';
 }
 
-// ── w01-00 로그인
+// ── bw01-00 로그인
 function initLoginForm() {
   const form = document.getElementById('loginForm');
   const btn = document.getElementById('loginSubmit');
@@ -1680,7 +1680,7 @@ function initLoginForm() {
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
           pwInput.value = '';
-          // 초대 메일 링크로 왔다가 로그인하러 온 경우 — 그 초대 화면으로 돌아간다(w01-03 「로그인 뒤 이 화면으로」)
+          // 초대 메일 링크로 왔다가 로그인하러 온 경우 — 그 초대 화면으로 돌아간다(bw01-03 「로그인 뒤 이 화면으로」)
           if (!(await resumeBrandInviteLink())) enterBrandApp(state);
         } else {
           // 대기 초대만 있는 계정은 초대 화면이 받은 초대를 모두 보여 준다 — 보관한 링크는 버린다
@@ -1704,7 +1704,7 @@ function initLoginForm() {
   });
 }
 
-// ── w01-01 비밀번호 찾기 → w01-01a 메일 발송
+// ── bw01-01 비밀번호 찾기 → bw01-01a 메일 발송
 //   🔴 brandDb.auth.resetPasswordForEmail 을 쓰지 않는다 — pkce 검증값이 요청한 브라우저에 묶여
 //      다른 기기에서 메일을 열면 실패하고, 인플루언서 메일 양식과 섞인다. 서버 함수만 부른다(조각 5).
 //   서버 함수는 계정이 있든 없든 같은 응답(최소 2.5초)이라 결과를 보지 않고 다음 화면으로 간다.
@@ -1746,7 +1746,7 @@ function initForgotForm() {
   document.getElementById('forgotEmail').addEventListener('input', () => setFieldError('forgotEmail', ''));
 }
 
-// ── w01-08 「계속하기」 — 메일 링크의 #confirm= 에 담긴 인증 서비스 주소로 직접 누를 때만 넘긴다
+// ── bw01-08 「계속하기」 — 메일 링크의 #confirm= 에 담긴 인증 서비스 주소로 직접 누를 때만 넘긴다
 //   ★목적지는 현재 환경 프로젝트 주소 + /auth/v1/verify 정확 일치(admin-setpw.html readConfirmTarget 과 같은 방식).
 //     *.supabase.co 를 통짜로 허용하면 남의 프로젝트를 거쳐 피싱 사이트로 넘어갈 수 있다.
 function readBrandConfirmTarget(raw) {
@@ -1782,7 +1782,7 @@ function initConfirm() {
   });
 }
 
-// ── w01-02 비밀번호 설정 · w01-02b 초대받은 멤버
+// ── bw01-02 비밀번호 설정 · bw01-02b 초대받은 멤버
 //   실제(메일 링크로 들어옴)면 brandLinkCtx.mode==='setup', 아니면 미리보기 예시 값
 function resetSetpwForm() {
   const form = document.getElementById('setpwForm');
@@ -1933,7 +1933,7 @@ function initSetpwForm() {
     if (busy) return;
     setNotice('setpwResult', '');
     const isReal = !!(brandLinkCtx && brandLinkCtx.mode === 'setup' && brandLinkCtx.hasSession);
-    const isInviteNew = !isReal && !!_brandInviteNewCtx;   // 초대 메일 링크로 온 새 이메일 멤버(w01-02b)
+    const isInviteNew = !isReal && !!_brandInviteNewCtx;   // 초대 메일 링크로 온 새 이메일 멤버(bw01-02b)
     let firstBad = null;
     const isMember = isInviteNew || (!isReal && brandPreviewState.setpwKind === 'member');
     if (isMember) {
@@ -1973,7 +1973,7 @@ function initSetpwForm() {
   });
 }
 
-// ── w01-07 새 비밀번호 정하기(재설정) → w01-07a 완료
+// ── bw01-07 새 비밀번호 정하기(재설정) → bw01-07a 완료
 function fillResetpwScreen(email) {
   const form = document.getElementById('resetpwForm');
   form.reset();
@@ -2052,7 +2052,7 @@ function initResetpwForm() {
   });
 }
 
-// ── w01-03 초대 수락 — 미리보기 예시 값(실제 동작은 brand-invite.js)
+// ── bw01-03 초대 수락 — 미리보기 예시 값(실제 동작은 brand-invite.js)
 function fillInviteScreen() {
   document.getElementById('inviteDesc').textContent = BRAND_SAMPLE.invite.desc;
   document.getElementById('inviteEmail').value = BRAND_SAMPLE.invite.email;
@@ -2060,7 +2060,7 @@ function fillInviteScreen() {
   _setInviteBusy(false);
 }
 
-// ── w01-04 이메일 변경 확인
+// ── bw01-04 이메일 변경 확인
 function fillEmailChangeScreen() {
   document.getElementById('emailChangeNew').value = BRAND_SAMPLE.emailChange.next;
   document.getElementById('emailChangeNote').textContent =
@@ -2113,16 +2113,16 @@ function initBrandLoginScreens() {
   initLegalModal();
 }
 
-// 브랜드 페이지 — 받은 초대 수락·거절(w01-03 · w01-10 · w01-90 · w01-92 ⑥)
+// 브랜드 페이지 — 받은 초대 수락·거절(bw01-03 · bw01-10 · bw01-90 · bw01-92 ⑥)
 //   작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 3(로그인 경로) · 조각 4(메일 링크 경로가 같은 화면을 쓴다)
 //   🔴 연결된 브랜드가 없고 받은 초대만 있는 계정은 로그아웃하지 않고 이 화면으로 온다(applyBrandLoginState).
 //      이때 brandAuthed 는 null(틀 페이지에 못 들어간다) — 세션만 살아 있고 이 화면의 맥락은 _brandInviteCtx 가 갖는다.
 
 const BRAND_INVITE_MSG = {
-  invalid: '이 초대는 더 이상 쓸 수 없습니다.',                               // w01-90 토스트 2
-  declined: '초대를 거절했습니다.',                                          // w01-90 토스트 1
-  failed: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // w01-92 ⑥
-  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.'                // w01-03 「나중에」(대기 초대만 있는 계정)
+  invalid: '이 초대는 더 이상 쓸 수 없습니다.',                               // bw01-90 토스트 2
+  declined: '초대를 거절했습니다.',                                          // bw01-90 토스트 1
+  failed: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // bw01-92 ⑥
+  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.'                // bw01-03 「나중에」(대기 초대만 있는 계정)
 };
 
 // 지금 보고 있는 초대 — { source:'login'|'link', invite:{invite_id, brand_id, brand_name, inviter_name, expires_at}, linkId? }
@@ -2223,7 +2223,7 @@ async function declineCurrentInvite() {
     title: brand + ' 브랜드 초대를 거절하시겠습니까?',
     body: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : '') +
       '\n거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다. 다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.',
-    okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 w01-10 「거절 · 취소」
+    okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 bw01-10 「거절 · 취소」
   });
   if (!ok || _brandInviteCtx !== ctx) return;
   _setInviteBusy(true, '처리하는 중…');
@@ -2272,14 +2272,14 @@ function initInvite() {
   });
 }
 
-// ── 메일 링크 초대 착지 (작업표 조각 4 — 피그마 w01-08 → w01-02b(새 이메일) / w01-03(이미 브랜드 계정))
+// ── 메일 링크 초대 착지 (작업표 조각 4 — 피그마 bw01-08 → bw01-02b(새 이메일) / bw01-03(이미 브랜드 계정))
 //   메일 링크: …/brand/?link=<번호>&kind=invite (notify-brand-invite). 이 링크는 일회용 인증 값이 없어 열어도 소진되지 않지만,
-//   모든 메일 링크는 w01-08 「계속하기」를 거친다(피그마 공통 규칙).
+//   모든 메일 링크는 bw01-08 「계속하기」를 거친다(피그마 공통 규칙).
 //   🔴 링크 번호는 주소에서 바로 걷어 메모리와 세션 저장소(reverb.brandInviteLink — 로그인을 거치는 ⓑ 갈래·새로고침용)에만 둔다.
 //      쓰면 지운다 · 로그아웃·비밀번호 찾기로 빠지면 지운다 · 로그·토스트·오류 보고에 싣지 않는다.
 const BRAND_INVITE_LINK_KEY = 'reverb.brandInviteLink';
-let _brandInviteLanding = null;   // { linkId, state } — w01-08 화면에 있는 동안
-let _brandInviteNewCtx = null;    // { linkId, email } — w01-02b(새 이메일 멤버 설정) 화면에 있는 동안
+let _brandInviteLanding = null;   // { linkId, state } — bw01-08 화면에 있는 동안
+let _brandInviteNewCtx = null;    // { linkId, email } — bw01-02b(새 이메일 멤버 설정) 화면에 있는 동안
 
 function _saveInviteLink(linkId) { try { sessionStorage.setItem(BRAND_INVITE_LINK_KEY, linkId); } catch (e) { /* 저장소 막힘 — 메모리만 */ } }
 function _readInviteLink() { try { return sessionStorage.getItem(BRAND_INVITE_LINK_KEY) || ''; } catch (e) { return ''; } }
@@ -2296,7 +2296,7 @@ async function fetchBrandInviteLinkState(linkId) {
   } catch (e) { return null; }
 }
 
-// 착지 — 링크를 연 것만으로는 아무것도 하지 않고 w01-08 을 보인다
+// 착지 — 링크를 연 것만으로는 아무것도 하지 않고 bw01-08 을 보인다
 async function handleBrandInviteLanding(params) {
   const linkId = params.get('link') || '';
   history.replaceState(null, '', location.pathname);   // 주소창·방문 기록에 링크 번호를 남기지 않는다
@@ -2337,7 +2337,7 @@ async function continueBrandInviteLanding() {
   }
 }
 
-// 로그인된 세션이 있고 보관한 초대 링크가 있으면 w01-03 을 링크 번호로 띄운다. 반환 true(띄움) / false
+// 로그인된 세션이 있고 보관한 초대 링크가 있으면 bw01-03 을 링크 번호로 띄운다. 반환 true(띄움) / false
 async function resumeBrandInviteLink() {
   const linkId = _readInviteLink();
   if (!linkId || !brandDb) return false;
@@ -2356,14 +2356,14 @@ async function resumeBrandInviteLink() {
   return true;
 }
 
-// ⓐ 새 이메일 — w01-02b 비밀번호 설정(이름 필수 · 연락처 선택 · 약관 동의)
+// ⓐ 새 이메일 — bw01-02b 비밀번호 설정(이름 필수 · 연락처 선택 · 약관 동의)
 function showInviteNewSetpw(linkId, st) {
   _brandInviteNewCtx = { linkId, email: st.email || '' };
   document.querySelectorAll('#setpwForm [data-member-only]').forEach(el => { el.hidden = false; });
   resetSetpwForm();
   document.getElementById('setpwDesc').textContent =
     '「' + (st.brand_name || '') + '」 브랜드의 ' + (st.inviter_name || '') + '님이 회원님을 멤버로 초대했습니다. 이름과 비밀번호를 정하면 바로 시작할 수 있습니다.';
-  // 이메일 칸 — 피그마 w01-02b 읽기 전용(작업표 S0-2). 서버가 이메일을 안 주면(534 전) 칸을 숨긴다
+  // 이메일 칸 — 피그마 bw01-02b 읽기 전용(작업표 S0-2). 서버가 이메일을 안 주면(534 전) 칸을 숨긴다
   const emailInput = document.getElementById('setpwEmail');
   emailInput.value = st.email || '';
   emailInput.closest('.brand-field').hidden = !st.email;
@@ -2427,7 +2427,7 @@ async function submitInviteNew(pw) {
 let brandSession = null;
 const _brandChangeHandlers = [];
 
-// 메뉴 — 순서·이름·아이콘은 피그마 w04-00·m03-01 그대로. 「마이페이지」는 메뉴 맨 아래 「이름 · 마이페이지」 자리.
+// 메뉴 — 순서·이름·아이콘은 피그마 bw04-00·bm03-01 그대로. 「마이페이지」는 메뉴 맨 아래 「이름 · 마이페이지」 자리.
 //   ⚠️ 피그마에 「선택된 메뉴」 모양이 없다 — 코드가 정했다(흰 바탕·굵은 글자, brand.css .is-active).
 const BRAND_MENU = [
   { hash: 'brand', label: '브랜드', icon: 'business' },
@@ -2563,7 +2563,7 @@ async function switchBrand(id) {
 
 // 서버가 「이 브랜드에 연결돼 있지 않다」고 답했을 때(바꾸기·페이지 함수 공용 — 조각 5·7 도 부른다)
 async function handleBrandNotLinked() {
-  brandToast('이 브랜드에서 빠져서 바꿀 수 없습니다.');   // 피그마 w03-90
+  brandToast('이 브랜드에서 빠져서 바꿀 수 없습니다.');   // 피그마 bw03-90
   // 판정 조회가 실패(null)하면 목록을 그대로 둔다 — 다음 판정(새로고침·다음 동작)에서 바로잡힌다
   const state = await refreshBrandLoginState();
   if (state && state.state === 'ok') rerenderCurrentBrandPage();
@@ -2720,7 +2720,7 @@ function initBrandShell() {
   }));
 }
 
-// ── 좌측 위 브랜드 고르기 (피그마 w03-01·01a·01b · m03-01·01a·02·02a, 작업표 조각 2)
+// ── 좌측 위 브랜드 고르기 (피그마 bw03-01·01a·01b · bm03-01·01a·02·02a, 작업표 조각 2)
 //   연결 브랜드 2개 이상일 때만 ⌃⌄. 8개 이상이면 웹은 검색 칸 + 7줄 반 높이 스크롤, 모바일 서랍은 한 줄 → 전체 화면 고르기.
 //   🔴 「8개」 기준은 로그인 판정이 준 활성 연결 브랜드 수(brandSession.brands — 초대 대기·해제 제외).
 const BRAND_PICKER_SEARCH_MIN = 8;
@@ -2815,7 +2815,7 @@ function closeBrandPickerPop(restoreFocus) {
   if (btn) { btn.setAttribute('aria-expanded', 'false'); if (restoreFocus) btn.focus(); }
 }
 
-// 모바일 전체 화면 고르기(m03-02) — 8개 이상일 때만 서랍의 한 줄에서 연다
+// 모바일 전체 화면 고르기(bm03-02) — 8개 이상일 때만 서랍의 한 줄에서 연다
 function openBrandPickerFull() {
   closeBrandPickerFull();
   const wrap = document.createElement('div');
@@ -2917,25 +2917,25 @@ function initBrandPicker() {
 }
 
 // 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기 (작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5)
-//   + 조각 6 정리 동작: 대기 초대 취소·만료/거절 줄 삭제·대표 담당자 넘기기(w06-02)·해제(w06-03)
-//   피그마 w06-00(대표 화면)·w06-00a(멤버 화면)·w06-01(초대 모달)·w06-01a(가득 참)·w06-02·w06-03·w06-90(토스트)
+//   + 조각 6 정리 동작: 대기 초대 취소·만료/거절 줄 삭제·대표 담당자 넘기기(bw06-02)·해제(bw06-03)
+//   피그마 bw06-00(대표 화면)·bw06-00a(멤버 화면)·bw06-01(초대 모달)·bw06-01a(가득 참)·bw06-02·bw06-03·bw06-90(토스트)
 //   🔴 단추를 숨기는 것은 보기일 뿐이다 — 서버가 「지금 그 브랜드의 대표인가」를 다시 판정한다. 동작 뒤에는 목록을 다시 받는다.
 //   🔴 겹침 비노출 — 받는 이메일이 다른 브랜드 계정·인플루언서·관리자여도 대표 화면은 늘 같은 토스트·「초대 대기」.
 
 const BRAND_MEMBERS_MSG = {
   loadFail: '멤버 목록을 불러오지 못했습니다.',
-  sent: '초대를 보냈습니다.',                                              // w06-90
-  resent: '초대 메일을 다시 보냈습니다.',                                   // w06-90
+  sent: '초대를 보냈습니다.',                                              // bw06-90
+  resent: '초대 메일을 다시 보냈습니다.',                                   // bw06-90
   mailFail: '초대는 만들었지만 메일을 보내지 못했습니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   full: '멤버가 가득 찼습니다.',
   notOwner: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',
-  failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // w06-90
+  failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // bw06-90
   alreadyPending: '이미 초대한 이메일입니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   alreadyMember: '이미 이 브랜드의 멤버입니다.',
   selfEmail: '본인 이메일은 초대할 수 없습니다.',
-  cancelled: '초대를 취소했습니다.',                                       // w06-90
-  transferred: '대표 담당자를 넘겼습니다.',                                 // w06-90
-  // 아래 셋은 피그마에 아직 문구가 없다(w06-90 「아직 정하지 않은 것」) — 같은 문체로 임시
+  cancelled: '초대를 취소했습니다.',                                       // bw06-90
+  transferred: '대표 담당자를 넘겼습니다.',                                 // bw06-90
+  // 아래 셋은 피그마에 아직 문구가 없다(bw06-90 「아직 정하지 않은 것」) — 같은 문체로 임시
   actionFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.',
   inviteEnded: '이미 끝난 초대입니다. 목록을 새로 불러왔습니다.',
   notMember: '이미 해제된 멤버입니다. 목록을 새로 불러왔습니다.'
@@ -2968,13 +2968,11 @@ function _brandMemberStatusPill(r) {
 }
 
 // 관리 칸 — 다시 보내기(조각 5) + 넘기기·해제·취소·삭제(조각 6, _brandMemberExtraActions).
-function _brandMemberActions(r, full) {
+function _brandMemberActions(r) {
   const btns = [];
   if (r.kind === 'invite' && (r.status === 'pending' || r.status === 'expired')) {
-    // 가득 차면 자리 수를 늘리는 동작(만료 줄 다시 보내기)만 막는다 — 대기 줄 다시 보내기는 막지 않는다(16-2)
-    const off = r.status === 'expired' && full;
-    btns.push('<button type="button" class="brand-row-btn" data-mem-act="resend" data-invite="' + brandEsc(r.invite_id) + '"' +
-      (off ? ' disabled title="멤버가 가득 찼습니다"' : '') + '>다시 보내기</button>');
+    // 가득 차도 단추는 잠그지 않는다 — 만료 줄을 누르면 서버가 seat_full 로 거부하고 「멤버가 가득 찼습니다.」 토스트(피그마 bw06-00·90)
+    btns.push('<button type="button" class="brand-row-btn" data-mem-act="resend" data-invite="' + brandEsc(r.invite_id) + '">다시 보내기</button>');
   }
   btns.push(..._brandMemberExtraActions(r));
   return btns.length ? btns.join('') : '<span class="brand-dash">—</span>';
@@ -3007,7 +3005,6 @@ function renderBrandMembers(host) {
     return;
   }
   const owner = d.my_role === 'owner';
-  const full = d.seat_used >= d.member_limit;
   const rows = d.rows.slice().sort((a, b) => _brandMemberRowRank(a) - _brandMemberRowRank(b));
   const body = rows.map(r => {
     const isInvite = r.kind === 'invite';
@@ -3017,8 +3014,8 @@ function renderBrandMembers(host) {
       '<td data-label="역할">' + (r.role === 'owner' ? _brandPill('대표', 'is-owner') : _brandPill('멤버', 'is-member')) + '</td>' +
       '<td data-label="상태">' + _brandMemberStatusPill(r) + '</td>' +
       '<td class="c-last" data-label="마지막 접속">' + (r.last_active_at ? brandEsc(brandFormatDate(r.last_active_at)) : '<span class="brand-dash">—</span>') + '</td>' +
-      // 멤버 화면(w06-00a)도 「관리」 열은 두고 비운다 — 대표 줄만 「—」
-      '<td class="c-act" data-label="관리">' + (r.kind === 'account' && r.role === 'owner' ? '<span class="brand-dash">—</span>' : (owner ? _brandMemberActions(r, full) : '')) + '</td>' +
+      // 멤버 화면(bw06-00a)도 「관리」 열은 두고 비운다 — 대표 줄만 「—」
+      '<td class="c-act" data-label="관리">' + (r.kind === 'account' && r.role === 'owner' ? '<span class="brand-dash">—</span>' : (owner ? _brandMemberActions(r) : '')) + '</td>' +
     '</tr>';
   }).join('');
   host.innerHTML = _brandMembersHeadHtml(d) +
@@ -3099,7 +3096,7 @@ async function resendBrandInviteRow(inviteId, btn) {
   btn.disabled = true;
   const { data, error } = await brandRpc('resend_brand_invite', { p_invite_id: inviteId });
   if (error || !data || !data.result) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.failed, { error: true }); return; }
-  // 만료 줄 다시 보내기가 가득 참 — 피그마 w06-90 은 토스트(새 초대만 w06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
+  // 만료 줄 다시 보내기가 가득 참 — 피그마 bw06-90 은 토스트(새 초대만 bw06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
   if (data.result === 'seat_full') { brandToast(BRAND_MEMBERS_MSG.full, { error: true }); await loadBrandMembers(); return; }
   if (data.result !== 'ok') { await _brandMembersAfterAction(false); return; }   // not_resendable·not_found·not_owner — 목록 새로 받기
   const mail = await sendBrandInviteMail(data.invite_id || inviteId);
@@ -3109,7 +3106,7 @@ async function resendBrandInviteRow(inviteId, btn) {
   await _brandMembersAfterAction(true);
 }
 
-// ── 초대 모달(w06-01) · 가득 참(w06-01a)
+// ── 초대 모달(bw06-01) · 가득 참(bw06-01a)
 function openBrandInviteModal(full) {
   if (full) { openBrandSeatFullModal(); return; }
   closeBrandInviteModal();
@@ -3134,7 +3131,7 @@ function openBrandInviteModal(full) {
         '<p class="brand-modal-hint">초대받은 사람이 메일에서 수락하면 멤버가 됩니다. 수락 전까지는 「초대 대기」로 보이고 ' +
           (d0.member_limit || '') + '명 안에 들어갑니다. (지금 ' + (d0.seat_used != null ? d0.seat_used : '') + ' / ' + (d0.member_limit || '') + '명)</p>' +
       '</div>' +
-      // 피그마 w06-01 — 오른쪽 정렬 「취소 · 초대 보내기」
+      // 피그마 bw06-01 — 오른쪽 정렬 「취소 · 초대 보내기」
       '<div class="brand-modal-actions is-right">' +
         '<button type="button" class="brand-btn brand-btn-line" data-inv="cancel">취소</button>' +
         '<button type="submit" class="brand-btn" data-inv="send">초대 보내기</button>' +
@@ -3160,7 +3157,7 @@ function openBrandInviteModal(full) {
     if (res.keepOpen) {
       btns.forEach(b => { b.disabled = false; });
       sendBtn.textContent = '초대 보내기';
-      // 연결·서버 오류는 토스트(w06-90 — 모달 유지), 입력 문제는 칸 아래 안내
+      // 연결·서버 오류는 토스트(bw06-90 — 모달 유지), 입력 문제는 칸 아래 안내
       if (res.toastError) brandToast(res.message, { error: true }); else setFieldError('brandInviteEmail', res.message);
       input.focus();
       return;
@@ -3179,14 +3176,14 @@ function closeBrandInviteModal() {
   if (m && m._close) m._close(); else if (m) m.remove();
 }
 
-// 피그마 w06-01a — 숫자는 서버에서 받은 값(6 / 5 처럼 상한보다 많을 수도 있다). 단추는 「확인」 하나
+// 피그마 bw06-01a — 숫자는 서버에서 받은 값(6 / 5 처럼 상한보다 많을 수도 있다). 단추는 「확인」 하나
 function openBrandSeatFullModal() {
   const d = _brandMembersData || {};
   brandConfirm({
     title: '멤버가 가득 찼습니다',
-    body: '지금 ' + (d.seat_used != null ? d.seat_used : '') + ' / ' + (d.member_limit || '') + '명입니다. 운영팀에 늘려 달라고 요청해 주십시오.\n' +
-      '또는 「초대 대기」를 취소하거나 멤버를 해제해 자리를 비울 수 있습니다.',
-    okLabel: '확인', single: true
+    sub: '지금 ' + (d.seat_used != null ? d.seat_used : '') + ' / ' + (d.member_limit || '') + '명입니다. 운영팀에 늘려 달라고 요청해 주십시오.',
+    body: '또는 「초대 대기」를 취소하거나 멤버를 해제해 자리를 비울 수 있습니다.',
+    okLabel: '확인', single: true, card: true, wide: true   // 회색 상자 + 흰 카드, 폭 480
   });
 }
 
@@ -3237,7 +3234,7 @@ document.addEventListener('click', async (e) => {
 });
 
 // ── 조각 6 — 정리 동작(대표만 보이는 단추. 최종 판정은 서버)
-//   피그마 w06-00 단추: 멤버 줄 「대표 담당자 넘기기」(기본)·「해제」(빨강) / 대기 줄 「취소」(빨강, 확인 없이 바로)
+//   피그마 bw06-00 단추: 멤버 줄 「대표 담당자 넘기기」(기본)·「해제」(빨강) / 대기 줄 「취소」(빨강, 확인 없이 바로)
 //   / 만료·거절 줄 「삭제」(기본, 확인·토스트 없음 — 줄이 사라지는 것으로 충분)
 function _brandMemberExtraActions(r) {
   const btn = (act, label, attrs, danger) =>
@@ -3290,7 +3287,7 @@ async function hideBrandInviteRow(inviteId, btn) {
   await loadBrandMembers();
 }
 
-// 대표 담당자 넘기기 — 피그마 w06-02 「취소 · 대표 담당자 넘기기」(검정). 메일 없음.
+// 대표 담당자 넘기기 — 피그마 bw06-02 「취소 · 대표 담당자 넘기기」(검정). 메일 없음.
 //   🔴 서버가 brands.contacts 의 대표 표시도 옮긴다 — 묶음 ③ 전에는 관리자 브랜드 상세 편집 폼을 연 채 저장하면 되돌아간다
 async function transferBrandOwnerRow(authId, name, btn) {
   const ok = await brandConfirm({
@@ -3298,7 +3295,7 @@ async function transferBrandOwnerRow(authId, name, btn) {
     body: '· ' + name + '님이 대표 담당자가 됩니다.\n' +
       '· 회원님은 멤버가 되고, 초대·해제·대표 담당자 넘기기를 더 할 수 없습니다.\n' +
       '· 오리엔시트·캠페인·브랜드 정보는 지금처럼 쓸 수 있습니다.',
-    card: true, okLabel: '대표 담당자 넘기기'
+    card: true, wide: true, okLabel: '대표 담당자 넘기기'
   });
   if (!ok) return;
   btn.disabled = true;
@@ -3307,7 +3304,7 @@ async function transferBrandOwnerRow(authId, name, btn) {
   if (res === 'ok') {
     brandToast(BRAND_MEMBERS_MSG.transferred);
     brandTouchActivity();
-    // 내 역할이 바뀌었다 — 로그인 판정(브랜드 목록의 역할)을 새로 받고, 목록을 멤버 화면(w06-00a)으로 다시 그린다
+    // 내 역할이 바뀌었다 — 로그인 판정(브랜드 목록의 역할)을 새로 받고, 목록을 멤버 화면(bw06-00a)으로 다시 그린다
     await refreshBrandLoginState();
     await loadBrandMembers();
     return;
@@ -3316,20 +3313,20 @@ async function transferBrandOwnerRow(authId, name, btn) {
   await loadBrandMembers();
 }
 
-// 해제 — 피그마 w06-03 「취소 · 해제」(빨강). 연결 이력은 서버에 남는다
+// 해제 — 피그마 bw06-03 「취소 · 해제」(빨강). 연결 이력은 서버에 남는다
 async function releaseBrandMemberRow(authId, name, btn) {
   const ok = await brandConfirm({
     title: name + '님을 해제하시겠습니까?',
     body: '· 이 브랜드에 바로 로그인할 수 없게 됩니다. (다른 브랜드에 연결돼 있으면 그 브랜드는 그대로)\n' +
       '· ' + name + '님이 만든 오리엔시트는 브랜드에 남습니다.\n' +
       '· 다시 함께하려면 새로 초대해야 합니다.',
-    card: true, okLabel: '해제', danger: true
+    card: true, wide: true, okLabel: '해제', danger: true
   });
   if (!ok) return;
   btn.disabled = true;
   const res = await _brandMemberRpcText('release_brand_member', { p_brand_id: getCurrentBrandId(), p_auth_id: authId });
   if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
-  if (res === 'ok') { brandToast(name + '님을 해제했습니다.'); await _brandMembersAfterAction(true); return; }   // w06-90
+  if (res === 'ok') { brandToast(name + '님을 해제했습니다.'); await _brandMembersAfterAction(true); return; }   // bw06-90
   brandToast(res === 'not_member' ? BRAND_MEMBERS_MSG.notMember : res === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.actionFail, { error: true });
   await loadBrandMembers();
 }
@@ -3672,23 +3669,23 @@ const BRAND_EXPIRED_MSG = '로그인 시간이 지났습니다. 다시 로그인
 // 미리보기 막대에서 고른 값 — brand-login.js 가 읽는다(서버와 연결 안 된 화면 전용)
 const brandPreviewState = {
   setpwKind: 'owner',    // 'owner'(운영팀이 만든 계정) | 'member'(초대받은 멤버)
-  confirmKind: 'setup'   // w01-08 제목 — 'setup' | 'reset'
+  confirmKind: 'setup'   // bw01-08 제목 — 'setup' | 'reset'
 };
 
 // 미리보기 목록 — 로그인 뒤 틀(brand-shell.js)은 세션이 있어야 해서 넣지 않는다.
-//   w01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
+//   bw01-04 이메일 변경(email-change)은 피그마 섹션에서 빠져(F-5) 목록에서 뺐다. 마크업·동작은 다음 작업용으로 남겨 둔다.
 const BRAND_PREVIEW_SCREENS = [
-  { hash: 'login', label: 'w01-00 로그인' },
-  { hash: 'forgot', label: 'w01-01 비밀번호 찾기' },
-  { hash: 'forgot-sent', label: 'w01-01a 메일 발송' },
-  { hash: 'setpw', label: 'w01-02 비밀번호 설정' },
-  { hash: 'invite', label: 'w01-03 초대 수락' },
-  { hash: 'link-invalid', label: 'w01-05 쓸 수 없는 링크' },
-  { hash: 'not-brand', label: 'w01-06 브랜드 계정이 아님' },
-  { hash: 'no-brand', label: 'w01-06a 연결된 브랜드 없음' },
-  { hash: 'resetpw', label: 'w01-07 새 비밀번호 정하기' },
-  { hash: 'reset-done', label: 'w01-07a 비밀번호 바꾸기 완료' },
-  { hash: 'confirm', label: 'w01-08 계속하기' }
+  { hash: 'login', label: 'bw01-00 로그인' },
+  { hash: 'forgot', label: 'bw01-01 비밀번호 찾기' },
+  { hash: 'forgot-sent', label: 'bw01-01a 메일 발송' },
+  { hash: 'setpw', label: 'bw01-02 비밀번호 설정' },
+  { hash: 'invite', label: 'bw01-03 초대 수락' },
+  { hash: 'link-invalid', label: 'bw01-05 쓸 수 없는 링크' },
+  { hash: 'not-brand', label: 'bw01-06 브랜드 계정이 아님' },
+  { hash: 'no-brand', label: 'bw01-06a 연결된 브랜드 없음' },
+  { hash: 'resetpw', label: 'bw01-07 새 비밀번호 정하기' },
+  { hash: 'reset-done', label: 'bw01-07a 비밀번호 바꾸기 완료' },
+  { hash: 'confirm', label: 'bw01-08 계속하기' }
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
@@ -4005,6 +4002,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792113040 -->
+<!-- v1792114303 -->
 </body>
 </html>

@@ -91,19 +91,6 @@ function devEchoEnabled(): boolean {
     && env("SUPABASE_URL").includes(`://${STAGING_PROJECT_REF}.`);
 }
 
-// 만료 시각 → 「2026-10-16 15:30(한국 시간)」. 초대 줄에 저장된 expires_at 만 읽는다(24시간 식 사본을 만들지 않는다).
-function formatKst(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(d);
-  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const hh = g("hour") === "24" ? "00" : g("hour");
-  return `${g("year")}-${g("month")}-${g("day")} ${hh}:${g("minute")}(한국 시간)`;
-}
-
 async function sendBrevoEmail(params: {
   to: { email: string; name?: string }[];
   subject: string;
@@ -213,16 +200,14 @@ Deno.serve(async (req: Request) => {
       throw new Error("unknown recipient_kind");
     }
 
-    // 5-앞) 문구 — 세 갈래 모두 「누가·왜·모르면 무시」(사양서 16-3 2번)
+    // 5-앞) 문구 — 정본은 피그마 bw01-97·97a·97b(초안, 2026-10-16 「초안대로」). HTML 은 _templates/ 양식, 아래 text 는 그 사본(함께 고칠 것)
     const brandName = String(brandRow.name || "").trim() || "브랜드";
     const inviterName = String(inv.inviter_name || "").trim() || "대표 담당자";
     const toEmail = String(inv.email);
-    const expiresNote = `이 초대는 ${formatKst(String(inv.expires_at))}까지 유효합니다.`;
     const link = kind === "blocked" ? "" : `${brandBase}/brand/?link=${inv.link_id}&kind=invite`;
 
-    const subject = kind === "blocked"
-      ? `[REVERB] 「${brandName}」 브랜드 페이지 초대를 받을 수 없습니다`
-      : `[REVERB] 「${brandName}」 브랜드 페이지에 초대되었습니다`;
+    // 제목은 세 갈래 같다(피그마 제목 끝 「(초안)」은 시안 표시라 넣지 않는다)
+    const subject = `[REVERB] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다`;
     const tplKey = kind === "new" ? "brand-invite-new" : kind === "brand" ? "brand-invite-existing" : "brand-invite-blocked";
 
     // HTML 주석 strip — 템플릿 안 주석(용도 안내)이 메일 본문에 누출되는 것 차단
@@ -231,27 +216,32 @@ Deno.serve(async (req: Request) => {
       brand_name: escapeHtml(brandName),
       inviter_name: escapeHtml(inviterName),
       link: escapeHtml(link),
-      expires: escapeHtml(expiresNote),
     });
 
-    const head =
-      `안녕하세요.\n\n` +
-      `REVERB 브랜드 페이지의 「${brandName}」 브랜드 대표 담당자 ${inviterName} 님이 이 이메일 주소로 멤버 초대를 보냈습니다.\n`;
-    const foot =
-      `본인과 관련 없거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n` +
-      `이 메일은 발신 전용입니다. 문의는 초대하신 분이나 REVERB 운영팀 담당자에게 직접 연락해 주세요.\n`;
+    const intro = `「${brandName}」 브랜드의 대표 담당자 ${inviterName} 님이 REVERB 브랜드 페이지에 함께하도록 초대했습니다.\n\n`;
+    const validity = `이 링크는 보낸 때부터 24시간 동안 유효합니다.\n`;
+    const sentBy = `이 메일은 「${brandName}」 브랜드의 대표 담당자 ${inviterName} 님의 초대로 REVERB 운영팀이 보냈습니다.\n`;
+    const contact = `이 메일은 발신 전용입니다. 초대에 관한 문의는 ${inviterName} 님께 직접 연락해 주십시오.\n`;
+    const ignoreLink = `무슨 메일인지 모르시겠다면 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n`;
     let text: string;
     if (kind === "new") {
-      text = head +
-        `아래 링크에서 이름과 비밀번호를 정하면 초대를 수락하고 「${brandName}」 브랜드 페이지를 함께 쓰실 수 있습니다.\n\n` +
-        `링크: ${link}\n\n${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 초대하신 분께 초대를 다시 보내 달라고 요청해 주세요.\n\n${foot}`;
+      text = `안녕하십니까\n\n` + intro +
+        `아래 링크에서 비밀번호를 설정하면 「${brandName}」 브랜드의 오리엔시트와 캠페인을 함께 보실 수 있습니다.\n\n` +
+        `초대 수락하고 비밀번호 설정하기: ${link}\n\n` + validity +
+        `기한이 지나면 링크가 열리지 않습니다. 그때는 ${inviterName} 님께 초대를 다시 보내 달라고 요청해 주십시오.\n\n` +
+        sentBy + ignoreLink + contact;
     } else if (kind === "brand") {
-      text = head +
-        `이미 사용 중인 REVERB 브랜드 페이지 계정이 있으시면, 아래 링크에서 지금 쓰시는 계정으로 로그인한 뒤 초대를 수락해 주세요. 수락하면 「${brandName}」 브랜드가 내 브랜드 목록에 함께 보입니다.\n\n` +
-        `링크: ${link}\n\n${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 초대하신 분께 초대를 다시 보내 달라고 요청해 주세요.\n\n${foot}`;
+      text = `안녕하십니까\n\n` + intro +
+        `이미 REVERB 브랜드 페이지 계정이 있으십니다. 지금 쓰시는 계정으로 로그인해 초대를 수락하면 「${brandName}」 브랜드가 연결됩니다.\n\n` +
+        `로그인하고 초대 확인하기: ${link}\n\n` + validity +
+        `로그인한 뒤 마이페이지 「받은 초대」에서도 수락하거나 거절할 수 있습니다.\n` +
+        `비밀번호를 아직 정하지 않으셨다면, 먼저 받으신 비밀번호 설정 메일로 정한 뒤 수락해 주십시오.\n\n` +
+        sentBy + ignoreLink + contact;
     } else {
-      text = head.replace("멤버 초대를 보냈습니다.", "멤버 초대를 보냈지만, 이 이메일 주소로는 초대를 받을 수 없습니다.") +
-        `초대하신 분께 다른 이메일 주소로 초대를 요청해 주세요. 이 메일에는 누르실 링크가 없습니다.\n\n${foot}`;
+      text = `안녕하십니까\n\n` +
+        `「${brandName}」 브랜드의 대표 담당자 ${inviterName} 님이 이 이메일로 REVERB 브랜드 페이지에 초대했습니다.\n\n` +
+        `하지만 이 이메일은 이미 REVERB의 다른 서비스에서 쓰고 있어 브랜드 계정을 만들 수 없습니다. 다른 이메일로 다시 초대해 달라고 ${inviterName} 님께 요청해 주십시오.\n\n` +
+        sentBy + `무슨 메일인지 모르시겠다면 이 메일을 무시하셔도 됩니다. 아무 일도 일어나지 않습니다.\n` + contact;
     }
 
 

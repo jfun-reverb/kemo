@@ -135,7 +135,7 @@ function isEmailFormat(v) {
 // 비밀번호 규칙 — 8자 + 영문 소문자 + 기호.
 //   ⚠️ 같은 규칙의 사본이 셋이다: ui.js passwordPolicyIssue · admin-setpw.html validateAdminPassword · 여기.
 //      규칙을 바꾸면 셋을 함께 고친다. (ui.js 를 싣지 않아 사본을 둔다 — 파일 머리말 참고)
-//   문구는 피그마 w01-92 ① 한 줄(빠진 조건과 상관없이 같은 안내).
+//   문구는 피그마 bw01-92 ① 한 줄(빠진 조건과 상관없이 같은 안내).
 const BRAND_PW_RULE_MSG = '8자 이상으로, 영문 소문자와 기호(! @ # 등)를 넣어 주십시오.';
 function brandPasswordIssue(pw) {
   if (!pw || pw.length < 8) return BRAND_PW_RULE_MSG;
@@ -193,7 +193,7 @@ function brandToast(msg, opts) {
     document.body.appendChild(el);
   }
   el.textContent = msg || '';
-  el.classList.toggle('is-error', !!(opts && opts.error));   // 실패 토스트는 빨강(피그마 w06-90)
+  el.classList.toggle('is-error', !!(opts && opts.error));   // 실패 토스트는 빨강(피그마 bw06-90)
   el.classList.add('is-show');
   clearTimeout(_brandToastTimer);
   _brandToastTimer = setTimeout(() => el.classList.remove('is-show'), 3200);
@@ -214,15 +214,15 @@ function brandConfirm(opts) {
     wrap.setAttribute('aria-modal', 'true');
     wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
     wrap.innerHTML =
-      // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 w06-02·03, 초대 모달 w06-01 과 같은 모양)
+      // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 bw06-02·03, 초대 모달 bw06-01 과 같은 모양)
       '<div class="brand-modal-box' + (o.card ? ' is-card' : '') + (o.wide ? ' is-wide' : '') + '">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
         // o.sub — 제목 아래 회색 한 줄(피그마 bw07-02 「초대한 사람 … 초대입니다.」)
         (o.sub ? '<p class="brand-modal-sub">' + brandEsc(o.sub) + '</p>' : '') +
-        // o.card 면 내용을 흰 카드 안에(피그마 w06-02·03 — 「· 」로 시작하는 여러 줄)
+        // o.card 면 내용을 흰 카드 안에(피그마 bw06-02·03 — 「· 」로 시작하는 여러 줄)
         (o.body ? (o.card ? '<div class="brand-modal-card"><p class="brand-modal-lines">' + brandEsc(o.body) + '</p></div>' : '<p>' + brandEsc(o.body) + '</p>') : '') +
-        // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(w06-02·03), o.okFirst 면 「실행 · 취소」(w01-10).
-        //   o.single 이면 「확인」 하나(w06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
+        // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(bw06-02·03), o.okFirst 면 「실행 · 취소」(bw01-10).
+        //   o.single 이면 「확인」 하나(bw06-01a). 처음 초점은 「취소」(실수로 엔터 한 번에 실행되지 않게), 하나뿐이면 그 단추
         '<div class="brand-modal-actions' + (o.single ? ' is-single' : '') + (o.card ? ' is-right' : '') + '">' +
           (o.single ? '' : (o.okFirst ? '' : _cancelBtn)) +
           '<button type="button" class="brand-btn' + (o.danger ? ' brand-btn-danger' : '') + '" data-act="ok">' + brandEsc(o.okLabel || '확인') + '</button>' +

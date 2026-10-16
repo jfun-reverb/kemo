@@ -8,7 +8,7 @@
 let brandSession = null;
 const _brandChangeHandlers = [];
 
-// 메뉴 — 순서·이름·아이콘은 피그마 w04-00·m03-01 그대로. 「마이페이지」는 메뉴 맨 아래 「이름 · 마이페이지」 자리.
+// 메뉴 — 순서·이름·아이콘은 피그마 bw04-00·bm03-01 그대로. 「마이페이지」는 메뉴 맨 아래 「이름 · 마이페이지」 자리.
 //   ⚠️ 피그마에 「선택된 메뉴」 모양이 없다 — 코드가 정했다(흰 바탕·굵은 글자, brand.css .is-active).
 const BRAND_MENU = [
   { hash: 'brand', label: '브랜드', icon: 'business' },
@@ -144,7 +144,7 @@ async function switchBrand(id) {
 
 // 서버가 「이 브랜드에 연결돼 있지 않다」고 답했을 때(바꾸기·페이지 함수 공용 — 조각 5·7 도 부른다)
 async function handleBrandNotLinked() {
-  brandToast('이 브랜드에서 빠져서 바꿀 수 없습니다.');   // 피그마 w03-90
+  brandToast('이 브랜드에서 빠져서 바꿀 수 없습니다.');   // 피그마 bw03-90
   // 판정 조회가 실패(null)하면 목록을 그대로 둔다 — 다음 판정(새로고침·다음 동작)에서 바로잡힌다
   const state = await refreshBrandLoginState();
   if (state && state.state === 'ok') rerenderCurrentBrandPage();
@@ -301,7 +301,7 @@ function initBrandShell() {
   }));
 }
 
-// ── 좌측 위 브랜드 고르기 (피그마 w03-01·01a·01b · m03-01·01a·02·02a, 작업표 조각 2)
+// ── 좌측 위 브랜드 고르기 (피그마 bw03-01·01a·01b · bm03-01·01a·02·02a, 작업표 조각 2)
 //   연결 브랜드 2개 이상일 때만 ⌃⌄. 8개 이상이면 웹은 검색 칸 + 7줄 반 높이 스크롤, 모바일 서랍은 한 줄 → 전체 화면 고르기.
 //   🔴 「8개」 기준은 로그인 판정이 준 활성 연결 브랜드 수(brandSession.brands — 초대 대기·해제 제외).
 const BRAND_PICKER_SEARCH_MIN = 8;
@@ -396,7 +396,7 @@ function closeBrandPickerPop(restoreFocus) {
   if (btn) { btn.setAttribute('aria-expanded', 'false'); if (restoreFocus) btn.focus(); }
 }
 
-// 모바일 전체 화면 고르기(m03-02) — 8개 이상일 때만 서랍의 한 줄에서 연다
+// 모바일 전체 화면 고르기(bm03-02) — 8개 이상일 때만 서랍의 한 줄에서 연다
 function openBrandPickerFull() {
   closeBrandPickerFull();
   const wrap = document.createElement('div');

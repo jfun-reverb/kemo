@@ -1,23 +1,23 @@
 // 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기 (작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5)
-//   + 조각 6 정리 동작: 대기 초대 취소·만료/거절 줄 삭제·대표 담당자 넘기기(w06-02)·해제(w06-03)
-//   피그마 w06-00(대표 화면)·w06-00a(멤버 화면)·w06-01(초대 모달)·w06-01a(가득 참)·w06-02·w06-03·w06-90(토스트)
+//   + 조각 6 정리 동작: 대기 초대 취소·만료/거절 줄 삭제·대표 담당자 넘기기(bw06-02)·해제(bw06-03)
+//   피그마 bw06-00(대표 화면)·bw06-00a(멤버 화면)·bw06-01(초대 모달)·bw06-01a(가득 참)·bw06-02·bw06-03·bw06-90(토스트)
 //   🔴 단추를 숨기는 것은 보기일 뿐이다 — 서버가 「지금 그 브랜드의 대표인가」를 다시 판정한다. 동작 뒤에는 목록을 다시 받는다.
 //   🔴 겹침 비노출 — 받는 이메일이 다른 브랜드 계정·인플루언서·관리자여도 대표 화면은 늘 같은 토스트·「초대 대기」.
 
 const BRAND_MEMBERS_MSG = {
   loadFail: '멤버 목록을 불러오지 못했습니다.',
-  sent: '초대를 보냈습니다.',                                              // w06-90
-  resent: '초대 메일을 다시 보냈습니다.',                                   // w06-90
+  sent: '초대를 보냈습니다.',                                              // bw06-90
+  resent: '초대 메일을 다시 보냈습니다.',                                   // bw06-90
   mailFail: '초대는 만들었지만 메일을 보내지 못했습니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   full: '멤버가 가득 찼습니다.',
   notOwner: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',
-  failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // w06-90
+  failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // bw06-90
   alreadyPending: '이미 초대한 이메일입니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   alreadyMember: '이미 이 브랜드의 멤버입니다.',
   selfEmail: '본인 이메일은 초대할 수 없습니다.',
-  cancelled: '초대를 취소했습니다.',                                       // w06-90
-  transferred: '대표 담당자를 넘겼습니다.',                                 // w06-90
-  // 아래 셋은 피그마에 아직 문구가 없다(w06-90 「아직 정하지 않은 것」) — 같은 문체로 임시
+  cancelled: '초대를 취소했습니다.',                                       // bw06-90
+  transferred: '대표 담당자를 넘겼습니다.',                                 // bw06-90
+  // 아래 셋은 피그마에 아직 문구가 없다(bw06-90 「아직 정하지 않은 것」) — 같은 문체로 임시
   actionFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.',
   inviteEnded: '이미 끝난 초대입니다. 목록을 새로 불러왔습니다.',
   notMember: '이미 해제된 멤버입니다. 목록을 새로 불러왔습니다.'
@@ -50,13 +50,11 @@ function _brandMemberStatusPill(r) {
 }
 
 // 관리 칸 — 다시 보내기(조각 5) + 넘기기·해제·취소·삭제(조각 6, _brandMemberExtraActions).
-function _brandMemberActions(r, full) {
+function _brandMemberActions(r) {
   const btns = [];
   if (r.kind === 'invite' && (r.status === 'pending' || r.status === 'expired')) {
-    // 가득 차면 자리 수를 늘리는 동작(만료 줄 다시 보내기)만 막는다 — 대기 줄 다시 보내기는 막지 않는다(16-2)
-    const off = r.status === 'expired' && full;
-    btns.push('<button type="button" class="brand-row-btn" data-mem-act="resend" data-invite="' + brandEsc(r.invite_id) + '"' +
-      (off ? ' disabled title="멤버가 가득 찼습니다"' : '') + '>다시 보내기</button>');
+    // 가득 차도 단추는 잠그지 않는다 — 만료 줄을 누르면 서버가 seat_full 로 거부하고 「멤버가 가득 찼습니다.」 토스트(피그마 bw06-00·90)
+    btns.push('<button type="button" class="brand-row-btn" data-mem-act="resend" data-invite="' + brandEsc(r.invite_id) + '">다시 보내기</button>');
   }
   btns.push(..._brandMemberExtraActions(r));
   return btns.length ? btns.join('') : '<span class="brand-dash">—</span>';
@@ -89,7 +87,6 @@ function renderBrandMembers(host) {
     return;
   }
   const owner = d.my_role === 'owner';
-  const full = d.seat_used >= d.member_limit;
   const rows = d.rows.slice().sort((a, b) => _brandMemberRowRank(a) - _brandMemberRowRank(b));
   const body = rows.map(r => {
     const isInvite = r.kind === 'invite';
@@ -99,8 +96,8 @@ function renderBrandMembers(host) {
       '<td data-label="역할">' + (r.role === 'owner' ? _brandPill('대표', 'is-owner') : _brandPill('멤버', 'is-member')) + '</td>' +
       '<td data-label="상태">' + _brandMemberStatusPill(r) + '</td>' +
       '<td class="c-last" data-label="마지막 접속">' + (r.last_active_at ? brandEsc(brandFormatDate(r.last_active_at)) : '<span class="brand-dash">—</span>') + '</td>' +
-      // 멤버 화면(w06-00a)도 「관리」 열은 두고 비운다 — 대표 줄만 「—」
-      '<td class="c-act" data-label="관리">' + (r.kind === 'account' && r.role === 'owner' ? '<span class="brand-dash">—</span>' : (owner ? _brandMemberActions(r, full) : '')) + '</td>' +
+      // 멤버 화면(bw06-00a)도 「관리」 열은 두고 비운다 — 대표 줄만 「—」
+      '<td class="c-act" data-label="관리">' + (r.kind === 'account' && r.role === 'owner' ? '<span class="brand-dash">—</span>' : (owner ? _brandMemberActions(r) : '')) + '</td>' +
     '</tr>';
   }).join('');
   host.innerHTML = _brandMembersHeadHtml(d) +
@@ -181,7 +178,7 @@ async function resendBrandInviteRow(inviteId, btn) {
   btn.disabled = true;
   const { data, error } = await brandRpc('resend_brand_invite', { p_invite_id: inviteId });
   if (error || !data || !data.result) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.failed, { error: true }); return; }
-  // 만료 줄 다시 보내기가 가득 참 — 피그마 w06-90 은 토스트(새 초대만 w06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
+  // 만료 줄 다시 보내기가 가득 참 — 피그마 bw06-90 은 토스트(새 초대만 bw06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
   if (data.result === 'seat_full') { brandToast(BRAND_MEMBERS_MSG.full, { error: true }); await loadBrandMembers(); return; }
   if (data.result !== 'ok') { await _brandMembersAfterAction(false); return; }   // not_resendable·not_found·not_owner — 목록 새로 받기
   const mail = await sendBrandInviteMail(data.invite_id || inviteId);
@@ -191,7 +188,7 @@ async function resendBrandInviteRow(inviteId, btn) {
   await _brandMembersAfterAction(true);
 }
 
-// ── 초대 모달(w06-01) · 가득 참(w06-01a)
+// ── 초대 모달(bw06-01) · 가득 참(bw06-01a)
 function openBrandInviteModal(full) {
   if (full) { openBrandSeatFullModal(); return; }
   closeBrandInviteModal();
@@ -216,7 +213,7 @@ function openBrandInviteModal(full) {
         '<p class="brand-modal-hint">초대받은 사람이 메일에서 수락하면 멤버가 됩니다. 수락 전까지는 「초대 대기」로 보이고 ' +
           (d0.member_limit || '') + '명 안에 들어갑니다. (지금 ' + (d0.seat_used != null ? d0.seat_used : '') + ' / ' + (d0.member_limit || '') + '명)</p>' +
       '</div>' +
-      // 피그마 w06-01 — 오른쪽 정렬 「취소 · 초대 보내기」
+      // 피그마 bw06-01 — 오른쪽 정렬 「취소 · 초대 보내기」
       '<div class="brand-modal-actions is-right">' +
         '<button type="button" class="brand-btn brand-btn-line" data-inv="cancel">취소</button>' +
         '<button type="submit" class="brand-btn" data-inv="send">초대 보내기</button>' +
@@ -242,7 +239,7 @@ function openBrandInviteModal(full) {
     if (res.keepOpen) {
       btns.forEach(b => { b.disabled = false; });
       sendBtn.textContent = '초대 보내기';
-      // 연결·서버 오류는 토스트(w06-90 — 모달 유지), 입력 문제는 칸 아래 안내
+      // 연결·서버 오류는 토스트(bw06-90 — 모달 유지), 입력 문제는 칸 아래 안내
       if (res.toastError) brandToast(res.message, { error: true }); else setFieldError('brandInviteEmail', res.message);
       input.focus();
       return;
@@ -261,14 +258,14 @@ function closeBrandInviteModal() {
   if (m && m._close) m._close(); else if (m) m.remove();
 }
 
-// 피그마 w06-01a — 숫자는 서버에서 받은 값(6 / 5 처럼 상한보다 많을 수도 있다). 단추는 「확인」 하나
+// 피그마 bw06-01a — 숫자는 서버에서 받은 값(6 / 5 처럼 상한보다 많을 수도 있다). 단추는 「확인」 하나
 function openBrandSeatFullModal() {
   const d = _brandMembersData || {};
   brandConfirm({
     title: '멤버가 가득 찼습니다',
-    body: '지금 ' + (d.seat_used != null ? d.seat_used : '') + ' / ' + (d.member_limit || '') + '명입니다. 운영팀에 늘려 달라고 요청해 주십시오.\n' +
-      '또는 「초대 대기」를 취소하거나 멤버를 해제해 자리를 비울 수 있습니다.',
-    okLabel: '확인', single: true
+    sub: '지금 ' + (d.seat_used != null ? d.seat_used : '') + ' / ' + (d.member_limit || '') + '명입니다. 운영팀에 늘려 달라고 요청해 주십시오.',
+    body: '또는 「초대 대기」를 취소하거나 멤버를 해제해 자리를 비울 수 있습니다.',
+    okLabel: '확인', single: true, card: true, wide: true   // 회색 상자 + 흰 카드, 폭 480
   });
 }
 
@@ -319,7 +316,7 @@ document.addEventListener('click', async (e) => {
 });
 
 // ── 조각 6 — 정리 동작(대표만 보이는 단추. 최종 판정은 서버)
-//   피그마 w06-00 단추: 멤버 줄 「대표 담당자 넘기기」(기본)·「해제」(빨강) / 대기 줄 「취소」(빨강, 확인 없이 바로)
+//   피그마 bw06-00 단추: 멤버 줄 「대표 담당자 넘기기」(기본)·「해제」(빨강) / 대기 줄 「취소」(빨강, 확인 없이 바로)
 //   / 만료·거절 줄 「삭제」(기본, 확인·토스트 없음 — 줄이 사라지는 것으로 충분)
 function _brandMemberExtraActions(r) {
   const btn = (act, label, attrs, danger) =>
@@ -372,7 +369,7 @@ async function hideBrandInviteRow(inviteId, btn) {
   await loadBrandMembers();
 }
 
-// 대표 담당자 넘기기 — 피그마 w06-02 「취소 · 대표 담당자 넘기기」(검정). 메일 없음.
+// 대표 담당자 넘기기 — 피그마 bw06-02 「취소 · 대표 담당자 넘기기」(검정). 메일 없음.
 //   🔴 서버가 brands.contacts 의 대표 표시도 옮긴다 — 묶음 ③ 전에는 관리자 브랜드 상세 편집 폼을 연 채 저장하면 되돌아간다
 async function transferBrandOwnerRow(authId, name, btn) {
   const ok = await brandConfirm({
@@ -380,7 +377,7 @@ async function transferBrandOwnerRow(authId, name, btn) {
     body: '· ' + name + '님이 대표 담당자가 됩니다.\n' +
       '· 회원님은 멤버가 되고, 초대·해제·대표 담당자 넘기기를 더 할 수 없습니다.\n' +
       '· 오리엔시트·캠페인·브랜드 정보는 지금처럼 쓸 수 있습니다.',
-    card: true, okLabel: '대표 담당자 넘기기'
+    card: true, wide: true, okLabel: '대표 담당자 넘기기'
   });
   if (!ok) return;
   btn.disabled = true;
@@ -389,7 +386,7 @@ async function transferBrandOwnerRow(authId, name, btn) {
   if (res === 'ok') {
     brandToast(BRAND_MEMBERS_MSG.transferred);
     brandTouchActivity();
-    // 내 역할이 바뀌었다 — 로그인 판정(브랜드 목록의 역할)을 새로 받고, 목록을 멤버 화면(w06-00a)으로 다시 그린다
+    // 내 역할이 바뀌었다 — 로그인 판정(브랜드 목록의 역할)을 새로 받고, 목록을 멤버 화면(bw06-00a)으로 다시 그린다
     await refreshBrandLoginState();
     await loadBrandMembers();
     return;
@@ -398,20 +395,20 @@ async function transferBrandOwnerRow(authId, name, btn) {
   await loadBrandMembers();
 }
 
-// 해제 — 피그마 w06-03 「취소 · 해제」(빨강). 연결 이력은 서버에 남는다
+// 해제 — 피그마 bw06-03 「취소 · 해제」(빨강). 연결 이력은 서버에 남는다
 async function releaseBrandMemberRow(authId, name, btn) {
   const ok = await brandConfirm({
     title: name + '님을 해제하시겠습니까?',
     body: '· 이 브랜드에 바로 로그인할 수 없게 됩니다. (다른 브랜드에 연결돼 있으면 그 브랜드는 그대로)\n' +
       '· ' + name + '님이 만든 오리엔시트는 브랜드에 남습니다.\n' +
       '· 다시 함께하려면 새로 초대해야 합니다.',
-    card: true, okLabel: '해제', danger: true
+    card: true, wide: true, okLabel: '해제', danger: true
   });
   if (!ok) return;
   btn.disabled = true;
   const res = await _brandMemberRpcText('release_brand_member', { p_brand_id: getCurrentBrandId(), p_auth_id: authId });
   if (res === null) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.actionFail, { error: true }); return; }
-  if (res === 'ok') { brandToast(name + '님을 해제했습니다.'); await _brandMembersAfterAction(true); return; }   // w06-90
+  if (res === 'ok') { brandToast(name + '님을 해제했습니다.'); await _brandMembersAfterAction(true); return; }   // bw06-90
   brandToast(res === 'not_member' ? BRAND_MEMBERS_MSG.notMember : res === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.actionFail, { error: true });
   await loadBrandMembers();
 }
