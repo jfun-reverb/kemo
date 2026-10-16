@@ -113,7 +113,7 @@ S0-1·S0-4 → 1 틀·공용 부품·빌드 등록        4a 링크 판정 이�
 | 5 | 멤버 관리(06) 목록 + 초대 모달 + 초대 메일 + 다시 보내기 | `brand-members.js` · `brand.css` | `#members` 페이지 · `sendBrandInviteMail(inviteId)` | 2 | △(3·4·7·8과) | 개발 |
 | 6 | 멤버 관리 정리 동작 — 취소·삭제·대표 넘기기·해제 | `brand-members.js` · `brand.css` | 확인 모달 w06-02·w06-03 | 5 | △(3·4·7·8과) | 개발 |
 | 7 | 마이페이지(07) — 계정 정보 보기·수정 · 연결된 브랜드 · 받은 초대 · 빨간 점 | `brand-mypage.js` · `brand-shell.js`(빨간 점 자리) · `brand.css` | `#mypage` 페이지 · `refreshInviteDot()` | 3 | ✗ | 개발 |
-| 8 | 마이페이지 비밀번호 변경 모달(w07-01) | `brand-mypage.js` · `brand-core.js` · `brand.css` | 현재 비밀번호 확인용 일회 연결 `brandVerifyCurrentPassword` | 7·S0-8 | ✗ | 개발 |
+| 8 | 마이페이지 비밀번호 변경 모달(w07-01) | `brand-mypage.js` · `brand-core.js` · `brand.css` | 현재 비밀번호 확인용 일회 연결 `brandVerifyCurrentPassword`(→ 구현은 `brandChangePasswordWithCurrent` — 맨 아래 구현 결과) | 7·S0-8 | ✗ | 개발 |
 | 9 | 흔히 쓰는 비밀번호 경고 | `brand-core.js` · `brand-login.js` · `brand-invite.js` · `brand-mypage.js` | `brandCommonPasswordCheck(pw)` | 4·8·S0-3 | ✗ | 개발 |
 | 10 | 문서 + 개발서버 처음부터 끝까지 확인 | 사양서 「구현 결과」 · `docs/FEATURE_SPEC.md` · `CLAUDE.md` · `dev/build.sh` 주석 | — | 1~9·4a | ✗ | 개발(규칙 파일은 고문에게 넘김) |
 
@@ -251,7 +251,7 @@ S0-1·S0-4 → 1 틀·공용 부품·빌드 등록        4a 링크 판정 이�
 - **산출 계약:**
   - `brandVerifyCurrentPassword(email, pw) → 'ok'|'wrong'|'too_many'|'error'` — **그때만 만드는 일회 연결**(`storageKey` 별도·`persistSession:false`·`autoRefreshToken:false`)로 `signInWithPassword` → 성공하면 그 연결을 `signOut({scope:'local'})`. 원문은 변수에만, 저장소·로그에 남기지 않는다(작업표 설계 메모 — 로그인 체계 횟수 제한을 그대로 받는다)
   - 확인되면 `brandDb.auth.updateUser({password})` → 오류는 기존 `brandUpdatePwErrorKind` 분류(`same` → 「지금 쓰는 비밀번호와 다른 비밀번호로」 · `weak_password` → 기존 문구) · `reauthentication_needed` 면 S0-8 결과에 따라 처리
-  - 성공 → `mark_my_brand_password_changed()` → 토스트 「비밀번호를 바꿨어요」 + 마이페이지의 마지막 변경일 갱신. 다른 기기 세션은 **그대로 둔다**(사양서에 요구 없음 — 재설정 경로만 전체 로그아웃)
+  - 성공 → `mark_my_brand_password_changed()` → 토스트 「비밀번호를 바꿨어요」 + 마이페이지의 마지막 변경일 갱신. 다른 기기 세션은 **그대로 둔다**(사양서에 요구 없음 — 재설정 경로만 전체 로그아웃) → ⚠️ 불가능했다 — 서버가 끊는다(맨 아래 구현 결과)
 - **선행 의존:** 7 · S0-8.
 - **완료 정의:** 틀린 현재 비밀번호 → 01a 문구, 로그인 세션은 그대로 · 규칙 미달 → 01b · 정상 변경 → 로그아웃 후 새 비밀번호로 로그인 성공, 옛 비밀번호 실패 · 데이터베이스 `password_changed_at` 갱신 · 일회 연결이 `reverb.brandAuth` 를 건드리지 않음(변경 뒤에도 같은 탭 로그인 유지).
 - **필요 검문소:** `reverb-supabase-expert`(인증 설정 재인증 요구·일회 연결이 만드는 세션 정리) · `reverb-reviewer`.
@@ -304,3 +304,13 @@ S0-1·S0-4 → 1 틀·공용 부품·빌드 등록        4a 링크 판정 이�
 - 서버 계약 원본: `/Users/choiwooyoung/kemo-브랜드포털/supabase/migrations/531_brand_owner_functions.sql` · `/Users/choiwooyoung/kemo-브랜드포털/supabase/migrations/532_brand_recipient_self_functions.sql` · `/Users/choiwooyoung/kemo-브랜드포털/supabase/functions/notify-brand-invite/index.ts` · `/Users/choiwooyoung/kemo-브랜드포털/supabase/functions/brand-invite-accept/index.ts`
 
 > 메인에게: 이 작업표는 단계 2개 이상·결정 표가 있어 규칙 C(다른 눈의 자기 정합성 점검) 대상이다. 저장 뒤 설계에 관여하지 않은 검토자에게 문서만 주고 점검시킬 것.
+
+---
+
+## 구현 결과 (2026-10-16, 개발 세션)
+
+- 조각 1~9·4a 모두 dev 병합: #2075 · #2077 · #2078 · #2079(4a·4, 마이그레이션 534) · #2081 · #2082 · #2086 · #2088(피그마 「06」 대조 + 초대 메일 초안 문구) · #2089 · #2090. 조각 10(문서)은 이 커밋
+- 상세(해시 경로·저장 칸·결정 S0-1~S0-8 결과·달라진 것·임시 문구·넘기는 것)는 사양서 `docs/specs/2026-07-15-brand-portal.md` 「구현 결과 — 묶음 ②」 한 곳에 적었다
+- 이 작업표와 달라진 핵심 셋: ①조각 8 「다른 기기 세션은 그대로 둔다」는 불가능(서버가 끊는다 — 실측) · 계약 이름도 `brandVerifyCurrentPassword` 대신 `brandChangePasswordWithCurrent`(확인·저장·기록·세션 옮기기를 한 함수에서) ②조각 7 브랜드 번호 표시 안 함(사용자 결정) ③조각 7 「마이페이지 화면 안에는 점 없음」 — 피그마대로 「받은 초대 N」 옆 작은 점을 그렸다
+- 조각 10 「처음부터 끝까지 확인」(관리자 계정 만들기 → 설정 → 초대 → 새 브라우저 가입 → 넘기기 → 옛 대표 해제)은 문서 병합 뒤 사용자와 함께 한다 — 결과는 이 절에 덧붙인다
+
