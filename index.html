@@ -1024,6 +1024,18 @@ html.preview-mode #page-detail .detail-back{display:none}
 .cc-type{font-size:var(--fs-caption);font-weight:700;color:var(--pink);margin:2px 0}
 .cc-ct{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
 
+/* ── 응모 완료 모달 (사양서 2026-10-15 §7 · 피그마 c02-06/06b) ── */
+.apply-result .apply-result-intro{font-size:var(--fs-body);line-height:1.6;color:var(--ink);margin-bottom:14px;text-align:center}
+.apply-result-steps{list-style:none;margin:0 0 14px;padding:0;counter-reset:applystep}
+.apply-result-steps:empty{display:none}
+.apply-result-steps li{position:relative;padding:0 0 12px 34px;counter-increment:applystep;font-size:var(--fs-body);line-height:1.5;color:var(--ink)}
+.apply-result-steps li:last-child{padding-bottom:0}
+.apply-result-steps li::before{content:counter(applystep);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--surface);font-size:13px;font-weight:700;line-height:24px;text-align:center}
+.apply-result-steps .ars-title{font-weight:700}
+.apply-result-steps .ars-sub{display:block;font-size:var(--fs-desc);color:var(--muted);margin-top:2px}
+.apply-result-note{margin:0 0 12px}
+.apply-result-ack{border-top:1px solid var(--line);padding-top:10px}
+#applyResultConfirmBtn:disabled{opacity:.38;cursor:not-allowed}
 
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
@@ -1724,6 +1736,30 @@ body{font-size:var(--fs-body)}
     <div class="popup-actions">
       <button type="button" class="btn btn-ghost" onclick="closeAgeGate()" data-i18n="ageGate.cancel">キャンセル</button>
       <button type="button" class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" data-i18n="ageGate.save">保存して続ける</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 응모 완료 모달 (사양서 2026-10-15-client-figma-reviewer-apply-screens §7 · 피그마 c02-06/06b) ──
+     ⚠️ 공용 .modal-overlay 가 아니라 dialog-overlay — 공용 Esc 처리기(ui.js)가 .modal-overlay 를 무조건 닫는다(작업표 S2).
+     X 단추·바깥 누름 닫기 없음(결정 3). 중립 갈래만 바깥 누름으로 닫힌다(onApplyResultBackdrop).
+     내용은 openApplyResultModal 이 열 때마다 채운다. -->
+<div id="applyResultOverlay" class="dialog-overlay" style="display:none;z-index:610" role="alertdialog" aria-modal="true" aria-labelledby="applyResultTitle" onclick="onApplyResultBackdrop(event)">
+  <div class="dialog apply-result">
+    <div class="popup-head center"><div class="popup-title" id="applyResultTitle"></div></div>
+    <div class="popup-body">
+      <div class="apply-result-intro" id="applyResultIntro"></div>
+      <ol class="apply-result-steps" id="applyResultSteps"></ol>
+      <div class="cd-payback apply-result-note" id="applyResultNote" style="display:none"></div>
+      <div class="apply-result-ack" id="applyResultAckRow">
+        <label class="apply-check">
+          <input type="checkbox" id="applyResultAck" onchange="onApplyResultAckChange()">
+          <span data-i18n="applyResult.ackLabel">上記の内容を確認しました</span>
+        </label>
+      </div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-primary" id="applyResultConfirmBtn" onclick="confirmApplyResult()" data-i18n="applyResult.confirm">確認</button>
     </div>
   </div>
 </div>
@@ -6290,7 +6326,28 @@ window.I18N_JA = {
     closedOverlay: '募集締切',
     endedOverlay: '終了',
     fullOverlay: '募集終了',
-    applyComplete: '応募完了！結果はメールでお知らせします',
+  },
+
+  // 응모 완료 모달 (사양서 2026-10-15 §7-6 — 일본어 A 「담백」 확정)
+  applyResult: {
+    titleDone: '応募が完了しました',
+    titleReceived: '応募を受け付けました',
+    introMonitor: '審査はありません。参加が確定しました。つぎの順番で進めてください。',
+    introReview: '運営チームが審査したあと、結果をメールでお知らせします。当選するとアプリの通知が届き、応募履歴に「当選」と表示されます。',
+    stepPurchase: '購入期間内に{mall}で商品を購入',
+    stepPurchaseNoMall: '購入期間内に商品を購入',
+    stepReceipt: 'レシート（購入画面のスクショ）を提出',
+    stepReceiptSub: '「活動管理」からアップロード',
+    stepPost: '{channels}にレビューを投稿して、スクショを提出',
+    stepPostNoChannel: 'レビューを投稿して、スクショを提出',
+    deadlineSuffix: '提出締切 {date}',
+    paybackNote: '期間を過ぎてからの購入はペイバックの対象外です。',
+    noteGifting: '当選したら、ご登録の配送先に商品をお送りします。',
+    noteVisit: '当選したら、訪問期間と場所の案内を確認して訪問してください。',
+    neutral: '応募が完了しました。応募履歴で状態をご確認ください。',
+    ackLabel: '上記の内容を確認しました',
+    confirm: '確認',
+    processing: '処理中…',
   },
 
   // 응모
@@ -7342,7 +7399,28 @@ window.I18N_KO = {
     closedOverlay: '모집 마감',
     endedOverlay: '종료',
     fullOverlay: '모집 종료',
-    applyComplete: '응모 완료! 결과는 메일로 안내드립니다',
+  },
+
+  // 응모 완료 모달 (사양서 2026-10-15 §7-6 — 한국어 열)
+  applyResult: {
+    titleDone: '응모가 완료되었습니다',
+    titleReceived: '응모가 접수되었습니다',
+    introMonitor: '심사 없이 바로 참여가 확정되었습니다. 아래 순서대로 진행해 주세요.',
+    introReview: '운영팀이 심사한 뒤 결과를 메일로 안내드립니다. 당첨되면 앱 알림과 함께 응모 이력에 「당첨」으로 표시됩니다.',
+    stepPurchase: '구매 기간 안에 {mall}에서 구매',
+    stepPurchaseNoMall: '구매 기간 안에 상품 구매',
+    stepReceipt: '영수증(구매 화면 캡처) 제출',
+    stepReceiptSub: '「활동 관리」에서 올려 주세요',
+    stepPost: '{channels}에 리뷰 게시 후 리뷰 캡처 제출',
+    stepPostNoChannel: '리뷰 게시 후 리뷰 캡처 제출',
+    deadlineSuffix: '제출 마감 {date}',
+    paybackNote: '기간이 지난 뒤 구매하신 경우에는 페이백 대상이 아닙니다.',
+    noteGifting: '당첨되면 등록한 배송지로 제품을 보내 드리겠습니다.',
+    noteVisit: '당첨되면 방문 기간·장소 안내를 확인하고 방문해 주세요.',
+    neutral: '응모가 완료되었습니다. 응모 이력에서 상태를 확인해 주세요.',
+    ackLabel: '위 내용을 확인했습니다',
+    confirm: '확인',
+    processing: '처리 중…',
   },
 
   apply: {
@@ -9199,6 +9277,43 @@ async function insertApplication(app) {
     const {error} = await db.from('applications').insert(app);
     if (error) throw error;
   });
+}
+
+// 응모 저장 직후 내 응모를 다시 읽는다 — 응모 완료 모달의 갈래 판정용(사양서 2026-10-15 §7-4 ②).
+//   ⚠️ insertApplication 에 .select() 를 붙이지 않는다 — 반환 실패가 「저장됐는데 실패 토스트」가 된다(작업표 조각 2 ③).
+//   반환: {id, status} / 오류·0건·시연 모드 모두 null(null = 중립 갈래). 오류는 기록만.
+async function fetchMyActiveApplication(userId, campaignId) {
+  if (!db || !userId || !campaignId) return null;
+  try {
+    const {data, error} = await db.from('applications')
+      .select('id, status')
+      .eq('user_id', userId)
+      .eq('campaign_id', campaignId)
+      .neq('status', 'cancelled')
+      .maybeSingle();
+    if (error) { logAppError('fetchMyActiveApplication', error); return null; }
+    return data || null;
+  } catch (e) {
+    logAppError('fetchMyActiveApplication', e);
+    return null;
+  }
+}
+
+// 응모 완료 모달 「확인」 — 안내 확인 시각을 응모 행에 남긴다(마이그레이션 537, 이미 있으면 그 값).
+//   성공 {ok:true, acknowledgedAt} / 실패 {ok:false, error}. 실패해도 모달은 닫는다(사양서 §7-4 ⑤).
+async function acknowledgeApplicationGuide(applicationId) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('acknowledge_application_guide', { p_application_id: applicationId });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, acknowledgedAt: result};
+  } catch (e) {
+    logAppError('acknowledgeApplicationGuide', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
 }
 
 async function updateApplication(appId, updates) {
@@ -19992,9 +20107,133 @@ async function _submitApplicationInner() {
     return;
   }
 
+  // 응모 완료 모달(사양서 2026-10-15 §7-4) — 토스트 대신.
+  //   ① 내 응모를 다시 읽어 갈래를 정한다(형식만 보고 「승인됐다」고 단정하지 않는다)
+  //   ② 상세를 **기다려** 다시 그린 뒤(하단 바가 새 상태로 바뀐 뒤) 모달을 띄운다(작업표 S4)
+  //   ⚠️ 행사(방문 예약)는 위에서 submitEventReservation 으로 빠져 여기 안 온다(결정 1 — 행사 제외)
   closeModal('applyModal');
-  toast(t('detail.applyComplete'),'success');
-  openCampaign(currentCampaignId);
+  const _campDone = allCampaigns.find(c => c.id === currentCampaignId) || null;
+  const _myApp = await fetchMyActiveApplication(currentUser?.id, currentCampaignId);
+  await openCampaign(currentCampaignId);
+  openApplyResultModal(_campDone, _myApp);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 응모 완료 모달 (사양서 docs/specs/2026-10-15-client-figma-reviewer-apply-screens.md §7)
+//   갈래 셋: 'monitor'(리뷰어형 자동 승인 — 할 일 3단계) / 'review'(심사중 — 접수 안내) / 'neutral'(중립)
+//   체크 → 「확인」 → 확인 시각 저장(acknowledge_application_guide, 537) → 닫힘. 중립은 체크·저장 없음.
+// ══════════════════════════════════════════════════════════════════
+// 구매처로 읽는 채널(사양서 결정 2 — 구매 가능한 몰). 그 밖(Instagram·X 등)은 게시 채널일 뿐 구매처가 아니다
+const APPLY_RESULT_MALL_CODES = ['qoo10', 'lips', 'cosme'];
+let _applyResultCtx = null;   // { kind, appId }
+
+// 판정 순서는 사양서 결정 10 그대로(세 자리 — 사양서 7-4 ② · 작업표 조각 2 ⑤ · 여기):
+//   재조회 실패 null → 중립 / 가구매 표시 → 중립(상태 무관 — 결정 12) / approved + 리뷰어형 → monitor /
+//   pending → review / 그 밖(리뷰어형이 아닌데 approved · 다른 상태) → 중립
+function applyResultKind(camp, myApp) {
+  if (!myApp || !camp) return 'neutral';
+  if (camp.proxy_purchase === true) return 'neutral';
+  if (myApp.status === 'approved' && camp.recruit_type === 'monitor') return 'monitor';
+  if (myApp.status === 'pending') return 'review';
+  return 'neutral';
+}
+
+// 채널 여럿 표기 — 상세 정보 표와 같다(channel_match 'and' 면 「&」, 아니면 「or」 — 사양서 결정 11)
+function _applyResultJoinChannels(codes, camp) {
+  const sep = camp && camp.channel_match === 'and' ? ' & ' : ' or ';
+  return codes.map(c => getChannelLabel(c)).filter(Boolean).join(sep);
+}
+
+// 할 일 3단계(리뷰어형만). 캠페인 값은 전부 esc() — 이 HTML 은 innerHTML 로 들어간다
+function buildApplyResultSteps(camp) {
+  const codes = String(camp.channel || '').split(',').map(s => s.trim()).filter(Boolean);   // 상세 표와 같은 분해
+  const malls = codes.filter(c => APPLY_RESULT_MALL_CODES.indexOf(c.toLowerCase()) >= 0);
+  // {구매 기간} — 상세와 같은 판정(campaignPeriodRowKind): split 만 구매 기간 날짜, 그 밖은 모집 기간 날짜(작업표 S5)
+  const period = campaignPeriodRowKind(camp) === 'split'
+    ? `${camp.purchase_start ? formatDate(camp.purchase_start) : '—'} 〜 ${camp.purchase_end ? formatDate(camp.purchase_end) : '—'}`
+    : `${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}`;
+  const buy = malls.length
+    ? t('applyResult.stepPurchase').replace('{mall}', _applyResultJoinChannels(malls, camp))
+    : t('applyResult.stepPurchaseNoMall');
+  const post = codes.length
+    ? t('applyResult.stepPost').replace('{channels}', _applyResultJoinChannels(codes, camp))
+    : t('applyResult.stepPostNoChannel');
+  // 제출 마감이 비면 꼬리를 붙이지 않는다(상세도 그때 줄을 안 그린다 — 작업표 S6)
+  const deadline = camp.submission_end ? t('applyResult.deadlineSuffix').replace('{date}', formatDate(camp.submission_end)) : '';
+  return `<li><span class="ars-title">${esc(buy)}</span><span class="ars-sub">${esc(period)}</span></li>`
+    + `<li><span class="ars-title">${esc(t('applyResult.stepReceipt'))}</span><span class="ars-sub">${esc(t('applyResult.stepReceiptSub'))}</span></li>`
+    + `<li><span class="ars-title">${esc(post)}</span>${deadline ? `<span class="ars-sub">${esc(deadline)}</span>` : ''}</li>`;
+}
+
+function openApplyResultModal(camp, myApp) {
+  const ov = $('applyResultOverlay');
+  if (!ov) return;
+  const kind = applyResultKind(camp, myApp);
+  _applyResultCtx = { kind: kind, appId: myApp ? myApp.id : null };
+  const title = $('applyResultTitle'), intro = $('applyResultIntro'), steps = $('applyResultSteps');
+  const note = $('applyResultNote'), ackRow = $('applyResultAckRow'), ack = $('applyResultAck');
+  const btn = $('applyResultConfirmBtn');
+  steps.innerHTML = '';
+  note.style.display = 'none'; note.textContent = '';
+  if (kind === 'monitor') {
+    title.textContent = t('applyResult.titleDone');
+    intro.textContent = t('applyResult.introMonitor');
+    steps.innerHTML = buildApplyResultSteps(camp);
+    note.textContent = t('applyResult.paybackNote'); note.style.display = '';
+  } else if (kind === 'review') {
+    title.textContent = t('applyResult.titleReceived');
+    intro.textContent = t('applyResult.introReview');
+    // 형식별 안내 줄은 시딩·방문형만(트리거가 없는 서버의 리뷰어형 심사중은 줄 없음 — 시딩·방문형에 「구매」는 안 쓴다)
+    const line = camp && camp.recruit_type === 'gifting' ? t('applyResult.noteGifting')
+               : camp && camp.recruit_type === 'visit' ? t('applyResult.noteVisit') : '';
+    if (line) { note.textContent = line; note.style.display = ''; }
+  } else {
+    title.textContent = t('applyResult.neutral');
+    intro.textContent = '';
+  }
+  // 체크는 열 때마다 끈다. 중립 갈래만 체크 없이 바로 누를 수 있다(결정 3·7)
+  const needAck = kind !== 'neutral';
+  ackRow.style.display = needAck ? '' : 'none';
+  if (ack) ack.checked = false;
+  if (btn) { btn.disabled = needAck; btn.textContent = t('applyResult.confirm'); }
+  ov.style.display = 'flex';
+}
+
+function onApplyResultAckChange() {
+  const btn = $('applyResultConfirmBtn');
+  if (btn) btn.disabled = !$('applyResultAck')?.checked;
+}
+
+function closeApplyResultModal() {
+  const ov = $('applyResultOverlay');
+  if (ov) ov.style.display = 'none';
+  _applyResultCtx = null;
+}
+
+// 바깥 누름 — 중립 갈래만 닫힌다(결정 7). 다른 갈래는 「확인」 하나로만 닫는다(결정 3)
+function onApplyResultBackdrop(ev) {
+  if (ev.target !== ev.currentTarget) return;
+  if (_applyResultCtx && _applyResultCtx.kind === 'neutral') closeApplyResultModal();
+}
+
+function isApplyResultModalOpen() {
+  const ov = $('applyResultOverlay');
+  return !!ov && ov.style.display !== 'none';
+}
+
+async function confirmApplyResult() {
+  const ctx = _applyResultCtx;
+  if (!ctx || ctx.kind === 'neutral' || !ctx.appId) { closeApplyResultModal(); return; }
+  if (!$('applyResultAck')?.checked) return;
+  // 이미 저장 중이면 두 번째 누름은 아무것도 안 한다 — withSubmitLock 은 같은 키가 잠겨 있으면 그냥 돌아와,
+  //   그대로 두면 저장이 끝나기 전에 아래 닫기가 먼저 실행된다(리뷰 지적)
+  if (ctx.busy) return;
+  ctx.busy = true;
+  // 연타 잠금 + 「処理中…」(c02-92 셋째 상태). 저장 결과와 무관하게 닫는다(안내는 이미 봤다 — 7-4 ⑤, 실패는 storage 가 기록)
+  await withSubmitLock('applyAck:' + ctx.appId, 'applyResultConfirmBtn', t('applyResult.processing'), async function () {
+    await acknowledgeApplicationGuide(ctx.appId);
+  });
+  closeApplyResultModal();
 }
 
 // ── FLOAT BAR + LOGIN PROMPT ──
@@ -25733,6 +25972,12 @@ async function handleRecoveryTokenLink(tokenHash) {
 
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
+  // 응모 완료 모달이 떠 있으면 뒤로가기를 무시하고 상세에 붙잡아 둔다(사양서 2026-10-15 결정 9).
+  //   안 그러면 뒤 화면만 목록으로 바뀌고 모달이 남아, 「확인」 뒤 목록에 떨어진다. 닫는 길은 「확인」 하나.
+  if (typeof isApplyResultModalOpen === 'function' && isApplyResultModalOpen() && typeof currentCampaignId !== 'undefined' && currentCampaignId) {
+    history.pushState({ page: 'detail-' + currentCampaignId }, '', '#detail-' + currentCampaignId);
+    return;
+  }
   const page = e.state?.page || location.hash.replace('#','') || 'home';
   // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
   // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
