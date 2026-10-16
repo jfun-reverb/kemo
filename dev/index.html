@@ -146,6 +146,30 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- ── 응모 완료 모달 (사양서 2026-10-15-client-figma-reviewer-apply-screens §7 · 피그마 c02-06/06b) ──
+     ⚠️ 공용 .modal-overlay 가 아니라 dialog-overlay — 공용 Esc 처리기(ui.js)가 .modal-overlay 를 무조건 닫는다(작업표 S2).
+     X 단추·바깥 누름 닫기 없음(결정 3). 중립 갈래만 바깥 누름으로 닫힌다(onApplyResultBackdrop).
+     내용은 openApplyResultModal 이 열 때마다 채운다. -->
+<div id="applyResultOverlay" class="dialog-overlay" style="display:none;z-index:610" role="alertdialog" aria-modal="true" aria-labelledby="applyResultTitle" onclick="onApplyResultBackdrop(event)">
+  <div class="dialog apply-result">
+    <div class="popup-head center"><div class="popup-title" id="applyResultTitle"></div></div>
+    <div class="popup-body">
+      <div class="apply-result-intro" id="applyResultIntro"></div>
+      <ol class="apply-result-steps" id="applyResultSteps"></ol>
+      <div class="cd-payback apply-result-note" id="applyResultNote" style="display:none"></div>
+      <div class="apply-result-ack" id="applyResultAckRow">
+        <label class="apply-check">
+          <input type="checkbox" id="applyResultAck" onchange="onApplyResultAckChange()">
+          <span data-i18n="applyResult.ackLabel">上記の内容を確認しました</span>
+        </label>
+      </div>
+    </div>
+    <div class="popup-actions">
+      <button type="button" class="btn btn-primary" id="applyResultConfirmBtn" onclick="confirmApplyResult()" data-i18n="applyResult.confirm">確認</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 회사 정보/약관/개인정보 모달 ── -->
 <div id="legalModal" onclick="if(event.target===this)closeLegalModal()">
   <div class="legal-sheet">

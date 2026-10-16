@@ -1121,9 +1121,133 @@ async function _submitApplicationInner() {
     return;
   }
 
+  // 응모 완료 모달(사양서 2026-10-15 §7-4) — 토스트 대신.
+  //   ① 내 응모를 다시 읽어 갈래를 정한다(형식만 보고 「승인됐다」고 단정하지 않는다)
+  //   ② 상세를 **기다려** 다시 그린 뒤(하단 바가 새 상태로 바뀐 뒤) 모달을 띄운다(작업표 S4)
+  //   ⚠️ 행사(방문 예약)는 위에서 submitEventReservation 으로 빠져 여기 안 온다(결정 1 — 행사 제외)
   closeModal('applyModal');
-  toast(t('detail.applyComplete'),'success');
-  openCampaign(currentCampaignId);
+  const _campDone = allCampaigns.find(c => c.id === currentCampaignId) || null;
+  const _myApp = await fetchMyActiveApplication(currentUser?.id, currentCampaignId);
+  await openCampaign(currentCampaignId);
+  openApplyResultModal(_campDone, _myApp);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 응모 완료 모달 (사양서 docs/specs/2026-10-15-client-figma-reviewer-apply-screens.md §7)
+//   갈래 셋: 'monitor'(리뷰어형 자동 승인 — 할 일 3단계) / 'review'(심사중 — 접수 안내) / 'neutral'(중립)
+//   체크 → 「확인」 → 확인 시각 저장(acknowledge_application_guide, 537) → 닫힘. 중립은 체크·저장 없음.
+// ══════════════════════════════════════════════════════════════════
+// 구매처로 읽는 채널(사양서 결정 2 — 구매 가능한 몰). 그 밖(Instagram·X 등)은 게시 채널일 뿐 구매처가 아니다
+const APPLY_RESULT_MALL_CODES = ['qoo10', 'lips', 'cosme'];
+let _applyResultCtx = null;   // { kind, appId }
+
+// 판정 순서는 사양서 결정 10 그대로(세 자리 — 사양서 7-4 ② · 작업표 조각 2 ⑤ · 여기):
+//   재조회 실패 null → 중립 / 가구매 표시 → 중립(상태 무관 — 결정 12) / approved + 리뷰어형 → monitor /
+//   pending → review / 그 밖(리뷰어형이 아닌데 approved · 다른 상태) → 중립
+function applyResultKind(camp, myApp) {
+  if (!myApp || !camp) return 'neutral';
+  if (camp.proxy_purchase === true) return 'neutral';
+  if (myApp.status === 'approved' && camp.recruit_type === 'monitor') return 'monitor';
+  if (myApp.status === 'pending') return 'review';
+  return 'neutral';
+}
+
+// 채널 여럿 표기 — 상세 정보 표와 같다(channel_match 'and' 면 「&」, 아니면 「or」 — 사양서 결정 11)
+function _applyResultJoinChannels(codes, camp) {
+  const sep = camp && camp.channel_match === 'and' ? ' & ' : ' or ';
+  return codes.map(c => getChannelLabel(c)).filter(Boolean).join(sep);
+}
+
+// 할 일 3단계(리뷰어형만). 캠페인 값은 전부 esc() — 이 HTML 은 innerHTML 로 들어간다
+function buildApplyResultSteps(camp) {
+  const codes = String(camp.channel || '').split(',').map(s => s.trim()).filter(Boolean);   // 상세 표와 같은 분해
+  const malls = codes.filter(c => APPLY_RESULT_MALL_CODES.indexOf(c.toLowerCase()) >= 0);
+  // {구매 기간} — 상세와 같은 판정(campaignPeriodRowKind): split 만 구매 기간 날짜, 그 밖은 모집 기간 날짜(작업표 S5)
+  const period = campaignPeriodRowKind(camp) === 'split'
+    ? `${camp.purchase_start ? formatDate(camp.purchase_start) : '—'} 〜 ${camp.purchase_end ? formatDate(camp.purchase_end) : '—'}`
+    : `${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}`;
+  const buy = malls.length
+    ? t('applyResult.stepPurchase').replace('{mall}', _applyResultJoinChannels(malls, camp))
+    : t('applyResult.stepPurchaseNoMall');
+  const post = codes.length
+    ? t('applyResult.stepPost').replace('{channels}', _applyResultJoinChannels(codes, camp))
+    : t('applyResult.stepPostNoChannel');
+  // 제출 마감이 비면 꼬리를 붙이지 않는다(상세도 그때 줄을 안 그린다 — 작업표 S6)
+  const deadline = camp.submission_end ? t('applyResult.deadlineSuffix').replace('{date}', formatDate(camp.submission_end)) : '';
+  return `<li><span class="ars-title">${esc(buy)}</span><span class="ars-sub">${esc(period)}</span></li>`
+    + `<li><span class="ars-title">${esc(t('applyResult.stepReceipt'))}</span><span class="ars-sub">${esc(t('applyResult.stepReceiptSub'))}</span></li>`
+    + `<li><span class="ars-title">${esc(post)}</span>${deadline ? `<span class="ars-sub">${esc(deadline)}</span>` : ''}</li>`;
+}
+
+function openApplyResultModal(camp, myApp) {
+  const ov = $('applyResultOverlay');
+  if (!ov) return;
+  const kind = applyResultKind(camp, myApp);
+  _applyResultCtx = { kind: kind, appId: myApp ? myApp.id : null };
+  const title = $('applyResultTitle'), intro = $('applyResultIntro'), steps = $('applyResultSteps');
+  const note = $('applyResultNote'), ackRow = $('applyResultAckRow'), ack = $('applyResultAck');
+  const btn = $('applyResultConfirmBtn');
+  steps.innerHTML = '';
+  note.style.display = 'none'; note.textContent = '';
+  if (kind === 'monitor') {
+    title.textContent = t('applyResult.titleDone');
+    intro.textContent = t('applyResult.introMonitor');
+    steps.innerHTML = buildApplyResultSteps(camp);
+    note.textContent = t('applyResult.paybackNote'); note.style.display = '';
+  } else if (kind === 'review') {
+    title.textContent = t('applyResult.titleReceived');
+    intro.textContent = t('applyResult.introReview');
+    // 형식별 안내 줄은 시딩·방문형만(트리거가 없는 서버의 리뷰어형 심사중은 줄 없음 — 시딩·방문형에 「구매」는 안 쓴다)
+    const line = camp && camp.recruit_type === 'gifting' ? t('applyResult.noteGifting')
+               : camp && camp.recruit_type === 'visit' ? t('applyResult.noteVisit') : '';
+    if (line) { note.textContent = line; note.style.display = ''; }
+  } else {
+    title.textContent = t('applyResult.neutral');
+    intro.textContent = '';
+  }
+  // 체크는 열 때마다 끈다. 중립 갈래만 체크 없이 바로 누를 수 있다(결정 3·7)
+  const needAck = kind !== 'neutral';
+  ackRow.style.display = needAck ? '' : 'none';
+  if (ack) ack.checked = false;
+  if (btn) { btn.disabled = needAck; btn.textContent = t('applyResult.confirm'); }
+  ov.style.display = 'flex';
+}
+
+function onApplyResultAckChange() {
+  const btn = $('applyResultConfirmBtn');
+  if (btn) btn.disabled = !$('applyResultAck')?.checked;
+}
+
+function closeApplyResultModal() {
+  const ov = $('applyResultOverlay');
+  if (ov) ov.style.display = 'none';
+  _applyResultCtx = null;
+}
+
+// 바깥 누름 — 중립 갈래만 닫힌다(결정 7). 다른 갈래는 「확인」 하나로만 닫는다(결정 3)
+function onApplyResultBackdrop(ev) {
+  if (ev.target !== ev.currentTarget) return;
+  if (_applyResultCtx && _applyResultCtx.kind === 'neutral') closeApplyResultModal();
+}
+
+function isApplyResultModalOpen() {
+  const ov = $('applyResultOverlay');
+  return !!ov && ov.style.display !== 'none';
+}
+
+async function confirmApplyResult() {
+  const ctx = _applyResultCtx;
+  if (!ctx || ctx.kind === 'neutral' || !ctx.appId) { closeApplyResultModal(); return; }
+  if (!$('applyResultAck')?.checked) return;
+  // 이미 저장 중이면 두 번째 누름은 아무것도 안 한다 — withSubmitLock 은 같은 키가 잠겨 있으면 그냥 돌아와,
+  //   그대로 두면 저장이 끝나기 전에 아래 닫기가 먼저 실행된다(리뷰 지적)
+  if (ctx.busy) return;
+  ctx.busy = true;
+  // 연타 잠금 + 「処理中…」(c02-92 셋째 상태). 저장 결과와 무관하게 닫는다(안내는 이미 봤다 — 7-4 ⑤, 실패는 storage 가 기록)
+  await withSubmitLock('applyAck:' + ctx.appId, 'applyResultConfirmBtn', t('applyResult.processing'), async function () {
+    await acknowledgeApplicationGuide(ctx.appId);
+  });
+  closeApplyResultModal();
 }
 
 // ── FLOAT BAR + LOGIN PROMPT ──
