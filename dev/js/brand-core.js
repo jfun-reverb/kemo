@@ -202,6 +202,7 @@ function brandToast(msg, opts) {
 // 확인 창 — Promise<boolean>. 모달을 그때그때 만든다(index.html 을 화면마다 고치지 않게).
 //   Esc·바깥 누르기 = 취소. 열 때 「취소」에 초점(되돌릴 수 없는 동작을 엔터 한 번에 누르지 않게), 닫으면 원래 초점으로.
 //   단추 순서는 화면마다 피그마대로(opts.okFirst · opts.single — 아래 주석).
+//   opts.sub — 제목 아래 회색 보조 줄 · opts.card — 본문을 흰 카드 안에 · opts.wide — 폭 480(피그마 bw07-02).
 function brandConfirm(opts) {
   const o = opts || {};
   return new Promise(resolve => {
@@ -214,8 +215,10 @@ function brandConfirm(opts) {
     wrap.setAttribute('aria-labelledby', 'brandConfirmTitle');
     wrap.innerHTML =
       // o.card — 회색 상자 + 흰 카드 + 오른쪽 정렬 단추(피그마 w06-02·03, 초대 모달 w06-01 과 같은 모양)
-      '<div class="brand-modal-box' + (o.card ? ' is-card' : '') + '">' +
+      '<div class="brand-modal-box' + (o.card ? ' is-card' : '') + (o.wide ? ' is-wide' : '') + '">' +
         '<h2 id="brandConfirmTitle">' + brandEsc(o.title || '') + '</h2>' +
+        // o.sub — 제목 아래 회색 한 줄(피그마 bw07-02 「초대한 사람 … 초대입니다.」)
+        (o.sub ? '<p class="brand-modal-sub">' + brandEsc(o.sub) + '</p>' : '') +
         // o.card 면 내용을 흰 카드 안에(피그마 w06-02·03 — 「· 」로 시작하는 여러 줄)
         (o.body ? (o.card ? '<div class="brand-modal-card"><p class="brand-modal-lines">' + brandEsc(o.body) + '</p></div>' : '<p>' + brandEsc(o.body) + '</p>') : '') +
         // 단추 순서는 화면마다 피그마대로 — 기본 「취소 · 실행」(w06-02·03), o.okFirst 면 「실행 · 취소」(w01-10).
