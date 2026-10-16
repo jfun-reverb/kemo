@@ -229,7 +229,7 @@
 
 **현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
 - `create_orient_sheet` — **490**(5인자 `CREATE OR REPLACE` — 권한 `authenticated` 보존. 465 의 「`DROP` 후 재생성」 표기는 틀렸다)
-- `get_orient_tier_fees` — **489**
+- `get_orient_tier_fees` — **489** · ⚠️ **개발서버는 539** — 토큰 함수 넷(저장·제출·미리보기·구간)은 「토큰 → 시트 번호」만 하고 본문은 내부 함수 `_orient_save_core`·`_orient_submit_core`·`_orient_preview_core`·`_orient_tier_fees_core`(539 신설 — 로그인 브랜드 함수와 한 벌)에 있다. 🔴 본문을 고칠 때는 `*_core` 를 539 베이스로(운영은 아직 538·430·489 — 539 는 브랜드 묶음과 함께, 적용 순간 운영 링크 폼이 새 본체로 돈다). 칸 `last_edited_at`·`last_edited_by`(539 — 브랜드 저장·제출 성공 때만, 토큰 폼은 계정 NULL) · 브랜드 화면 상태 판정 `_orient_brand_view_status`(539 — 발급 직후 `version` 은 **0**)
 - `_orient_apply_issued_rules` — **445**
 - `submit_orient_sheet` · `save_orient_draft` — **538**(베이스 524 — 기한이 지나면 작성 중(`draft`)만 만료로 바꾸고 제출된 시트는 상태를 그대로 둔 채 거부만. 🔴 524 로 되돌리면 제출 시트가 기한 뒤 저장 시도 한 번으로 만료가 되어 캠페인 등록이 막힌다 · 개발·운영 모두 적용(운영 2026-10-16 — 브랜드 묶음과 별개로 먼저 넣음)) · `get_orient_sheet` — **524**(세 함수 공통 — 524 의 베이스 461·425·187 — 🔴 제출된 시트의 임시저장은 `data` 가 아니라 작성본 `draft_data` 에 간다. 관리자 화면은 작성본 내용을 안 받는다(화면 기준 — 서버 정책은 칸 단위로 안 막는다) — `fetchOrientSheetById` 에 `select('*')` 금지)
 - `_orient_compute_quote` — **463**
