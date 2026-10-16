@@ -704,7 +704,28 @@ window.I18N_JA = {
     closedOverlay: '募集締切',
     endedOverlay: '終了',
     fullOverlay: '募集終了',
-    applyComplete: '応募完了！結果はメールでお知らせします',
+  },
+
+  // 응모 완료 모달 (사양서 2026-10-15 §7-6 — 일본어 A 「담백」 확정)
+  applyResult: {
+    titleDone: '応募が完了しました',
+    titleReceived: '応募を受け付けました',
+    introMonitor: '審査はありません。参加が確定しました。つぎの順番で進めてください。',
+    introReview: '運営チームが審査したあと、結果をメールでお知らせします。当選するとアプリの通知が届き、応募履歴に「当選」と表示されます。',
+    stepPurchase: '購入期間内に{mall}で商品を購入',
+    stepPurchaseNoMall: '購入期間内に商品を購入',
+    stepReceipt: 'レシート（購入画面のスクショ）を提出',
+    stepReceiptSub: '「活動管理」からアップロード',
+    stepPost: '{channels}にレビューを投稿して、スクショを提出',
+    stepPostNoChannel: 'レビューを投稿して、スクショを提出',
+    deadlineSuffix: '提出締切 {date}',
+    paybackNote: '期間を過ぎてからの購入はペイバックの対象外です。',
+    noteGifting: '当選したら、ご登録の配送先に商品をお送りします。',
+    noteVisit: '当選したら、訪問期間と場所の案内を確認して訪問してください。',
+    neutral: '応募が完了しました。応募履歴で状態をご確認ください。',
+    ackLabel: '上記の内容を確認しました',
+    confirm: '確認',
+    processing: '処理中…',
   },
 
   // 응모
