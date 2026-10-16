@@ -681,9 +681,18 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-modal-box.is-wide .brand-modal-actions.is-right .brand-btn { height: 33px; padding: 0 14px; border-radius: var(--b-radius); }
 .brand-modal-box.is-wide .brand-modal-actions.is-right .brand-btn-line { border-color: var(--b-line); }
 
+/* ── 브랜드 관리(피그마 bw03-00·00c, 작업표 docs/specs/2026-10-16-brand-info-page-breakdown.md 조각 4)
+   마이페이지 카드 모양(brand-my-*)을 그대로 쓰고 다른 점만 더한다 */
+.brand-info-page { display: contents; }   /* 틀(.brand-page)의 간격 32·모바일 16 을 그대로 받는다 */
+.brand-my-fields.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.brand-info-wide { grid-column: 1 / -1; }
+.brand-info-stack { display: flex; flex-direction: column; gap: 8px; }   /* 주소 — 기본 주소 위, 상세 주소 아래 */
+.brand-info-req { color: #ed1e1e; }
+.brand-info-empty { color: var(--b-muted); }
+
 /* 좁은 화면 — 칸·초대 줄을 세로로 접는다(작업표 S0-6) */
 @media (max-width: 600px) {
-  .brand-my-fields { grid-template-columns: minmax(0, 1fr); }
+  .brand-my-fields, .brand-my-fields.is-two { grid-template-columns: minmax(0, 1fr); }
   .brand-my-input { font-size: 16px; }   /* iOS 확대 방지 */
   .brand-my-invite { flex-direction: column; align-items: stretch; }
   .brand-my-invite-btns { justify-content: flex-end; }
