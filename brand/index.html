@@ -1073,7 +1073,7 @@ body.is-shell .brand-topbar { display: none !important; }
     <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
     <div class="brand-side-bottom">
       <a class="brand-me" href="#mypage" data-brand-nav="mypage" id="brandMyPageLink">
-        <span class="brand-me-avatar" aria-hidden="true"><span data-brand-user-initial></span><span class="brand-dot" hidden></span></span>
+        <span class="brand-me-avatar" aria-hidden="true"><span class="brand-dot" hidden></span></span>
         <span class="brand-me-text"><span class="brand-me-name" data-brand-user-name></span><span class="brand-me-sub">마이페이지</span></span>
         <span class="brand-sr brand-dot-sr" hidden>새 초대가 있습니다</span>
       </a>
@@ -2743,7 +2743,6 @@ function renderBrandShellChrome() {
   document.querySelectorAll('[data-brand-current-name]').forEach(el => { el.textContent = curName; });
   const who = brandSession.name || brandSession.email;
   document.querySelectorAll('[data-brand-user-name]').forEach(el => { el.textContent = who; });
-  document.querySelectorAll('[data-brand-user-initial]').forEach(el => { el.textContent = Array.from(who || '')[0] || ''; });
   renderBrandPickers();
   refreshInviteDot();
 }
@@ -4267,6 +4266,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792117552 -->
+<!-- v1792120127 -->
 </body>
 </html>
