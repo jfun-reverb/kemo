@@ -689,6 +689,7 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-info-stack { display: flex; flex-direction: column; gap: 8px; }   /* 주소 — 기본 주소 위, 상세 주소 아래 */
 .brand-info-req { color: #ed1e1e; }
 .brand-info-empty { color: var(--b-muted); }
+.brand-info-warn { color: #c2410c; }   /* 회사 수정 중 「함께 바뀝니다」 — 상자 없이 글자만(피그마 bw03-00b) */
 
 /* 좁은 화면 — 칸·초대 줄을 세로로 접는다(작업표 S0-6) */
 @media (max-width: 600px) {

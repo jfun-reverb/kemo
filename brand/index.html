@@ -702,6 +702,7 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-info-stack { display: flex; flex-direction: column; gap: 8px; }   /* 주소 — 기본 주소 위, 상세 주소 아래 */
 .brand-info-req { color: #ed1e1e; }
 .brand-info-empty { color: var(--b-muted); }
+.brand-info-warn { color: #c2410c; }   /* 회사 수정 중 「함께 바뀝니다」 — 상자 없이 글자만(피그마 bw03-00b) */
 
 /* 좁은 화면 — 칸·초대 줄을 세로로 접는다(작업표 S0-6) */
 @media (max-width: 600px) {
@@ -3075,7 +3076,7 @@ function initBrandPicker() {
 }
 
 // 브랜드 페이지 — 브랜드 관리(03): 회사 정보 · 브랜드 정보 · SNS 정보 보기(조각 4) — 수정은 조각 5(브랜드)·6(회사)
-//   작업표 docs/specs/2026-10-16-brand-info-page-breakdown.md · 피그마 bw03-00(대표)·bw03-00c(멤버)
+//   작업표 docs/specs/2026-10-16-brand-info-page-breakdown.md · 피그마 bw03-00(대표)·00a(브랜드 수정)·00b(회사 수정)·00c(멤버)
 //   🔴 서버 함수 get_my_brand_profile(536)이 역할·회사·같은 회사 브랜드 목록을 정한다 — 화면은 받은 값만 그린다.
 //      회사 「수정」을 숨기는 것은 모양일 뿐이고 막는 것은 서버다(멤버에게는 company_brands 도 [] 로 온다).
 //   🔴 브랜드명(일본어)은 브랜드 화면에서 늘 잠긴 칸이다(결정 D1 — 저장 함수도 받지 않는다).
@@ -3094,8 +3095,23 @@ const BRAND_INFO_MSG = {
   tooLong: '글자 수가 너무 많습니다.',
   urlInvalid: '주소는 http:// 또는 https:// 로 시작해야 합니다.',
   stale: '다른 담당자가 먼저 고쳤습니다. 최신 내용을 불러왔습니다. 다시 고쳐 주십시오.',
-  saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.'
+  saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.',
+  // 조각 6 — 회사 정보 저장(bw03-00b, 대표 담당자만)
+  companySaved: '회사 정보를 저장했습니다.',
+  companyNameRequired: '회사명을 입력해 주십시오.',
+  businessNoRequired: '사업자등록번호를 입력해 주십시오.',
+  companyNameTaken: '이 회사명은 쓸 수 없습니다. 운영팀에 문의해 주십시오.',
+  notOwner: '회사 정보는 대표 담당자만 고칠 수 있습니다.'
 };
+const BRAND_INFO_COMPANY_INPUTS = {
+  name_ko: 'brandCoName', business_no: 'brandCoBizNo', homepage_url: 'brandCoHomepage',
+  address: 'brandCoAddress', address_detail: 'brandCoAddressDetail'
+};
+// 수정 중 주황 안내 — 같은 회사 활성 브랜드가 2개 이상일 때만(기본값 7)
+function brandInfoSharedWarning(list) {
+  const n = (list || []).length;
+  return n >= 2 ? '저장하면 이 회사의 브랜드 ' + n + '개(' + brandInfoCompanyNames(list) + ')에 함께 바뀝니다.' : '';
+}
 // 서버 결과의 field(저장 칸 이름) ↔ 화면 입력 칸
 const BRAND_INFO_BRAND_INPUTS = {
   name: 'brandInfoName', name_en: 'brandInfoNameEn',
@@ -3185,6 +3201,8 @@ function _brandInfoCompanyHtml(d) {
   if (!c) {
     // 회사 미연결 — 브랜드가 회사를 만들지 않는다(운영팀이 연결)
     body = '<p class="brand-my-small">' + brandEsc(BRAND_INFO_MSG.noCompany) + '</p>';
+  } else if (_brandInfoEditing === 'company') {
+    return _brandInfoCompanyEditHtml(d);
   } else {
     if (d.can_edit_company && !_brandInfoEditing) tools = _brandInfoBtn('수정', 'edit-company');
     const addr = '<div class="brand-info-stack">' + _brandInfoValue(c.address) + _brandInfoValue(c.address_detail) + '</div>';
@@ -3213,7 +3231,7 @@ function _brandInfoInput(id, value, opts) {
   const o = opts || {};
   return '<input type="' + (o.type || 'text') + '" id="' + id + '" class="brand-my-input" value="' + brandEsc(value || '') + '"' +
       ' maxlength="' + o.max + '"' + (o.placeholder ? ' placeholder="' + brandEsc(o.placeholder) + '"' : '') +
-      (o.required ? ' aria-required="true"' : '') + (o.url ? ' inputmode="url" autocomplete="url" data-bi-url' : ' autocomplete="off"') +
+      (o.required ? ' aria-required="true"' : '') + (o.ariaLabel ? ' aria-label="' + brandEsc(o.ariaLabel) + '"' : '') + (o.url ? ' inputmode="url" autocomplete="url" data-bi-url' : ' autocomplete="off"') +
       (_brandInfoBusy ? ' disabled' : '') + '>' +
     '<p class="brand-field-error" id="' + id + 'Error" hidden></p>';
 }
@@ -3243,6 +3261,29 @@ function _brandInfoBrandHtml(d) {
         _brandInfoField('공식 Instagram URL', _brandInfoValue(b.official_instagram_url)) +
         _brandInfoField('공식 X URL', _brandInfoValue(b.official_x_url)) +
       '</div>' +
+    '</section>';
+}
+
+// bw03-00b — 회사명·사업자등록번호·홈페이지·주소 둘. 주소 「검색」 단추는 뺀다(기본값 1). 브랜드 카드 「수정」은 숨긴다(기본값 2)
+function _brandInfoCompanyEditHtml(d) {
+  const c = d.company || {};
+  const tools = _brandInfoBtn('취소', 'cancel') + _brandInfoBtn('저장', 'save-company', { fill: true });
+  const warn = brandInfoSharedWarning(d.company_brands);
+  return '<section class="brand-my-section" id="brandCompanyCard" aria-labelledby="brandCompanyTitle">' +
+      _brandInfoHead('brandCompanyTitle', '회사 정보', tools) +
+      '<div class="brand-my-fields">' +
+        _brandInfoEditField('brandCoName', '회사명', _brandInfoInput('brandCoName', c.name_ko, { max: 100, required: true }), { required: true }) +
+        _brandInfoEditField('brandCoBizNo', '사업자등록번호', _brandInfoInput('brandCoBizNo', c.business_no, { max: 30, required: true }), { required: true }) +
+        _brandInfoEditField('brandCoHomepage', '홈페이지 URL', _brandInfoInput('brandCoHomepage', c.homepage_url, { max: 500, url: true, placeholder: 'https://' })) +
+        '<div class="brand-my-field brand-info-wide">' +
+          '<label for="brandCoAddress">주소</label>' +
+          '<div class="brand-info-stack">' +
+            '<div>' + _brandInfoInput('brandCoAddress', c.address, { max: 200 }) + '</div>' +
+            '<div>' + _brandInfoInput('brandCoAddressDetail', c.address_detail, { max: 200, placeholder: '상세 주소', ariaLabel: '상세 주소' }) + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      (warn ? '<p class="brand-my-small brand-info-warn" role="note">' + brandEsc(warn) + '</p>' : '') +
     '</section>';
 }
 
@@ -3383,6 +3424,73 @@ async function saveBrandInfo() {
   brandToast(BRAND_INFO_MSG.saveFail, { error: true });   // 입력 유지
 }
 
+async function saveBrandCompany() {
+  if (_brandInfoBusy || _brandInfoEditing !== 'company' || !_brandInfoData || !_brandInfoData.company) return;
+  const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const home = document.getElementById('brandCoHomepage');
+  if (home) home.value = brandInfoNormalizeUrl(home.value);
+  Object.values(BRAND_INFO_COMPANY_INPUTS).forEach(id => setFieldError(id, ''));
+  const name = val('brandCoName').trim();
+  const bizNo = val('brandCoBizNo').trim();
+  // 필수 칸은 화면이 먼저 막는다 — 서버 거부는 안전망(기본값 7)
+  if (!name) { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, 'name_ko', BRAND_INFO_MSG.companyNameRequired); return; }
+  if (!bizNo) { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, 'business_no', BRAND_INFO_MSG.businessNoRequired); return; }
+  const c = _brandInfoData.company;
+  const brandId = _brandInfoData.brandId;
+  _brandInfoSetBusy(true);
+  // 회사 아이디는 보내지 않는다 — 서버가 브랜드 행에서 읽는다
+  const { data, error } = await brandRpc('update_my_brand_company', {
+    p_brand_id: brandId,
+    p_name_ko: name,
+    p_business_no: bizNo,
+    p_homepage_url: val('brandCoHomepage').trim(),
+    p_address: val('brandCoAddress').trim(),
+    p_address_detail: val('brandCoAddressDetail').trim(),
+    p_prev: { name_ko: c.name_ko, business_no: c.business_no, homepage_url: c.homepage_url, address: c.address, address_detail: c.address_detail }
+  });
+  _brandInfoSetBusy(false);
+  const r = (!error && data) ? data.result : null;
+  if (getCurrentBrandId() !== brandId || location.hash !== '#brand') {
+    if (r === 'ok') brandToast(BRAND_INFO_MSG.companySaved);
+    return;
+  }
+  if (r === 'ok') {
+    brandToast(BRAND_INFO_MSG.companySaved);
+    brandTouchActivity();
+    if (data.company && _brandInfoData) _brandInfoData.company = data.company;
+    _brandInfoEndEdit();
+    loadBrandInfo();
+    return;
+  }
+  if (r === 'name_required') { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, 'name_ko', BRAND_INFO_MSG.companyNameRequired); return; }
+  if (r === 'business_no_required') { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, 'business_no', BRAND_INFO_MSG.businessNoRequired); return; }
+  if (r === 'name_taken') { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, 'name_ko', BRAND_INFO_MSG.companyNameTaken); return; }
+  if (r === 'too_long') { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, data.field, BRAND_INFO_MSG.tooLong); return; }
+  if (r === 'url_invalid') { _brandInfoFieldError(BRAND_INFO_COMPANY_INPUTS, data.field, BRAND_INFO_MSG.urlInvalid); return; }
+  if (r === 'not_owner') {
+    // 그사이 대표가 바뀌었다 — 역할을 다시 받고 보기로
+    brandToast(BRAND_INFO_MSG.notOwner, { error: true });
+    _brandInfoEndEdit();
+    await refreshBrandLoginState();
+    loadBrandInfo();
+    return;
+  }
+  if (r === 'no_company') {
+    brandToast(BRAND_INFO_MSG.noCompany, { error: true });
+    _brandInfoEndEdit();
+    loadBrandInfo();
+    return;
+  }
+  if (r === 'stale') {
+    brandToast(BRAND_INFO_MSG.stale, { error: true });
+    _brandInfoEndEdit();
+    loadBrandInfo();
+    return;
+  }
+  if (r === 'not_linked') { _brandInfoEditing = null; await handleBrandNotLinked(); return; }
+  brandToast(BRAND_INFO_MSG.saveFail, { error: true });   // 입력 유지
+}
+
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('#brandPageHost [data-bi-act]');
   if (!btn || btn.disabled) return;
@@ -3391,7 +3499,8 @@ document.addEventListener('click', async (e) => {
   if (act === 'edit-brand') { _brandInfoStartEdit('brand'); return; }
   if (act === 'cancel') { _brandInfoEndEdit(); return; }   // 원래 값으로
   if (act === 'save-brand') { await saveBrandInfo(); return; }
-  // edit-company · save-company(조각 6)
+  if (act === 'edit-company') { _brandInfoStartEdit('company'); return; }
+  if (act === 'save-company') { await saveBrandCompany(); return; }
 });
 
 // 주소 칸을 벗어날 때 https:// 붙이기 · 입력하면 그 칸 오류 지우기
@@ -3408,6 +3517,7 @@ document.addEventListener('keydown', (e) => {
   if (!e.target.closest('#brandInfoPage')) return;
   e.preventDefault();
   if (_brandInfoEditing === 'brand') saveBrandInfo();
+  else if (_brandInfoEditing === 'company') saveBrandCompany();
 });
 
 // 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기 (작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5)
@@ -4610,6 +4720,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792122701 -->
+<!-- v1792122907 -->
 </body>
 </html>
