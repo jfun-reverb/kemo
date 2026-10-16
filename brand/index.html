@@ -3086,8 +3086,22 @@ const BRAND_INFO_MSG = {
   ownerNote: '회사 정보는 대표 담당자만 고칠 수 있습니다.',
   ownerNoteShared: ' 고치면 이 회사의 브랜드 모두에 함께 바뀝니다.',
   memberNote: '회사 정보는 대표 담당자만 고칠 수 있습니다. 바꿔야 하면 대표 담당자에게 요청해 주십시오.',
-  empty: '미입력'
+  empty: '미입력',
+  // 조각 5 — 브랜드 정보 저장(bw03-00a). 피그마에 없는 문구는 작업표 조각 5 계약 그대로
+  brandSaved: '브랜드 정보를 저장했습니다.',
+  brandNameRequired: '브랜드명(한글)을 입력해 주십시오.',
+  brandNameTaken: '이 이름은 쓸 수 없습니다. 다른 이름을 입력하거나 운영팀에 문의해 주십시오.',
+  tooLong: '글자 수가 너무 많습니다.',
+  urlInvalid: '주소는 http:// 또는 https:// 로 시작해야 합니다.',
+  stale: '다른 담당자가 먼저 고쳤습니다. 최신 내용을 불러왔습니다. 다시 고쳐 주십시오.',
+  saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.'
 };
+// 서버 결과의 field(저장 칸 이름) ↔ 화면 입력 칸
+const BRAND_INFO_BRAND_INPUTS = {
+  name: 'brandInfoName', name_en: 'brandInfoNameEn',
+  official_instagram_url: 'brandInfoInstagram', official_x_url: 'brandInfoX'
+};
+const BRAND_INFO_URL_INPUTS = ['brandInfoInstagram', 'brandInfoX'];
 const BRAND_INFO_NAME_LIMIT = 6;   // 같은 회사 브랜드 이름을 몇 개까지 적나(기본값 7) — 넘으면 「외 N개」
 
 // 응답 — undefined = 불러오는 중 · null = 실패 · { brandId, ...get_my_brand_profile 응답 }
@@ -3194,8 +3208,25 @@ function _brandInfoCompanyHtml(d) {
     _brandInfoHead('brandCompanyTitle', '회사 정보', tools) + body + '</section>';
 }
 
+// 수정 칸 — 칸 아래 오류 자리(setFieldError 가 아이디+Error 를 찾는다)
+function _brandInfoInput(id, value, opts) {
+  const o = opts || {};
+  return '<input type="' + (o.type || 'text') + '" id="' + id + '" class="brand-my-input" value="' + brandEsc(value || '') + '"' +
+      ' maxlength="' + o.max + '"' + (o.placeholder ? ' placeholder="' + brandEsc(o.placeholder) + '"' : '') +
+      (o.required ? ' aria-required="true"' : '') + (o.url ? ' inputmode="url" autocomplete="url" data-bi-url' : ' autocomplete="off"') +
+      (_brandInfoBusy ? ' disabled' : '') + '>' +
+    '<p class="brand-field-error" id="' + id + 'Error" hidden></p>';
+}
+function _brandInfoEditField(id, label, inputHtml, opts) {
+  const o = opts || {};
+  return '<div class="brand-my-field">' +
+    '<label for="' + id + '">' + brandEsc(label) + (o.required ? '<span class="brand-info-req" aria-hidden="true"> *</span>' : '') + '</label>' +
+    inputHtml + '</div>';
+}
+
 function _brandInfoBrandHtml(d) {
   const b = d.brand || {};
+  if (_brandInfoEditing === 'brand') return _brandInfoBrandEditHtml(b);
   const tools = _brandInfoEditing ? '' : _brandInfoBtn('수정', 'edit-brand');
   return '<section class="brand-my-section" id="brandInfoCard" aria-labelledby="brandInfoTitle">' +
       _brandInfoHead('brandInfoTitle', '브랜드 정보', tools) +
@@ -3211,6 +3242,26 @@ function _brandInfoBrandHtml(d) {
       '<div class="brand-my-fields is-two">' +
         _brandInfoField('공식 Instagram URL', _brandInfoValue(b.official_instagram_url)) +
         _brandInfoField('공식 X URL', _brandInfoValue(b.official_x_url)) +
+      '</div>' +
+    '</section>';
+}
+
+// bw03-00a — 한글·영문·SNS 둘만 열린다. 일본어는 잠긴 채(D1). 회사 카드 「수정」은 숨긴다(기본값 2)
+function _brandInfoBrandEditHtml(b) {
+  const tools = _brandInfoBtn('취소', 'cancel') + _brandInfoBtn('저장', 'save-brand', { fill: true });
+  return '<section class="brand-my-section" id="brandInfoCard" aria-labelledby="brandInfoTitle">' +
+      _brandInfoHead('brandInfoTitle', '브랜드 정보', tools) +
+      '<div class="brand-my-fields">' +
+        _brandInfoEditField('brandInfoName', '브랜드명(한글)', _brandInfoInput('brandInfoName', b.name, { max: 100, required: true }), { required: true }) +
+        _brandInfoField('브랜드명(일본어)', _brandInfoValue(b.name_ja, { locked: true }).replace('<div class="brand-my-value', '<div id="brandInfoNameJa" class="brand-my-value')) +
+        _brandInfoEditField('brandInfoNameEn', '브랜드명(영문)', _brandInfoInput('brandInfoNameEn', b.name_en, { max: 100 })) +
+      '</div>' +
+    '</section>' +
+    '<section class="brand-my-section" aria-labelledby="brandSnsTitle">' +
+      _brandInfoHead('brandSnsTitle', 'SNS 정보', '') +
+      '<div class="brand-my-fields is-two">' +
+        _brandInfoEditField('brandInfoInstagram', '공식 Instagram URL', _brandInfoInput('brandInfoInstagram', b.official_instagram_url, { max: 500, url: true, placeholder: 'https://www.instagram.com/...' })) +
+        _brandInfoEditField('brandInfoX', '공식 X URL', _brandInfoInput('brandInfoX', b.official_x_url, { max: 500, url: true, placeholder: 'https://www.x.com/...' })) +
       '</div>' +
     '</section>';
 }
@@ -3249,12 +3300,114 @@ window.addEventListener('hashchange', () => {
   if (location.hash !== '#brand') { _brandInfoEditing = null; _brandInfoData = undefined; _brandInfoLoadSeq++; }
 });
 
-document.addEventListener('click', (e) => {
+// ── 동작
+// 주소(URL) 칸 — 비어 있지 않고 http:// · https:// 로 시작하지 않으면 앞에 https:// 를 붙인다(대소문자 무시 — 기본값 10)
+function brandInfoNormalizeUrl(v) {
+  const t = (v || '').trim();
+  if (!t || /^https?:\/\//i.test(t)) return t;
+  return 'https://' + t;
+}
+
+function _brandInfoSetBusy(busy) {
+  _brandInfoBusy = busy;
+  document.querySelectorAll('#brandPageHost [data-bi-act], #brandPageHost .brand-my-input').forEach(el => { el.disabled = busy; });
+}
+
+function _brandInfoStartEdit(which) {
+  _brandInfoEditing = which;
+  _rerenderBrandInfoIfShown();
+  const first = document.getElementById(which === 'brand' ? 'brandInfoName' : 'brandCoName');
+  if (first) first.focus();
+}
+
+function _brandInfoEndEdit() {
+  _brandInfoEditing = null;
+  _rerenderBrandInfoIfShown();
+}
+
+// 서버 결과 중 칸에 붙는 것 — 그 칸 아래 문구 + 초점
+function _brandInfoFieldError(inputs, field, msg) {
+  const id = inputs[field];
+  if (!id) { brandToast(msg, { error: true }); return; }
+  setFieldError(id, msg);
+  const el = document.getElementById(id);
+  if (el) el.focus();
+}
+
+async function saveBrandInfo() {
+  if (_brandInfoBusy || _brandInfoEditing !== 'brand' || !_brandInfoData) return;
+  const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+  BRAND_INFO_URL_INPUTS.forEach(id => { const el = document.getElementById(id); if (el) el.value = brandInfoNormalizeUrl(el.value); });
+  Object.values(BRAND_INFO_BRAND_INPUTS).forEach(id => setFieldError(id, ''));
+  const name = val('brandInfoName').trim();
+  if (!name) { _brandInfoFieldError(BRAND_INFO_BRAND_INPUTS, 'name', BRAND_INFO_MSG.brandNameRequired); return; }
+  const b = _brandInfoData.brand || {};
+  const brandId = _brandInfoData.brandId;
+  _brandInfoSetBusy(true);
+  const { data, error } = await brandRpc('update_my_brand_info', {
+    p_brand_id: brandId,
+    p_name: name,
+    p_name_en: val('brandInfoNameEn').trim(),
+    p_official_instagram_url: val('brandInfoInstagram').trim(),
+    p_official_x_url: val('brandInfoX').trim(),
+    // 연 시점 값 — 서버가 지금 값과 칸마다 비교해 다르면 stale(기본값 5)
+    p_prev: { name: b.name, name_en: b.name_en, official_instagram_url: b.official_instagram_url, official_x_url: b.official_x_url }
+  });
+  _brandInfoSetBusy(false);
+  const r = (!error && data) ? data.result : null;
+  // 저장하는 사이 브랜드를 바꿨거나 페이지를 떠났다 — 지금 화면(다른 브랜드의 수정 중일 수 있다)은 건드리지 않는다
+  if (getCurrentBrandId() !== brandId || location.hash !== '#brand') {
+    if (r === 'ok') { brandToast(BRAND_INFO_MSG.brandSaved); refreshBrandLoginState(); }
+    return;
+  }
+  if (r === 'ok') {
+    brandToast(BRAND_INFO_MSG.brandSaved);
+    brandTouchActivity();
+    if (data.brand && _brandInfoData) _brandInfoData.brand = data.brand;   // 다시 받기 전에도 새 값으로 그린다
+    _brandInfoEndEdit();
+    loadBrandInfo();                  // 회사 안내 목록의 지금 브랜드 이름까지 새로
+    await refreshBrandLoginState();   // 좌측 위 브랜드명·브랜드 고르기 목록을 새 이름으로
+    return;
+  }
+  if (r === 'name_required') { _brandInfoFieldError(BRAND_INFO_BRAND_INPUTS, 'name', BRAND_INFO_MSG.brandNameRequired); return; }
+  if (r === 'name_taken') { _brandInfoFieldError(BRAND_INFO_BRAND_INPUTS, 'name', BRAND_INFO_MSG.brandNameTaken); return; }
+  if (r === 'too_long') { _brandInfoFieldError(BRAND_INFO_BRAND_INPUTS, data.field, BRAND_INFO_MSG.tooLong); return; }
+  if (r === 'url_invalid') { _brandInfoFieldError(BRAND_INFO_BRAND_INPUTS, data.field, BRAND_INFO_MSG.urlInvalid); return; }
+  if (r === 'stale') {
+    brandToast(BRAND_INFO_MSG.stale, { error: true });
+    _brandInfoEndEdit();
+    loadBrandInfo();
+    return;
+  }
+  if (r === 'not_linked') { _brandInfoEditing = null; await handleBrandNotLinked(); return; }
+  brandToast(BRAND_INFO_MSG.saveFail, { error: true });   // 입력 유지
+}
+
+document.addEventListener('click', async (e) => {
   const btn = e.target.closest('#brandPageHost [data-bi-act]');
   if (!btn || btn.disabled) return;
   const act = btn.dataset.biAct;
   if (act === 'reload') { _brandInfoData = undefined; _rerenderBrandInfoIfShown(); loadBrandInfo(); return; }
-  // edit-brand(조각 5) · edit-company(조각 6)
+  if (act === 'edit-brand') { _brandInfoStartEdit('brand'); return; }
+  if (act === 'cancel') { _brandInfoEndEdit(); return; }   // 원래 값으로
+  if (act === 'save-brand') { await saveBrandInfo(); return; }
+  // edit-company · save-company(조각 6)
+});
+
+// 주소 칸을 벗어날 때 https:// 붙이기 · 입력하면 그 칸 오류 지우기
+document.addEventListener('focusout', (e) => {
+  if (e.target.matches('#brandPageHost [data-bi-url]')) e.target.value = brandInfoNormalizeUrl(e.target.value);
+});
+document.addEventListener('input', (e) => {
+  if (e.target.matches('#brandPageHost .brand-my-input') && e.target.id && e.target.classList.contains('is-error')) setFieldError(e.target.id, '');
+});
+
+// 수정 중 엔터 = 저장
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.isComposing || !e.target.matches('#brandPageHost .brand-my-input')) return;
+  if (!e.target.closest('#brandInfoPage')) return;
+  e.preventDefault();
+  if (_brandInfoEditing === 'brand') saveBrandInfo();
 });
 
 // 브랜드 페이지 — 멤버 관리(06): 목록·초대·다시 보내기 (작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 5)
@@ -4457,6 +4610,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792122498 -->
+<!-- v1792122701 -->
 </body>
 </html>
