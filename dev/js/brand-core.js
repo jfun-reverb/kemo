@@ -314,3 +314,54 @@ function brandFormatDateTime(iso) {
   const d = new Date(iso);
   return day + ' ' + _brandPad2(d.getHours()) + ':' + _brandPad2(d.getMinutes());
 }
+
+// ── 마이페이지 비밀번호 변경(피그마 bw07-01, 작업표 조각 8)
+//   🔴 서버는 비밀번호를 바꾸면 「바꾼 그 세션」만 남기고 같은 계정의 다른 로그인을 모두 끊는다(2026-10-16 개발서버 실측 —
+//      다른 세션은 사용자 조회 403 · 갱신 refresh_token_not_found). 그래서:
+//   ① 그때만 만드는 일회 연결로 현재 비밀번호 로그인(= 현재 비밀번호 확인 — 로그인 체계 횟수 제한을 그대로 받는다)
+//   ② 같은 일회 연결로 새 비밀번호 저장 — 갓 만든 세션이라 「재인증 요구」 설정이 켜진 서버에서도 막히지 않는다
+//   ③ 그 세션을 로그인 연결(brandDb)로 옮겨 담는다. 🔴 일회 연결은 signOut 하지 않고 버린다 — 하면 옮긴 세션이 서버에서 끊긴다
+//   원문 비밀번호는 변수에만 두고 저장소·로그에 남기지 않는다.
+//   반환: 'ok' | 'wrong'(현재 비밀번호 틀림) | 'too_many' | 'same'(지금과 같음) | 'weak' | 'relogin'(바뀌었으나 로그인을 못 이어받음) | 'error'
+async function brandChangePasswordWithCurrent(email, currentPw, nextPw) {
+  if (!brandDb || !window.supabase || typeof window.supabase.createClient !== 'function') return 'error';
+  let tmp;
+  try {
+    tmp = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { storageKey: 'reverb.brandPwCheck', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    });
+  } catch (e) { return 'error'; }
+  let session;
+  try {
+    const { data, error } = await tmp.auth.signInWithPassword({ email, password: currentPw });
+    if (error) {
+      const code = error.code || '';
+      if (code === 'invalid_credentials') return 'wrong';
+      if (error.status === 429 || code === 'over_request_rate_limit') return 'too_many';
+      return 'error';
+    }
+    session = data && data.session;
+    if (!session) return 'error';
+  } catch (e) { return 'error'; }
+  // 저장 성공 ~ 옮겨 담기 사이에 로그인 연결이 옛 토큰으로 갱신하다 끊기면 「로그인 시간 만료」로 튕긴다 — 그 틈만 안내를 막는다
+  _brandSigningOut = true;
+  try {
+    try {
+      const { error } = await tmp.auth.updateUser({ password: nextPw });
+      if (error) {
+        const kind = brandUpdatePwErrorKind(error);
+        return kind === 'same' ? 'same' : kind === BRAND_MSG.weakPassword ? 'weak' : 'error';
+      }
+    } catch (e) { return 'error'; }
+    // 「마지막 변경」 기록 — 바꾼 그 세션으로 바로(옮겨 담기가 실패해도 남는다). 실패해도 비밀번호는 이미 바뀌었다
+    try { await tmp.rpc('mark_my_brand_password_changed'); } catch (e) { /* 날짜만 옛 값으로 남는다 */ }
+    // ③ 이 순간 로그인 연결의 옛 세션은 서버에서 이미 끊겼다 — 새 세션을 옮겨 담는다
+    try {
+      const { error } = await brandDb.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
+      if (error) return 'relogin';
+    } catch (e) { return 'relogin'; }
+    return 'ok';
+  } finally {
+    _brandSigningOut = false;
+  }
+}

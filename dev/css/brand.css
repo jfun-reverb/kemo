@@ -689,3 +689,15 @@ body.is-shell .brand-topbar { display: none !important; }
   .brand-my-invite-btns { justify-content: flex-end; }
   .brand-my-btn { height: 40px; }
 }
+
+/* 비밀번호 변경 모달(피그마 bw07-01·01a·01b) — 폭 480 · 칸 이름 12 · 칸 테두리 #d4d4d8 · 안내 11 */
+.brand-modal-form.is-pw { width: 480px; }
+.brand-modal-form.is-pw .brand-modal-sub { font-size: 12px; color: var(--b-muted); }
+.brand-modal-form.is-pw .brand-modal-card { gap: 14px; }
+.brand-modal-form.is-pw .brand-field { gap: 6px; }
+.brand-modal-form.is-pw .brand-input { border-color: var(--b-disabled-btn); }
+.brand-modal-form.is-pw .brand-input.is-error { border-color: #ef4444; }
+.brand-modal-form.is-pw .brand-field-error { font-size: 11px; color: var(--b-danger); }
+.brand-modal-form.is-pw .brand-pw-hint { margin: 0; font-size: 11px; color: var(--b-faint); }   /* .brand-modal-box p(13px)보다 앞서게 */
+.brand-modal-form.is-pw .brand-modal-actions.is-right .brand-btn { height: 33px; padding: 0 14px; }
+.brand-modal-form.is-pw .brand-modal-sub { margin-top: -16px; }   /* 상자 간격 20 에서 제목과 4 만 띄운다 */
