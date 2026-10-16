@@ -665,7 +665,28 @@ window.I18N_KO = {
     closedOverlay: '모집 마감',
     endedOverlay: '종료',
     fullOverlay: '모집 종료',
-    applyComplete: '응모 완료! 결과는 메일로 안내드립니다',
+  },
+
+  // 응모 완료 모달 (사양서 2026-10-15 §7-6 — 한국어 열)
+  applyResult: {
+    titleDone: '응모가 완료되었습니다',
+    titleReceived: '응모가 접수되었습니다',
+    introMonitor: '심사 없이 바로 참여가 확정되었습니다. 아래 순서대로 진행해 주세요.',
+    introReview: '운영팀이 심사한 뒤 결과를 메일로 안내드립니다. 당첨되면 앱 알림과 함께 응모 이력에 「당첨」으로 표시됩니다.',
+    stepPurchase: '구매 기간 안에 {mall}에서 구매',
+    stepPurchaseNoMall: '구매 기간 안에 상품 구매',
+    stepReceipt: '영수증(구매 화면 캡처) 제출',
+    stepReceiptSub: '「활동 관리」에서 올려 주세요',
+    stepPost: '{channels}에 리뷰 게시 후 리뷰 캡처 제출',
+    stepPostNoChannel: '리뷰 게시 후 리뷰 캡처 제출',
+    deadlineSuffix: '제출 마감 {date}',
+    paybackNote: '기간이 지난 뒤 구매하신 경우에는 페이백 대상이 아닙니다.',
+    noteGifting: '당첨되면 등록한 배송지로 제품을 보내 드리겠습니다.',
+    noteVisit: '당첨되면 방문 기간·장소 안내를 확인하고 방문해 주세요.',
+    neutral: '응모가 완료되었습니다. 응모 이력에서 상태를 확인해 주세요.',
+    ackLabel: '위 내용을 확인했습니다',
+    confirm: '확인',
+    processing: '처리 중…',
   },
 
   apply: {
