@@ -385,6 +385,7 @@ function initSetpwForm() {
   ['setpwName', 'setpwPw', 'setpwPw2'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => setFieldError(id, ''));
   });
+  bindBrandCommonPwWarning('setpwPw', BRAND_COMMON_PW_MSG);   // 설정(bw01-02)·초대받은 멤버(bw01-02b) 공용 칸 — 경고만(조각 9)
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -448,6 +449,7 @@ function initResetpwForm() {
   ['resetpwPw', 'resetpwPw2'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => setFieldError(id, ''));
   });
+  bindBrandCommonPwWarning('resetpwPw', BRAND_COMMON_PW_MSG);   // 재설정(bw01-07) — 경고만(조각 9)
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (busy) return;

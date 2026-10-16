@@ -701,3 +701,9 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-modal-form.is-pw .brand-pw-hint { margin: 0; font-size: 11px; color: var(--b-faint); }   /* .brand-modal-box p(13px)보다 앞서게 */
 .brand-modal-form.is-pw .brand-modal-actions.is-right .brand-btn { height: 33px; padding: 0 14px; }
 .brand-modal-form.is-pw .brand-modal-sub { margin-top: -16px; }   /* 상자 간격 20 에서 제목과 4 만 띄운다 */
+
+/* 흔한 비밀번호 경고 — 막지 않는다. 설정·재설정(피그마 bw01-92 ⑧) #b45309 12px · 마이페이지 변경 창(bw07-01c) #c2410c 11px */
+.brand-field-warn { margin: 0; font-size: 12px; color: #b45309; line-height: 1.4; }
+.brand-input.is-warn:not(.is-error) { border-color: #b45309; }
+.brand-modal-form.is-pw .brand-field-warn { font-size: 11px; color: #c2410c; }
+.brand-modal-form.is-pw .brand-input.is-warn:not(.is-error) { border-color: #c2410c; }

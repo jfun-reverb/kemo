@@ -377,6 +377,7 @@ function openBrandPasswordModal() {
   });
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(wrap);
+  bindBrandCommonPwWarning('brandPwNew', BRAND_COMMON_PW_MSG_CHANGE);   // bw07-01c — 경고만, 「변경」을 막지 않는다(조각 9)
   form.querySelector('#brandPwCurrent').focus();
 }
 function closeBrandPasswordModal() {
