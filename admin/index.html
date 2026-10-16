@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792117552';
+  var CURRENT_BUILD = 'v1792120278';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3361,7 +3361,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-16 11:25 · db971cd</span>
+          <span class="admin-build-text">2026-10-16 12:11 · 67489fe</span>
         </div>
       </div>
     </aside>
@@ -13993,7 +13993,7 @@ async function fetchCompanies({ status = 'active', search } = {}) {
     // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
     return await fetchAllPaged(() => {
       var q = db.from('companies')
-        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, address_detail, homepage_url, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
       // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
       if (status && status !== 'all') q = q.eq('status', status);
       // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
@@ -28952,6 +28952,7 @@ var COMPANY_FIELDS = [
   { key: 'business_no', label: '사업자등록번호' },
   { key: 'homepage_url', label: '홈페이지 URL' },
   { key: 'address', label: '주소' },
+  { key: 'address_detail', label: '상세 주소' },
   { key: 'billing_email', label: '청구 이메일' },
   { key: 'billing_address', label: '청구 주소' },
   { key: 'memo', label: '메모', textarea: true }

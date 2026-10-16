@@ -173,7 +173,6 @@ function renderBrandShellChrome() {
   document.querySelectorAll('[data-brand-current-name]').forEach(el => { el.textContent = curName; });
   const who = brandSession.name || brandSession.email;
   document.querySelectorAll('[data-brand-user-name]').forEach(el => { el.textContent = who; });
-  document.querySelectorAll('[data-brand-user-initial]').forEach(el => { el.textContent = Array.from(who || '')[0] || ''; });
   renderBrandPickers();
   refreshInviteDot();
 }

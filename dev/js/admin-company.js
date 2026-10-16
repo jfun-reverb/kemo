@@ -145,6 +145,7 @@ var COMPANY_FIELDS = [
   { key: 'business_no', label: '사업자등록번호' },
   { key: 'homepage_url', label: '홈페이지 URL' },
   { key: 'address', label: '주소' },
+  { key: 'address_detail', label: '상세 주소' },
   { key: 'billing_email', label: '청구 이메일' },
   { key: 'billing_address', label: '청구 주소' },
   { key: 'memo', label: '메모', textarea: true }
