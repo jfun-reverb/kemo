@@ -353,6 +353,69 @@ function reportShareColsToSave(shownKeys, checkedKeys, prevSaved) {
   return out;
 }
 
+// ── 브랜드 공개 기본 열(작업표 2026-10-19 조각 13 · 사양서 「브랜드 공개 기본 열」 ⓐ~ⓒ) ──
+//   기본 열 값(spec)은 열쇠 문자열 배열이다. 두 종류가 섞인다:
+//     · 늘 있는 열 — REPORT_COLS 열쇠 그대로(큐텐·엣코스메 채널 열 포함 — 「채널별 열」)
+//     · 캠페인에 따라 생기고 빠지는 채널 열(대장의 always:false 채널 + 「기타」) — **종류 열쇠**로 적는다:
+//         REPORT_KIND_KEYS = 'ch_*_acct'(계정) · 'ch_*_url'(결과물) · 'ch_*_at'(업로드 날짜)
+//       그 캠페인에 있는 그 채널 열 모두에 적용된다(「계정」은 acct 가 있는 채널만 열이 생긴다).
+//   🔴 계정 ID(account_id — 로그인 이메일)는 기본 열에 있어도 체크하지 않는다(늘 꺼짐 — reportShareColOff).
+const REPORT_KIND_KEYS = ['ch_*_acct', 'ch_*_url', 'ch_*_at'];
+function _reportKindKeyOf(col) {
+  if (!col || !col.ch) return null;
+  const ch = REPORT_CHANNELS.find(function(c){ return c.code === col.ch; });
+  if (ch && ch.always) return null;                    // 큐텐·엣코스메 = 채널별 열
+  const m = /_(acct|url|at)$/.exec(col.key);
+  return m ? 'ch_*_' + m[1] : null;
+}
+// 처음 켤 때 체크할 열쇠 — cols 는 reportColumnsFor(rows), spec 은 서버가 고른 기본 열(브랜드 → 전체).
+//   spec 이 배열이 아니면(아직 안 정함) 아무것도 체크하지 않는다 — 관리자가 직접 고른다.
+function reportDefaultCheckedKeys(cols, spec) {
+  if (!Array.isArray(spec)) return [];
+  const out = [];
+  (cols || []).forEach(function(c) {
+    if (!c || c.key === 'account_id') return;
+    const k = _reportKindKeyOf(c) || c.key;
+    if (spec.indexOf(k) !== -1 && out.indexOf(c.key) === -1) out.push(c.key);
+  });
+  return out;
+}
+// 대장이 알 수 있는 모든 열쇠(계정 ID 제외) — 공개 저장(S19)과 기본 열 고르기 화면이 쓴다
+function reportAllPublishKeys() {
+  const keys = REPORT_COLS.map(function(c){ return c.key; }).filter(function(k){ return k !== 'account_id'; });
+  REPORT_CHANNELS.forEach(function(ch) {
+    if (ch.always) return;
+    const k = 'ch_' + ch.code;
+    if (ch.acct) keys.push(k + '_acct');
+    keys.push(k + '_url', k + '_at');
+  });
+  keys.push('ch_etc_url', 'ch_etc_at');
+  return keys;
+}
+// 캠페인 「브랜드 공개」 열 저장값(S19 — 공개 뒤 새로 생기는 열은 꺼짐).
+//   checkedKeys : 모달에서 체크된 열쇠 · prevSaved : 지금 저장값(없으면 null)
+//   · 대장의 **가능한 열쇠 전부**를 본다 — 옛 열쇠는 켠 것을 `열쇠` 로, 새 열쇠는 끈 것을 `-열쇠` 로.
+//     그래서 지금 그 캠페인에 없는 채널 열(나중에 생길 열)도 `-열쇠` 로 적혀 **꺼진 채** 시작한다.
+//   · 대장에 없는 옛 `-열쇠`(지금은 없어진 채널)는 보존한다.
+//   🔴 읽는 쪽은 reportShareColOff 그대로다(형식이 같다 — 544 표 칸 설명).
+function reportPublishColsToSave(checkedKeys, prevSaved) {
+  checkedKeys = checkedKeys || [];
+  const all = reportAllPublishKeys();
+  const out = [];
+  all.forEach(function(k) {
+    const on = checkedKeys.indexOf(k) !== -1;
+    if (REPORT_SHARE_LEGACY_KEYS.indexOf(k) !== -1) { if (on) out.push(k); }
+    else if (!on) out.push('-' + k);
+  });
+  (Array.isArray(prevSaved) ? prevSaved : []).forEach(function(v) {
+    if (typeof v !== 'string' || v.charAt(0) !== '-') return;
+    const k = v.slice(1);
+    if (all.indexOf(k) !== -1 || REPORT_SHARE_LEGACY_KEYS.indexOf(k) !== -1) return;
+    if (out.indexOf(v) === -1) out.push(v);
+  });
+  return out;
+}
+
 // 스킴(`https://`)이 없는 **주소**인가 — 첫 빗금 앞이 도메인 모양(점이 있다)일 때만.
 //   🔴 **빗금과 점이 둘 다** 있어야 한다. 하나만으로는 안 되는 이유가 각각 있다:
 //      · 점만 보면 — `sy_beauty.com` 같은 **실제 틱톡 아이디**(운영에 있다)를 주소로 오인해
@@ -637,16 +700,26 @@ function buildReportRows(delivs, camps, usersById) {
 //   ⚠️ 이름 2칸·구매일은 **비운다** — 원본에 없다. 없는 것을 지어내지 않는다.
 //   ⚠️ 캠페인명은 **관리자가 모달에 적은 이름**(사양서 표 3번 칸).
 //   구분: 'A-1' = 텍스트 리뷰 · 'A-2' = 포토 리뷰 · 리뷰 없이 구매만이면 'A'
-function _reportExtToRow(r, src) {
+//   opts(작업표 2026-10-19 조각 13 — 🔴 없으면 **지금 동작 그대로**, S18):
+//     opts.rules === 'campaign' — 캠페인 결과물 규칙(사양서 16-5 15번 ③④): 구분 「외부 참가자」 ·
+//       상태 「완료」→「인증성공」·「미완료」→「인증샷 제출중」(그 밖은 원문) · 캠페인 번호·이름 = 붙인 우리 캠페인 값(opts.campaign, D9)
+//     opts.keepExtCampaign === true — 캠페인 번호·이름만 외부 값 유지(관리자 리포트 — D9)
+//   ⚠️ 「제출한 줄만」 거르기는 부르는 쪽이 reportExtRowSubmitted 로 한다(이 함수는 한 줄을 바꿀 뿐)
+function _reportExtToRow(r, src, opts) {
   const kind = r.review_kind === 'photo' ? 'A-2' : (r.review_kind === 'text' ? 'A-1' : 'A');
+  const campRule = !!(opts && opts.rules === 'campaign');
+  const useOurCamp = campRule && !(opts && opts.keepExtCampaign);
+  const ourCamp = (opts && opts.campaign) || {};
+  const rawStatus = r.mission_status || '';
+  const st = String(rawStatus).trim();
   return {
-    src: kind,
+    src: campRule ? '외부 참가자' : kind,
     no: 0,
-    campaign_no: src ? (src.ext_campaign_no || '') : '',
-    campaign_name: src ? (src.ext_campaign_name || '') : '',
+    campaign_no: useOurCamp ? (ourCamp.campaign_no || '') : (src ? (src.ext_campaign_no || '') : ''),
+    campaign_name: useOurCamp ? (ourCamp.campaign_name || '') : (src ? (src.ext_campaign_name || '') : ''),
     account_id: r.account_id || '',
     purchase_period: '',
-    status: r.mission_status || '',
+    status: campRule ? (st === '완료' ? '인증성공' : (st === '미완료' ? '인증샷 제출중' : rawStatus)) : rawStatus,
     order_no: r.order_no || '',
     purchase_date: '',
     amount: (r.purchase_amount === null || r.purchase_amount === undefined) ? '' : r.purchase_amount,
@@ -657,6 +730,15 @@ function _reportExtToRow(r, src) {
     ch_cosme_url: r.cosme_urls || '', ch_cosme_kind: r.cosme_urls ? 'photo' : '', ch_cosme_at: r.cosme_at || '',
     _ext: true, _source_id: r.source_id, _member_no: r.member_no,
   };
+}
+
+// 외부 줄이 「제출한 줄」인가 — 증빙(영수증·큐텐·엣코스메 주소)이 하나라도 있다(작업표 조각 13 · 사양서 16-5 15번 ③).
+//   🔴 서버 _results_ext_rows 4인자(547, p_submitted_only)·세 숫자 _brand_campaign_result_counts 와 **같은 판정** — 바꾸면 함께.
+//   ⚠️ 원본 외부 줄(r)을 받는다(표준 행이 아니다).
+function reportExtRowSubmitted(r) {
+  if (!r) return false;
+  const has = function(v){ return v !== null && v !== undefined && String(v).trim() !== ''; };
+  return has(r.receipt_url) || has(r.qoo10_urls) || has(r.cosme_urls);
 }
 
 
