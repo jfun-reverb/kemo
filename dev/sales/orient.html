@@ -1828,6 +1828,9 @@ function cardHtml(id, card) {
 //   빠진 항목(사양서 §4-2): 카테고리 · 희망 모집 마감 · 희망 업로드 시작/마감 · 등급·필수 내용·증정품 ·
 //   리뷰어의 금지 표현·추가 안내. 시딩의 배송 안내·NG·추가 안내는 당분간 유지(잠정 ⓐ).
 //   🔴 뺀 키는 collectCardNew 가 새로 쓰지 않는다(빈 문자열로도) — 관리자 상세가 그 줄을 그린다.
+// 🔴 [2026-10-19] 새 구조 작성 폼(이 함수·collectCardNew·자동 저장·구간·큐텐·업로드·NOTICE_LINES·LONG_TEXT_FIELDS)은
+//    브랜드 페이지 작성 모달 dev/js/brand-orient-form.js 에 사본이 있다 — 출시 확인 뒤 이 폼을 정리할 때까지 **두 곳을 함께** 고친다
+//    (작업표 docs/specs/2026-10-16-brand-orient-tab-breakdown.md 의심 4)
 function cardHtmlNew(id, card) {
   const ft = issuedFormType();
   const ch = issuedChannel();

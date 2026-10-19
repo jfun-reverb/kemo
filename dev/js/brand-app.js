@@ -273,6 +273,7 @@ function initBrandAuthEvents() {
       // 대기 초대만 있는 계정(초대 수락 화면)도 세션이 있으므로 같이 본다
       if (brandAuthed || _brandInviteCtx) {
         _brandInviteCtx = null;
+        if (brandAuthed) emitBrandSessionLost();   // 쓰던 오리엔시트를 이 기기 사본에 남기고 다시 로그인하면 그 시트로(결정 11) — 틀을 감추기 전에
         setBrandAuthed(null);
         setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
         goBrandScreen('login');
@@ -321,7 +322,8 @@ async function bootBrand() {
   initBrandShell();
   initBrandAuthEvents();
   initPreviewBar();
-  window.addEventListener('hashchange', routeBrand);
+  // 주소가 바뀌면 — 저장 안 된 입력이 있으면 먼저 묻는다(brandGuardHashChange — 걸린 장치가 없으면 그대로 통과)
+  window.addEventListener('hashchange', async () => { if (await brandGuardHashChange()) routeBrand(); });
 
   // 메일 링크 착지가 해시 라우팅보다 먼저다(해시가 #access_token=… 이면 routeBrand 는 login 으로 떨어진다 — stale 3)
   const params = new URLSearchParams(location.search);
