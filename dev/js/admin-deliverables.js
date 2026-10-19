@@ -2843,7 +2843,7 @@ async function submitAdminProxyDelivProxy() {
       if (!date) return toast('구매일을 선택하세요', 'error');
       if (!amount) return toast('구매금액을 입력하세요', 'error');
       const base64 = await _fileToBase64(file);
-      const url = await uploadImage(base64, 'receipt-' + Date.now() + '.jpg', 'receipts');
+      const url = await uploadImage(base64, 'receipt-' + Date.now() + '.jpg', 'receipts', { bucket: receiptUploadBucket() });   // 영수증만 비공개 통(조각 7)
       payload.imageUrl = url;
       payload.orderNumber = orderNo;
       payload.purchaseDate = date;
