@@ -145,22 +145,29 @@ function openCampExtAttachModal(sourceId) {
 function _renderCampExtForm() {
   const f = _campExtForm; const body = document.getElementById('campExtAttachBody');
   if (!f || !body) return;
-  const locked = !!f.sourceId;
-  body.innerHTML = `
-    <div class="form-group"><label class="form-label">서비스</label><div style="font-size:13px">포인테일</div></div>
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
-      <div class="form-group"><label class="form-label">외부 캠페인 번호</label>
-        <input type="text" class="form-input" id="campExtNo" value="${esc(f.extNo)}" ${locked ? 'readonly' : ''} oninput="_campExtSet('extNo', this.value)" placeholder="102905"></div>
-      <div class="form-group"><label class="form-label">외부 캠페인 이름</label>
-        <input type="text" class="form-input" id="campExtName" value="${esc(f.extName)}" oninput="_campExtSet('extName', this.value)" placeholder="포인테일 캠페인 이름"></div>
-    </div>
-    <div class="form-group"><label class="form-label">결과 파일 (.xlsx)</label>
-      <input type="file" accept=".xlsx" onchange="_campExtFile(this)">
-      ${f.busy ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">읽는 중…</div>' : ''}
-      ${f.error ? '<div style="font-size:12px;color:var(--red);margin-top:6px">' + esc(f.error) + '</div>' : ''}
-      ${f.parsed ? '<div style="font-size:12px;color:var(--green);margin-top:6px">' + esc(f.fileName) + ' — 참가자 ' + f.parsed.rows.length + '명을 읽었습니다</div>' : ''}
-    </div>
-    <p style="font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.7">${locked ? '<strong>업데이트하면 이 파일의 이전 참가자 줄이 전부 새 파일로 바뀝니다.</strong><br>' : ''}파일은 이 브라우저에서 읽어 <strong>참가자 줄만</strong> 저장합니다. 원본 파일은 저장하지 않습니다. 같은 외부 번호로 다시 붙이면 그 파일이 갱신됩니다.</p>`;
+  // 처음 한 번만 칸을 그린다 — 다시 그리면 파일 칸이 「선택된 파일 없음」으로 돌아가고 입력 초점도 끊긴다
+  if (!document.getElementById('campExtFileStatus')) {
+    const locked = !!f.sourceId;
+    body.innerHTML = `
+      <div class="form-group"><label class="form-label">서비스</label><div style="font-size:13px">포인테일</div></div>
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+        <div class="form-group"><label class="form-label">외부 캠페인 번호</label>
+          <input type="text" class="form-input" id="campExtNo" value="${esc(f.extNo)}" ${locked ? 'readonly' : ''} oninput="_campExtSet('extNo', this.value)" placeholder="102905"></div>
+        <div class="form-group"><label class="form-label">외부 캠페인 이름</label>
+          <input type="text" class="form-input" id="campExtName" value="${esc(f.extName)}" oninput="_campExtSet('extName', this.value)" placeholder="포인테일 캠페인 이름"></div>
+      </div>
+      <div class="form-group"><label class="form-label">결과 파일 (.xlsx)</label>
+        <input type="file" accept=".xlsx" onchange="_campExtFile(this)">
+        <div id="campExtFileStatus"></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.7">${locked ? '<strong>업데이트하면 이 파일의 이전 참가자 줄이 전부 새 파일로 바뀝니다.</strong><br>' : ''}파일은 이 브라우저에서 읽어 <strong>참가자 줄만</strong> 저장합니다. 원본 파일은 저장하지 않습니다. 같은 외부 번호로 다시 붙이면 그 파일이 갱신됩니다.</p>`;
+  }
+  const st = document.getElementById('campExtFileStatus');
+  if (st) st.innerHTML = f.busy ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">읽는 중…</div>'
+    : f.error ? '<div style="font-size:12px;color:var(--red);margin-top:6px">' + esc(f.error) + '</div>'
+    : f.parsed ? '<div style="font-size:12px;color:var(--green);margin-top:6px">' + esc(f.fileName) + ' — 참가자 ' + f.parsed.rows.length + '명을 읽었습니다</div>' : '';
+  const no = document.getElementById('campExtNo');
+  if (no && !no.value && f.extNo) no.value = f.extNo;   // 파일 이름에서 번호를 채운 경우
   _campExtSyncSubmit();
 }
 function _campExtSet(key, val) { if (_campExtForm) { _campExtForm[key] = val; _campExtSyncSubmit(); } }
