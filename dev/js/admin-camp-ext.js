@@ -9,7 +9,7 @@
 //   · ⚠️ 서버에 546 이 아직 없으면({missing:true}) 카드를 조용히 숨긴다 — 운영은 「사전」 단계에 546 과 함께
 // ════════════════════════════════════════════════════════════════════
 
-var _campExt = { campaignId: null, data: null };
+var _campExt = { campaignId: null, data: null, open: false };   // open = 외부 줄 표 펼침(기본 접힘 — 아래 결과물 표 자리를 지킨다)
 
 function _campExtCanRead() { return !((typeof isHidden === 'function') && isHidden('menu.reports')); }
 function _campExtCanWrite() { return (typeof canWrite === 'function') && canWrite('menu.reports'); }
@@ -20,7 +20,8 @@ async function loadCampExtSources(campaignId) {
   const cnt = document.getElementById('campOpsExtCount');
   if (cnt) { cnt.style.display = 'none'; cnt.textContent = ''; }
   if (!box) return;
-  _campExt = { campaignId: campaignId, data: null };
+  const keepOpen = _campExt.campaignId === campaignId && _campExt.open;   // 저장·떼기 뒤 다시 그릴 때는 펼침 유지
+  _campExt = { campaignId: campaignId, data: null, open: keepOpen };
   box.dataset.ready = '';
   box.style.display = 'none';   // 앞 캠페인 카드가 응답 전까지 남지 않게
   if (!campaignId || !_campExtCanRead()) { box.innerHTML = ''; return; }
@@ -101,9 +102,11 @@ function _renderCampExtBox() {
           + '</div>';
       }).join('')
     + '</div>'
-    + '<div style="padding:0 16px 6px;font-size:12px;color:var(--muted)">제출한 외부 줄 ' + std.length + '명'
-      + (rows.length > std.length ? ' (증빙이 없는 ' + (rows.length - std.length) + '명은 브랜드에게도 보이지 않습니다)' : '') + '</div>'
-    + (std.length ? '<div class="admin-table-wrap" style="max-height:360px"><table class="data-table"><thead><tr>'
+    + '<div style="padding:0 16px 6px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px">제출한 외부 줄 ' + std.length + '명'
+      + (rows.length > std.length ? ' (증빙이 없는 ' + (rows.length - std.length) + '명은 브랜드에게도 보이지 않습니다)' : '')
+      + (std.length ? '<button type="button" class="btn btn-ghost btn-xs" style="margin-left:auto" onclick="toggleCampExtRows()">' + (_campExt.open ? '접기' : '줄 보기') + '</button>' : '')
+      + '</div>'
+    + (std.length && _campExt.open ? '<div class="admin-table-wrap" style="max-height:360px"><table class="data-table"><thead><tr>'
         + '<th>구분</th><th>상태</th><th>주문 번호</th><th style="text-align:right">구매금액</th><th>영수증</th><th>영수증 날짜</th><th>큐텐 결과물</th><th>큐텐 날짜</th><th>엣코스메 결과물</th><th>엣코스메 날짜</th>'
         + '</tr></thead><tbody>'
         + std.map(function (r) {
@@ -117,6 +120,8 @@ function _renderCampExtBox() {
           }).join('')
         + '</tbody></table></div>' : '');
 }
+
+function toggleCampExtRows() { _campExt.open = !_campExt.open; _renderCampExtBox(); }
 
 // ── 붙이기·업데이트 창 — 리포트 붙이기와 같은 파일 읽기 ──
 var _campExtForm = null;   // {sourceId, extNo, extName, fileName, parsed, busy, error}
