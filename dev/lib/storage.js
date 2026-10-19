@@ -2380,8 +2380,17 @@ function deliverableMediaThumbUrl(value) {
 
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
-async function uploadImage(base64Data, fileName, pathPrefix) {
+// 영수증(kind='receipt' — 방문형 현장 사진 포함)을 올릴 통(작업표 2026-10-19 조각 7 · 결정 D1 — 리뷰 인증샷은 공개 통 그대로).
+//   🔴 출시 날 걷을 것: 운영에서는 아직 공개 통이다 — 비로그인 공유 리포트(report.html)가 비공개 사진을 못 열어,
+//      공유 화면을 닫기 전에 운영이 비공개 통에 올리면 공유 링크의 새 영수증이 깨진다(의심 3). 출시 날 공유를 닫은 뒤 이 조건을 지운다.
+function receiptUploadBucket() {
+  return (typeof SUPABASE_ENV !== 'undefined' && SUPABASE_ENV === 'production') ? 'campaign-images' : DELIVERABLE_MEDIA_BUCKET;
+}
+
+// opts.bucket — 'deliverable-media'(비공개 통, 548)면 **경로**를 돌려준다(공개 주소가 없다). 생략하면 campaign-images 공개 주소.
+async function uploadImage(base64Data, fileName, pathPrefix, opts) {
   if (!db) return base64Data;
+  var bucket = (opts && opts.bucket) || 'campaign-images';
   // base64 → Blob 변환
   var parts = base64Data.split(',');
   var mime = parts[0].match(/:(.*?);/)[1];
@@ -2395,10 +2404,12 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   // cacheControl: '86400' — 응답 헤더에 cache-control: max-age=86400 부여 → 브라우저 24h 캐시
   //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
-  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
+  var {error} = await db.storage.from(bucket).upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
-  // 폴더별로 썸네일을 한 벌 더 만든다 (표에 없는 폴더는 안 만든다)
-  if (THUMB_WIDTH_BY_PREFIX[prefix]) await _uploadThumbCopy(blob, path, mime, THUMB_WIDTH_BY_PREFIX[prefix]);
+  // 폴더별로 썸네일을 한 벌 더 만든다 (표에 없는 폴더는 안 만든다) — 본체와 같은 통에
+  if (THUMB_WIDTH_BY_PREFIX[prefix]) await _uploadThumbCopy(blob, path, mime, THUMB_WIDTH_BY_PREFIX[prefix], bucket);
+  // 비공개 통은 경로를 저장한다(열 때 서명 — deliverableImgAttrs 등)
+  if (bucket === DELIVERABLE_MEDIA_BUCKET) return path;
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;

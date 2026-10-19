@@ -2577,7 +2577,7 @@ async function _addDraftImageInner() {
   try {
     toast(t('activity.uploading'),'');
     const fileName = `evidence_${currentUser.id}_${Date.now()}.jpg`;
-    const imgUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
+    const imgUrl = await uploadImage(_receiptImgData, fileName, 'receipts', { bucket: receiptUploadBucket() });   // 영수증만 비공개 통(조각 7)
     const id = await insertDraftDeliverable({
       application_id: _activityAppId,
       user_id: currentUser.id,
