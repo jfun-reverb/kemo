@@ -39,7 +39,7 @@ SYNC_GROUPS=(
   "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html,admin-daily-digest.row-action.html"
   "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html,campaign-promo-digest.admin.html"
   "notify-policy-change|policy-change-notice.html"
-  "notify-orient-sheet|orient-sheet-invite.html"
+  "notify-orient-sheet|orient-sheet-invite.html,orient-sheet-invite-brand.html"
   "notify-orient-submitted|orient-submitted-notify.html"
   "notify-brand-daily-digest|brand-daily-digest.html,brand-daily-digest.section.html"
   "notify-admin-invite|admin-invite.html"

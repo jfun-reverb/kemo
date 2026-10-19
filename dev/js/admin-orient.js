@@ -65,7 +65,14 @@ function osSalesBase() {
     ? 'https://sales.globalreverb.com'
     : 'https://sales-dev.globalreverb.com';
 }
-function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
+// [조각 10] 브랜드 계정 판정이 켜진 환경(지금은 개발서버 — storage.js _brandAccountEnabled 한 곳)이면 발급 쪽이 브랜드 페이지 기준으로 바뀐다:
+//   링크 = 브랜드 페이지의 그 시트(로그인 뒤 열린다 — 관리자 화면과 같은 도메인) · 받는 사람 고르는 칸 없음 · 계정 없는 브랜드 경고.
+//   거짓(운영)이면 지금 그대로. 🔴 출시 때 이 판정은 storage.js 한 곳에서 걷는다(사양서 「운영 반영 전 남은 관문」)
+function osBrandAccountMode() { return typeof _brandAccountEnabled === 'function' && _brandAccountEnabled(); }
+function osBuildLink(token, sheetId) {
+  if (sheetId && osBrandAccountMode()) return location.origin + '/brand/?orient=' + encodeURIComponent(sheetId);
+  return osSalesBase() + '/orient?token=' + token;
+}
 
 // 작성 링크의 기한이 지났는가 — 링크를 다시 보내도 되는지(메일 단추)·기한 글자 흐리게 판정용
 function osTokenExpired(s) {
@@ -349,7 +356,7 @@ function osPublishedCampaignCount(s) {
 function osCopyLink(id) {
   const s = _orientSheets.find(x => x.id === id);
   if (!s) return;
-  copyTextToClipboard(osBuildLink(s.token), '작성 링크가 복사되었습니다.');
+  copyTextToClipboard(osBuildLink(s.token, s.id), '작성 링크가 복사되었습니다.');
 }
 
 // 이미 발급된 시트의 발급 결과(링크·수신자·메일 발송) 모달을 다시 연다 — 발급 직후 메일을 못 보내고 닫았을 때 재발송용.
@@ -362,7 +369,7 @@ async function osReopenSendMail(id) {
   document.getElementById('osCreateResult').style.display = '';
   const submitBtn = document.getElementById('osCreateSubmitBtn');
   if (submitBtn) submitBtn.style.display = 'none';
-  document.getElementById('osCreateLink').value = osBuildLink(s.token);
+  document.getElementById('osCreateLink').value = osBuildLink(s.token, s.id);
   document.getElementById('osCreateExpire').textContent = s.token_expires_at ? formatDate(s.token_expires_at) : '';
   const box = document.getElementById('osCreateMailStatus'); if (box) box.innerHTML = '';
   _osLastIssuedId = s.id;
@@ -374,9 +381,11 @@ async function osReopenSendMail(id) {
     box.innerHTML = '<div style="color:var(--muted);font-size:13px">'
       + esc(s.mail_sent_to || '수신자') + '에게 ' + formatDateTime(s.mail_sent_at) + ' 발송함</div>';
   }
-  // 브랜드만 선택 건만 수신자 선택 UI (신청 연결 건은 자동 결정)
-  if (!s.application_id) { osLoadRecipients(s.brand_id); }   // 내부 osOnRecipientChange 가 버튼 상태 갱신
+  // 브랜드만 선택 건만 수신자 선택 UI (신청 연결 건은 자동 결정) · 계정 모드는 받는 사람을 서버가 정한다(고르는 칸 없음)
+  if (!s.application_id && !osBrandAccountMode()) { osLoadRecipients(s.brand_id); }   // 내부 osOnRecipientChange 가 버튼 상태 갱신
   else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
+  osApplyResultMode();
+  osRenderAcctNotice(s.brand_id, 'osResultAcctNotice', true);
   const title = document.getElementById('osCreateTitle'); if (title) title.textContent = '메일 재발송';
   document.getElementById('orientCreateModal').classList.add('open');
 }
@@ -407,6 +416,7 @@ async function osOpenCreate(opts) {
       if (lock) lock.style.display = canFee ? 'none' : '';
     } }
   osOnFormTypeChange();
+  osRenderAcctNotice(null, 'osCreateAcctNotice');   // 지난 발급의 경고가 남지 않게
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
@@ -486,6 +496,7 @@ function osBrandInput() {
   document.getElementById('osCreateBrand').value = '';
   const appSel = document.getElementById('osCreateApp');
   if (appSel) appSel.innerHTML = '<option value="">연결 안 함</option>';
+  osRenderAcctNotice(null, 'osCreateAcctNotice');   // 선택이 풀렸다 — 앞 브랜드의 경고를 지운다
   _osRenderBrandList(document.getElementById('osCreateBrandInput').value);
   document.getElementById('osCreateBrandList').classList.add('open');
 }
@@ -530,6 +541,7 @@ function osSelectBrand(id, opts2) {
   if (input) input.value = b ? (b.name || b.name_ja || b.name_en || '-') : '';
   const list = document.getElementById('osCreateBrandList');
   if (list) list.classList.remove('open');
+  osRenderAcctNotice(id || null, 'osCreateAcctNotice');
   if (!opts2.silent) osOnBrandChange();
 }
 
@@ -576,7 +588,7 @@ async function osSubmitCreate() {
   try {
     const res = await createOrientSheet(brandId, appId, formType, channel || null, recruitFee);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
-    document.getElementById('osCreateLink').value = osBuildLink(res.token);
+    document.getElementById('osCreateLink').value = osBuildLink(res.token, res.id);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
     const onEl = document.getElementById('osCreateOrientNo'); if (onEl) onEl.textContent = res.orient_no || '-';
     document.getElementById('osCreateForm').style.display = 'none';
@@ -586,9 +598,12 @@ async function osSubmitCreate() {
     _osLastIssuedBrandId = brandId;
     _osPendingContact = null;
     _osMailSentTo = null;   // 방금 발급 — 아직 미발송
-    // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동)
-    if (!appId) { osLoadRecipients(brandId); }
+    { const box = document.getElementById('osCreateMailStatus'); if (box) box.innerHTML = ''; }   // 앞 시트의 발송 결과가 남지 않게
+    // 브랜드만 선택한 건만 수신자 선택 UI 노출 (신청 연결 건은 신청 담당자 이메일 자동) · 계정 모드는 고르는 칸 없음
+    if (!appId && !osBrandAccountMode()) { osLoadRecipients(brandId); }
     else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
+    osApplyResultMode();
+    osRenderAcctNotice(brandId, 'osResultAcctNotice', true);
     await osRefreshAfterSheetChange();
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
@@ -610,6 +625,69 @@ function osReasonText(r) {
     recruit_fee_forbidden: '모집비 직접 지정은 캠페인 관리자 이상만 할 수 있습니다. 칸을 비우고 발급해 주세요',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
+}
+
+// ── [조각 10] 브랜드 계정 안내(계정 모드에서만 — osBrandAccountMode) ──
+//   조건 = 그 브랜드에 비밀번호를 정한 연결 계정이 0명(발급 메일 받는 사람과 같은 기준 — 사양서 16-5 8·9번).
+//   갈래는 대표 담당자 계정 줄 상태로: none → ⓐ / mail_pending·mail_sent → ⓑ~ⓓ(공용 문구). 발급은 막지 않는다.
+//   🔴 조회 실패(null)를 「계정 없음」으로 그리지 않는다 — 「확인하지 못했습니다」.
+//   result=true(발급 결과 화면)면 경고가 없을 때 「메일 받을 계정 N명」을 보여 준다(받는 사람 칸을 없앤 대신).
+//   문구 정본은 사양서 16-5 8번 — 「담당자·계정 탭」(아직 없는 관리자 화면 묶음 ③)을 지금 화면의 「브랜드 로그인 계정」 줄로 바꿔 적었다(기획 확인 필요)
+let _osAcctNoticeSeq = 0;
+async function osRenderAcctNotice(brandId, elId, result) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const seq = ++_osAcctNoticeSeq;
+  el.innerHTML = '';
+  if (!brandId || !osBrandAccountMode()) return;
+  el.innerHTML = '<div class="os-acct-notice is-muted">브랜드 페이지 계정을 확인하는 중…</div>';
+  let st = null;
+  try { st = await fetchBrandAccountStatus(brandId); } catch (_e) { st = null; }
+  if (seq !== _osAcctNoticeSeq) return;   // 그사이 다른 브랜드를 골랐다 — 버린다
+  if (!st) {
+    el.innerHTML = '<div class="os-acct-notice is-error">브랜드 페이지 계정 상태를 확인하지 못했습니다. 발급은 할 수 있지만 메일을 받을 계정이 있는지 모릅니다.'
+      + ' <button type="button" class="btn btn-ghost btn-xs" onclick="osRenderAcctNotice(\'' + esc(brandId) + '\',\'' + elId + '\',' + (result ? 'true' : 'false') + ')">다시 확인</button></div>';
+    return;
+  }
+  const ready = (Array.isArray(st.members) ? st.members : []).filter(m => m && m.password_set_at && m.email);
+  const goBtn = (label) => (typeof canOpenBrandDetail === 'function' && canOpenBrandDetail())
+    ? ' <button type="button" class="btn btn-ghost btn-xs" onclick="osGoBrandAccount(\'' + esc(brandId) + '\')">' + esc(label) + '</button>' : '';
+  if (!ready.length) {
+    const noAcct = st.status === 'none';
+    const msg = noAcct
+      ? '이 브랜드는 아직 브랜드 페이지 계정이 없어 시트를 작성할 수 없습니다 — 브랜드 상세의 「브랜드 로그인 계정」 줄에서 대표 담당자 계정을 먼저 만들어 주십시오.'
+      : '대표 담당자가 아직 비밀번호를 정하지 않아 시트를 작성할 수 없습니다 — 설정 메일 상태를 확인해 주십시오.';
+    el.innerHTML = '<div class="os-acct-notice is-warn"><span class="material-icons-round notranslate" translate="no">warning</span><div>'
+      + esc(msg) + goBtn(noAcct ? '먼저 계정 만들기' : '설정 메일 상태 확인')
+      + '<div class="os-acct-notice-sub">발급은 할 수 있습니다. 계정이 설정을 마치면 이 시트가 브랜드 페이지 목록에 나타납니다. 받을 계정이 없어 발급 메일은 나가지 않고, 나중에도 다시 보내지 않습니다.</div>'
+      + '</div></div>';
+    return;
+  }
+  // 발급 창은 경고가 없으면 아무것도 안 그린다(「확인하는 중」을 지운다) — 결과 화면만 받을 계정을 보여 준다
+  el.innerHTML = '';
+  if (result) {
+    el.innerHTML = '<div class="os-acct-notice is-muted">메일 받을 브랜드 페이지 계정 ' + ready.length + '명 — '
+      + ready.map(m => esc((m.name ? m.name + ' · ' : '') + m.email)).join(', ') + '</div>';
+  }
+}
+
+// 경고의 단추 — 발급 창을 닫고 브랜드 상세 페이지(「브랜드 로그인 계정」 줄이 있는 곳)로 간다
+function osGoBrandAccount(brandId) {
+  osCloseModal('orientCreateModal');
+  if (typeof openBrandDetail === 'function') openBrandDetail(brandId, 'brands');
+}
+
+// 발급 결과 화면 글자 — 계정 모드면 「링크 전달」 대신 브랜드 페이지 기준 안내(받는 사람은 서버가 정한다)
+function osApplyResultMode() {
+  const on = osBrandAccountMode();
+  const lead = document.getElementById('osCreateResultLead');
+  if (lead) lead.textContent = on
+    ? '발급되었습니다. 브랜드 페이지에 로그인한 그 브랜드의 계정은 오리엔시트 목록에서 이 시트를 볼 수 있습니다.'
+    : '발급되었습니다. 아래 링크를 브랜드에게 전달하세요.';
+  const hint = document.getElementById('osSendMailHint');
+  if (hint) hint.textContent = on
+    ? '메일은 자동 발송되지 않습니다. 「메일 발송」을 누르면 이 브랜드의 브랜드 페이지 계정(비밀번호를 정한 계정) 모두에게 한 통씩 보냅니다.'
+    : '메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.';
 }
 
 function osCopyResultLink() {
@@ -718,6 +796,8 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
   } catch (e) {
     r = { sent: false, error: (e && e.message) || 'unknown' };
   }
+  // [조각 10] 계정 모드 응답 {sent, recipients[], failed[], reason?} — 받는 사람은 서버가 정했다
+  if (r && Array.isArray(r.recipients)) { osShowBrandAccountMailResult(orientSheetId, r, box); return; }
   if (r && r.sent) {
     // 발송 성공 — 일시·수신자 기록(같은 수신자엔 버튼 비활성) + 목록 캐시 즉시 반영
     const sentEmail = (recipient && recipient.email) || r.recipient || '';
@@ -748,6 +828,34 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
     box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
       '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>' + detail;
   }
+}
+
+// [조각 10] 계정 모드 발송 결과. 보낸 주소·못 보낸 주소를 따로 적는다(일부 실패면 둘 다)
+function osShowBrandAccountMailResult(orientSheetId, r, box) {
+  const sent = r.recipients || [];
+  const failed = Array.isArray(r.failed) ? r.failed : [];
+  const list = (arr) => arr.map(e => esc(e)).join(', ');
+  let html = '';
+  if (r.reason === 'no_account') {
+    html = '<div style="color:#B45309;font-weight:600">받을 계정이 없어 보내지 않았습니다.</div>'
+      + '<div style="color:var(--muted);font-size:12px;margin-top:2px">이 브랜드에 비밀번호를 정한 브랜드 페이지 계정이 없습니다. 계정이 설정을 마치면 이 시트가 목록에 나타나고, 메일은 다시 보내지 않습니다.</div>';
+  } else if (sent.length) {
+    const sheet = _orientSheets.find(x => x.id === orientSheetId);
+    const joined = sent.join(', ');
+    _osMailSentTo = joined;
+    if (sheet) { sheet.mail_sent_at = new Date().toISOString(); sheet.mail_sent_to = joined; }
+    html = '<div style="color:var(--green);font-weight:600">메일을 보냈습니다 — ' + sent.length + '명</div>'
+      + '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + list(sent) + '</div>'
+      + (r.advanced ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.</div>' : '');
+    if (failed.length) html += '<div style="color:#C41E3A;font-size:12px;margin-top:6px">보내지 못한 계정 ' + failed.length + '명: ' + list(failed) + '</div>';
+  } else {
+    html = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>'
+      + (failed.length ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">보내지 못한 계정: ' + list(failed) + '</div>' : '')
+      + '<div style="color:var(--muted);font-size:12px;margin-top:2px">잠시 후 다시 시도해 주세요.</div>'
+      + ((r.error || (r.reason && r.reason !== 'send_failed')) ? '<div style="color:var(--muted);font-size:11px;margin-top:4px">사유: ' + esc(String(r.error || r.reason)) + '</div>' : '');
+  }
+  box.innerHTML = html;
+  osUpdateSendBtnState();
 }
 
 // 신규 담당자를 브랜드(brands.contacts)에 저장. asPrimary=true 면 대표로 설정 + legacy primary_* 동기화.
@@ -2298,7 +2406,8 @@ function ensureOrientModals() {
               <input type="text" id="osCreateBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명 검색 후 선택" autocomplete="off" oninput="osBrandInput()" onfocus="osBrandShowList()">
               <input type="hidden" id="osCreateBrand">
               <div class="admin-proxy-combobox-list" id="osCreateBrandList"></div>
-            </div></div>
+            </div>
+            <div id="osCreateAcctNotice"></div></div>
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input" disabled><option value="">연결 안 함</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
@@ -2320,7 +2429,7 @@ function ensureOrientModals() {
             링크 하나에 제품 하나입니다. 브랜드는 제품 정보와 가이드만 적습니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
-          <p style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <p id="osCreateResultLead" style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <p style="margin:0 0 10px;font-size:13px;color:var(--muted)">오리엔시트 번호 <span id="osCreateOrientNo" style="font-weight:800;color:var(--ink)"></span></p>
           <div style="position:relative">
             <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:48px">
@@ -2336,10 +2445,11 @@ function ensureOrientModals() {
               <input id="osNewContactEmail" class="form-input" type="email" placeholder="이메일 주소" autocomplete="off" oninput="osOnRecipientChange()" style="flex:1;min-width:0">
             </div>
           </div>
+          <div id="osResultAcctNotice"></div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" id="osSendMailBtn" class="btn btn-primary btn-sm" onclick="osSendInviteClick(this)"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">mail</span> 메일 발송</button>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.</div>
+          <div id="osSendMailHint" style="font-size:12px;color:var(--muted);margin-top:6px">메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.</div>
           <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
         </div>
       </div>

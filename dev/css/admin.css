@@ -467,6 +467,13 @@ input.admin-filter{padding-right:8px}
 .status-dropdown-item.disabled .badge{filter:grayscale(.7)}
 .status-dropdown-note{padding:8px 10px;font-size:12px;line-height:1.5;color:var(--muted);text-align:center;white-space:nowrap}
 .os-copy-btn{border-radius:0 7px 7px 0;transition:background .12s,color .12s}
+/* [조각 10] 발급 창 브랜드 페이지 계정 안내 — 계정 모드(개발서버)에서만 그려진다(osRenderAcctNotice) */
+.os-acct-notice{margin-top:8px;font-size:12px;line-height:1.6;border-radius:8px;padding:8px 10px}
+.os-acct-notice.is-muted{color:var(--muted);padding:0}
+.os-acct-notice.is-error{color:#C41E3A;background:#FFF0F2}
+.os-acct-notice.is-warn{display:flex;gap:6px;align-items:flex-start;color:#92400E;background:#FFF7E6;border:1px solid #F5D9A8}
+.os-acct-notice.is-warn>.material-icons-round{font-size:16px;margin-top:1px}
+.os-acct-notice-sub{margin-top:4px;color:var(--muted);font-size:11px}
 .os-copy-btn:hover{background:var(--light-pink)}
 .os-copy-btn:hover .material-icons-round{color:var(--pink)}
 .os-copy-btn:active{background:var(--baby-pink)}

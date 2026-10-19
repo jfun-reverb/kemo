@@ -35,12 +35,28 @@
 //   supabase secrets set PUBLIC_SALES_URL=https://sales-dev.globalreverb.com --project-ref qysmxtipobomefudyixw
 //
 // 메일 발송 테스트는 운영에서만 (supabase.md 정책 — 개발은 환경 동기화만).
+//
+// ── 브랜드 계정 받는 사람 규칙 (작업표 docs/specs/2026-10-16-brand-orient-tab-breakdown.md 조각 10 · 사양서 16-5 8·9번) ──
+//   🔴 두 겹 잠금 — ① 비밀값 ORIENT_MAIL_TO_BRAND_ACCOUNTS === "1" **그리고** ② 이 함수가 개발 프로젝트에서 돌 때만 켜진다.
+//      운영에 이 함수가 먼저 배포돼도(다른 이유로 배포하는 순간) 운영 발급 메일이 「받는 사람 없음」이 되지 않게 하려는 것이다
+//      — 운영 데이터베이스에는 브랜드 계정이 없다. 출시 때 ①운영 비밀값을 넣고 ②아래 isStagingProject() 조건을 걷어 운영에 다시 배포한다.
+//   켜지면:
+//     · 받는 사람 = 그 시트 브랜드(활성)에 활성 연결된 계정 중 비밀번호를 정한 계정 전원(대표 먼저). 화면이 넘긴 to_email 은 무시한다
+//       (남기면 받는 사람 고르는 칸을 없앤 것이 서버에서 다시 열린다). 신청서 이메일 갈래도 쓰지 않는다
+//     · 1명당 1통(받는 사람끼리 주소가 안 보이게) · 호칭 「{계정 이름}님」(이름이 비면 「{브랜드명} 담당자님」 — 결정 12)
+//     · 링크 = PUBLIC_BRAND_URL + '/brand/?orient=' + 시트 번호(브랜드 페이지가 로그인 뒤 그 시트를 연다). 양식 orient-sheet-invite-brand
+//     · 결과 {sent, recipients:[보낸 주소], failed:[못 보낸 주소], reason?:'no_account'} — 받을 계정이 0명이면 보내지 않고 no_account
+//     · 기록: 1명 이상 성공이면 mail_sent_at + mail_sent_to = 보낸 주소를 「, 」로 이은 값(일부 실패면 성공분만) · 전원 실패면 기록 안 함
+//     · 1명 이상 성공 + 연결 신청이면 서베이 상태 자동 전진(지금 규칙 그대로)
+//   비밀값: ORIENT_MAIL_TO_BRAND_ACCOUNTS(개발서버에만 "1") · PUBLIC_BRAND_URL(브랜드 계정 메일 함수와 같은 값 — 기본값 없음)
+//     supabase secrets set ORIENT_MAIL_TO_BRAND_ACCOUNTS=1 --project-ref qysmxtipobomefudyixw
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+const STAGING_PROJECT_REF = "qysmxtipobomefudyixw";
 
 // CORS — 이 함수는 관리자 화면(globalreverb.com 등)에서 supabase.functions.invoke 로 직접 호출한다.
 // 다른 도메인(*.supabase.co) 호출이라 브라우저가 사전요청(OPTIONS)+응답 CORS 헤더를 요구.
@@ -74,6 +90,14 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// 🔴 두 겹 잠금(머리말 참고) — 출시 때 isStagingProject() 조건만 걷는다. 비밀값 조건은 남긴다
+function isStagingProject(): boolean {
+  return env("SUPABASE_URL").includes(`://${STAGING_PROJECT_REF}.`);
+}
+function brandAccountRuleEnabled(): boolean {
+  return env("ORIENT_MAIL_TO_BRAND_ACCOUNTS") === "1" && isStagingProject();
 }
 
 // 작성 기한 표기 (ja-JP 와 통일된 한국어 날짜 — YYYY. M. D.)
@@ -157,6 +181,119 @@ async function resolveRecipient(
   return { email, name: name || String(data?.name || "").trim() };
 }
 
+// 받는 사람 = 시트 브랜드에 활성 연결 + 비밀번호를 정한 계정 전원(대표 먼저, 같은 주소는 한 번).
+//   브랜드가 보관 상태면 0명(브랜드 페이지에서도 그 브랜드는 안 보인다 — my_brand_role 530 과 같은 「활성 연결 + 활성 브랜드」).
+async function resolveBrandAccountRecipients(
+  sb: ReturnType<typeof createClient>,
+  brandId: string,
+  brandStatus: string | null,
+): Promise<{ email: string; name: string }[]> {
+  if (brandStatus !== "active") return [];
+  const { data, error } = await sb
+    .from("brand_account_links")
+    .select("role, created_at, brand_accounts(email, name, password_set_at)")
+    .eq("brand_id", brandId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  const rows = (data || []) as Array<Record<string, any>>;
+  rows.sort((a, b) => (a.role === "owner" ? 0 : 1) - (b.role === "owner" ? 0 : 1));
+  const seen = new Set<string>();
+  const out: { email: string; name: string }[] = [];
+  for (const r of rows) {
+    const acct = r.brand_accounts;
+    if (!acct || !acct.password_set_at) continue;
+    const email = String(acct.email || "").trim().toLowerCase();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    out.push({ email, name: String(acct.name || "").trim() });
+  }
+  return out;
+}
+
+// 브랜드 계정 받는 사람 규칙 — 머리말 「브랜드 계정 받는 사람 규칙」. 화면이 넘긴 to_email 은 받지도 않는다
+async function sendToBrandAccounts(
+  sb: ReturnType<typeof createClient>,
+  sheet: Record<string, any>,
+): Promise<Response> {
+  const recipients = await resolveBrandAccountRecipients(sb, sheet.brand_id, sheet.brands?.status ?? null);
+  if (!recipients.length) {
+    // 받을 계정이 없다 — 보내지 않고, 나중에 계정이 설정을 마쳐도 다시 보내지 않는다(16-5 8번). 단계 전진도 없다
+    console.warn("[notify-orient-sheet] no brand account recipient", { orient_sheet_id: sheet.id });
+    return jsonResponse({ sent: false, reason: "no_account", recipients: [], failed: [] }, 200);
+  }
+
+  const brandBase = env("PUBLIC_BRAND_URL").replace(/\/$/, "");
+  if (!/^https:\/\/[^/\s]+$/.test(brandBase)) throw new Error("PUBLIC_BRAND_URL not configured");
+  const link = `${brandBase}/brand/?orient=${sheet.id}`;
+  const brandName = String((sheet.brands?.name) || (sheet.data?.brand?.name) || "").trim() || "브랜드";
+  const deadline = fmtDeadline(sheet.token_expires_at);
+  const subject = `[REVERB JP] 캠페인 오리엔시트 작성 요청 — ${brandName}`;
+  const tpl = TEMPLATES["orient-sheet-invite-brand"].replace(/<!--[\s\S]*?-->/g, "");
+  // 링크는 비밀이 아니다(로그인해야 열린다) — 개발서버 확인용으로 로그에 남긴다(작업표 조각 10 완료 정의)
+  console.log("[notify-orient-sheet] brand account rule", { orient_sheet_id: sheet.id, link, count: recipients.length });
+
+  const sent: string[] = [];
+  const failed: string[] = [];
+  for (const r of recipients) {
+    const greeting = r.name ? `${r.name}님` : `${brandName} 담당자님`;
+    const html = render(tpl, {
+      recipient_name: escapeHtml(greeting),
+      brand_name: escapeHtml(brandName),
+      link: escapeHtml(link),
+      deadline: escapeHtml(deadline),
+    });
+    const text =
+      `${greeting}\n\n` +
+      `${brandName}의 캠페인 오리엔시트가 발급되었습니다.\n` +
+      `브랜드 페이지에 로그인해 제품·콘텐츠 정보를 작성해 주십시오. 작성 중 자동 저장됩니다.\n\n` +
+      `오리엔시트 작성: ${link}\n` +
+      `작성 기한: ${deadline}\n\n` +
+      `[문의]\n` +
+      `· 카카오톡 byhyunho7\n` +
+      `· 연락처 010-2550-1511\n`;
+    try {
+      await sendBrevoEmail({ to: [{ email: r.email, name: r.name || brandName }], subject, htmlContent: html, textContent: text });
+      sent.push(r.email);
+    } catch (e) {
+      // 주소는 로그에 남기지 않는다(응답 failed 에 있다)
+      console.error("[notify-orient-sheet] brand account send failed", { orient_sheet_id: sheet.id, error: (e as Error).message });
+      failed.push(r.email);
+    }
+  }
+
+  if (!sent.length) {
+    // 전원 실패 — 기록·단계 전진 없음
+    return jsonResponse({ sent: false, reason: "send_failed", recipients: [], failed }, 200);
+  }
+
+  const { error: trackErr } = await sb
+    .from("orient_sheets")
+    .update({ mail_sent_at: new Date().toISOString(), mail_sent_to: sent.join(", ") })
+    .eq("id", sheet.id);
+  if (trackErr) console.error("[notify-orient-sheet] mail_sent_at update failed", trackErr.message);
+
+  let advanced = false;
+  let advanceReason: string | null = null;
+  if (sheet.application_id) {
+    const { data: adv, error: advErr } = await sb.rpc("advance_to_orient_sheet_sent", {
+      p_application_id: sheet.application_id,
+    });
+    if (advErr) {
+      console.error("[notify-orient-sheet] advance failed", advErr.message);
+      advanceReason = "rpc_error";
+    } else {
+      advanced = adv?.success === true;
+      advanceReason = adv?.reason ?? null;
+    }
+  }
+
+  return jsonResponse(
+    { sent: true, recipients: sent, failed, recipient: sent.join(", "), advanced, advance_reason: advanceReason },
+    200,
+  );
+}
+
 Deno.serve(async (req: Request) => {
   // CORS 사전요청(preflight) — 브라우저가 실제 POST 전에 OPTIONS 로 허용 여부 확인
   if (req.method === "OPTIONS") {
@@ -202,12 +339,17 @@ Deno.serve(async (req: Request) => {
     // 1) 시트 조회 (브랜드 마스터명 join — 메일 제목·본문 브랜드명을 확실히 채움)
     const { data: sheet, error: sheetErr } = await sb
       .from("orient_sheets")
-      .select("id, token, application_id, brand_id, status, token_expires_at, data, brands(name)")
+      .select("id, token, application_id, brand_id, status, token_expires_at, data, brands(name, status)")
       .eq("id", orient_sheet_id)
       .maybeSingle();
     if (sheetErr) throw sheetErr;
     if (!sheet) {
       return jsonResponse({ sent: false, reason: "sheet_not_found" }, 404);
+    }
+
+    // 1-b) 브랜드 계정 받는 사람 규칙(두 겹 잠금 — 머리말). 켜져 있으면 아래 옛 갈래(화면 주소 우선·신청서 이메일)를 타지 않는다
+    if (brandAccountRuleEnabled()) {
+      return await sendToBrandAccounts(sb, sheet as Record<string, any>);
     }
 
     // 2) 수신자 결정 — 클라가 to_email 명시(브랜드만 선택 발급 시 수신자 선택) 우선, 없으면 기존 자동 결정 폴백

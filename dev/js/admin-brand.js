@@ -1011,7 +1011,7 @@ function ensureBrandAppOrientListModal() {
 function brandAppOrientListRow(s) {
   var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
   var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
-  var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+  var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token, s.id) : '';
   var copyBtn = link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button> ' : '';
   return '<tr style="border-top:1px solid var(--line,#eee)">'
     + '<td style="padding:8px 6px">' + summary + '</td>'
@@ -3164,7 +3164,7 @@ function renderBrandAppOrientSection(a) {
     rows = sheets.map(function (s) {
       var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
       var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
-      var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+      var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token, s.id) : '';
       return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line,#eee)">'
         + stBadge + '<span style="font-size:12px;color:var(--ink)">' + summary + '</span>'
         + '<div style="margin-left:auto;display:flex;gap:6px">'
