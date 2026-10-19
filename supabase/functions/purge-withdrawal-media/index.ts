@@ -72,7 +72,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// 두 통 — 옛 공개 주소는 campaign-images, 비공개 통 경로(548 — 「://」 없음)는 deliverable-media.
+//   🔴 통은 행의 receipt_url 형식으로 가른다(마이그레이션 549 의 storage_path 는 통 안 경로만 준다).
+//      한 통으로 고정하면 다른 통 파일을 「없는 파일 삭제 성공」으로 넘기고 주소 칸만 비워 파일이 영구히 남는다.
 const BUCKET = "campaign-images";
+const PRIVATE_BUCKET = "deliverable-media";
+const bucketOf = (receiptUrl: string | null): string =>
+  (receiptUrl || "").includes("://") ? BUCKET : PRIVATE_BUCKET;
 
 // 한 번에 저장소에 넘기는 경로 개수. 배열이 너무 길면 요청이 거부될 수
 // 있어 나눠 보낸다. 한 묶음이 실패해도 나머지 묶음은 계속 진행한다.
@@ -192,16 +198,18 @@ Deno.serve(async (req: Request) => {
   //
   // 확인에 실패하면 **아무것도 안 하고 끝낸다** — 주소 칸이 그대로 남아
   // 다음 실행이 같은 행을 다시 집는다.
-  const { error: bucketErr } = await sb.storage.getBucket(BUCKET);
-  if (bucketErr) {
-    console.error(
-      `[purge-withdrawal-media] bucket '${BUCKET}' unavailable — aborting before any mark`,
-      bucketErr,
-    );
-    return new Response(
-      JSON.stringify({ ok: false, error: "bucket_unavailable", bucket: BUCKET }),
-      { status: 500, headers: { "content-type": "application/json" } },
-    );
+  for (const b of [BUCKET, PRIVATE_BUCKET]) {
+    const { error: bucketErr } = await sb.storage.getBucket(b);
+    if (bucketErr) {
+      console.error(
+        `[purge-withdrawal-media] bucket '${b}' unavailable — aborting before any mark`,
+        bucketErr,
+      );
+      return new Response(
+        JSON.stringify({ ok: false, error: "bucket_unavailable", bucket: b }),
+        { status: 500, headers: { "content-type": "application/json" } },
+      );
+    }
   }
 
   // ── 1. 대상 조회 ────────────────────────────────────────────────
@@ -244,12 +252,13 @@ Deno.serve(async (req: Request) => {
 
   // ── 3. 저장소에서 실제로 지운다 ─────────────────────────────────
   //   같은 파일을 두 행이 가리키는 경우가 있어 경로는 중복을 없앤 뒤 넘긴다.
+  //   통마다 따로 모은다(열쇠 = 「통\n경로」).
   const pathToIds = new Map<string, string[]>();
   for (const r of toDelete) {
-    const p = r.storage_path as string;
-    const ids = pathToIds.get(p) ?? [];
+    const k = bucketOf(r.receipt_url) + "\n" + (r.storage_path as string);
+    const ids = pathToIds.get(k) ?? [];
     ids.push(r.deliverable_id);
-    pathToIds.set(p, ids);
+    pathToIds.set(k, ids);
   }
 
   const deletedIds: string[] = [];
@@ -272,8 +281,16 @@ Deno.serve(async (req: Request) => {
     return [p, `${folder}/thumb/${rest}`];
   };
 
-  for (const group of chunk([...pathToIds.keys()], DELETE_CHUNK)) {
-    const { error: rmErr } = await sb.storage.from(BUCKET).remove(group.flatMap(withThumbs));
+  const keysByBucket = new Map<string, string[]>();
+  for (const k of pathToIds.keys()) {
+    const b = k.slice(0, k.indexOf("\n"));
+    const list = keysByBucket.get(b) ?? [];
+    list.push(k);
+    keysByBucket.set(b, list);
+  }
+  for (const [bucket, keys] of keysByBucket) for (const group of chunk(keys, DELETE_CHUNK)) {
+    const paths = group.map((k) => k.slice(k.indexOf("\n") + 1));
+    const { error: rmErr } = await sb.storage.from(bucket).remove(paths.flatMap(withThumbs));
     if (rmErr) {
       // 이 묶음은 표시하지 않는다 — 다음 실행이 같은 행을 다시 집는다.
       failedChunks += 1;

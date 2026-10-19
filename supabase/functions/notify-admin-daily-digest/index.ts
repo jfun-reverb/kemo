@@ -636,9 +636,15 @@ function submitContentCellHtml(d: DeliverableInfo | null): string {
   if (!d) return "-";
   if (d.kind === "receipt") {
     const url = safeExternalUrl(d.receipt_url);
+    // 비공개 통 경로(548 — 「://」 없음)는 메일에 열 주소가 없다 → 관리자 결과물 화면 링크(결정 D4, S14).
+    //   옛 공개 주소는 그대로라 업로드 전환(조각 7) 전에는 메일이 바뀌지 않는다.
+    const isPrivatePath = !url && !!(d.receipt_url || "").trim() && !(d.receipt_url || "").includes("://");
+    const adminDelivUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/").replace(/\/$/, "") + "/#deliverables";
     const linkHtml = url
       ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">영수증 이미지 보기</a>`
-      : `<span style="color:#888">이미지 없음</span>`;
+      : isPrivatePath
+        ? `<a href="${escapeHtml(adminDelivUrl)}" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">관리자 화면에서 영수증 보기</a>`
+        : `<span style="color:#888">이미지 없음</span>`;
     const orderNo = (d.order_number || "").trim();
     const purchaseDate = (d.purchase_date || "").trim();
     const amountText = formatYen(d.purchase_amount);

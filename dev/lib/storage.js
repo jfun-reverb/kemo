@@ -498,16 +498,14 @@ async function softDeleteCampaign(campaignId) {
     const msgPaths = Array.isArray(paths.message_attachments)
       ? paths.message_attachments.filter(Boolean)
       : [];
-    // 영수증·인증샷은 전체 주소로 저장돼 있어 버킷 상대 경로로 바꿔야 한다(기존 헬퍼 재사용).
-    const receiptPaths = Array.isArray(paths.receipt_images)
-      ? paths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
-      : [];
+    // 영수증·인증샷 값은 옛 공개 주소 또는 비공개 통 경로(548) — 가리키는 통마다 지운다(_deleteDeliverableMediaFiles).
+    const receiptValues = Array.isArray(paths.receipt_images) ? paths.receipt_images.filter(Boolean) : [];
 
     // 파일 삭제가 실패해도 **캠페인 삭제 자체는 이미 끝났다** — 여기서 예외를 던지면
     //   화면이 「삭제 실패」로 보여 관리자가 다시 누르게 된다(이미 지워진 것을 또 지운다).
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
+      _deleteDeliverableMediaFiles(receiptValues),
     ]);
     return { deletedApplications, storageResult: { msgResult, receiptResult } };
   });
@@ -2273,6 +2271,113 @@ function _thumbPathOf(path) {
   return path.slice(0, slash) + '/thumb/' + rest;
 }
 
+// ── 결과물 사진 서명(마이그레이션 548 · 작업표 2026-10-19 조각 6) ──
+// 비공개 통 경로는 그대로 <img> 에 못 넣는다 — 로그인한 사람(회원 본인·관리자)의 권한으로 임시 주소를 받는다.
+//   옛 공개 주소는 요청 없이 그대로 돌려준다(경로가 하나도 없으면 서명 요청 0번).
+//   보기용(1시간)은 화면 메모리에 보관해 다시 그릴 때 요청하지 않는다. 엑셀(7일)은 보관하지 않는다.
+//   🔴 실패 칸은 null — 화면은 사진을 안 그린다(경로를 주소처럼 내보내지 않는다).
+const DM_VIEW_EXPIRES = 3600;
+const DM_SIGN_CHUNK = 200;
+const _dmSignCache = new Map();   // 경로 → {url, until(ms)}
+async function signDeliverableMedia(values, opts) {
+  const o = opts || {};
+  const expiresIn = o.expiresIn || DM_VIEW_EXPIRES;
+  const thumbs = !!o.thumbs;
+  const useCache = expiresIn === DM_VIEW_EXPIRES;
+  const list = Array.isArray(values) ? values : [];
+  const out = list.map(function () { return null; });
+  const need = [];
+  const now = Date.now();
+  list.forEach(function (v, i) {
+    const ref = deliverableMediaRef(v);
+    if (!ref) return;
+    if (ref.publicUrl) { out[i] = thumbs ? storageThumbUrl(ref.publicUrl) : ref.publicUrl; return; }
+    const p = thumbs ? (_thumbPathOf(ref.path) || ref.path) : ref.path;
+    const c = useCache ? _dmSignCache.get(p) : null;
+    if (c && c.until > now + 5 * 60 * 1000) { out[i] = c.url; return; }
+    need.push({ i: i, path: p });
+  });
+  if (!need.length || !db) return out;
+  const uniq = Array.from(new Set(need.map(function (n) { return n.path; })));
+  const got = new Map();
+  for (let k = 0; k < uniq.length; k += DM_SIGN_CHUNK) {
+    const chunk = uniq.slice(k, k + DM_SIGN_CHUNK);
+    try {
+      const { data, error } = await db.storage.from(DELIVERABLE_MEDIA_BUCKET).createSignedUrls(chunk, expiresIn);
+      if (error) { console.warn('[signDeliverableMedia]', error); continue; }
+      (data || []).forEach(function (u) { if (u && u.path && u.signedUrl && !u.error) got.set(u.path, u.signedUrl); });
+    } catch (e) { console.warn('[signDeliverableMedia]', e); }
+  }
+  need.forEach(function (n) {
+    const u = got.get(n.path);
+    if (!u) return;
+    out[n.i] = u;
+    if (useCache) _dmSignCache.set(n.path, { url: u, until: now + expiresIn * 1000 });
+  });
+  return out;
+}
+// 그리기 전에 부른다 — 원본·썸네일 주소를 보관해 두면 아래 두 함수가 바로 꺼내 쓴다
+async function prefetchDeliverableMedia(values) {
+  const list = (Array.isArray(values) ? values : []).filter(function (v) { const r = deliverableMediaRef(v); return r && r.path; });
+  if (!list.length) return;
+  await Promise.all([signDeliverableMedia(list), signDeliverableMedia(list, { thumbs: true })]);
+}
+// 화면용 원본 주소 — 공개 주소는 그대로, 경로는 보관된 서명 주소(없으면 '')
+function deliverableMediaUrl(value) {
+  const ref = deliverableMediaRef(value);
+  if (!ref) return '';
+  if (ref.publicUrl) return ref.publicUrl;
+  const c = _dmSignCache.get(ref.path);
+  return c ? c.url : '';
+}
+// <img> 속성 — 공개 주소면 썸네일 src + 원본 data-orig / 서명이 보관돼 있으면 그 주소 / 아직이면 data-dm(경로)만.
+//   🔴 data-dm 만 있는 칸은 src 가 없어 아무것도 안 불러온다 — 그린 뒤 hydrateDeliverableMedia(그린 자리) 가 채운다.
+//   크게 보기·새 창 열기는 this.dataset.orig 로(비어 있으면 아무것도 안 한다).
+function deliverableImgAttrs(value) {
+  const ref = deliverableMediaRef(value);
+  if (!ref) return '';
+  if (ref.publicUrl) return 'src="' + esc(storageThumbUrl(ref.publicUrl)) + '" data-orig="' + esc(ref.publicUrl) + '"';
+  const o = deliverableMediaUrl(value);
+  if (o) return 'src="' + esc(deliverableMediaThumbUrl(value) || o) + '" data-orig="' + esc(o) + '"';
+  return 'data-dm="' + esc(ref.path) + '"';
+}
+// 그린 자리 안의 data-dm 사진을 한 번에 서명해 채운다(실패한 칸은 빈 채로 둔다 — 경로를 주소처럼 넣지 않는다)
+async function hydrateDeliverableMedia(root) {
+  const el = root || document;
+  if (!el || !el.querySelectorAll) return;
+  const imgs = Array.from(el.querySelectorAll('img[data-dm]'));
+  if (!imgs.length) return;
+  await prefetchDeliverableMedia(imgs.map(function (i) { return i.getAttribute('data-dm'); }));
+  imgs.forEach(function (img) {
+    const p = img.getAttribute('data-dm');
+    const o = deliverableMediaUrl(p);
+    if (!o) return;
+    img.dataset.orig = o;
+    img.removeAttribute('data-dm');
+    img.src = deliverableMediaThumbUrl(p) || o;
+  });
+}
+// 누를 때 서명해 크게 보기 — 리포트 표처럼 그릴 때 서명하지 않는 자리용(관리자 화면)
+async function openDeliverableMediaLightbox(value, title) {
+  const u = (await signDeliverableMedia([value]))[0];
+  if (!u) { toast('사진을 불러오지 못했습니다', 'error'); return; }
+  openImageLightbox(u, title);
+}
+async function openDeliverableMediaGallery(values, index, title) {
+  const urls = (await signDeliverableMedia(values)).filter(Boolean);
+  if (!urls.length) { toast('사진을 불러오지 못했습니다', 'error'); return; }
+  openImageGallery(urls, Math.min(index || 0, urls.length - 1), title);
+}
+// 화면용 썸네일 주소 — 경로는 썸네일 서명 → 없으면 원본 서명(옛 파일·썸네일 실패)
+function deliverableMediaThumbUrl(value) {
+  const ref = deliverableMediaRef(value);
+  if (!ref) return '';
+  if (ref.publicUrl) return storageThumbUrl(ref.publicUrl);
+  const t = _thumbPathOf(ref.path);
+  const c = (t && _dmSignCache.get(t)) || _dmSignCache.get(ref.path);
+  return c ? c.url : '';
+}
+
 
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName, pathPrefix) {
@@ -2497,9 +2602,8 @@ async function countPendingApplications(campaignId) {
 //   이 다섯 번째 경로만 원본만 지워, 참조가 없어 나중에 찾아 지울 수도 없는 사본이 남았다.
 async function deleteCampImages(urls) {
   if (!db || !Array.isArray(urls) || !urls.length) return {ok: true, failedPaths: []};
-  const paths = urls.map(_receiptUrlToStoragePath).filter(Boolean);
-  if (!paths.length) return {ok: true, failedPaths: []};
-  return await _deleteStorageFiles('campaign-images', _withThumbPaths(paths));
+  // 캠페인 사진은 공개 통 주소뿐 — 공용 변환이 {bucket,path} 를 돌려주므로 그 통에서 지운다
+  return await _deleteDeliverableMediaFiles(urls.filter(function (u) { return u && String(u).indexOf('://') !== -1; }));
 }
 
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
@@ -5667,17 +5771,39 @@ async function resolveClientError(id, status, note) {
 //     '/storage/v1/object/public/campaign-images/' 접두사를 제거해 상대 경로를 추출한다.
 //     변환 실패 시(접두사 불일치 등) 그 파일만 건너뛰고 나머지는 계속 처리.
 
-// Supabase 공개 URL → campaign-images 버킷 상대 경로 변환 헬퍼
+// 결과물 사진 값 → {bucket, path} (두 형식 — 마이그레이션 548 · 작업표 2026-10-19 조각 6)
 // 예: 'https://xxx.supabase.co/storage/v1/object/public/campaign-images/receipts/abc.jpg'
-//     → 'receipts/abc.jpg'
+//     → {bucket:'campaign-images', path:'receipts/abc.jpg'}
+//     'receipts/abc.jpg'(비공개 통 경로) → {bucket:'deliverable-media', path:'receipts/abc.jpg'}
 // 변환 불가(형식 불일치)면 null 반환.
+// 🔴 지우는 쪽은 반드시 돌려받은 bucket 에서 지운다 — 통을 고정하면 비공개 통 파일을 「없는 파일 삭제 성공」으로
+//    넘기고 개인정보가 영구히 남는다(작업표 의심 2①).
 function _receiptUrlToStoragePath(url) {
-  if (!url || typeof url !== 'string') return null;
+  const ref = deliverableMediaRef(url);
+  if (!ref) return null;
+  if (ref.path) return { bucket: ref.bucket, path: ref.path };
   const MARKER = '/storage/v1/object/public/campaign-images/';
-  const idx = url.indexOf(MARKER);
+  const idx = ref.publicUrl.indexOf(MARKER);
   if (idx === -1) return null;
-  const path = url.slice(idx + MARKER.length);
-  return path || null;
+  const path = ref.publicUrl.slice(idx + MARKER.length);
+  return path ? { bucket: 'campaign-images', path } : null;
+}
+
+// 결과물 사진 값 여러 개를 **가리키는 통마다** 썸네일과 함께 지운다. 반환 {ok, failedPaths}(_deleteStorageFiles 와 같은 모양)
+async function _deleteDeliverableMediaFiles(values) {
+  const byBucket = {};
+  (Array.isArray(values) ? values : []).forEach(function (v) {
+    const r = _receiptUrlToStoragePath(v);
+    if (!r) return;
+    (byBucket[r.bucket] = byBucket[r.bucket] || []).push(r.path);
+  });
+  const buckets = Object.keys(byBucket);
+  if (!buckets.length) return { ok: true, failedPaths: [] };
+  const results = [];
+  for (const b of buckets) results.push(await _deleteStorageFiles(b, _withThumbPaths(byBucket[b])));
+  const failedPaths = [];
+  results.forEach(function (r) { (r.failedPaths || []).forEach(function (p) { failedPaths.push(p); }); });
+  return { ok: failedPaths.length === 0, failedPaths };
 }
 
 // 지울 경로 목록에 **그 파일의 썸네일 경로를 함께** 넣는다.
@@ -5765,14 +5891,12 @@ async function purgeAuditDataAll() {
       ? storagePaths.message_attachments.filter(Boolean)
       : [];
 
-    // 영수증: 전체 URL → 버킷 상대 경로 변환 (변환 불가 항목 제외)
-    const receiptPaths = Array.isArray(storagePaths.receipt_images)
-      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
-      : [];
+    // 영수증: 옛 공개 주소 또는 비공개 통 경로 — 가리키는 통마다 지운다(_deleteDeliverableMediaFiles)
+    const receiptValues = Array.isArray(storagePaths.receipt_images) ? storagePaths.receipt_images.filter(Boolean) : [];
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
+      _deleteDeliverableMediaFiles(receiptValues),
     ]);
 
     return {
@@ -5803,13 +5927,12 @@ async function purgeAuditDataForCampaign(campaignId) {
       ? storagePaths.message_attachments.filter(Boolean)
       : [];
 
-    const receiptPaths = Array.isArray(storagePaths.receipt_images)
-      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
-      : [];
+    // 영수증: 옛 공개 주소 또는 비공개 통 경로 — 가리키는 통마다 지운다(_deleteDeliverableMediaFiles)
+    const receiptValues = Array.isArray(storagePaths.receipt_images) ? storagePaths.receipt_images.filter(Boolean) : [];
 
     const [msgResult, receiptResult] = await Promise.all([
       _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
-      _deleteStorageFiles('campaign-images', _withThumbPaths(receiptPaths)),
+      _deleteDeliverableMediaFiles(receiptValues),
     ]);
 
     return {

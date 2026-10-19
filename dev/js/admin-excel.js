@@ -558,6 +558,29 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
 
 // 캠페인 다중 선택 결과물 엑셀 — 시트1 캠페인 정보 + 시트2 통합 결과물 리스트 (이미지 임베드 생략, URL만)
 //   idsOverride: 인자로 직접 ids 배열 받기 가능 (단일 캠페인 더보기 메뉴 호출용)
+// ── 결과물 사진 주소(마이그레이션 548 · 작업표 2026-10-19 조각 6) ──
+//   옛 공개 주소는 그대로, 비공개 통 경로는 7일 임시 주소로 바꿔 링크·이미지에 쓴다(엑셀 영수증 링크 7일 — 사양서 「영수증 사진 비공개 이전」 ②).
+//   내보내기 함수 맨 앞에서 _excelPrepareMediaLinks(결과물 목록) 를 한 번 부른다. 못 받은 칸은 '' — 빈칸으로 나간다.
+var _excelMediaLinks = {};
+var EXCEL_MEDIA_LINK_EXPIRES = 7 * 24 * 60 * 60;
+async function _excelPrepareMediaLinks(delivs) {
+  var vals = [];
+  (delivs || []).forEach(function(d){
+    var v = d && d.receipt_url;
+    var ref = deliverableMediaRef(v);
+    if (ref && ref.path && !_excelMediaLinks[v]) vals.push(v);
+  });
+  if (!vals.length) return;
+  var urls = await signDeliverableMedia(vals, { expiresIn: EXCEL_MEDIA_LINK_EXPIRES });
+  vals.forEach(function(v, i){ if (urls[i]) _excelMediaLinks[v] = urls[i]; });
+}
+function _excelMediaLink(value) {
+  var ref = deliverableMediaRef(value);
+  if (!ref) return '';
+  if (ref.publicUrl) return ref.publicUrl;
+  return _excelMediaLinks[value] || '';
+}
+
 async function exportSelectedCampaignsDeliverables(idsOverride) {
   if (!_checkExportAllowed()) return;
   var ids = (Array.isArray(idsOverride) && idsOverride.length > 0) ? idsOverride : Array.from(_selectedCampIds);
@@ -605,17 +628,14 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       if (allDelivs.length === 0) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
     }
 
+    await _excelPrepareMediaLinks(allDelivs);
     // 영수증·리뷰 이미지 Image→Canvas→JPEG 재인코딩 (CORS·포맷 호환성)
     var imgBuffers = {};
     await Promise.all(allDelivs.filter(function(d){
       return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
     }).map(async function(d) {
       try {
-        var url = d.receipt_url;
-        if (url && !/^https?:\/\//.test(url) && db?.storage) {
-          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
-          url = sig?.data?.signedUrl;
-        }
+        var url = _excelMediaLink(d.receipt_url);   // 공개 주소 그대로 · 비공개 통 경로는 미리 받은 임시 주소(548)
         if (!url) return;
         var result = await imgToJpegArrayBuffer(url, 400, 400);
         if (result && result.buffer && result.buffer.byteLength > 0) {
@@ -770,10 +790,8 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         }
         if (postUrl) urlCellValue = {text: postUrl, hyperlink: postUrl};
       } else if ((d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url) {
-        var imgUrl = /^https?:\/\//.test(d.receipt_url)
-          ? d.receipt_url
-          : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-        urlCellValue = {text: imgUrl, hyperlink: imgUrl};
+        var imgUrl = _excelMediaLink(d.receipt_url);
+        urlCellValue = imgUrl ? {text: imgUrl, hyperlink: imgUrl} : '';
       }
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
@@ -1075,6 +1093,7 @@ async function exportCampaignDeliverables(campId) {
       if (!delivs.length && !approvedApps.length) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
     }
 
+    await _excelPrepareMediaLinks(delivs);   // 비공개 통 영수증 임시 주소(548) — 아래 두 갈래 모두 쓴다
     // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
     //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
     var campChannels = (camp.recruit_type === 'monitor')
@@ -1092,11 +1111,7 @@ async function exportCampaignDeliverables(campId) {
       return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
     }).map(async function(d) {
       try {
-        var url = d.receipt_url;
-        if (url && !/^https?:\/\//.test(url) && db?.storage) {
-          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
-          url = sig?.data?.signedUrl;
-        }
+        var url = _excelMediaLink(d.receipt_url);   // 공개 주소 그대로 · 비공개 통 경로는 미리 받은 임시 주소(548)
         if (!url) return;
         var result = await imgToJpegArrayBuffer(url, 400, 400);
         if (result && result.buffer && result.buffer.byteLength > 0) {
@@ -1225,10 +1240,8 @@ async function exportCampaignDeliverables(campId) {
         }
         if (postUrl) urlCellValue = {text: postUrl, hyperlink: postUrl};
       } else if ((d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url) {
-        var imgUrl = /^https?:\/\//.test(d.receipt_url)
-          ? d.receipt_url
-          : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-        urlCellValue = {text: imgUrl, hyperlink: imgUrl};
+        var imgUrl = _excelMediaLink(d.receipt_url);
+        urlCellValue = imgUrl ? {text: imgUrl, hyperlink: imgUrl} : '';
       }
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
@@ -1353,6 +1366,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   var externalImgBuffers = opts.imgBuffers || null;
   var skipDownload = !!opts.skipDownload || !!externalWb;
   var approvedApps = opts.approvedApps || null;  // 미제출(결과물 0건) 신청 빈 행 포함용 (단일 엑셀 전체 로드)
+  await _excelPrepareMediaLinks(delivs);   // 이미 받은 값은 다시 받지 않는다
   // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) — 외부 전달 시 재사용 ─
   var imgBuffers = externalImgBuffers || {};
   if (!externalImgBuffers) {
@@ -1360,11 +1374,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
     }).map(async function(d) {
       try {
-        var url = d.receipt_url;
-        if (url && !/^https?:\/\//.test(url) && db?.storage) {
-          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
-          url = sig?.data?.signedUrl;
-        }
+        var url = _excelMediaLink(d.receipt_url);   // 공개 주소 그대로 · 비공개 통 경로는 미리 받은 임시 주소(548)
         if (!url) return;
         var result = await imgToJpegArrayBuffer(url, 400, 400);
         if (result && result.buffer && result.buffer.byteLength > 0) imgBuffers[d.id] = result;
@@ -1502,10 +1512,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
-      var iu = /^https?:\/\//.test(d.receipt_url)
-        ? d.receipt_url
-        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-      urlVal = {text:iu, hyperlink:iu};
+      var iu = _excelMediaLink(d.receipt_url);
+      urlVal = iu ? {text:iu, hyperlink:iu} : '';
     }
     return ['리뷰 이미지', sub, rev, st, '', urlVal];
   };
@@ -1712,9 +1720,8 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     var st = statusLabelMap[d.status] || d.status || '';
     var urlVal = '';
     if (d.receipt_url) {
-      var iu = /^https?:\/\//.test(d.receipt_url) ? d.receipt_url
-        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-      urlVal = {text:iu, hyperlink:iu};
+      var iu = _excelMediaLink(d.receipt_url);
+      urlVal = iu ? {text:iu, hyperlink:iu} : '';
     }
     return ['리뷰 이미지', sub, rev, st, '', urlVal];
   };
