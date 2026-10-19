@@ -1188,6 +1188,10 @@ a.bo-state-btn { display: inline-flex; align-items: center; justify-content: cen
 .bc-result-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--b-ink); }
 .bc-result-desc { margin: 6px 0 0; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
 
+/* 좁은 PC 화면(좌측 메뉴 240 + 본문) — 숫자 카드 넷이 한 줄에 찌그러지지 않게 두 줄로 */
+@media (max-width: 1100px) {
+  .bc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 600px) {
   .bc-detail { gap: 20px; }
   .bc-detail-title h1 { font-size: 20px; }
@@ -7992,6 +7996,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792381697 -->
+<!-- v1792381950 -->
 </body>
 </html>
