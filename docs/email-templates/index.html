@@ -208,6 +208,27 @@
     </div>
   </div>
 
+  <!-- ⑤-2b 오리엔시트 작성 요청 — 브랜드 계정 (조각 10, 개발서버만) -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">오리엔시트 작성 요청 (브랜드 계정)</div>
+    <div class="card-desc">브랜드 페이지 출시 뒤의 발급 메일. 그 브랜드의 브랜드 페이지 계정 전원에게 1명당 1통 — 링크는 브랜드 페이지의 그 시트.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자가 오리엔시트를 발급한 뒤 결과 화면에서 「메일 발송」을 누르면, 그 브랜드에 연결된 계정 중 비밀번호를 정한 사람 모두에게 따로 한 통씩 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 「메일 발송」을 누를 때 (받을 계정이 없으면 보내지 않고 나중에도 다시 보내지 않음) · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-orient-sheet invoke (ORIENT_MAIL_TO_BRAND_ACCOUNTS=1 + 개발 프로젝트)</div>
+      <div><b>수신자:</b> 시트 브랜드의 활성 연결 + 비밀번호를 정한 계정 전원</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="orient-sheet-invite-brand.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=orient-sheet-invite-brand.html">원본</a>
+    </div>
+  </div>
+
   <!-- ⑥ 결과물 — 영수증 승인 -->
   <div class="card">
     <div class="card-tag tag-infl">Influencer</div>

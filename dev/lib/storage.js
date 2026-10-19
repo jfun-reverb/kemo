@@ -6060,8 +6060,10 @@ async function fetchPublicMetaPixelId() {
 async function sendOrientInviteMail(orientSheetId, recipient) {
   if (!db) return { sent: false, reason: 'no_db' };
   // recipient(선택) 가 있으면 수신자 명시 — 없으면 Edge Function 이 자동 결정(서베이 연결 건 등)
+  // [조각 10] 브랜드 계정 판정이 켜진 환경은 받는 사람 주소를 보내지 않는다 — 서버가 그 브랜드의 계정 전원으로 정한다
+  //   (서버도 그 갈래에선 to_email 을 무시하지만, 화면이 보내지 않는 것이 계약이다)
   const body = { orient_sheet_id: orientSheetId };
-  if (recipient && recipient.email) {
+  if (recipient && recipient.email && !_brandAccountEnabled()) {
     body.to_email = recipient.email;
     if (recipient.name) body.to_name = recipient.name;
   }
