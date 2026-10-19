@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792394236';
+  var CURRENT_BUILD = 'v1792394310';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3368,7 +3368,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-19 16:17 · cd3533f</span>
+          <span class="admin-build-text">2026-10-19 16:18 · 9cec612</span>
         </div>
       </div>
     </aside>
@@ -56624,7 +56624,8 @@ async function openBrandPublishModal(campaignId) {
   const order = [], byGrp = {};
   cols.forEach(function (c) { const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
   const srcLabel = data.default_source === 'brand' ? '이 브랜드의 기본 열' : '전체 기본 열';
-  const noDefault = firstTime && !Array.isArray(data.default_spec);
+  // 기본 열이 없거나(아직 안 정함) 빈 목록이면 체크가 하나도 없다 — 안내를 띄운다(개발서버 실측: 처음 값이 [])
+  const noDefault = firstTime && !(Array.isArray(data.default_spec) && data.default_spec.length);
   body.innerHTML = `
     <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:${canEdit ? 'pointer' : 'default'}">
       <input type="checkbox" id="brandPublishEnabled" ${data.enabled ? 'checked' : ''} ${canEdit ? '' : 'disabled'} style="width:18px;height:18px">

@@ -98,7 +98,8 @@ async function openBrandPublishModal(campaignId) {
   const order = [], byGrp = {};
   cols.forEach(function (c) { const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
   const srcLabel = data.default_source === 'brand' ? '이 브랜드의 기본 열' : '전체 기본 열';
-  const noDefault = firstTime && !Array.isArray(data.default_spec);
+  // 기본 열이 없거나(아직 안 정함) 빈 목록이면 체크가 하나도 없다 — 안내를 띄운다(개발서버 실측: 처음 값이 [])
+  const noDefault = firstTime && !(Array.isArray(data.default_spec) && data.default_spec.length);
   body.innerHTML = `
     <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:${canEdit ? 'pointer' : 'default'}">
       <input type="checkbox" id="brandPublishEnabled" ${data.enabled ? 'checked' : ''} ${canEdit ? '' : 'disabled'} style="width:18px;height:18px">
