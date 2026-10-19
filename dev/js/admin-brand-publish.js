@@ -173,3 +173,111 @@ async function saveBrandPublishModal() {
     if (btn) btn.disabled = false;
   }
 }
+
+// ════════════════════════════════════════════════════════════════════
+// 브랜드 공개 기본 열(조각 11) — 기준 데이터 「브랜드 공개 기본 열」 탭(전체) · 관리자 브랜드 상세 칸(이 브랜드만)
+//   값 형식은 report-rows.js 「브랜드 공개 기본 열」 주석 — 늘 있는 열은 열쇠 그대로, 생기고 빠지는 채널 열은 종류 열쇠(REPORT_KIND_KEYS)
+//   🔴 권한 report.share 쓰기가 아니면 **읽기 전용**(숨김 등급도 읽기 전용 — 사양서 §4 ③ · 16-4 의 의도된 예외, 조각 9 의 단추 숨김과 다르다)
+//   🔴 브랜드 칸은 자기 저장 단추·자기 함수로만 저장한다 — saveBrandDetail(폼 통째 저장)에 넣지 않는다
+//   ⚠️ 바꿔도 이미 공개를 켠 캠페인은 안 바뀐다(캠페인마다 저장한 열을 쓴다)
+// ════════════════════════════════════════════════════════════════════
+const BP_KIND_LABEL = { 'ch_*_acct': '계정 (인스타그램·틱톡·X·유튜브)', 'ch_*_url': '결과물 (URL)', 'ch_*_at': '업로드 날짜' };
+function brandPublishDefaultPickerHtml(prefix, spec, editable) {
+  const on = Array.isArray(spec) ? spec : [];
+  const groups = [], byGrp = {};
+  REPORT_COLS.forEach(function (c) {
+    if (c.key === 'account_id') return;
+    const g = c.grp || '기본';
+    if (!byGrp[g]) { byGrp[g] = []; groups.push(g); }
+    byGrp[g].push({ key: c.key, label: c.pick || c.label });
+  });
+  const others = REPORT_CHANNELS.filter(function (ch) { return !ch.always; }).map(function (ch) { return ch.label; }).concat(['기타']).join('·');
+  const gOther = '그 밖의 채널 (' + others + ')';
+  groups.push(gOther);
+  byGrp[gOther] = REPORT_KIND_KEYS.map(function (k) { return { key: k, label: BP_KIND_LABEL[k] || k }; });
+  return groups.map(function (g, gi) {
+    const sep = gi === 0 ? '' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return '<div style="' + sep + '"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">' + esc(g) + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">'
+      + byGrp[g].map(function (it) {
+          return '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="' + esc(prefix) + 'Col" value="' + esc(it.key) + '"'
+            + (on.indexOf(it.key) !== -1 ? ' checked' : '') + (editable ? '' : ' disabled') + '> ' + esc(it.label) + '</label>';
+        }).join('')
+      + '</div>'
+      + (g === gOther ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">캠페인에 그 채널이 있을 때 그 채널 열 모두에 적용됩니다. 「계정」은 회원이 등록한 SNS 계정 주소이고 로그인 이메일(계정 ID)과 다릅니다.</div>' : '')
+      + '</div>';
+  }).join('');
+}
+function brandPublishDefaultPickerValue(prefix) {
+  return [...document.querySelectorAll('.' + prefix + 'Col')].filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
+}
+function _bpCanEditDefaults() { return (typeof canWrite === 'function') && canWrite('report.share'); }
+
+// ── 기준 데이터 탭(전체 기본값) ──
+async function renderBrandPublishDefaultTable() {
+  const tbody = $('lookupsTableBody'); const thead = $('lookupTableHead'); const title = $('lookupTableTitle');
+  const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = 'none';
+  if (title) title.textContent = '브랜드 공개 기본 열';
+  if (thead) thead.innerHTML = '';
+  const wrap = function (inner) { return '<tr><td colspan="7" style="padding:0">' + inner + '</td></tr>'; };
+  tbody.innerHTML = wrap('<div style="text-align:center;padding:24px"><span class="spinner"></span></div>');
+  const d = await fetchBrandPublishDefaults(null);
+  if (!d) { tbody.innerHTML = wrap('<div style="text-align:center;color:var(--red);padding:24px">기본 열을 불러오지 못했습니다. 새로고침해 주세요.</div>'); return; }
+  const editable = _bpCanEditDefaults();
+  tbody.innerHTML = wrap('<div style="padding:18px 20px;max-width:760px">'
+    + '<p style="margin:0 0 12px;font-size:12.5px;color:var(--muted);line-height:1.6">캠페인에서 「브랜드 공개」를 <strong>처음 켤 때</strong> 미리 체크되는 열입니다. 브랜드별로 따로 정하지 않은 브랜드는 이 값을 따릅니다.<br>바꿔도 <strong>이미 공개를 켠 캠페인은 바뀌지 않습니다</strong>(캠페인마다 저장한 열을 씁니다). 계정 ID(로그인 이메일)는 고를 수 없습니다.</p>'
+    + brandPublishDefaultPickerHtml('bpGlobal', d.global_spec, editable)
+    + '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
+      + (editable ? '<button type="button" class="btn btn-primary btn-sm" id="bpGlobalSaveBtn" onclick="saveBrandPublishDefaultGlobalFromTab()">저장</button>'
+                  : '<span style="font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</span>')
+    + '</div></div>');
+}
+async function saveBrandPublishDefaultGlobalFromTab() {
+  const btn = $('bpGlobalSaveBtn'); if (btn) btn.disabled = true;
+  try {
+    await saveBrandPublishDefaultGlobal(brandPublishDefaultPickerValue('bpGlobal'));
+    toast('전체 기본 열을 저장했습니다');
+    await renderBrandPublishDefaultTable();
+  } catch (e) {
+    toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── 관리자 브랜드 상세 칸(이 브랜드만) — 본문을 그린 뒤 따로 받는다 ──
+async function renderBrandPublishDefaultBox(brandId) {
+  const box = document.getElementById('brandPublishDefaultBox');
+  if (!box || !brandId) return;
+  const d = await fetchBrandPublishDefaults(brandId);
+  if (document.getElementById('brandPublishDefaultBox') !== box || _brandsCurrentId !== brandId) return;   // 그사이 다른 브랜드
+  if (!d) { box.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>'; return; }
+  const editable = _bpCanEditDefaults();
+  const own = Array.isArray(d.brand_spec);
+  box.innerHTML = '<div style="display:flex;gap:16px;font-size:13px;margin-bottom:10px">'
+      + '<label style="display:flex;align-items:center;gap:6px"><input type="radio" name="bpBrandMode" value="global"' + (own ? '' : ' checked') + (editable ? '' : ' disabled') + ' onchange="toggleBrandPublishDefaultMode()"> 전체 기본값 따르기</label>'
+      + '<label style="display:flex;align-items:center;gap:6px"><input type="radio" name="bpBrandMode" value="own"' + (own ? ' checked' : '') + (editable ? '' : ' disabled') + ' onchange="toggleBrandPublishDefaultMode()"> 이 브랜드만 따로 정하기</label>'
+    + '</div>'
+    + '<div id="bpBrandPicker" style="' + (own ? '' : 'opacity:.55;pointer-events:none') + '">'
+      + brandPublishDefaultPickerHtml('bpBrand', own ? d.brand_spec : d.global_spec, editable)
+    + '</div>'
+    + '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크됩니다. 바꿔도 이미 공개를 켠 캠페인은 바뀌지 않습니다. 이 칸은 아래 「저장」으로만 저장됩니다(브랜드 정보 저장과 따로).</div>'
+    + (editable ? '<div style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="bpBrandSaveBtn" onclick="saveBrandPublishDefaultFromDetail(\'' + esc(brandId) + '\')">기본 열 저장</button></div>'
+                : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>');
+}
+function toggleBrandPublishDefaultMode() {
+  const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
+  const p = document.getElementById('bpBrandPicker');
+  if (p) p.style.cssText = own ? '' : 'opacity:.55;pointer-events:none';
+}
+async function saveBrandPublishDefaultFromDetail(brandId) {
+  const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
+  const btn = document.getElementById('bpBrandSaveBtn'); if (btn) btn.disabled = true;
+  try {
+    await saveBrandPublishDefaultBrand(brandId, own ? brandPublishDefaultPickerValue('bpBrand') : null);
+    toast(own ? '이 브랜드의 기본 열을 저장했습니다' : '전체 기본값을 따르도록 저장했습니다');
+    await renderBrandPublishDefaultBox(brandId);
+  } catch (e) {
+    toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
+    if (btn) btn.disabled = false;
+  }
+}

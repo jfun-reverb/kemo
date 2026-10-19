@@ -1255,6 +1255,7 @@ async function openBrandDetail(id, from) {
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
   renderBrandAccountRow(id);   // 계정 줄만 따로 받는다(본문은 기다리지 않는다)
+  if (typeof renderBrandPublishDefaultBox === 'function') renderBrandPublishDefaultBox(id);   // 조각 11 — 따로 받는다
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
   // 🔴 삭제 판정은 **두 단계**다. ㉠셋(시트·서베이·캠페인) 중 하나라도 조회 실패면 **버튼을 아예 안 그리고**
@@ -1839,6 +1840,10 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'
       )
+    // § 브랜드 공개 기본 열(조각 11, Figma 1차 a03-00d) — 자기 저장 단추. 개발서버·기존 브랜드만(새 브랜드는 아직 없다)
+    + ((b && b.id && typeof _brandAccountEnabled === 'function' && _brandAccountEnabled())
+        ? section('브랜드 공개 기본 열', '', '<div id="brandPublishDefaultBox"><div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div></div>')
+        : '')
     // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
     //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
     //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.

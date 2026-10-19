@@ -10235,6 +10235,32 @@ async function fetchCampaignBrandPublish(campaignId) {
     return (data && typeof data === 'object') ? data : null;
   } catch (e) { console.error('[fetchCampaignBrandPublish]', e); return null; }
 }
+// 기본 열(조각 11) — {global_spec, brand_spec(따로 정하지 않았으면 null)} · 실패 null
+async function fetchBrandPublishDefaults(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_publish_defaults', { p_brand_id: brandId || null });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchBrandPublishDefaults]', e); return null; }
+}
+// 전체 기본값 저장(배열) · 브랜드 기본값 저장(배열, null = 「전체 기본값 따르기」) — 권한·형식 오류는 던진다
+async function saveBrandPublishDefaultGlobal(spec) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('브랜드 공개는 아직 개발서버에서만 쓸 수 있습니다');
+  await retryWithRefresh(async () => {
+    const { error } = await db.rpc('admin_set_brand_publish_default_global', { p_spec: spec });
+    if (error) throw error;
+  });
+}
+async function saveBrandPublishDefaultBrand(brandId, spec) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('브랜드 공개는 아직 개발서버에서만 쓸 수 있습니다');
+  await retryWithRefresh(async () => {
+    const { error } = await db.rpc('admin_set_brand_publish_default_brand', { p_brand_id: brandId, p_spec: spec });
+    if (error) throw error;
+  });
+}
 // 여러 캠페인의 공개 여부 → {캠페인id: true|false} · 🔴 실패는 null(배지·필터를 그리지 않는다 — 「꺼짐」으로 그리지 않는다)
 async function fetchBrandPublishStates(campaignIds) {
   if (!db || !_brandAccountEnabled()) return null;

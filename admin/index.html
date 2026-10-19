@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792394599';
+  var CURRENT_BUILD = 'v1792396542';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3368,7 +3368,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-19 16:23 · dcd850a</span>
+          <span class="admin-build-text">2026-10-19 16:55 · a484919</span>
         </div>
       </div>
     </aside>
@@ -6000,6 +6000,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
               <!-- 견적 기준값(426) — 카드를 더 넣지 않고 여덟 번째 종류 탭으로(목록형 레이아웃은 admin-card 하나만 — 작업표 stale ⑥) -->
               <button class="lookup-tab" data-kind="quote_settings" onclick="switchLookupTab('quote_settings',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">견적 기준값</button>
+              <!-- 브랜드 공개 기본 열(조각 11, Figma 1차 a05-05) — 개발서버에서만 보인다(loadLookupsPane) -->
+              <button class="lookup-tab" data-kind="brand_publish_default" onclick="switchLookupTab('brand_publish_default',this)" style="display:none;padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">브랜드 공개 기본 열</button>
             </div>
           </div>
 
@@ -12826,6 +12828,32 @@ async function fetchCampaignBrandPublish(campaignId) {
     if (error) throw error;
     return (data && typeof data === 'object') ? data : null;
   } catch (e) { console.error('[fetchCampaignBrandPublish]', e); return null; }
+}
+// 기본 열(조각 11) — {global_spec, brand_spec(따로 정하지 않았으면 null)} · 실패 null
+async function fetchBrandPublishDefaults(brandId) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_publish_defaults', { p_brand_id: brandId || null });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchBrandPublishDefaults]', e); return null; }
+}
+// 전체 기본값 저장(배열) · 브랜드 기본값 저장(배열, null = 「전체 기본값 따르기」) — 권한·형식 오류는 던진다
+async function saveBrandPublishDefaultGlobal(spec) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('브랜드 공개는 아직 개발서버에서만 쓸 수 있습니다');
+  await retryWithRefresh(async () => {
+    const { error } = await db.rpc('admin_set_brand_publish_default_global', { p_spec: spec });
+    if (error) throw error;
+  });
+}
+async function saveBrandPublishDefaultBrand(brandId, spec) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('브랜드 공개는 아직 개발서버에서만 쓸 수 있습니다');
+  await retryWithRefresh(async () => {
+    const { error } = await db.rpc('admin_set_brand_publish_default_brand', { p_brand_id: brandId, p_spec: spec });
+    if (error) throw error;
+  });
 }
 // 여러 캠페인의 공개 여부 → {캠페인id: true|false} · 🔴 실패는 null(배지·필터를 그리지 않는다 — 「꺼짐」으로 그리지 않는다)
 async function fetchBrandPublishStates(campaignIds) {
@@ -25411,6 +25439,7 @@ async function openBrandDetail(id, from) {
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount);
   renderBrandContactsRows();
   renderBrandAccountRow(id);   // 계정 줄만 따로 받는다(본문은 기다리지 않는다)
+  if (typeof renderBrandPublishDefaultBox === 'function') renderBrandPublishDefaultBox(id);   // 조각 11 — 따로 받는다
   // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
   var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
   // 🔴 삭제 판정은 **두 단계**다. ㉠셋(시트·서베이·캠페인) 중 하나라도 조회 실패면 **버튼을 아예 안 그리고**
@@ -25995,6 +26024,10 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'
       )
+    // § 브랜드 공개 기본 열(조각 11, Figma 1차 a03-00d) — 자기 저장 단추. 개발서버·기존 브랜드만(새 브랜드는 아직 없다)
+    + ((b && b.id && typeof _brandAccountEnabled === 'function' && _brandAccountEnabled())
+        ? section('브랜드 공개 기본 열', '', '<div id="brandPublishDefaultBox"><div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div></div>')
+        : '')
     // § 오리엔시트 — 2026-09-21 에 「신청 내역(브랜드 서베이)」에서 바꿨다.
     //   서베이는 2026-06-30 공개 접수 중단 뒤로 안 쓰고, 브랜드 영업은 오리엔시트로 한다.
     //   🔴 제목의 건수는 **조회에 성공했을 때만** 붙인다 — 실패를 「(0건)」으로 그리면 「시트가 없다」는 거짓말이 된다.
@@ -43837,7 +43870,7 @@ async function sendResetEmail() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값', brand_publish_default:'브랜드 공개 기본 열'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -43846,6 +43879,8 @@ let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
   applyLookupMenuVisibility();
+  // 「브랜드 공개 기본 열」 탭(조각 11)은 브랜드 묶음이 있는 개발서버에서만 — 운영엔 544 가 없다
+  { const t = document.querySelector('.lookup-tab[data-kind="brand_publish_default"]'); if (t) t.style.display = (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) ? '' : 'none'; }
   if (!isCampaignAdminOrAbove()) {
     const tbody = $('lookupsTableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">권한이 없습니다 (campaign_admin 이상)</td></tr>';
@@ -43893,6 +43928,7 @@ async function renderLookupsTable() {
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
   if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
   if (_currentLookupKind === 'quote_settings') { await renderQuoteSettingsTable(); return; }
+  if (_currentLookupKind === 'brand_publish_default') { await renderBrandPublishDefaultTable(); return; }   // 조각 11 — admin-brand-publish.js
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -44317,6 +44353,7 @@ function applyLookupModalKindUI(kind, recruitTypes) {
 
 function openLookupAddModal() {
   if (_currentLookupKind === 'quote_settings') { toast('견적 기준값은 항목을 추가하지 않습니다. 값만 수정할 수 있어요.'); return; }
+  if (_currentLookupKind === 'brand_publish_default') { toast('브랜드 공개 기본 열은 항목을 추가하지 않습니다. 체크만 바꿀 수 있어요.'); return; }
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }
@@ -56733,6 +56770,114 @@ async function saveBrandPublishModal() {
     }
     _campListPublishStates = undefined;   // 캠페인 목록 배지·필터가 다음 그리기에서 새로 받게
     await refreshPane('camp-applicants');
+  } catch (e) {
+    toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 브랜드 공개 기본 열(조각 11) — 기준 데이터 「브랜드 공개 기본 열」 탭(전체) · 관리자 브랜드 상세 칸(이 브랜드만)
+//   값 형식은 report-rows.js 「브랜드 공개 기본 열」 주석 — 늘 있는 열은 열쇠 그대로, 생기고 빠지는 채널 열은 종류 열쇠(REPORT_KIND_KEYS)
+//   🔴 권한 report.share 쓰기가 아니면 **읽기 전용**(숨김 등급도 읽기 전용 — 사양서 §4 ③ · 16-4 의 의도된 예외, 조각 9 의 단추 숨김과 다르다)
+//   🔴 브랜드 칸은 자기 저장 단추·자기 함수로만 저장한다 — saveBrandDetail(폼 통째 저장)에 넣지 않는다
+//   ⚠️ 바꿔도 이미 공개를 켠 캠페인은 안 바뀐다(캠페인마다 저장한 열을 쓴다)
+// ════════════════════════════════════════════════════════════════════
+const BP_KIND_LABEL = { 'ch_*_acct': '계정 (인스타그램·틱톡·X·유튜브)', 'ch_*_url': '결과물 (URL)', 'ch_*_at': '업로드 날짜' };
+function brandPublishDefaultPickerHtml(prefix, spec, editable) {
+  const on = Array.isArray(spec) ? spec : [];
+  const groups = [], byGrp = {};
+  REPORT_COLS.forEach(function (c) {
+    if (c.key === 'account_id') return;
+    const g = c.grp || '기본';
+    if (!byGrp[g]) { byGrp[g] = []; groups.push(g); }
+    byGrp[g].push({ key: c.key, label: c.pick || c.label });
+  });
+  const others = REPORT_CHANNELS.filter(function (ch) { return !ch.always; }).map(function (ch) { return ch.label; }).concat(['기타']).join('·');
+  const gOther = '그 밖의 채널 (' + others + ')';
+  groups.push(gOther);
+  byGrp[gOther] = REPORT_KIND_KEYS.map(function (k) { return { key: k, label: BP_KIND_LABEL[k] || k }; });
+  return groups.map(function (g, gi) {
+    const sep = gi === 0 ? '' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return '<div style="' + sep + '"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">' + esc(g) + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">'
+      + byGrp[g].map(function (it) {
+          return '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="' + esc(prefix) + 'Col" value="' + esc(it.key) + '"'
+            + (on.indexOf(it.key) !== -1 ? ' checked' : '') + (editable ? '' : ' disabled') + '> ' + esc(it.label) + '</label>';
+        }).join('')
+      + '</div>'
+      + (g === gOther ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">캠페인에 그 채널이 있을 때 그 채널 열 모두에 적용됩니다. 「계정」은 회원이 등록한 SNS 계정 주소이고 로그인 이메일(계정 ID)과 다릅니다.</div>' : '')
+      + '</div>';
+  }).join('');
+}
+function brandPublishDefaultPickerValue(prefix) {
+  return [...document.querySelectorAll('.' + prefix + 'Col')].filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
+}
+function _bpCanEditDefaults() { return (typeof canWrite === 'function') && canWrite('report.share'); }
+
+// ── 기준 데이터 탭(전체 기본값) ──
+async function renderBrandPublishDefaultTable() {
+  const tbody = $('lookupsTableBody'); const thead = $('lookupTableHead'); const title = $('lookupTableTitle');
+  const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = 'none';
+  if (title) title.textContent = '브랜드 공개 기본 열';
+  if (thead) thead.innerHTML = '';
+  const wrap = function (inner) { return '<tr><td colspan="7" style="padding:0">' + inner + '</td></tr>'; };
+  tbody.innerHTML = wrap('<div style="text-align:center;padding:24px"><span class="spinner"></span></div>');
+  const d = await fetchBrandPublishDefaults(null);
+  if (!d) { tbody.innerHTML = wrap('<div style="text-align:center;color:var(--red);padding:24px">기본 열을 불러오지 못했습니다. 새로고침해 주세요.</div>'); return; }
+  const editable = _bpCanEditDefaults();
+  tbody.innerHTML = wrap('<div style="padding:18px 20px;max-width:760px">'
+    + '<p style="margin:0 0 12px;font-size:12.5px;color:var(--muted);line-height:1.6">캠페인에서 「브랜드 공개」를 <strong>처음 켤 때</strong> 미리 체크되는 열입니다. 브랜드별로 따로 정하지 않은 브랜드는 이 값을 따릅니다.<br>바꿔도 <strong>이미 공개를 켠 캠페인은 바뀌지 않습니다</strong>(캠페인마다 저장한 열을 씁니다). 계정 ID(로그인 이메일)는 고를 수 없습니다.</p>'
+    + brandPublishDefaultPickerHtml('bpGlobal', d.global_spec, editable)
+    + '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
+      + (editable ? '<button type="button" class="btn btn-primary btn-sm" id="bpGlobalSaveBtn" onclick="saveBrandPublishDefaultGlobalFromTab()">저장</button>'
+                  : '<span style="font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</span>')
+    + '</div></div>');
+}
+async function saveBrandPublishDefaultGlobalFromTab() {
+  const btn = $('bpGlobalSaveBtn'); if (btn) btn.disabled = true;
+  try {
+    await saveBrandPublishDefaultGlobal(brandPublishDefaultPickerValue('bpGlobal'));
+    toast('전체 기본 열을 저장했습니다');
+    await renderBrandPublishDefaultTable();
+  } catch (e) {
+    toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── 관리자 브랜드 상세 칸(이 브랜드만) — 본문을 그린 뒤 따로 받는다 ──
+async function renderBrandPublishDefaultBox(brandId) {
+  const box = document.getElementById('brandPublishDefaultBox');
+  if (!box || !brandId) return;
+  const d = await fetchBrandPublishDefaults(brandId);
+  if (document.getElementById('brandPublishDefaultBox') !== box || _brandsCurrentId !== brandId) return;   // 그사이 다른 브랜드
+  if (!d) { box.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>'; return; }
+  const editable = _bpCanEditDefaults();
+  const own = Array.isArray(d.brand_spec);
+  box.innerHTML = '<div style="display:flex;gap:16px;font-size:13px;margin-bottom:10px">'
+      + '<label style="display:flex;align-items:center;gap:6px"><input type="radio" name="bpBrandMode" value="global"' + (own ? '' : ' checked') + (editable ? '' : ' disabled') + ' onchange="toggleBrandPublishDefaultMode()"> 전체 기본값 따르기</label>'
+      + '<label style="display:flex;align-items:center;gap:6px"><input type="radio" name="bpBrandMode" value="own"' + (own ? ' checked' : '') + (editable ? '' : ' disabled') + ' onchange="toggleBrandPublishDefaultMode()"> 이 브랜드만 따로 정하기</label>'
+    + '</div>'
+    + '<div id="bpBrandPicker" style="' + (own ? '' : 'opacity:.55;pointer-events:none') + '">'
+      + brandPublishDefaultPickerHtml('bpBrand', own ? d.brand_spec : d.global_spec, editable)
+    + '</div>'
+    + '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크됩니다. 바꿔도 이미 공개를 켠 캠페인은 바뀌지 않습니다. 이 칸은 아래 「저장」으로만 저장됩니다(브랜드 정보 저장과 따로).</div>'
+    + (editable ? '<div style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="bpBrandSaveBtn" onclick="saveBrandPublishDefaultFromDetail(\'' + esc(brandId) + '\')">기본 열 저장</button></div>'
+                : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>');
+}
+function toggleBrandPublishDefaultMode() {
+  const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
+  const p = document.getElementById('bpBrandPicker');
+  if (p) p.style.cssText = own ? '' : 'opacity:.55;pointer-events:none';
+}
+async function saveBrandPublishDefaultFromDetail(brandId) {
+  const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
+  const btn = document.getElementById('bpBrandSaveBtn'); if (btn) btn.disabled = true;
+  try {
+    await saveBrandPublishDefaultBrand(brandId, own ? brandPublishDefaultPickerValue('bpBrand') : null);
+    toast(own ? '이 브랜드의 기본 열을 저장했습니다' : '전체 기본값을 따르도록 저장했습니다');
+    await renderBrandPublishDefaultBox(brandId);
   } catch (e) {
     toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
     if (btn) btn.disabled = false;
