@@ -10223,6 +10223,30 @@ async function deleteCampaignReport(reportId) {
 // ⚠️ `.neq('status','draft')` 도 같다. 임시저장을 넣으면 「아직 안 낸 것」이 리포트에
 //    실린다(정산이 같은 함정을 겪어 마이그레이션 318 로 고쳤다).
 // ⚠️ id 가 많으면 주소가 길어져 잘리므로 **100개씩 나눠** 부른다.
+// ── 캠페인 「브랜드 공개」(마이그레이션 544 · 작업표 2026-10-19 조각 9) ──
+// 설정 조회 → {enabled, columns, version(줄 없으면 0), updated_at, first_enabled_at, default_spec, default_source} · 🔴 실패는 null(「꺼짐」으로 그리지 않는다)
+async function fetchCampaignBrandPublish(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_campaign_brand_publish', { p_campaign_id: campaignId });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchCampaignBrandPublish]', e); return null; }
+}
+// 저장 → 새 version · 🔴 -1 = 다른 사람이 먼저 저장(낙관적 잠금) 또는 보관 삭제된 캠페인. 권한·형식 오류는 던진다
+async function saveCampaignBrandPublish(campaignId, enabled, columns, expectedVersion) {
+  if (!db) throw new Error('DB 미연결');
+  let out = -1;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('admin_set_campaign_brand_publish', {
+      p_campaign_id: campaignId, p_enabled: !!enabled, p_columns: columns, p_expected_version: expectedVersion
+    });
+    if (error) throw error;
+    out = (typeof data === 'number') ? data : -1;
+  });
+  return out;
+}
+
 async function fetchDeliverablesForReport(campaignIds) {
   if (!db) return null;
   const ids = [...new Set((campaignIds || []).filter(Boolean))];
