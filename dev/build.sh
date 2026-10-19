@@ -205,7 +205,7 @@ fi
 #    storage.js·ui.js 는 싣지 않는다 — 자립형 화면(admin-setpw.html·event-scan.html·report.html 과 같은 줄).
 # ══════════════════════════════════════
 BRAND_CSS_FILES=("css/brand.css")
-BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-invite.js" "js/brand-shell.js" "js/brand-info.js" "js/brand-orient.js" "js/brand-orient-form.js" "js/brand-members.js" "js/brand-mypage.js" "js/brand-app.js")
+BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-invite.js" "js/brand-shell.js" "js/brand-info.js" "js/brand-orient.js" "js/brand-orient-form.js" "js/brand-campaigns.js" "js/brand-members.js" "js/brand-mypage.js" "js/brand-app.js")
 if [ -f brand/index.html ]; then
   mkdir -p ../brand
   : > "$BUILD_TMP/brand.css"
