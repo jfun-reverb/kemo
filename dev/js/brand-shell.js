@@ -114,12 +114,57 @@ async function refreshBrandLoginState() {
   return state;
 }
 
+// ── 떠나기 전 확인(오리엔시트 작업표 조각 6 · 피그마 bw04-13 · 결정 10)
+//   저장되지 않은 입력이 있는 화면(지금은 오리엔시트 작성 모달 하나)이 registerBrandLeaveGuard(fn) 로 자기를 건다.
+//   fn(kind) → Promise<boolean>(진행해도 되면 참). kind = 'brand'(브랜드 바꾸기) | 'nav'(메뉴·뒤로 가기) | 'logout'.
+//   🔴 걸린 장치가 없으면 늘 통과한다 — 브랜드 정보·멤버·마이페이지 페이지의 이동에는 아무 영향이 없다.
+//   등록은 하나만(모달은 한 번에 하나). 반환값(해제 함수)으로 풀고, 모달이 닫히면 반드시 푼다.
+let _brandLeaveGuard = null;
+let _brandLeaveGuardAsk = null;       // 지금 물을 일이 있는가(opts.needsAsk) — 없으면 주소를 되돌리지 않고 그대로 보낸다
+let _brandLeaveGuardHash = '';        // 장치를 건 순간의 해시 — 뒤로 가기로 주소가 바뀌면 여기로 되돌려 놓고 묻는다
+function registerBrandLeaveGuard(fn, opts) {
+  _brandLeaveGuard = fn || null;
+  _brandLeaveGuardAsk = (opts && typeof opts.needsAsk === 'function') ? opts.needsAsk : null;
+  _brandLeaveGuardHash = location.hash;
+  return () => { if (_brandLeaveGuard === fn) { _brandLeaveGuard = null; _brandLeaveGuardAsk = null; } };
+}
+async function brandConfirmLeave(kind) {
+  const g = _brandLeaveGuard;
+  if (!g) return true;
+  try { return !!(await g(kind)); } catch (e) { return true; }   // 장치가 고장 나면 사용자를 가두지 않는다
+}
+// 주소(#해시)가 바뀌었을 때 — 메뉴 누르기·뒤로 가기 모두 여기로 온다(brand-app.js 의 hashchange).
+//   장치가 걸려 있으면 주소를 원래대로 되돌려 둔 채 묻고, 「진행」이면 그때 다시 옮긴다. 반환: 지금 화면을 바꿔도 되면 참.
+async function brandGuardHashChange() {
+  if (!_brandLeaveGuard || !brandAuthed) return true;
+  const target = location.hash;
+  if (target === _brandLeaveGuardHash) return true;
+  // 물을 일이 없으면 주소 기록을 건드리지 않는다 — 장치가 모달만 닫고 그대로 그린다(뒤로 가기 기록이 어긋나지 않게)
+  if (_brandLeaveGuardAsk && !_brandLeaveGuardAsk()) { await brandConfirmLeave('nav'); return true; }
+  history.replaceState(null, '', location.pathname + location.search + _brandLeaveGuardHash);
+  if (await brandConfirmLeave('nav')) {
+    if (_brandLeaveGuard) { _brandLeaveGuard = null; _brandLeaveGuardAsk = null; }   // 장치가 스스로 안 풀었어도 같은 질문을 두 번 하지 않게
+    location.hash = target;                          // 다시 hashchange → 이번엔 장치가 없어 그대로 그린다
+  }
+  return false;
+}
+
+// 세션이 끊겼을 때(토큰 갱신 실패 등 — 로그인 시간 만료) · 틀이 감춰질 때 알림. 페이지가 자기 상태를 정리한다.
+const _brandSessionLostHandlers = [];
+const _brandShellHiddenHandlers = [];
+function onBrandSessionLost(fn) { _brandSessionLostHandlers.push(fn); }
+function onBrandShellHidden(fn) { _brandShellHiddenHandlers.push(fn); }
+function emitBrandSessionLost() { _brandSessionLostHandlers.forEach(fn => { try { fn(); } catch (e) { /* 다른 처리기를 막지 않게 */ } }); }
+function _emitBrandShellHidden() { _brandShellHiddenHandlers.forEach(fn => { try { fn(); } catch (e) { /* 다른 처리기를 막지 않게 */ } }); }
+
 // 브랜드 바꾸기 — 서버에 「마지막으로 본 브랜드」를 남기고 보던 메뉴를 새 브랜드로 다시 그린다.
-//   반환 'ok' | 'not_linked' | 'error'. 사람이 고른 것이므로 활동으로 센다(S0-4).
+//   반환 'ok' | 'not_linked' | 'error' | 'cancelled'(떠나기 전 확인에서 「계속 작성」). 사람이 고른 것이므로 활동으로 센다(S0-4).
 let _brandSwitching = false;
 async function switchBrand(id) {
   if (!brandSession || _brandSwitching) return 'error';
   if (id === brandSession.currentBrandId) return 'ok';
+  if (!(await brandConfirmLeave('brand'))) return 'cancelled';
+  if (!brandSession) return 'error';   // 묻는 사이 로그아웃됨
   _brandSwitching = true;
   try {
     const { data, error } = await brandRpc('set_my_brand_last_viewed', { p_brand_id: id });
@@ -220,6 +265,7 @@ function showBrandShellPage(hash) {
 
 // 틀을 감춘다(로그인 전 카드 화면으로 갈 때) — showBrandScreen 이 부른다
 function hideBrandShell() {
+  _emitBrandShellHidden();   // 열린 모달(오리엔시트 작성 등)을 묻지 않고 닫는다 — 세션이 이미 없거나 사용자가 떠나기로 한 뒤다
   closeBrandPickerPop(false);
   closeBrandPickerFull();
   const shell = document.getElementById('brandShell');
@@ -294,7 +340,11 @@ function initBrandShell() {
   document.querySelectorAll('[data-brand-logout]').forEach(btn => btn.addEventListener('click', async () => {
     if (btn.disabled) return;
     btn.disabled = true;
-    try { await brandLogout(); } finally { btn.disabled = false; }
+    try {
+      closeBrandDrawer(false);
+      if (!(await brandConfirmLeave('logout'))) return;
+      await brandLogout();
+    } finally { btn.disabled = false; }
   }));
 }
 

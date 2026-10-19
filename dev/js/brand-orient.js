@@ -280,12 +280,7 @@ async function loadBrandOrientList() {
   _rerenderOrientIfShown();
 }
 
-// ── 시트 열기 — 조각 6·7 이 채운다(상태별 갈래: 작성 모달 · 완료 · 만료 01b · 등록 01c · 옛 구조 안내)
-//   opts.prefetched = 「가려던 시트」가 브랜드 확인용으로 이미 받은 get_my_orient_sheet 응답 — 조각 6 은 이것이 있으면 다시 부르지 않는다
-function openBrandOrientSheet(sheetId, opts) {
-  if (!sheetId) return;
-  brandToast('오리엔시트 작성 화면은 준비 중입니다.');
-}
+// ── 시트 열기 openBrandOrientSheet(sheetId, {prefetched}) 는 brand-orient-form.js(이 파일 뒤에 실린다)에 있다 — 상태별 갈래·작성 모달
 
 // ── 「가려던 시트」(기본값 7) — 메일 링크 ?orient=<시트 번호> · 옛 링크 이동 ?orient_token=<토큰>
 //   부팅 때 세션 저장소에 옮기고 주소에서 곧바로 지운다(토큰을 주소·방문 기록에 남기지 않는다). 오리엔시트 페이지가 그릴 때 한 번 꺼낸다.
