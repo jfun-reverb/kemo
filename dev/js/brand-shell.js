@@ -1,7 +1,7 @@
 // 브랜드 페이지 — 로그인 뒤 틀(좌측 메뉴 · 모바일 맨 위 막대·메뉴 서랍)과 세션 상태
 //   (Figma 「[1차] 03」 틀, 사양서 docs/specs/2026-07-15-brand-portal.md §16-4,
 //    작업표 docs/specs/2026-10-15-brand-member-screen-breakdown.md 조각 1)
-//   페이지 파일(brand-info.js·brand-orient.js·brand-members.js·brand-mypage.js)은 registerBrandPage 로 자기를 등록한다 — 이 파일이 먼저 실린다.
+//   페이지 파일(brand-info.js·brand-orient.js·brand-campaigns.js·brand-members.js·brand-mypage.js)은 registerBrandPage 로 자기를 등록한다 — 이 파일이 먼저 실린다.
 
 // 로그인 판정(get_my_brand_login_state)을 화면 쪽 이름으로 옮긴 값. 서버 키 → 화면 키 대응은 작업표 조각 1 이 정본.
 //   { name, email, brands:[{id,name,role}], currentBrandId, hasPendingInvite, newInviteDot, passwordChangedAt }
@@ -32,11 +32,17 @@ function _brandComingSoon(title) {
     }
   };
 }
-registerBrandPage('campaigns', _brandComingSoon('캠페인'));
 registerBrandPage('members', _brandComingSoon('멤버 관리'));
 registerBrandPage('mypage', _brandComingSoon('마이페이지'));
 
-function isBrandShellPage(hash) { return Object.prototype.hasOwnProperty.call(_brandPages, hash); }
+// 해시 = 「페이지[/인자]」 — 인자는 그 페이지 안의 위치(캠페인 상세 #campaigns/<캠페인 번호>). 페이지 판정·메뉴 표시는 앞부분만 본다.
+//   🔴 routeBrand(brand-app.js)·rerenderCurrentBrandPage·showBrandShellPage 가 모두 이 판정을 쓴다 — 하나만 고치면 새로고침·브랜드 바꾸기에서 주소가 첫 페이지로 덮인다.
+function splitBrandHash(hash) {
+  const h = String(hash || '');
+  const i = h.indexOf('/');
+  return i < 0 ? { page: h, arg: '' } : { page: h.slice(0, i), arg: h.slice(i + 1) };
+}
+function isBrandShellPage(hash) { return Object.prototype.hasOwnProperty.call(_brandPages, splitBrandHash(hash).page); }
 
 function getCurrentBrandId() { return brandSession ? brandSession.currentBrandId : null; }
 function getCurrentBrand() {
@@ -239,14 +245,16 @@ function _brandMenuHtml(active) {
 
 // 틀 안 페이지를 그린다 — routeBrand 가 부른다
 function showBrandShellPage(hash) {
-  const page = _brandPages[hash] || _brandPages[BRAND_FIRST_PAGE];
+  const parts = splitBrandHash(hash);
+  const key = _brandPages[parts.page] ? parts.page : BRAND_FIRST_PAGE;
+  const page = _brandPages[key];
   document.getElementById('brandStage').hidden = true;
   document.querySelectorAll('.brand-card[data-screen]').forEach(el => { el.hidden = true; });
   document.getElementById('brandShell').hidden = false;
   document.body.classList.add('is-shell');
   // 메뉴는 한 번만 그리고 표시만 바꾼다(다시 그리면 키보드 초점이 사라진다)
   document.querySelectorAll('#brandShell [data-brand-nav]').forEach(el => {
-    const on = el.dataset.brandNav === hash;
+    const on = el.dataset.brandNav === key;
     el.classList.toggle('is-active', on);
     if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
   });
@@ -255,7 +263,7 @@ function showBrandShellPage(hash) {
   closeBrandDrawer(false);
   const host = document.getElementById('brandPageHost');
   host.innerHTML = '';
-  try { page.render(host); }
+  try { page.render(host, key === parts.page ? parts.arg : ''); }
   catch (e) { host.innerHTML = '<div class="brand-empty"><p class="brand-empty-title">화면을 그리지 못했습니다</p><p class="brand-empty-desc">새로고침해 주십시오.</p></div>'; }
   document.title = (page.title || '브랜드') + ' · REVERB JP';
   window.scrollTo(0, 0);

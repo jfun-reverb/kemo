@@ -325,6 +325,8 @@ async function fetchCampaignDeliverableCounts() {
 }
 
 // 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
+//   🔴 이 함수와 autoCloseCampaigns·autoEndCampaigns 의 판정식 사본이 서버에 있다 — 마이그레이션 543 _brand_campaign_view_status
+//      (브랜드 페이지 캠페인 탭이 날짜로 다시 판정한 상태). 식을 바꾸면 그쪽도 함께.
 //   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
 async function autoOpenCampaigns(camps) {

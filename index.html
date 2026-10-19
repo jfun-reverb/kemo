@@ -8527,6 +8527,8 @@ async function fetchCampaignDeliverableCounts() {
 }
 
 // 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
+//   🔴 이 함수와 autoCloseCampaigns·autoEndCampaigns 의 판정식 사본이 서버에 있다 — 마이그레이션 543 _brand_campaign_view_status
+//      (브랜드 페이지 캠페인 탭이 날짜로 다시 판정한 상태). 식을 바꾸면 그쪽도 함께.
 //   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
 async function autoOpenCampaigns(camps) {
@@ -19284,13 +19286,15 @@ async function openCampaign(id) {
           //      ⚠️ 그래서 조건은 「행사」가 아니라 **「선정형」으로** 넓힌다 — 선착순형 비공개
           //      행사에는 여전히 뜨면 안 된다(뽑는 기간이 없다). 갈래를 이름으로 지목하는
           //      isSelectionEvent 를 쓰고 `!== 'first_come'` 같은 부정 조건을 쓰지 않는다.
-          //   ★ 이 조건은 **다섯 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
+          //   ★ 이 조건은 **여섯 곳에 있다 — ①인플루언서 캠페인 상세(application.js)
           //      ②관리자 미리보기(admin.js kSelectionPeriod) ③진행현황 개요 카드
           //      (admin-applications.js selRange) ④관리자 엑셀(admin-excel.js pickSelection)
-          //      ⑤운영현황 일정 뷰의 선정 보조 막대(admin-brand-ops.js ganttSegmentsFor).
-          //      ⚠️ **관리자 캠페인 목록의 「선정기간」 열은 이 넷이 아니다** — 그 열은 모집
+          //      ⑤운영현황 일정 뷰의 선정 보조 막대(admin-brand-ops.js ganttSegmentsFor)
+          //      ⑥브랜드 페이지 캠페인 상세의 진행 단계·「선정 발표」 줄(brand-campaigns.js _bcHasSelection —
+          //      단계는 날짜가 비어도 그린다, 줄은 값이 있을 때만).
+          //      ⚠️ **관리자 캠페인 목록의 「선정기간」 열은 이 여섯이 아니다** — 그 열은 모집
           //      형식을 아예 안 보고 값만 있으면 그린다(운영 도구라 일부러 그렇다).
-          //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 넷의
+          //      한 곳만 고치면 관리자가 본 것과 인플루언서가 보는 것이 갈린다. 나머지 다섯의
           //      주석은 이 자리를 가리키므로, **조건을 바꾸면 여기부터 고친다.**
           if ((camp.recruit_type === 'gifting' || (camp.recruit_type === 'visit' && (!isEvent || isSelEvent)))
               && (camp.selection_start || camp.selection_end)) {

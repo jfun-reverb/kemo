@@ -86,7 +86,7 @@
 - 관리자 앱: `dev/admin/index.html` (PC 전체폭, 별도 페이지, **2단 고정 레이아웃** — 사이드바/메인 독립 스크롤, 상단 GNB 없음)
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — **별도 Vercel 프로젝트 `reverb-sales`**(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com`. anon 이 `submit_brand_application` 을 거쳐 `brand_applications` 에 넣는다. `cleanUrls`+catch-all rewrite 로 `/reviewer` → `reviewer.html`. **파일 업로드 없음**. ⚠️ 배포 대상이 달라 **커밋 머지 ≠ 페이지 반영**
 - 배포용 산출물: 루트 `index.html`·`admin/index.html`·`brand/index.html` (`dev/build.sh` 가 생성 — **직접 수정 금지**)
-- **브랜드 페이지**(`dev/brand/index.html` → 루트 `brand/index.html`, 개발서버만 · 운영은 「준비 중」): **자립형 화면**(`storage.js`·`ui.js` 안 실음). 🔴 `window.REVERB_SKIP_GLOBAL_DB = true` 를 `lib/supabase.js` 보다 **앞**에 두어 전역 `db`·`dbAuthRequest` 를 만들지 않는다(기본 저장 칸·주소 인증 값 가로채기 방지) — **인플루언서·관리자 화면에 이 표시를 두면 그 화면의 `db` 가 `null` 이 된다**. 빌드는 `BRAND_*_FILES` + 원본 태그 정규식 **두 곳**
+- **브랜드 페이지**(`dev/brand/index.html` → 루트 `brand/index.html`, 개발서버만 · 운영은 「준비 중」): **자립형 화면**(`storage.js`·`ui.js` 안 실음). 🔴 `window.REVERB_SKIP_GLOBAL_DB = true` 를 `lib/supabase.js` 보다 **앞**에 두어 전역 `db`·`dbAuthRequest` 를 만들지 않는다(기본 저장 칸·주소 인증 값 가로채기 방지) — **인플루언서·관리자 화면에 이 표시를 두면 그 화면의 `db` 가 `null` 이 된다**. 빌드는 `BRAND_*_FILES` + 원본 태그 정규식 **두 곳**. 틀 안 주소는 「페이지/인자」(`#campaigns/<캠페인 번호>`) — 🔴 `routeBrand`·`rerenderCurrentBrandPage`·`showBrandShellPage` 가 모두 `splitBrandHash`(brand-shell.js)로 앞부분만 본다(하나만 고치면 새로고침·브랜드 바꾸기에서 주소가 첫 페이지로 덮인다)
 - **폴더 구조는 `ls dev/js/`·`dev/lib/`·`dev/css/` 로 본다**(목록을 베껴 적지 않는다). 빌드 목록 단일 소스는 **`dev/build.sh` 의 `CLIENT_JS_FILES`·`ADMIN_JS_FILES`**
 - **회원 앱 공용 부품은 `dev/css/member-ui.css`**(회원 빌드 맨 끝 — 관리자 빌드엔 없다) + 상태 안내 헬퍼 `stateEmptyHtml`·`stateLoadingHtml`·`stateErrorHtml`(`ui.js`, 🔴 조회 실패 `null` 은 오류 · 0건 `[]` 은 빈 상태). 🔴 `base.css`·`components.css`·`ui.js` 는 관리자와 공유라 **기존 값을 고치지 않는다** — 회원 앱 값은 `member-ui.css` 에서 **전역으로** 덮어쓴다(2026-10-06 마무리에서 화면별 선택자를 합침 · ⚠️ 약관 창·정책 통지 창은 공유 파일이 창 아이디로 정의해 같은 아이디가 필요)(사양서 `docs/specs/2026-09-29-member-app-style-unification.md`)
 - 🔴 **빌드는 ES 모듈이 아니라 단순 이어붙이기(concat)라 전역 스코프가 하나다** — `admin-core.js` 가 다른 `admin-*` 보다 **앞**, `admin.js` 가 페인 파일들보다 **뒤**, `admin/app.js` 가 **맨 마지막**(`dev/build.sh` 의 순서). 인플루언서 쪽은 `lib/*` 가 `js/*` 보다 앞, `js/app.js` 가 맨 마지막
@@ -195,6 +195,7 @@
 **현재 원본 번호**
 - 브랜드 관리 화면 함수 셋 `get_my_brand_profile`·`update_my_brand_info`·`update_my_brand_company` + 이력 표 `brand_profile_history`(트리거 `trg_brands_profile_history`·`trg_companies_profile_history` — 관리자·브랜드 구분 없이 바뀐 칸마다 한 줄) — **536**(신설, 개발서버만 · 운영 묶음은 … → 534 → 536). 🔴 브랜드 계정이 처음으로 173(캠페인 브랜드명 동기화)·266(캠페인 변경 이력)을 부른다 — 이력은 `change_source='admin'`·`changed_by`=브랜드 계정·`changed_by_name` 빈 값(266 은 이름을 `admins` 에서만 찾는다, Q4 로 그대로 둠)
 - 🔴 **관리자 화면이 브랜드가 고친 값을 되돌린다** — 관리자 브랜드 편집(`saveBrandDetail`)·회사 편집(`saveCompany`)은 폼을 연 순간 값으로 **통째** 저장한다. 브랜드 담당자가 그사이 고친 이름·SNS·회사 정보가 경고 없이 덮인다. 막는 것은 묶음 ③(관리자 화면)
+- 캠페인 탭 함수 `get_my_brand_campaigns`·`get_my_brand_campaign` + 내부 셋(`_brand_campaign_counts`·`_brand_campaign_channel_names`·`_brand_campaign_view_status`) — **543**(신설, 개발서버만 · 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다). 🔴 상태는 저장값이 아니라 `_brand_campaign_view_status` 가 일본 날짜로 다시 판정한 값 — **관리자 자동 전환(`storage.js` `autoOpen/Close/EndCampaigns`)의 사본**이라 그 식을 바꾸면 함께. 결과물 영역(2단계)은 캠페인 「브랜드 공개」 장치가 생긴 뒤 — 그때 베이스는 543
 - `get_brand_invite_link_state` — **534**(베이스 532 — 새 이메일 초대만 `email`, 두 갈래 `issued_at` 추가. 🔴 `CREATE OR REPLACE` 로만 — 비로그인 실행 권한 유지) · ⚠️ 534 도 개발서버만, 운영 묶음은 526 → … → 533 → 534
 - 527 함수 여섯(`get_my_brand_login_state`·`get_brand_link_state`·`service_issue_brand_account_link`·`complete_brand_account_setup`·`complete_brand_password_reset`·`service_mark_brand_setup_mail_sent`) — **532**(마지막은 4인자 — 옛 3인자 지움) · `admin_upsert_brand_owner_account`·`admin_get_brand_account_status` — **533**. 🔴 527 을 베이스로 잡으면 532·533 의 새 칸·`can_manage`·권한 가드가 사라진다
 - 표 `brand_invites`·`brand_member_limits`·권한 항목 `brand.account_manage`(시드 3행) — **530** · 대표 함수 — **531** · 관리자 쓰기 — **533**. ⚠️ 운영 적용은 526 → 527 → 528 → 530 → 531 → 532 → 533 한 묶음(순서는 사양서 「운영 반영 전 남은 관문」)
@@ -249,7 +250,7 @@
 > 🔴 **다른 영역을 고칠 때 알아야 하는 셋** (위 규칙 파일은 행사 파일을 열어야 뜬다):
 > - **캠페인 변경 이력**(265·266)의 화이트리스트에 행사 칸 4종(`event_mode`·`is_invite_only`·`event_group_id`·`event_selection_mode`)을 **의도적으로 안 넣었다**(세 곳 동시 수정 위험) — 「빠졌다」고 넣지 말 것
 > - **인플루언서 일일 다이제스트 메일이 행사 낙선 통지를 겸한다** — 낙선은 응모를 `rejected` 로 두어 그 메일과 「落選」 배지를 그대로 쓴다. 그 메일을 고칠 때 행사가 딸려 온다
-> - **선정 기간(`selection_start`/`selection_end`) 표시 조건이 네 곳**(인플루언서 상세·관리자 미리보기·진행현황·엑셀)에서 **글자 그대로 같아야** 한다(폼에만 「이미 값이 저장돼 있으면 보여준다」 예외가 하나 더)
+> - **선정 기간(`selection_start`/`selection_end`) 표시 조건이 여섯 곳**(인플루언서 상세·관리자 미리보기·진행현황·엑셀·운영현황 일정 뷰·브랜드 페이지 캠페인 상세 — 목록은 `application.js` 그 줄 주석)에서 **글자 그대로 같아야** 한다(폼에만 「이미 값이 저장돼 있으면 보여준다」 예외가 하나 더)
 ### 인플루언서·관리자
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
