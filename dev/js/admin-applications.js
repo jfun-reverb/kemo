@@ -95,6 +95,8 @@ function cancelDetailLinesHtml(a) {
 }
 
 async function loadCampApplicants() {
+  // 머리 줄 「브랜드 공개 중 / 꺼짐」 + 결과물 카드 단추(조각 9) — 기다리지 않는다(목록 그리기를 막지 않게)
+  if (typeof refreshCampBrandPublishStatus === 'function') refreshCampBrandPublishStatus(currentCampApplicantId);
   const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
