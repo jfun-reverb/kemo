@@ -301,6 +301,11 @@ function captureBrandOrientTarget(params) {
   history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
 }
 
+// 옛 작성 링크 값(token)을 들고 로그인 안 한 채 들어왔는가 — 부팅 때 bw01-09 카드를 먼저 보일지(brand-app.js restoreBrandSession)
+function brandOrientHasPendingLink() {
+  try { const t = JSON.parse(sessionStorage.getItem(BRAND_ORIENT_TARGET_KEY) || 'null'); return !!(t && t.kind === 'token'); } catch (e) { return false; }
+}
+
 let _brandOrientConsuming = false;
 async function consumeBrandOrientTarget() {
   if (_brandOrientConsuming || !brandAuthed) return;

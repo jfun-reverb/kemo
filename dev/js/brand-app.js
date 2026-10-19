@@ -23,7 +23,8 @@ const BRAND_PREVIEW_SCREENS = [
   { hash: 'no-brand', label: 'bw01-06a 연결된 브랜드 없음' },
   { hash: 'resetpw', label: 'bw01-07 새 비밀번호 정하기' },
   { hash: 'reset-done', label: 'bw01-07a 비밀번호 바꾸기 완료' },
-  { hash: 'confirm', label: 'bw01-08 계속하기' }
+  { hash: 'confirm', label: 'bw01-08 계속하기' },
+  { hash: 'orient-moved', label: 'bw01-09 옛 오리엔시트 링크 안내' }
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
@@ -208,6 +209,9 @@ async function restoreBrandSession() {
   if (!session) {
     // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료)
     if (hadStored) setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+    // 옛 오리엔시트 작성 링크로 들어옴 — 로그인 화면 대신 안내 카드(bw01-09)부터. 「브랜드 페이지 로그인」(#login)을 누르면 그 뒤로는
+    //   로그인 화면이 그대로 남는다(카드 해시가 아닐 때만 — 로그인 화면에서 새로고침해도 카드로 되돌리지 않는다)
+    if (brandOrientHasPendingLink() && !BRAND_SCREENS.includes(currentBrandHash())) { goBrandScreen('orient-moved'); return; }
     routeBrand();
     return;
   }

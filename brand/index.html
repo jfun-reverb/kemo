@@ -1479,6 +1479,23 @@ body.is-bof-open { overflow: hidden; }
     </div>
   </section>
 
+  <!-- 1차 bw01-09 옛 오리엔시트 작성 링크로 들어옴(로그인 안 한 채) — 작업표 2026-10-16-brand-orient-tab-breakdown 조각 9.
+       로그인하면 「가려던 시트」 장치(brand-orient.js)가 그 시트를 연다. 로그인돼 있으면 이 카드 없이 바로 -->
+  <section class="brand-card" data-screen="orient-moved" hidden>
+    <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
+    <div class="brand-head">
+      <h1 id="orientMovedTitle">오리엔시트는 브랜드 페이지에서 작성합니다</h1>
+      <p id="orientMovedDesc">이 작성 링크는 더 이상 쓰지 않습니다.<br>브랜드 페이지에 로그인하면 작성하던 내용이 그대로 있습니다.</p>
+    </div>
+    <ul class="brand-guide" id="orientMovedGuide">
+      <li>로그인하면 이 오리엔시트로 바로 이동합니다.</li>
+      <li>계정이 없으면 브랜드 대표 담당자나 REVERB 운영팀에 문의해 주십시오.</li>
+    </ul>
+    <div class="brand-actions">
+      <a class="brand-btn" href="#login" id="orientMovedLogin">브랜드 페이지 로그인</a>
+    </div>
+  </section>
+
 </main>
 
 <!-- 로그인 뒤 틀 — 웹 좌측 메뉴 · 모바일 맨 위 막대 + 오른쪽 메뉴 서랍 (brand-shell.js, 작업표 조각 1 · 피그마 bw04-00·bm04-00·bm03-01) -->
@@ -1671,7 +1688,7 @@ const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
 
 // 로그인 전 카드 화면. 로그인 뒤 틀 안 페이지(#orient·#members 등)는 brand-shell.js 의 등록부가 따로 갖는다.
 const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
-  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail'];
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail', 'orient-moved'];
 
 // ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
 //   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
@@ -1758,7 +1775,8 @@ function showBrandScreen(name) {
     setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨습니다', confirm: '링크 확인',
     invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없습니다',
     'not-brand': '브랜드 계정이 아닙니다', 'no-brand': '연결된 브랜드가 없습니다',
-    'check-fail': '로그인을 확인하지 못했습니다'
+    'check-fail': '로그인을 확인하지 못했습니다',
+    'orient-moved': '오리엔시트 작성 안내'
   };
   document.title = (titles[name] || '브랜드') + ' · REVERB JP';
 }
@@ -4278,6 +4296,11 @@ function captureBrandOrientTarget(params) {
   params.delete('orient_token');
   const q = params.toString();
   history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+}
+
+// 옛 작성 링크 값(token)을 들고 로그인 안 한 채 들어왔는가 — 부팅 때 bw01-09 카드를 먼저 보일지(brand-app.js restoreBrandSession)
+function brandOrientHasPendingLink() {
+  try { const t = JSON.parse(sessionStorage.getItem(BRAND_ORIENT_TARGET_KEY) || 'null'); return !!(t && t.kind === 'token'); } catch (e) { return false; }
 }
 
 let _brandOrientConsuming = false;
@@ -7128,7 +7151,8 @@ const BRAND_PREVIEW_SCREENS = [
   { hash: 'no-brand', label: 'bw01-06a 연결된 브랜드 없음' },
   { hash: 'resetpw', label: 'bw01-07 새 비밀번호 정하기' },
   { hash: 'reset-done', label: 'bw01-07a 비밀번호 바꾸기 완료' },
-  { hash: 'confirm', label: 'bw01-08 계속하기' }
+  { hash: 'confirm', label: 'bw01-08 계속하기' },
+  { hash: 'orient-moved', label: 'bw01-09 옛 오리엔시트 링크 안내' }
 ];
 
 // 로그인 상태(get_my_brand_login_state 의 ok 결과). null 이면 로그아웃 상태.
@@ -7313,6 +7337,9 @@ async function restoreBrandSession() {
   if (!session) {
     // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료)
     if (hadStored) setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+    // 옛 오리엔시트 작성 링크로 들어옴 — 로그인 화면 대신 안내 카드(bw01-09)부터. 「브랜드 페이지 로그인」(#login)을 누르면 그 뒤로는
+    //   로그인 화면이 그대로 남는다(카드 해시가 아닐 때만 — 로그인 화면에서 새로고침해도 카드로 되돌리지 않는다)
+    if (brandOrientHasPendingLink() && !BRAND_SCREENS.includes(currentBrandHash())) { goBrandScreen('orient-moved'); return; }
     routeBrand();
     return;
   }
@@ -7449,6 +7476,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792374041 -->
+<!-- v1792375421 -->
 </body>
 </html>

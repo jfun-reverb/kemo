@@ -10,7 +10,7 @@ const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
 
 // 로그인 전 카드 화면. 로그인 뒤 틀 안 페이지(#orient·#members 등)는 brand-shell.js 의 등록부가 따로 갖는다.
 const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
-  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail'];
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail', 'orient-moved'];
 
 // ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
 //   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
@@ -97,7 +97,8 @@ function showBrandScreen(name) {
     setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨습니다', confirm: '링크 확인',
     invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없습니다',
     'not-brand': '브랜드 계정이 아닙니다', 'no-brand': '연결된 브랜드가 없습니다',
-    'check-fail': '로그인을 확인하지 못했습니다'
+    'check-fail': '로그인을 확인하지 못했습니다',
+    'orient-moved': '오리엔시트 작성 안내'
   };
   document.title = (titles[name] || '브랜드') + ' · REVERB JP';
 }
