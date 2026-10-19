@@ -1380,11 +1380,25 @@ function bootEmbedQuote() {
   try { peer.postMessage({ type: 'reverb-orient-quote-ready' }, '*'); } catch (e) { /* 상대 창이 닫힘 */ }
 }
 
+// 옛 링크의 시트를 브랜드 페이지에서 연다 — 브랜드 주소: 운영 globalreverb.com · 개발 dev.globalreverb.com · 로컬 같은 출처
+//   ⚠️ 토큰 모양(uuid)이 아니면 보내지 않고 지금처럼 「링크를 확인할 수 없습니다」(브랜드 페이지도 uuid 만 받는다)
+function moveToBrandPage(tok) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tok)) return showErrorScreen('invalid_token');
+  const base = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin
+    : SUPABASE_ENV === 'production' ? 'https://globalreverb.com' : 'https://dev.globalreverb.com';
+  location.replace(base + '/brand/?orient_token=' + encodeURIComponent(tok));
+}
+
 async function boot() {
   const params = new URLSearchParams(location.search);
   // 🔴 맨 앞이어야 한다 — 이 모드는 토큰이 없어 아래 검사에 걸리면 오류 화면으로 빠진다. 데이터베이스도 안 쓴다
   if (params.get('embed') === 'quote') { return bootEmbedQuote(); }
   token = params.get('token');
+  // [2026-10-19 작업표 2026-10-16-brand-orient-tab-breakdown 조각 9 · 결정 16] 작성은 브랜드 페이지에서만 —
+  //   옛 작성 링크(?token=)는 브랜드 페이지로 보낸다. 서버를 부르지 않는다(토큰은 브랜드 페이지가 주소에서 곧바로 걷는다).
+  //   🔴 운영 주소(sales.globalreverb.com)에서는 돌지 않는다 — 이 파일은 다음 운영 배포에 함께 나가는데, 막지 않으면
+  //      출시 전에 운영 링크 폼 사용자가 「준비 중」 브랜드 페이지로 튕긴다. 🔴 **출시 때 이 막음(SUPABASE_ENV 조건)을 걷는다.**
+  if (token && SUPABASE_ENV !== 'production') { return moveToBrandPage(token); }
 
   if (!sb) { return showErrorScreen('connect'); }
   if (!token) { return showErrorScreen('invalid_token'); }
@@ -1482,6 +1496,8 @@ function showErrorScreen(reason) {
     expired:       { ico: 'schedule',  title: '작성 기한이 지났습니다',     body: '이 링크는 작성 가능 기간이 끝났습니다. 담당자에게 문의해 주세요.' },
     consumed:      { ico: 'task_alt',  title: '이미 발행되었습니다',         body: '이 오리엔시트로 캠페인이 이미 발행되어 더 이상 수정할 수 없습니다.' },
     connect:       { ico: 'wifi_off',  title: '연결에 문제가 있습니다',      body: '잠시 후 다시 시도해 주세요. 계속되면 담당자에게 문의해 주세요.' },
+    // [542] 토큰 함수가 닫힌 뒤 — 보통은 boot() 의 브랜드 페이지 이동이 먼저 돌아 여기까지 안 온다(운영 막음을 둔 채 542 만 들어간 경우의 안전망)
+    moved:         { ico: 'login',     title: '오리엔시트는 브랜드 페이지에서 작성합니다', body: '이 작성 링크는 더 이상 쓰지 않습니다. 브랜드 페이지에 로그인해 작성해 주세요.' },
   };
   const m = map[reason] || map.invalid_token;
   $('errIcon').textContent = m.ico;
