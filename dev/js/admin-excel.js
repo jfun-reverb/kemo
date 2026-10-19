@@ -1320,6 +1320,8 @@ async function exportCampaignDeliverables(campId) {
       }
     });
 
+    // 6-b) 외부 결과 파일(조각 12) — 붙인 파일이 있으면 「외부 참가자」 시트
+    if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
     // 7) 파일 저장
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -1584,6 +1586,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
 
   // ── 6) 파일 저장 — skipDownload 면 시트만 빌드 후 종료 (다중 엑셀에서 사용) ──
   if (skipDownload) return ws;
+  // 외부 결과 파일(조각 12) — 단일 캠페인 엑셀에만 「외부 참가자」 시트
+  if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');

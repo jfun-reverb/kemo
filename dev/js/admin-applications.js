@@ -97,6 +97,7 @@ function cancelDetailLinesHtml(a) {
 async function loadCampApplicants() {
   // 머리 줄 「브랜드 공개 중 / 꺼짐」 + 결과물 카드 단추(조각 9) — 기다리지 않는다(목록 그리기를 막지 않게)
   if (typeof refreshCampBrandPublishStatus === 'function') refreshCampBrandPublishStatus(currentCampApplicantId);
+  if (typeof loadCampExtSources === 'function') loadCampExtSources(currentCampApplicantId);   // 외부 결과 파일(조각 12) — 기다리지 않는다
   const filter = _campAppStatusTab || '';   // 신청 상태 탭(단일, ''=전체) — 구 드롭다운 대체
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   // 🔴 취소 사유 이름 캐시 — **목록을 그리기 전에** 채운다(§3-4).
@@ -618,6 +619,8 @@ function applyCampDetailTabVisibility() {
   const filterBar = $('campAppFilterBar');
   if (appCard) appCard.style.display = (isDeliv || isTicket) ? 'none' : '';
   if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
+  const extBox = $('campExtBox');   // 외부 결과 파일(조각 12) — 내용을 그린 뒤에만(data-ready)
+  if (extBox) extBox.style.display = (isDeliv && extBox.dataset.ready === '1') ? '' : 'none';
   if (ticketCard) ticketCard.style.display = isTicket ? '' : 'none';
   // 검색은 신청자·결과물 탭 전용 — 예약 표는 자체 필터(타임·상태)를 쓴다.
   if (filterBar) filterBar.style.display = isTicket ? 'none' : 'flex';
@@ -841,6 +844,7 @@ function renderCampOpsSummary(camp, allApps, allDelivs, stats) {
   if (!camp) { box.innerHTML = ''; return; }
   box.innerHTML = campOpsOverviewCard(camp) + campOpsStatusCard(camp, allApps, allDelivs, stats);
   appendCampOpsCostCard(camp);
+  if (typeof campExtFillCount === 'function') campExtFillCount();   // 외부 N명(조각 12) — 응답이 카드보다 먼저 왔을 때
 }
 
 // 개요 카드 — 썸네일·제품·캠페인번호·타입/채널/판매가 + 기간 3종
@@ -933,6 +937,7 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
     ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
+    <div id="campOpsExtCount" style="display:none;margin:-4px 0 6px;font-size:11px;color:var(--muted);text-align:right" title="캠페인에 붙인 외부 결과 파일의 참가자 수 — 브랜드 페이지 응모·참여 숫자에 더해진다"></div>
     ${delivKnown ? brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
     ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certSuccess, slots) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">

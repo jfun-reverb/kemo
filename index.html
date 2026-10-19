@@ -10388,6 +10388,42 @@ async function removeReportSource(sourceId) {
   if (error) { console.error('[removeReportSource]', error); throw error; }
   return !!data;
 }
+// ── 캠페인 외부 첨부(마이그레이션 546 · 작업표 2026-10-19 조각 12) ──
+// 조회 → {sources, ext_rows(회원번호 포함 — 관리자 전용)} · 🔴 실패 null · 함수가 아직 없는 서버(운영 546 전)는 {missing:true}(화면이 카드를 조용히 숨긴다)
+async function fetchCampaignExtSources(campaignId) {
+  if (!db || !campaignId) return null;
+  try {
+    const { data, error } = await db.rpc('get_campaign_ext_sources', { p_campaign_id: campaignId });
+    if (error) {
+      if (error.code === 'PGRST202' || error.code === '42883') return { missing: true };
+      throw error;
+    }
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchCampaignExtSources]', e); return null; }
+}
+// 붙이기·업데이트(같은 외부 번호면 줄 전부 교체) → 첨부 번호 · 떼기 → true · 권한·형식 오류는 던진다
+async function attachCampaignExtSource(campaignId, extNo, extName, fileName, rows) {
+  if (!db) throw new Error('DB 미연결');
+  let out = null;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('attach_campaign_ext_source', {
+      p_campaign_id: campaignId, p_ext_no: extNo, p_ext_name: extName, p_file_name: fileName, p_rows: rows || []
+    });
+    if (error) throw error;
+    out = data || null;
+  });
+  return out;
+}
+async function detachCampaignExtSource(sourceId) {
+  if (!db) throw new Error('DB 미연결');
+  let out = false;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('detach_campaign_ext_source', { p_source_id: sourceId });
+    if (error) throw error;
+    out = !!data;
+  });
+  return out;
+}
 // 첨부의 참가자 행. 실패 null / 0건 []. 563행이면 1,000 한도 안이지만 습관대로 페이지 반복.
 async function fetchReportExtRows(sourceIds) {
   if (!db) return null;
