@@ -121,7 +121,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `get_report_share_data` — **491**(414 → 449 → 457 → 469 → 491). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다
+- `get_report_share_data` — **545**(414 → 449 → 457 → 469 → 491 → 545). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다. 545 부터 본체는 내부 함수 `_results_payload_core`·`_results_ext_rows`(브랜드 결과물과 공유가 같이 쓴다 — 본문을 고칠 때는 이 둘을 545 베이스로) · 회원 응답에 `is_audit` 없음 · 「또는」 캠페인(채널 하나 캠페인 포함 — 기본값이 'or')은 게시한 채널 계정만(사양서 `2026-07-15-brand-portal.md` §17 — 개발서버만, 운영은 출시 날 ①)
 - `touch_campaign_report_updated_at` — **491**
 - `admin_create_deliverable_proxy` — **511**(184 → 511, 대리 등록 기간 거부 `proxy_window_closed` — 화면 판정 `isProxyWindowOpen` 과 같은 식). 🔴 **`CREATE OR REPLACE` 로만**(184 의 `DROP` 을 옮기지 말 것)
 
