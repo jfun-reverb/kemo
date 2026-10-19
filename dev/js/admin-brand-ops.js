@@ -1237,8 +1237,8 @@ function ganttSegmentsFor(c) {
   // 보조 — 구매(split 만)·방문(visit 만). merged·visitMerged 는 모집과 같아 안 그린다.
   if (kind === 'split' && c.purchase_start && c.purchase_end) segs.push({ name: '구매', start: c.purchase_start, end: c.purchase_end, lane: 'sub', ink: 'mid' });
   if (kind === 'visit' && c.visit_start && c.visit_end)       segs.push({ name: '방문', start: c.visit_start, end: c.visit_end, lane: 'sub', ink: 'mid' });
-  // 선정 — 🔴 갈래로 가를 수 없다(방문형 선정형 행사는 갈래가 visit). 아래 조건은 다른 네 곳과 **글자 그대로** 같아야
-  //   한다 — 목록과 근거는 인플루언서 상세(application.js)의 같은 자리 주석(이 자리가 다섯째).
+  // 선정 — 🔴 갈래로 가를 수 없다(방문형 선정형 행사는 갈래가 visit). 아래 조건은 다른 다섯 곳과 **글자 그대로** 같아야
+  //   한다 — 목록과 근거는 인플루언서 상세(application.js)의 같은 자리 주석(이 자리가 다섯째 — 여섯째는 브랜드 페이지 brand-campaigns.js).
   var isEvent = (typeof isEventCampaign === 'function') && isEventCampaign(c);
   var isSelEvent = (typeof isSelectionEvent === 'function') && isSelectionEvent(c);
   if ((c.recruit_type === 'gifting' || (c.recruit_type === 'visit' && (!isEvent || isSelEvent)))

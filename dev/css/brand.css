@@ -1123,3 +1123,73 @@ body.is-bof-open { overflow: hidden; }
   .brand-modal-box.bof-mini { padding: 24px 20px 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .bof-input:focus-visible { transition: none; } }
+
+/* ── 캠페인 목록·상세(피그마 「[1차] 05」 bw05-00·00a·01 · bm05-00 — brand-campaigns.js)
+   목록 틀(탭·패널·보기 전환·카드·상태 화면)은 오리엔시트 목록 bo-* 를 그대로 쓰고, 다른 것만 여기 둔다. */
+.bo-badge.is-active { background: #e8f7ee; color: #00873a; }
+.bo-badge.is-scheduled { background: var(--b-info-bg); color: var(--b-info); }
+.bo-badge.is-closed { background: var(--b-error-bg); color: var(--b-error); }
+.bo-badge.is-ended { background: var(--b-disabled-bg); color: var(--b-muted); }
+.bc-table { min-width: 1140px; }
+.bc-table .w-no { width: 150px; } .bc-table .w-prod { width: 234px; } .bc-table .w-type { width: 96px; }
+.bc-table .w-ch { width: 130px; } .bc-table .w-period { width: 150px; } .bc-table .w-slots { width: 104px; }
+.bc-table .w-res { width: 104px; } .bc-table .w-st { width: 90px; } .bc-table .w-act { width: 82px; }
+.bc-note { margin: 0; padding: 12px 16px 16px; font-size: 12px; color: var(--b-faint); }
+.bc-bar-row { display: flex; flex-direction: column; gap: 4px; }
+.bc-bar-row .bo-card-info-row { justify-content: space-between; }
+.bc-bar-val { font-size: 13px; }
+.bc-bar-val b { font-weight: 700; }
+.bc-bar { height: 4px; border-radius: 100px; background: var(--b-disabled-bg); overflow: hidden; }
+.bc-bar i { display: block; height: 100%; background: var(--b-ink); border-radius: 100px; }
+a.bo-state-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+
+.bc-detail { display: flex; flex-direction: column; gap: 32px; }
+.bc-back { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; color: var(--b-muted); text-decoration: none; }
+.bc-back:hover { color: var(--b-ink); }
+.bc-back:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; border-radius: 4px; }
+.bc-detail-head { display: flex; flex-direction: column; gap: 6px; }
+.bc-detail-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.bc-detail-title h1 { margin: 0; font-size: 18px; font-weight: 700; color: var(--b-ink); }
+.bc-detail-sub { margin: 0; font-size: 12px; color: var(--b-faint); }
+.bc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.bc-stat { padding: 18px; border: 1px solid var(--b-line); border-radius: 12px; background: #fff; }
+.bc-stat-label { margin: 0; font-size: 12px; color: var(--b-muted); }
+.bc-stat-value { margin: 8px 0 6px; font-size: 22px; font-weight: 700; color: var(--b-ink); }
+.bc-stat-sub { margin: 0; font-size: 11px; color: var(--b-faint); }
+.bc-card { padding: 20px; border: 1px solid var(--b-line); border-radius: 16px; background: #fff; }
+.bc-card-title { margin: 0 0 16px; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.bc-card-desc { margin: -8px 0 16px; font-size: 13px; color: var(--b-faint); }
+.bc-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--bc-steps, 5), minmax(0, 1fr)); }
+.bc-step { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.bc-step-dot { width: 12px; height: 12px; border-radius: 50%; background: #e4e4e7; }
+.bc-step.is-done .bc-step-dot, .bc-step.is-current .bc-step-dot { background: var(--b-ink); }
+.bc-step-name { font-size: 13px; color: var(--b-faint); }
+.bc-step.is-done .bc-step-name { color: var(--b-ink); }
+.bc-step.is-current .bc-step-name { color: var(--b-ink); font-weight: 700; }
+.bc-step-date { font-size: 11px; color: var(--b-faint); }
+.bc-sched { margin: 0; }
+.bc-sched-row { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid #f0f0f2; }
+.bc-sched-row dt { flex: 0 0 140px; font-size: 13px; font-weight: 600; color: var(--b-label); }
+.bc-sched-row dd { margin: 0; font-size: 13px; color: var(--b-ink); overflow-wrap: anywhere; }
+.bc-result-empty { padding: 20px 16px; border: 1px dashed var(--b-line); border-radius: 10px; background: var(--b-soft); text-align: center; }
+.bc-result-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--b-ink); }
+.bc-result-desc { margin: 6px 0 0; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
+
+/* 좁은 PC 화면(좌측 메뉴 240 + 본문) — 숫자 카드 넷이 한 줄에 찌그러지지 않게 두 줄로 */
+@media (max-width: 1100px) {
+  .bc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .bc-detail { gap: 20px; }
+  .bc-detail-title h1 { font-size: 20px; }
+  .bc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .bc-stat { padding: 14px; }
+  .bc-stat-value { font-size: 18px; }
+  .bc-card { padding: 16px; }
+  /* 진행 단계 — 좁은 화면에서는 세로 목록 */
+  .bc-steps { grid-template-columns: 1fr; gap: 12px; }
+  .bc-step { flex-direction: row; align-items: center; gap: 10px; text-align: left; }
+  .bc-step-name { min-width: 72px; }
+  .bc-sched-row { flex-direction: column; gap: 4px; }
+  .bc-sched-row dt { flex: none; }
+}

@@ -1802,7 +1802,7 @@ function _bofRenderRegistered(st) {
   const partial = st.sheet && st.sheet.layout === 'old' && cards > 1 && n < cards ? ' (' + n + '/' + cards + ')' : '';   // 옛 구조 일부 등록(결정 4)
   host.innerHTML = '<div class="bof-band is-ok"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_box</span>' +
       '<span>이 오리엔시트로 캠페인이 등록되어 내용을 수정할 수 없습니다.' + brandEsc(partial) + '</span>' +
-      // 캠페인 페이지(bw05-01)가 아직 「준비 중」이라 캠페인 메뉴로 보낸다(작업표 stale 8)
+      // 캠페인 메뉴(목록)로 보낸다 — 카드가 여러 캠페인일 수 있어 상세(#campaigns/<번호>)로 바로 보내지 않는다(작업표 stale 8)
       '<button type="button" class="bof-band-link" data-bof-act="campaigns">캠페인 보기 ›</button></div>' +
     '<section class="bof-card bof-done-card"><h3 class="bof-done-title">캠페인이 등록되었습니다</h3>' +
       '<p class="bof-done-desc">담당자가 이 오리엔시트로 캠페인을 등록했습니다. 모집이 시작되면 「캠페인」 메뉴에서 현황을 볼 수 있습니다.</p>' +
