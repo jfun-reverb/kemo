@@ -267,7 +267,7 @@ function _reportChannelCellHtml(url, kind, who) {
   const tag = kind === 'photo' ? '사진' : (kind === 'post' ? '게시물' : '');
   const tagHtml = tag ? `<span style="display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:var(--line);color:var(--muted);font-size:10px">${tag}</span>` : '';
   if (kind === 'photo') {
-    return `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(url)},${jsStr(who + ' 사진 1/1')})">열기</a>${tagHtml}`;
+    return `<a href="javascript:void(0)" onclick="openDeliverableMediaLightbox(${jsStr(url)},${jsStr(who + ' 사진 1/1')})">열기</a>${tagHtml}`;
   }
   // 🔴 http(s) 가 아니면 링크로 만들지 않는다 — reportIsLinkable(report-rows.js, 공유 화면과 같은 판정)
   if (!reportIsLinkable(url)) return `<span style="color:var(--muted)">${esc(url)}</span>${tagHtml}`;
@@ -281,14 +281,14 @@ function _reportRowHtml(r, cols) {
   const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
   const cells = (cols || REPORT_COLS).map(function(c) {
     if (c.key === 'receipt_url') {
-      // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창).
+      // 영수증은 우리 저장소의 이미지라 모달로 연다(검수 화면과 같은 확대 창). 비공개 통 경로(548)는 누를 때 서명한다.
       if (!r.receipt_url) return '<td></td>';
       const rl = String(r.receipt_url).split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean);
       const whoR = whoBase + ' · 영수증';
       const rjs = esc(JSON.stringify(rl));
       return '<td>' + (rl.length > 1
-        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openImageGallery(${rjs},${i},${jsStr(whoR)})'>사진 ${i+1}</a>`; }).join(' · ')
-        : `<a href="javascript:void(0)" onclick="openImageLightbox(${jsStr(rl[0])},${jsStr(whoR + ' 사진 1/1')})">열기</a>`) + '</td>';
+        ? rl.map(function(u, i){ return `<a href="javascript:void(0)" onclick='openDeliverableMediaGallery(${rjs},${i},${jsStr(whoR)})'>사진 ${i+1}</a>`; }).join(' · ')
+        : `<a href="javascript:void(0)" onclick="openDeliverableMediaLightbox(${jsStr(rl[0])},${jsStr(whoR + ' 사진 1/1')})">열기</a>`) + '</td>';
     }
     // 채널 결과물 칸 — 대장의 어느 채널이든(기타 포함) 같은 방식. 종류(사진·게시물)는 `ch_{코드}_kind` 에 있다.
     if (c.ch && /_url$/.test(c.key)) {
@@ -456,11 +456,17 @@ async function exportReportExcel(reportId) {
       return {header: c.label, key: c.key, width: Math.max(10, Math.round(parseInt(c.w, 10) / 8))};
     });
     ws.getRow(1).font = {bold: true};
+    // 영수증 칸의 비공개 통 경로(548)는 7일 임시 주소로 바꿔 싣는다 — 경로 글자를 그대로 내보내지 않는다
+    const _splitLines = function(v){ return String(v || '').split(/\r?\n/).map(function(u){ return u.trim(); }).filter(Boolean); };
+    const mediaVals = [];
+    rows.forEach(function(r){ _splitLines(r.receipt_url).forEach(function(u){ mediaVals.push({receipt_url: u}); }); });
+    await _excelPrepareMediaLinks(mediaVals);
     rows.forEach(function(r) {
       const o = {};
       cols.forEach(function(c) {
         // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
-        if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
+        if (c.key === 'receipt_url') { o[c.key] = _splitLines(r.receipt_url).map(_excelMediaLink).filter(Boolean).join('\n'); }
+        else if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
         else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
       });
       ws.addRow(o);

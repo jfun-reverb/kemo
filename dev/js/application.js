@@ -1833,6 +1833,8 @@ async function loadDeliverablesForActivity() {
   // 제출 가부는 **서버 판정을 그대로 소비**한다(사양서 §설계 3-(1), 마이그레이션 276).
   //   화면이 같은 판정을 다시 계산하면 두 벌이 되어 어긋난다 — 2단계에서 실제로 겪은 함정이다.
   _activityGate = await fetchDeliverableGate(_activityAppId);
+  // 비공개 통 영수증 경로(548)는 그리기 전에 서명해 둔다 — 옛 공개 주소뿐이면 요청 없음
+  await prefetchDeliverableMedia((all || []).map(d => d.receipt_url));
 
   // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
   // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
@@ -2054,7 +2056,7 @@ function renderActivityReceiptList(delivs) {
     <div class="ac-row">
       <div class="ac-row-main">
         <div class="ac-thumb">
-          ${r.receipt_url ? `<img src="${esc(storageThumbUrl(r.receipt_url))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(r.receipt_url)},'_blank')">` : ''}
+          ${r.receipt_url ? `<img ${deliverableImgAttrs(r.receipt_url)} loading="lazy" decoding="async" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="if(this.dataset.orig)window.open(this.dataset.orig,'_blank')">` : ''}
         </div>
         <div style="flex:1;min-width:0">
           ${stBadge}
@@ -2119,7 +2121,7 @@ function renderActivityReviewImageList(delivs, channels) {
         ? `<div class="ac-row-msg proxy">${activityProxyNoticeJa(row)}</div>`
         : '';
       const thumb = row.receipt_url
-        ? `<img src="${esc(storageThumbUrl(row.receipt_url))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open(${jsStr(row.receipt_url)},'_blank')">`
+        ? `<img ${deliverableImgAttrs(row.receipt_url)} loading="lazy" decoding="async" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="if(this.dataset.orig)window.open(this.dataset.orig,'_blank')">`
         : '';
       cardBody += `
         <div class="ac-row-main">

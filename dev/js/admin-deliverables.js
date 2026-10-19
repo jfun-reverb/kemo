@@ -1125,11 +1125,10 @@ function renderDelivResultCellMonitor(g) {
     }
     let thumb = '';
     if (d.receipt_url) {
-      const thumbUrl = storageThumbUrl(d.receipt_url);
-      thumb = '<img src="' + esc(thumbUrl) + '" data-orig="' + esc(d.receipt_url) + '" loading="lazy" decoding="async" '
+      thumb = '<img ' + deliverableImgAttrs(d.receipt_url) + ' loading="lazy" decoding="async" '
         + 'style="width:22px;height:22px;border-radius:3px;object-fit:cover;cursor:pointer;background:#f5f5f5" '
-        + 'onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
-        + 'onclick="event.stopPropagation();openImageLightbox(\'' + esc(d.receipt_url) + '\')">';
+        + 'onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
+        + 'onclick="event.stopPropagation();if(this.dataset.orig)openImageLightbox(this.dataset.orig)">';
     }
     let badge;
     // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
@@ -1165,8 +1164,7 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   let preview = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     if (d.receipt_url) {
-      const thumb = storageThumbUrl(d.receipt_url);
-      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox(${jsStr(d.receipt_url)})">`;
+      preview = `<img ${deliverableImgAttrs(d.receipt_url)} loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();if(this.dataset.orig)openImageLightbox(this.dataset.orig)">`;
     }
   } else if (d.kind === 'post') {
     if (d.post_url) {
@@ -1238,7 +1236,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+            ? `<img ${deliverableImgAttrs(d.receipt_url)} alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="if(this.dataset.orig)openImageLightbox(this.dataset.orig)">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -1271,6 +1269,7 @@ async function openDelivDetail(id) {
   }
 
   if (body) body.innerHTML = contentHtml;
+  if (body) hydrateDeliverableMedia(body);
 
   // 푸터 액션
   let footerHtml = '';
@@ -1632,7 +1631,7 @@ async function renderDelivCombinedBody(applicationId) {
       const rowsHtml = unassigned.map(function(d){
         const orig = d.receipt_url || '';
         const thumb = orig
-          ? `<img src="${esc(storageThumbUrl(orig))}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox(${jsStr(orig)})" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          ? `<img ${deliverableImgAttrs(orig)} onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="if(this.dataset.orig)openImageLightbox(this.dataset.orig)" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
           : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
         const dateStr = d.submitted_at ? formatDate(d.submitted_at) : '';
         let control;
@@ -1720,6 +1719,7 @@ async function renderDelivCombinedBody(applicationId) {
     ${unassignedBox}
     ${mismatchedBox}
   `;
+  hydrateDeliverableMedia(body);   // 비공개 통 영수증(548) 서명 — 옛 공개 주소뿐이면 아무것도 안 한다
 
   // 대리 등록 버튼 — 매 렌더마다 권한(campaign_manager 차단) + 검수 불필요를 함께 대칭 판정
   //   (openDelivCombined 를 거치지 않는 직접 재렌더 경로 대비 — 숨김이 안 풀리는 잠재 결함 방지)
@@ -1916,7 +1916,10 @@ async function runReceiptOcrAdmin(id, url) {
   if (btn) btn.disabled = true;
   try {
     show('읽기 준비 중… (처음에는 시간이 조금 걸립니다)');
-    const { fields } = await runReceiptOcr(url, {
+    // 비공개 통 경로(548)면 임시 주소로 바꿔 읽는다 — 공개 주소는 그대로
+    const src = (await signDeliverableMedia([url]))[0];
+    if (!src) { show('영수증 이미지를 불러오지 못했습니다.'); return; }
+    const { fields } = await runReceiptOcr(src, {
       onProgress: (stage, prog) => {
         if (stage === 'recognize') show('읽는 중… ' + Math.round((prog || 0) * 100) + '%');
         else if (stage === 'fetch') show('이미지 불러오는 중…');
@@ -2155,7 +2158,7 @@ function renderDelivPanelContent(d, events, isExcluded) {
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
-        ? `<img src="${esc(storageThumbUrl(d.receipt_url))}" data-orig="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="openImageLightbox(${jsStr(d.receipt_url)})">`
+        ? `<img ${deliverableImgAttrs(d.receipt_url)} style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onload="_imgUpgradeToOrig(this)" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="if(this.dataset.orig)openImageLightbox(this.dataset.orig)">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
     // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)

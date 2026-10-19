@@ -356,6 +356,18 @@ function storageThumbUrl(url) {
   if (rest.slice(slash + 1).startsWith('thumb/')) return url;   // 이미 썸네일 주소면 그대로
   return url.slice(0, i + MARKER.length) + bucket + '/' + folder + '/thumb/' + rest.slice(slash + 1);
 }
+// 결과물 사진 값의 두 형식(마이그레이션 548 · 작업표 2026-10-19 조각 6)
+//   ① 옛 공개 전체 주소(「://」 포함 — campaign-images 등) → {publicUrl}
+//   ② 비공개 통 deliverable-media 안의 경로(「receipts/…」) → {bucket, path} — 열려면 서명해야 한다
+//   🔴 비공개 경로를 <img src> 에 그대로 넣지 않는다 — 화면은 storage.js 의 deliverableMediaUrl·deliverableMediaThumbUrl 로 읽는다
+const DELIVERABLE_MEDIA_BUCKET = 'deliverable-media';
+function deliverableMediaRef(value) {
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim();
+  if (!v) return null;
+  if (v.indexOf('://') !== -1) return { publicUrl: v };
+  return { bucket: DELIVERABLE_MEDIA_BUCKET, path: v };
+}
 // 옛 이름 — 캠페인 전용이던 시절의 호출부가 남아 있을 때를 위한 별칭.
 //   ⚠️ 새 코드는 storageThumbUrl 을 쓸 것.
 const campThumbUrl = storageThumbUrl;
@@ -1170,6 +1182,8 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     }
     state.cursor = end;
     if (state.cursor >= state.rows.length) clearSentinel();
+    // 비공개 통 결과물 사진(548)은 묶음마다 서명해 채운다 — 옛 공개 주소뿐이면 아무것도 안 한다
+    if (typeof hydrateDeliverableMedia === 'function') hydrateDeliverableMedia(tbody);
   }
 
   function mountSentinel() {
@@ -1229,6 +1243,7 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
       tmp.innerHTML = html;
       const next = tmp.firstElementChild;
       if (next) old.replaceWith(next);
+      if (next && typeof hydrateDeliverableMedia === 'function') hydrateDeliverableMedia(next);
     },
     destroy() {
       state.destroyed = true;
