@@ -316,5 +316,6 @@
 | 2026-10-15 | [인플루언서 앱 — 리뷰어 캠페인 신청 화면을 피그마로 (Client 페이지 · 화면 코드 규칙)](2026-10-15-client-figma-reviewer-apply-screens.md) | 사양서(현행 기록 · 화면 코드 규칙 · §7 응모 완료 모달 설계) |  |
 | 2026-10-16 | [작업 분해표 — 응모 완료 모달 (c05-06)](2026-10-15-client-figma-reviewer-apply-screens-breakdown.md) | 작업표 | [인플루언서 앱 — 리뷰어 캠페인 신청 화면을 피그마로](2026-10-15-client-figma-reviewer-apply-screens.md) §7 |
 | 2026-10-19 | [브랜드 페이지 — 시딩형 배송 리스트 · 형식별 캠페인 상세](2026-10-19-brand-seeding-shipping-list.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) §15 |
+| 2026-10-19 | [개인정보 접속·제공 기록 — 관리자·브랜드의 열람·내려받기와 브랜드 제공](2026-10-19-personal-data-access-records.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) 16-8 |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
