@@ -1742,6 +1742,7 @@ async function _bofSubmit(st) {
     if (!st.touched) st.touched = true;
     brandTouchActivity();   // 제출은 사람이 누른 활동(기본값 8)
     _bofShowScreen(st, 'done');
+    _bofPaintLastEditor(st, false);   // 방금 내가 제출했다 — 「○○님이 … 수정했습니다」 줄을 걷는다(조각 8 확인에서 발견)
     brandToast('제출되었습니다. 발행 전까지 수정할 수 있습니다.');   // 피그마 bw04-90 1번(「발행」은 기획에게 넘길 것 10)
     return;
   }
