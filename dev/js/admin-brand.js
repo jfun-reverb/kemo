@@ -40,6 +40,7 @@ var BRAND_DETAIL_BACK = {
   'brand-applications': { label: '브랜드 서베이로', action: "switchAdminPane('brand-applications')" }
 };
 var _brandDetailCamps = undefined;   // undefined=아직 안 받음 / null=조회 실패 / []=0건
+var _brandDetailPublishStates = null; // 캠페인 탭 「브랜드 공개」 배지 {id:bool} · null = 조회 실패·아직(배지 안 그림, 조각 10)
 var _brandDetailSheetCampIds = [];   // 이 브랜드 시트가 발행한 캠페인 id — 「오리엔 연결 / 직접 등록」 분류용        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
@@ -1237,6 +1238,7 @@ async function openBrandDetail(id, from) {
   //   ⚠️ 이 조회가 실패해도 **삭제 판정과는 무관**하다 — 카드의 번호 자리만 비운다.
   _brandDetailTab = 'sheets';
   _brandDetailCamps = undefined;
+  _brandDetailPublishStates = null;
   var campMap = {};
   try {
     var campIds = collectOrientCampaignIds(sheets);
@@ -1344,6 +1346,7 @@ async function refreshBrandDetailSheets() {
   // 캠페인 탭은 다음에 열 때 새로 받는다 — 지금 열려 있으면 바로 다시 받는다(도는 중인 옛 조회는 요청 번호로 버린다)
   _brandDetailCampsReq++;
   _brandDetailCamps = undefined;
+  _brandDetailPublishStates = null;
   if (_brandDetailTab === 'camps') await setBrandDetailTab('camps');
 }
 
@@ -1357,6 +1360,14 @@ function clearBrandModalBody() {
 function clearBrandDetailPaneBody() {
   var pb = $('brandDetailPaneBody'); if (pb) pb.innerHTML = '';
   var ph = $('brandDetailPaneHeader'); if (ph) ph.innerHTML = '';
+}
+
+// 캠페인 탭 배지 → 진행현황(조각 10). 이 창은 편집 폼이라 닫으면 저장 안 한 값이 사라진다 — 먼저 묻는다
+function brandDetailOpenCampProgress(campId) {
+  if (!campId) return;
+  if (!confirm('브랜드 상세를 닫고 그 캠페인의 진행현황으로 갑니다.\n저장하지 않은 변경은 사라집니다. 계속할까요?')) return;
+  closeBrandDetailModal();
+  openCampApplicants(campId);
 }
 
 function closeBrandDetailModal() {
@@ -2040,6 +2051,9 @@ async function setBrandDetailTab(code) {
   // ⚠️ 받아 오는 사이에 다른 브랜드를 열었거나 오리엔시트 갱신이 다시 받기를 시작했으면 이 결과는 버린다.
   if (_brandsCurrentId !== brandId || req !== _brandDetailCampsReq) return;
   _brandDetailCamps = rows;
+  _brandDetailPublishStates = (Array.isArray(rows) && typeof fetchBrandPublishStates === 'function')
+    ? await fetchBrandPublishStates(rows.map(function(c){ return c.id; })) : null;
+  if (_brandsCurrentId !== brandId || req !== _brandDetailCampsReq) return;
   var pane2 = $('brandDetailPane_camps');
   if (pane2) pane2.innerHTML = renderBrandCampaignsView(rows);
 }
@@ -2084,6 +2098,8 @@ function renderBrandCampaignRow(c) {
         + (c.campaign_no ? '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + esc(c.campaign_no) + '</span>' : '')
         + '<span style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || '—') + '</span>'
       + '</div>'
+      + ((_brandDetailPublishStates && typeof brandPublishBadgeHtml === 'function')
+          ? '<div style="margin-top:3px">' + brandPublishBadgeHtml(_brandDetailPublishStates[c.id] === true, "brandDetailOpenCampProgress('" + esc(c.id) + "')") + '</div>' : '')
     + '</div>'
     + '<div style="text-align:right;flex-shrink:0">'
       + '<span style="display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:' + st.bg + ';color:' + st.color + '">' + esc(stKo) + '</span>'
