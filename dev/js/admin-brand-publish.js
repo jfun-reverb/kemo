@@ -14,11 +14,26 @@
 
 var _bpCtx = null;   // {campaignId, data, cols, campTitle}
 
+// 목록 배지 — 캠페인 관리 목록(캠페인명 아래)·관리자 브랜드 상세 캠페인 탭이 **같은 함수**를 쓴다(조각 10).
+//   enabled 가 true/false 가 아니면(조회 실패·모름) 아무것도 안 그린다. 누르면 진행현황(onclickJs — 목록에서 바로 켜지 않는다)
+//   🔴 「비공개」 낱말 금지 — 같은 목록에 초대 전용 행사의 「비공개」 배지가 있다
+function brandPublishBadgeHtml(enabled, onclickJs) {
+  if (enabled !== true && enabled !== false) return '';
+  const style = 'display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;white-space:nowrap;'
+    + (enabled ? 'background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;' : 'background:#F4F4F5;color:#71717A;border:1px solid var(--line);')
+    + (onclickJs ? 'cursor:pointer;' : '');
+  return '<span style="' + style + '"' + (onclickJs ? ' onclick="event.stopPropagation();' + onclickJs + '" title="진행현황에서 설정"' : '') + '>'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:12px">' + (enabled ? 'visibility' : 'visibility_off') + '</span>'
+    + (enabled ? '브랜드 공개 중' : '브랜드 공개 꺼짐') + '</span>';
+}
+
 // 머리 줄 상태 표시 + 결과물 카드 단추 — loadCampApplicants 가 캠페인을 열 때마다 부른다
 async function refreshCampBrandPublishStatus(campaignId) {
   const el = document.getElementById('campBrandPublishStatus');
   const btn = document.getElementById('btnCampBrandPublish');
-  const hidden = (typeof isHidden === 'function') && isHidden('report.share');
+  // 🔴 운영(브랜드 묶음 반영 전)에서는 단추·표시 모두 숨긴다 — 판정은 _brandAccountEnabled() 한 곳
+  const live = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+  const hidden = !live || ((typeof isHidden === 'function') && isHidden('report.share'));
   if (btn) btn.style.display = hidden ? 'none' : '';
   if (!el) return;
   el.style.display = 'none';
@@ -72,6 +87,7 @@ async function _bpColumnsFor(camp) {
 }
 
 async function openBrandPublishModal(campaignId) {
+  if (!((typeof _brandAccountEnabled === 'function') && _brandAccountEnabled())) return;
   if ((typeof isHidden === 'function') && isHidden('report.share')) return;
   _bpCtx = null;   // ESC(전역 처리기)로 닫혀 남은 이전 값을 지운다
   _bpEnsureModal();
@@ -150,6 +166,7 @@ async function saveBrandPublishModal() {
       toast(enabled ? '브랜드 공개를 저장했습니다' : '브랜드 공개를 껐습니다');
       closeBrandPublishModal();
     }
+    _campListPublishStates = undefined;   // 캠페인 목록 배지·필터가 다음 그리기에서 새로 받게
     await refreshPane('camp-applicants');
   } catch (e) {
     toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');

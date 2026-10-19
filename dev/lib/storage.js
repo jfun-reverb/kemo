@@ -2022,18 +2022,32 @@ async function deleteCampaignReport(reportId) {
 //    실린다(정산이 같은 함정을 겪어 마이그레이션 318 로 고쳤다).
 // ⚠️ id 가 많으면 주소가 길어져 잘리므로 **100개씩 나눠** 부른다.
 // ── 캠페인 「브랜드 공개」(마이그레이션 544 · 작업표 2026-10-19 조각 9) ──
+// 🔴 운영 반영 보류 — 544 가 운영에 없어서 _brandAccountEnabled()(개발서버) 일 때만 서버를 부른다(브랜드 묶음과 같은 판정).
+//    꺼져 있으면 셋 다 null(실패와 같게 — 화면이 배지·상태·단추를 안 그린다). 출시 때 그 판정을 걷는다.
 // 설정 조회 → {enabled, columns, version(줄 없으면 0), updated_at, first_enabled_at, default_spec, default_source} · 🔴 실패는 null(「꺼짐」으로 그리지 않는다)
 async function fetchCampaignBrandPublish(campaignId) {
-  if (!db || !campaignId) return null;
+  if (!db || !campaignId || !_brandAccountEnabled()) return null;
   try {
     const { data, error } = await db.rpc('admin_get_campaign_brand_publish', { p_campaign_id: campaignId });
     if (error) throw error;
     return (data && typeof data === 'object') ? data : null;
   } catch (e) { console.error('[fetchCampaignBrandPublish]', e); return null; }
 }
+// 여러 캠페인의 공개 여부 → {캠페인id: true|false} · 🔴 실패는 null(배지·필터를 그리지 않는다 — 「꺼짐」으로 그리지 않는다)
+async function fetchBrandPublishStates(campaignIds) {
+  if (!db || !_brandAccountEnabled()) return null;
+  const ids = [...new Set((campaignIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_publish_states', { p_campaign_ids: ids });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : {};
+  } catch (e) { console.error('[fetchBrandPublishStates]', e); return null; }
+}
 // 저장 → 새 version · 🔴 -1 = 다른 사람이 먼저 저장(낙관적 잠금) 또는 보관 삭제된 캠페인. 권한·형식 오류는 던진다
 async function saveCampaignBrandPublish(campaignId, enabled, columns, expectedVersion) {
   if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('브랜드 공개는 아직 개발서버에서만 쓸 수 있습니다');
   let out = -1;
   await retryWithRefresh(async () => {
     const { data, error } = await db.rpc('admin_set_campaign_brand_publish', {

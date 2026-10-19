@@ -61,8 +61,9 @@ function filterAdminCampaigns() { loadAdminCampaigns(true); }
 const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 // 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+var _campListPublishStates;   // 브랜드 공개 여부 {id:bool} · null = 조회 실패 · undefined = 아직 안 받음(조각 10)
 function updateCampViewResetBtn() {
-  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null;
+  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null || !!($('campPublishFilter')?.value);
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
   const hasSort = !!adminCampSortKey;
   const btn = $('btnCampViewReset');
@@ -78,6 +79,7 @@ function resetCampFilters() {
 // 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
 function resetCampView() {
   resetMultiFilter('campTypeMulti', '전체 타입');
+  const _pf = $('campPublishFilter'); if (_pf) _pf.value = '';
   _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   adminCampSortKey = ''; adminCampSortDir = '';
@@ -487,6 +489,15 @@ async function loadAdminCampaigns(useCache) {
   const delivCounts = (useCache && _campListDelivCounts !== undefined)
     ? _campListDelivCounts
     : (_campListDelivCounts = await fetchCampaignDeliverableCounts());
+  // 브랜드 공개 여부(조각 10) — 목록 전체에 한 번. 🔴 실패(null)면 배지·필터를 그리지 않는다
+  if (!(useCache && _campListPublishStates !== undefined)) {
+    _campListPublishStates = await fetchBrandPublishStates(allCampaigns.map(c => c.id));
+  }
+  const _pubSel = $('campPublishFilter');
+  const _pubGroup = $('campPublishFilterGroup');
+  if (_pubGroup) _pubGroup.style.display = _campListPublishStates ? '' : 'none';
+  const _pubVal = (_campListPublishStates && _pubSel) ? _pubSel.value : '';
+  if (_pubVal) camps = camps.filter(c => (_campListPublishStates[c.id] === true) === (_pubVal === 'on'));
 
   // 정렬
   const appCount = id => (counts[id]?.total || 0);
@@ -590,6 +601,7 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
+            ${_campListPublishStates ? `<div style="margin-top:3px">${brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -4448,8 +4460,13 @@ async function confirmCampaignBrandChange(campId, oldBrandId, newBrandId, campai
     sheetLine = '\n· 오리엔시트 연결 여부는 확인하지 못했습니다.';
   }
   const noLine = campaignNo ? `\n· 캠페인 번호 ${campaignNo} 는 바뀌지 않습니다.` : '\n· 캠페인 번호는 바뀌지 않습니다.';
+  // 브랜드 공개(조각 10) — 켜져 있으면 새 브랜드 계정이 저장 즉시 이 캠페인 결과물을 본다(병합도 같다)
+  let publishLine = '';
+  const _pub = (typeof fetchCampaignBrandPublish === 'function') ? await fetchCampaignBrandPublish(campId) : null;
+  //   ⚠️ 조회 실패면 줄을 넣지 않는다 — 운영(544 없음)에서 모든 브랜드 변경에 거짓 경고가 뜬다
+  if (_pub && _pub.enabled) publishLine = `\n· 브랜드 공개 중입니다 — 저장하면 「${newName}」 브랜드 계정이 바로 이 캠페인 결과물을 봅니다.`;
   return await showConfirm(
-    `브랜드를 「${oldName}」에서 「${newName}」로 바꿉니다.\n` + noLine + sheetLine,
+    `브랜드를 「${oldName}」에서 「${newName}」로 바꿉니다.\n` + noLine + sheetLine + publishLine,
     '바꿔서 저장', '돌아가기');
 }
 
