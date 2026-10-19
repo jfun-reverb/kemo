@@ -866,6 +866,7 @@ body.is-bof-open { overflow: hidden; }
   background: #f9f9f9; border-radius: var(--b-radius-card);
   overflow: hidden;
 }
+.bof-scroll:focus { outline: none; }
 .bof-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 30px 24px 8px; display: flex; flex-direction: column; gap: 24px; }
 .bof-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .bof-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--b-ink); }
@@ -1031,7 +1032,7 @@ body.is-bof-open { overflow: hidden; }
 .bof-bar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 12px 24px 24px; background: #f9f9f9; border-top: 1px solid #efeff1; }
 .bof-pill { flex-shrink: 0; padding: 3px 9px; border-radius: 100px; font-size: 12px; font-weight: 600; }
 .bof-pill.is-editing { background: #fff0f0; color: #ed1e1e; }
-.bof-pill.is-submitted { background: var(--b-info-bg); color: var(--b-info); }
+.bof-pill.is-submitted, .bof-pill.is-registered { background: #e8f7ee; color: #00873a; }   /* 피그마 bw04-05·01c — 두 배지가 같은 초록 */
 .bof-save { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--b-faint); }
 .bof-save-icon { font-size: 16px; }
 .bof-save-retry { padding: 0; border: 0; background: none; font-family: inherit; font-size: 12px; color: inherit; text-decoration: underline; cursor: pointer; }
@@ -1045,6 +1046,60 @@ body.is-bof-open { overflow: hidden; }
 }
 .bof-done-btn:disabled { background: var(--b-disabled-btn); border-color: var(--b-disabled-btn); cursor: default; }
 .bof-modal button:focus-visible, .bof-modal input:focus-visible, .bof-modal [contenteditable]:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+
+/* ── 조각 7 — 확인(bw04-03)·견적서(04·04a)·완료(05·05a·05b)·등록(01c)·작은 안내(01b) */
+.bof-notes { display: contents; }   /* 안내 띠 셋을 바깥 간격(24)에 그대로 — 모두 숨으면 빈 자리도 없다 */
+.bof-bar-btns { display: inline-flex; gap: 8px; flex-shrink: 0; margin-left: auto; }   /* 완료 화면은 저장 상태가 없어 오른쪽으로 민다 */
+.bof-btn-sec {
+  min-height: 43px; padding: 12px 16px; border: 1px solid var(--b-line); border-radius: 8px; background: #fff;
+  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--b-ink); cursor: pointer;
+}
+.bof-btn-sec:disabled { background: #ececec; border-color: #ececec; color: var(--b-faint); cursor: default; }
+.bof-bar-btns .bof-done-btn { min-height: 43px; padding: 12px 16px; }
+.bof-caution { color: #c2410c; }
+.bof-input.is-caution { border-color: #c2410c; }
+.bof-field-msg { margin-top: -2px; }
+.bof-band { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #fff; font-size: 13px; line-height: 1.5; color: #52525b; }
+.bof-band.is-warn { background: #fff7e6; color: #b45309; }
+.bof-band.is-ok { background: #e8f7ee; color: #00873a; font-weight: 600; }
+.bof-band.is-ok > span:not(.material-icons-round) { flex: 1; }
+.bof-band .material-icons-round { font-size: 18px; }
+.bof-band-link { flex-shrink: 0; padding: 0; border: 0; background: none; font-family: inherit; font-size: 13px; font-weight: 600; color: #00873a; cursor: pointer; min-height: 32px; }
+.bof-band-link:hover { text-decoration: underline; }
+.bof-empty-card { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 16px; border-radius: var(--b-radius-card); background: #fff; }
+.bof-empty-card p { margin: 0; font-size: 14px; font-weight: 600; color: var(--b-muted); }
+.bof-pv-card { gap: 14px; }
+.bof-pv-title { margin: 0 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--b-ink); font-size: 15px; font-weight: 700; color: var(--b-ink); overflow-wrap: anywhere; }
+.bof-pv-row { display: flex; gap: 16px; padding: 6px 0; font-size: 13px; line-height: 1.5; }
+.bof-pv-k { flex: 0 0 120px; font-weight: 600; color: var(--b-muted); }
+.bof-pv-v { flex: 1; min-width: 0; color: var(--b-ink); white-space: pre-line; overflow-wrap: anywhere; }
+.bof-pv-v.is-muted { color: var(--b-faint); }
+.bof-pv-rich { white-space: normal; }
+.bof-pv-rich p { margin: 0; }
+.bof-pv-rich a { color: var(--b-info); }
+.bof-quote-slot { display: flex; flex-direction: column; gap: 8px; }
+.bof-quote-tools { display: flex; justify-content: flex-end; }
+.bof-quote-box { border: 1px solid var(--b-line); border-radius: 12px; overflow: hidden; background: #f7f5f0; }
+.bof-quote-frame { display: block; width: 100%; height: 820px; border: 0; background: #f7f5f0; }
+.bof-quote-fail { margin: 0; padding: 32px 16px; text-align: center; font-size: 13px; color: var(--b-muted); }
+.bof-box-warn { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid #f4d7a8; border-radius: 10px; background: #fff6e5; color: #8a5a00; }
+.bof-box-warn p { margin: 0; font-size: 13px; line-height: 1.5; }
+.bof-box-warn p.is-sub { font-size: 12px; }
+.bof-done-card { gap: 14px; }
+.bof-done-card .bof-box-warn { max-width: 600px; }
+.bof-done-title { margin: 0; font-size: 20px; font-weight: 700; color: var(--b-ink); }
+.bof-done-desc { margin: 0; font-size: 13px; line-height: 1.5; color: #52525b; }
+.bof-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.bof-step { padding: 4px 10px; border-radius: 100px; background: var(--b-disabled-bg); font-size: 12px; color: var(--b-muted); }
+.bof-step.is-now { background: var(--b-ink); color: #fff; font-weight: 700; }
+.bof-step-sep { font-size: 13px; color: var(--b-faint); }
+.brand-modal-box.bof-mini { width: 460px; align-items: center; text-align: center; gap: 14px; padding: 28px 28px 24px; }
+.bof-mini h2 { font-size: 18px; }
+.bof-mini p { font-size: 13px; line-height: 1.6; color: #52525b; }
+.bof-mini-icon { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 100px; background: var(--b-disabled-bg); color: var(--b-ink); }
+.bof-mini-icon .material-icons-round { font-size: 28px; }
+.bof-mini-actions { display: flex; gap: 8px; }
+.bof-mini-actions .bof-btn-sec { min-height: 41px; padding: 11px 18px; }
 
 @media (max-width: 600px) {
   .bof-modal { top: 45px; left: 0; padding: 0; background: #f9f9f9; }
@@ -1060,5 +1115,11 @@ body.is-bof-open { overflow: hidden; }
   /* iOS 는 16px 미만 입력 칸에 초점이 가면 화면을 확대한다 — 피그마 14px 대신 16px(bm04-01 설명 패널) */
   .bof-input, .bof-rich-body { font-size: 16px; }
   .bof-bar { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .bof-bar { flex-wrap: wrap; }
+  .bof-bar-btns { margin-left: auto; }
+  .bof-pv-row { flex-direction: column; gap: 2px; }
+  .bof-pv-k { flex: none; }
+  .bof-quote-frame { height: 640px; }
+  .brand-modal-box.bof-mini { padding: 24px 20px 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .bof-input:focus-visible { transition: none; } }
