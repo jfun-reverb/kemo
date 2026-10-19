@@ -76,9 +76,8 @@
 - 적용 범위: 마이페이지, 인증, GNB/홈, 캠페인 목록·상세, 신청 모달, 활동관리, 알림, DB 에러 메시지 로케일 분기 (`friendlyErrorJa`)
 
 ## 내부 문서 (개발서버 한정)
-- `docs/service-flow.html` — 전체 서비스 플로우차트
 - `docs/flowchart-i18n.html` — i18n 다국어 흐름도
-- 접속: https://dev.globalreverb.com/docs/service-flow.html, https://dev.globalreverb.com/docs/flowchart-i18n.html
+- 접속: https://dev.globalreverb.com/docs/flowchart-i18n.html (전체 서비스 플로우차트 `service-flow.html` 은 더 쓰지 않아 2026-10-19 삭제)
 - **운영서버(main)에 머지하지 않음** — 내부 직원용 참고 자료
 
 ## Architecture
