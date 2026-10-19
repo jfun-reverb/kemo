@@ -1252,6 +1252,7 @@ a.bo-state-btn { display: inline-flex; align-items: center; justify-content: cen
   .br-pager { flex-direction: column; align-items: flex-start; }
   .br-lb { padding: 12px; }
 }
+.br-excel { width: auto; height: 34px; padding: 0 14px; font-size: 13px; font-weight: 600; flex: 0 0 auto; }
 
 </style>
 </head>
@@ -7509,7 +7510,8 @@ document.addEventListener('keydown', (e) => {
 //      영수증 「열기」는 누를 때 receipt 갈래로 그 한 장의 임시 주소를 받는다(열 때마다 새로 — 1시간 지나도 다시 열린다).
 //   ⚠️ 이 페이지에서 뺀 열: No.·캠페인 번호·캠페인명·구매기간 — 한 캠페인 화면이라 머리·일정에 이미 있다(피그마 bw05-01e).
 //      이름(한자)·후리가나는 「이름」 한 칸으로 합쳐 「구분」 바로 뒤에 그린다(피그마). 「구분」은 늘 맨 앞(S25 · 열 고르기 대상 아님).
-//   ⏸️ 「엑셀 내려받기」는 조각 15. 열람 정지(S24)는 서버가 아직 안 준다(조각 4c) — 응답 reason:'suspended' · 요약 results_suspended 로 그린다.
+//   엑셀(조각 15): purpose:'excel' 한 번 — 영수증만 서버가 7일 서명(올린 사람 대조 551), 줄·열은 화면과 같은 _brBuildRowsCols ·
+//      A1 안내(S27) · 파일 이름 「결과물_{제품명}_{YYYYMMDD}.xlsx」(S5) · 내려받기 기록 없음(S8). 열람 정지(S24)는 서버가 아직 안 준다(조각 4c) — 응답 reason:'suspended' · 요약 results_suspended 로 그린다.
 
 const BRAND_RES_PAGE = 20;
 const BRAND_RES_MSG = {
@@ -7551,6 +7553,20 @@ function brandResultPostedPct(c) {
   return Math.max(0, Math.min(100, Math.round((Number(c.result_posted) || 0) / t * 100)));
 }
 
+// 응답 → 줄·열 — 화면(view)과 엑셀(excel)이 **같은 함수**로 만든다(「화면보다 많이 싣지 않는다」 — 조각 15)
+function _brBuildRowsCols(b, camp) {
+  const camps = (b.campaign_rows || []).map(x => ({ id: x.id, campaign_no: x.campaign_no, title: x.title }));
+  const delivs = Array.isArray(b.deliverables) ? b.deliverables : [];
+  let rows = buildReportRows(delivs, camps, b.users || {});
+  const ext = (b.ext_rows || []).filter(reportExtRowSubmitted).map(x => _reportExtToRow(Object.assign({ account_id: '' }, x), null,
+    { rules: 'campaign', campaign: { campaign_no: camp.campaign_no || '', campaign_name: camp.product || '' } }));
+  rows = rows.concat(ext);
+  rows.forEach((x, i) => { x.no = i + 1; x.account_id = ''; });   // 계정 ID 는 서버가 안 보낸다 — 열 자체를 비운다
+  const chosen = Array.isArray(b.columns) ? b.columns : null;
+  const cols = reportColumnsFor(rows).filter(c => BRAND_RES_SKIP_COLS.indexOf(c.key) === -1 && reportShareColDraw(c, chosen, rows));
+  return { rows, cols, delivs };
+}
+
 // ── 불러오기 — 상세가 「ok」가 되면 부른다
 async function loadBrandCampaignResults(id) {
   const seq = ++_brResSeq;
@@ -7561,16 +7577,7 @@ async function loadBrandCampaignResults(id) {
   const b = r && r.body;
   if (!b || b.success !== true) { _brRes = { id, state: 'error' }; _brResRerender(); return; }
   if (b.ready !== true) { _brRes = { id, state: b.reason === 'suspended' ? 'suspended' : 'off' }; _brResRerender(); return; }
-  const camp = (_bcDetail && _bcDetail.id === id && _bcDetail.camp) || {};
-  const camps = (b.campaign_rows || []).map(x => ({ id: x.id, campaign_no: x.campaign_no, title: x.title }));
-  const delivs = Array.isArray(b.deliverables) ? b.deliverables : [];
-  let rows = buildReportRows(delivs, camps, b.users || {});
-  const ext = (b.ext_rows || []).filter(reportExtRowSubmitted).map(x => _reportExtToRow(Object.assign({ account_id: '' }, x), null,
-    { rules: 'campaign', campaign: { campaign_no: camp.campaign_no || '', campaign_name: camp.product || '' } }));
-  rows = rows.concat(ext);
-  rows.forEach((x, i) => { x.no = i + 1; x.account_id = ''; });   // 계정 ID 는 서버가 안 보낸다 — 열 자체를 비운다
-  const chosen = Array.isArray(b.columns) ? b.columns : null;
-  const cols = reportColumnsFor(rows).filter(c => BRAND_RES_SKIP_COLS.indexOf(c.key) === -1 && reportShareColDraw(c, chosen, rows));
+  const { rows, cols, delivs } = _brBuildRowsCols(b, (_bcDetail && _bcDetail.id === id && _bcDetail.camp) || {});
   _brRes = { id, state: 'ok', rows, cols, counts: b.counts || {}, updatedAt: b.updated_at || null, page: 0, delivs };
   _brResRerender();
 }
@@ -7694,11 +7701,80 @@ function brandResultSectionHtml(c) {
   return open +
     '<div class="br-counts">' + num('제출', k.submitted) + num('검수 완료', k.approved) + num('검수 대기', k.pending) + '</div>' +
     '<p class="br-counts-note">' + brandEsc(BRAND_RES_MSG.countsNote) + '</p>' +
-    '<div class="br-meta"><span>업데이트 ' + brandEsc(brandFormatDateTime(st.updatedAt) || '-') + ' · 인원 ' + rows.length + '명 · 구매 ' + buyN + ' · 결과물 ' + revN + '</span></div>' +
+    '<div class="br-meta"><span>업데이트 ' + brandEsc(brandFormatDateTime(st.updatedAt) || '-') + ' · 인원 ' + rows.length + '명 · 구매 ' + buyN + ' · 결과물 ' + revN + '</span>' +
+      (rows.length ? '<button type="button" class="brand-btn br-excel" data-br-act="excel"' + (_brExcelBusy ? ' disabled' : '') + '>' +
+        '<span aria-hidden="true">↓</span> ' + (_brExcelBusy ? '엑셀 만드는 중…' : '엑셀 내려받기') + '</button>' : '') + '</div>' +
     (rows.length
       ? _brTableHtml(st) + _brPagerHtml(st) + '<p class="br-note">' + brandEsc(note) + '</p>'
       : '<div class="bc-result-empty"><p class="bc-result-title">' + brandEsc(BRAND_RES_MSG.emptyTitle) + '</p><p class="bc-result-desc">' + brandEsc(BRAND_RES_MSG.emptyDesc) + '</p></div>') +
     '</section>';
+}
+
+// ── 엑셀(조각 15 · 피그마 bw05-93 ①③) — 내려받는 순간 purpose:'excel' 로 새로 받는다(영수증 7일 링크가 그때 만들어진다)
+const BRAND_RES_EXCEL_FAIL = '엑셀을 만들지 못했습니다. 잠시 후 다시 시도해 주십시오.';
+let _brExcelBusy = false;
+function _brLoadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';   // 공유 화면(report.html)과 같은 판
+    s.onload = res; s.onerror = () => rej(new Error('exceljs'));
+    document.head.appendChild(s);
+  });
+}
+function _brYmd(d) { return d.getFullYear() + _brandPad2(d.getMonth() + 1) + _brandPad2(d.getDate()); }
+// 엑셀 칸 값 — 화면과 같은 열, 값은 글자·숫자(링크는 주소 그대로 — http(s) 만)
+function _brExcelValue(r, c) {
+  const v = r[c.key];
+  if (c.key === 'name_kanji') return [r.name_kanji, r.name_kana].filter(Boolean).join(' ');
+  if (c.key === 'amount') return (v === '' || v === null || v === undefined) ? '' : Number(v);
+  if (c.key === 'receipt_url' || (c.ch && /_url$/.test(c.key)) || c.acct) {
+    const list = String(v || '').split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+    if (c.key === 'receipt_url') return list.filter(reportIsLinkable).join('\n');   // 서명 못 한 영수증(경로)은 싣지 않는다
+    return list.join('\n');
+  }
+  if (c.key === 'purchase_date') return v ? brandFormatDate(v) : '';
+  if (/_at$/.test(c.key)) return v ? brandFormatDateTime(v) : '';
+  return v === null || v === undefined ? '' : String(v);
+}
+async function brandCampaignResultsExcel(btn) {
+  if (_brExcelBusy || !_brRes || _brRes.state !== 'ok') return;
+  const id = _brRes.id;
+  const camp = (_bcDetail && _bcDetail.id === id && _bcDetail.camp) || {};
+  _brExcelBusy = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span aria-hidden="true">↓</span> 엑셀 만드는 중…'; }
+  try {
+    const [, res] = await Promise.all([_brLoadExcelJS(), brandCallFunction('brand-campaign-results', { campaign_id: id, purpose: 'excel' }, { auth: true })]);
+    const b = res && res.body;
+    if (!b || b.success !== true || b.ready !== true) throw new Error('not_ready');
+    const { rows, cols } = _brBuildRowsCols(b, camp);
+    const drawn = _brDrawCols(cols);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('결과물');
+    const today = new Date();
+    // A1 안내(S27) — 머리글은 2행부터
+    ws.getCell('A1').value = '「구매 영수증 (URL)」 링크는 내려받은 날(' + brandFormatDate(today.toISOString()) + ')부터 7일 동안만 열립니다. 지나면 브랜드 페이지에서 엑셀을 다시 내려받아 주십시오.';
+    ws.getCell('A1').font = { color: { argb: 'FF71717A' } };
+    const heads = ['구분'].concat(drawn.map(c => c.label));
+    ws.addRow([]);   // 2행 자리(아래에서 채운다)
+    ws.getRow(2).values = heads;
+    ws.getRow(2).font = { bold: true };
+    rows.forEach(r => ws.addRow([r._ext ? '외부 참가자' : 'REVERB'].concat(drawn.map(c => _brExcelValue(r, c)))));
+    ws.columns.forEach((col, i) => { col.width = i === 0 ? 12 : Math.max(10, Math.round(parseInt((drawn[i - 1] || {}).w || '120', 10) / 8)); });
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '결과물_' + (String(camp.product || camp.campaign_no || '캠페인').replace(/[\\/:*?"<>|]/g, '').trim() || '캠페인') + '_' + _brYmd(today) + '.xlsx';   // S5
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    brandToast(BRAND_RES_EXCEL_FAIL, { error: true });
+  } finally {
+    _brExcelBusy = false;
+    const cur = document.querySelector('#bcResultSection [data-br-act="excel"]');
+    if (cur) { cur.disabled = false; cur.innerHTML = '<span aria-hidden="true">↓</span> 엑셀 내려받기'; }
+  }
 }
 
 // ── 영수증 사진 창(bw05-04) — 누를 때 그 한 장을 서명받는다(S26). 확대(누르기·휠)·이동(끌기), 바깥·Esc 로 닫기
@@ -7771,6 +7847,7 @@ document.addEventListener('click', (e) => {
   if (!el || el.disabled || !_brRes) return;
   const act = el.dataset.brAct;
   if (act === 'retry') { el.disabled = true; loadBrandCampaignResults(_brRes.id); return; }
+  if (act === 'excel') { brandCampaignResultsExcel(el); return; }
   if (act === 'page') {
     const p = Number(el.dataset.page);
     if (!isNaN(p) && _brRes.rows && p >= 0 && p * BRAND_RES_PAGE < _brRes.rows.length) {
@@ -9003,6 +9080,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792398504 -->
+<!-- v1792398909 -->
 </body>
 </html>

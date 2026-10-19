@@ -1239,3 +1239,4 @@ a.bo-state-btn { display: inline-flex; align-items: center; justify-content: cen
   .br-pager { flex-direction: column; align-items: flex-start; }
   .br-lb { padding: 12px; }
 }
+.br-excel { width: auto; height: 34px; padding: 0 14px; font-size: 13px; font-weight: 600; flex: 0 0 auto; }
