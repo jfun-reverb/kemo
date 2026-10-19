@@ -18,7 +18,7 @@
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값', brand_publish_default:'브랜드 공개 기본 열'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -27,6 +27,8 @@ let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
   applyLookupMenuVisibility();
+  // 「브랜드 공개 기본 열」 탭(조각 11)은 브랜드 묶음이 있는 개발서버에서만 — 운영엔 544 가 없다
+  { const t = document.querySelector('.lookup-tab[data-kind="brand_publish_default"]'); if (t) t.style.display = (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) ? '' : 'none'; }
   if (!isCampaignAdminOrAbove()) {
     const tbody = $('lookupsTableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">권한이 없습니다 (campaign_admin 이상)</td></tr>';
@@ -74,6 +76,7 @@ async function renderLookupsTable() {
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
   if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
   if (_currentLookupKind === 'quote_settings') { await renderQuoteSettingsTable(); return; }
+  if (_currentLookupKind === 'brand_publish_default') { await renderBrandPublishDefaultTable(); return; }   // 조각 11 — admin-brand-publish.js
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -498,6 +501,7 @@ function applyLookupModalKindUI(kind, recruitTypes) {
 
 function openLookupAddModal() {
   if (_currentLookupKind === 'quote_settings') { toast('견적 기준값은 항목을 추가하지 않습니다. 값만 수정할 수 있어요.'); return; }
+  if (_currentLookupKind === 'brand_publish_default') { toast('브랜드 공개 기본 열은 항목을 추가하지 않습니다. 체크만 바꿀 수 있어요.'); return; }
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }
