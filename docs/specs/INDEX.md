@@ -315,5 +315,6 @@
 | 2026-10-06 | [인수인계 — 관리자 메시지 번역: 원문 위·번역 아래 + 운영팀 일본어 글 번역](2026-10-06-admin-message-translation-order-handoff.md) | 인수인계 |  |
 | 2026-10-15 | [인플루언서 앱 — 리뷰어 캠페인 신청 화면을 피그마로 (Client 페이지 · 화면 코드 규칙)](2026-10-15-client-figma-reviewer-apply-screens.md) | 사양서(현행 기록 · 화면 코드 규칙 · §7 응모 완료 모달 설계) |  |
 | 2026-10-16 | [작업 분해표 — 응모 완료 모달 (c05-06)](2026-10-15-client-figma-reviewer-apply-screens-breakdown.md) | 작업표 | [인플루언서 앱 — 리뷰어 캠페인 신청 화면을 피그마로](2026-10-15-client-figma-reviewer-apply-screens.md) §7 |
+| 2026-10-19 | [브랜드 페이지 — 시딩형 배송 리스트 · 형식별 캠페인 상세](2026-10-19-brand-seeding-shipping-list.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) §15 |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
