@@ -1193,3 +1193,49 @@ a.bo-state-btn { display: inline-flex; align-items: center; justify-content: cen
   .bc-sched-row { flex-direction: column; gap: 4px; }
   .bc-sched-row dt { flex: none; }
 }
+
+/* ── 캠페인 상세 「결과물」 영역(2단계 — 작업표 2026-10-19 조각 14 · 피그마 bw05-01a·01e·04·93) ── */
+.br-counts { display: flex; gap: 24px; }
+.br-count { display: flex; flex-direction: column; gap: 4px; }
+.br-count span { font-size: 12px; color: var(--b-muted); }
+.br-count b { font-size: 18px; font-weight: 700; color: var(--b-ink); }
+.br-counts-note { margin: 10px 0 0; font-size: 11px; color: var(--b-faint); }
+.br-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 12px; font-size: 12px; color: var(--b-muted); }
+.br-table-scroll { overflow-x: auto; border: 1px solid var(--b-line); border-radius: 10px; }
+.br-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 12px; }
+.br-table th { padding: 10px 12px; background: var(--b-soft); border-bottom: 1px solid var(--b-line); text-align: left; font-weight: 600; color: var(--b-label); white-space: nowrap; }
+.br-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f2; color: var(--b-ink); white-space: nowrap; }
+.br-table tbody tr:last-child td { border-bottom: 0; }
+.br-st.is-ok { color: #15803d; }
+.br-st.is-wait { color: #c2410c; }
+.br-link { padding: 0; border: 0; background: none; font: inherit; color: var(--b-info); text-decoration: none; cursor: pointer; }
+.br-link:hover { text-decoration: underline; }
+.br-link:focus-visible, .br-page:focus-visible, .br-lb-x:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; border-radius: 4px; }
+.br-raw { color: var(--b-muted); white-space: normal; overflow-wrap: anywhere; }
+.br-more { font-size: 11px; color: var(--b-faint); }
+.br-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; font-size: 12px; color: var(--b-muted); }
+.br-pages { display: flex; gap: 6px; flex-wrap: wrap; }
+.br-page { min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid var(--b-line); border-radius: 6px; background: #fff; font: inherit; font-size: 12px; color: var(--b-ink); cursor: pointer; }
+.br-page.is-on { background: var(--b-ink); border-color: var(--b-ink); color: #fff; font-weight: 700; }
+.br-page:disabled { color: var(--b-disabled-btn); cursor: default; }
+.br-note { margin: 14px 0 0; font-size: 11px; color: var(--b-faint); line-height: 1.5; }
+/* 영수증 사진 창(bw05-04) */
+.br-lb { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, .55); }
+.br-lb-box { display: flex; flex-direction: column; width: min(720px, 100%); max-height: 100%; background: #fff; border-radius: 12px; overflow: hidden; }
+.br-lb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--b-line); font-size: 13px; font-weight: 600; }
+.br-lb-x { width: 32px; height: 32px; border: 0; background: none; font-size: 22px; line-height: 1; color: var(--b-muted); cursor: pointer; }
+.br-lb-body { display: flex; align-items: center; justify-content: center; min-height: 240px; max-height: calc(100vh - 120px); overflow: hidden; background: #f4f4f5; }
+.br-lb-img { max-width: 100%; max-height: calc(100vh - 120px); object-fit: contain; cursor: zoom-in; transition: transform .15s ease; touch-action: none; user-select: none; }
+.br-lb-img.is-zoom { cursor: grab; transition: none; }
+.br-lb-wait { margin: 0; font-size: 13px; color: var(--b-muted); }
+.br-lb-fail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px; text-align: center; font-size: 12px; color: var(--b-muted); }
+.br-lb-fail .br-lb-fail-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.br-lb-fail p { margin: 0; }
+.br-lb-fail .brand-btn { width: auto; height: 36px; margin-top: 8px; padding: 0 16px; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .br-lb-img { transition: none; } }
+@media (max-width: 600px) {
+  .br-counts { gap: 18px; }
+  .br-meta { flex-direction: column; align-items: flex-start; }
+  .br-pager { flex-direction: column; align-items: flex-start; }
+  .br-lb { padding: 12px; }
+}

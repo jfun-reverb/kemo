@@ -5,8 +5,8 @@
 //   (리뷰어형은 「선정」 없음 — 일정 「선정 발표」 줄도 없음, 숫자 카드는 「참여 / 정원」) · 날짜는 서버의 일본 날짜 · 최신순 한 페이지 · 보기 기억
 //   🔴 상태는 서버가 날짜로 다시 판정한 값(543 설계 판단 [I])만 쓴다 — 화면에서 다시 판정하지 않는다.
 //   🔴 조회 실패(null)와 0건([])을 구분한다 — 실패를 「캠페인 없음」으로 그리지 않는다.
-//   ⚠️ 결과물 영역은 1단계에서 늘 「아직 결과가 준비되지 않았습니다」 — 캠페인 「브랜드 공개」 장치(사양서 §4 「리포트 공유 링크」 ③)가 생기면
-//      서버 응답에 공개 여부를 싣고 여기서 갈라 그린다(피그마 bw05-01a).
+//   2단계(작업표 2026-10-19 조각 14): 결과물 영역은 brand-campaign-results.js(brandResultSectionHtml) · 「결과물 게시」 칸은
+//      서버 요약(550 — result_posted = 검수 완료 / approved_count 합계, S11) · 응모·참여는 「REVERB N + 외부 참가자 M」 나눠 적기(S25)
 
 const BRAND_CAMP_MSG = {
   loadFailTitle: '캠페인 목록을 불러오지 못했습니다',
@@ -170,7 +170,7 @@ function _bcRowsHtml(rows) {
       '<td>' + (brandEsc(_bcChannelText(c)) || _bcDash()) + '</td>' +
       '<td>' + (brandEsc(_bcRange(c.recruit_start, c.deadline, _bcShort)) || _bcDash()) + '</td>' +
       '<td>' + brandEsc(_bcSlotsText(c)) + '</td>' +
-      '<td class="c-center">' + _bcDash() + '</td>' +   // 결과물 게시 — 결과 공개 전 「-」(결정 2)
+      '<td class="c-center">' + (brandEsc(brandResultPostedText(c) || '') || _bcDash()) + '</td>' +   // 결과물 게시 — 공개 켜짐이면 검수 완료 / 참여(S11), 아니면 「-」
       '<td class="c-center">' + _bcBadge(c) + '</td>' +
       '<td class="c-act"><button type="button" class="bo-detail-btn" data-bc-act="open" data-camp-id="' + id + '">상세</button></td>' +
     '</tr>';
@@ -179,7 +179,7 @@ function _bcRowsHtml(rows) {
     '<thead><tr><th class="w-no">캠페인 번호</th><th class="w-prod">제품</th><th class="w-type">모집 형식</th><th class="w-ch">채널</th>' +
     '<th class="w-period">모집 기간</th><th class="w-slots">선정 / 정원</th><th class="w-res">결과물 게시</th><th class="w-st">상태</th><th class="w-act">관리</th></tr></thead>' +
     '<tbody>' + body + '</tbody></table></div>' +
-    '<p class="bc-note">결과물 게시 숫자는 담당자가 결과물을 공개하면 보입니다. 게시물 목록은 캠페인 상세의 「결과물」에서 봅니다.</p>';
+    '<p class="bc-note">결과물 게시 = 검수까지 끝난 결과물 수 / 참여 인원입니다. 담당자가 결과물을 공개한 캠페인만 보입니다. 게시물 목록은 캠페인 상세의 「결과물」에서 봅니다.</p>';
 }
 function _bcBarRow(label, valueHtml, pct) {
   return '<div class="bc-bar-row"><div class="bo-card-info-row"><span class="bo-card-info-label">' + brandEsc(label) + '</span>' +
@@ -199,7 +199,7 @@ function _bcCardsHtml(rows) {
         '<div class="bo-card-info-row"><span class="bo-card-info-label">모집 기간</span><span class="bo-card-info-val">' +
           (brandEsc(_bcRange(c.recruit_start, c.deadline, _bcShort)) || _bcDash()) + '</span></div>' +
         _bcBarRow('선정 / 정원', '<b>' + brandEsc(_bcSlotsText(c)) + '</b>', _bcSlotsPct(c)) +
-        _bcBarRow('결과물 게시', _bcDash(), 0) +
+        _bcBarRow('결과물 게시', brandResultPostedText(c) ? '<b>' + brandEsc(brandResultPostedText(c)) + '</b>' : _bcDash(), brandResultPostedPct(c)) +
       '</div>' +
     '</article>';
   }).join('') + '</div>';
@@ -275,13 +275,23 @@ function _bcStatsHtml(c, today) {
   if (slots && approved >= slots) slotSub = isMonitor ? '정원 모두 참여' : '정원 모두 선정';
   else if (!isMonitor && (c.status === 'scheduled' || c.status === 'active')) slotSub = '선정은 모집 마감 뒤 진행';
 
+  // S25 — 외부 참가자가 있으면 숫자를 나눠 적는다(기록용이면 「외부 참가자만」)
+  const ext = Number(c.ext_participants) || 0;
+  if (brandCampaignIsRecordOnly(c)) appliedSub = '외부 참가자만 (REVERB 모집 없음)';
+  else if (ext > 0) {
+    appliedSub = 'REVERB ' + (Number(c.applied_reverb) || 0) + ' + 외부 참가자 ' + ext;
+    slotSub = 'REVERB ' + (Number(c.approved_reverb) || 0) + ' + 외부 참가자 ' + ext;
+  }
+  const posted = brandResultPostedText(c);
+  const postedSub = brandResultsSuspended(c) ? '열람이 정지되었습니다' : posted ? '검수 완료 기준' : '결과가 공개되면 보입니다';
+
   const year = _bcYmd(c.deadline || c.recruit_start).slice(0, 4);
   const periodSub = (year ? year + '년' : '') + (c.status === 'ended' ? (year ? ' · ' : '') + '종료' : '');
 
   return '<div class="bc-stats">' +
     _bcStatCard('응모', brandEsc(applied + '명'), appliedSub) +
     _bcStatCard(isMonitor ? '참여 / 정원' : '선정 / 정원', brandEsc(approved + ' / ' + (slots != null ? slots + '명' : '-')), slotSub) +
-    _bcStatCard('결과물 게시', '-', '결과가 공개되면 보입니다') +   // 결정 2 — 공개 전 숫자 숨김
+    _bcStatCard('결과물 게시', brandEsc(posted || '-'), postedSub) +   // S11 — 공개 켜짐이면 검수 완료 / 참여 합계, 아니면 「-」
     _bcStatCard('모집 기간', brandEsc(_bcRange(c.recruit_start, c.deadline, _bcShort) || '-'), periodSub) +
   '</div>';
 }
@@ -312,11 +322,10 @@ function _bcScheduleHtml(c) {
   row('결과물 제출 마감', _bcFull(c.submission_end));
   return '<section class="bc-card"><h2 class="bc-card-title">일정</h2><dl class="bc-sched">' + rows.join('') + '</dl></section>';
 }
-function _bcResultHtml() {
-  return '<section class="bc-card"><h2 class="bc-card-title">결과물</h2>' +
-    '<p class="bc-card-desc">결과물 숫자는 결과가 공개되면 보입니다</p>' +
-    '<div class="bc-result-empty"><p class="bc-result-title">' + brandEsc(BRAND_CAMP_MSG.resultTitle) + '</p>' +
-    '<p class="bc-result-desc">' + brandEsc(BRAND_CAMP_MSG.resultDesc) + '</p></div></section>';
+// 숫자 카드만 다시 그린다 — 결과물 조회가 「정지」를 알려 왔을 때(4c 뒤)
+function _bcRerenderStatsIfShown() {
+  const el = document.querySelector('#brandPageHost .bc-stats');
+  if (el && _bcDetail && _bcDetail.state === 'ok') el.outerHTML = _bcStatsHtml(_bcDetail.camp, _bcDetail.today);
 }
 function _bcBackHtml() {
   return '<a class="bc-back" href="#campaigns"><span aria-hidden="true">‹</span> 캠페인 목록</a>';
@@ -339,7 +348,7 @@ function renderBrandCampaignDetail(host, id) {
     inner = '<div class="bc-detail-head">' + _bcBackHtml() +
         '<div class="bc-detail-title"><h1>' + brandEsc(c.product || '') + '</h1>' + _bcBadge(c) + '</div>' +
         (sub ? '<p class="bc-detail-sub">' + brandEsc(sub) + '</p>' : '') + '</div>' +
-      _bcStatsHtml(c, d.today) + _bcStagesHtml(c, d.today) + _bcScheduleHtml(c) + _bcResultHtml();
+      _bcStatsHtml(c, d.today) + _bcStagesHtml(c, d.today) + _bcScheduleHtml(c) + brandResultSectionHtml(c);
   }
   host.innerHTML = '<div class="bc-page bc-detail">' + inner + '</div>';
 }
@@ -362,6 +371,7 @@ async function loadBrandCampaignDetail(id) {
   }
   _bcDetail = { id, state: 'ok', camp, today: data.today || null };
   _bcRerenderIfShown();
+  loadBrandCampaignResults(id);   // 결과물 영역(brand-campaign-results.js) — 상세가 그려진 뒤
 }
 
 // ── 페이지 등록 · 다시 그리기
@@ -407,6 +417,7 @@ onBrandChanged(() => {
   _bcList = undefined; _bcListSeq++;
   if (_bcAutoSwitching) return;
   _bcDetail = null; _bcDetailSeq++;
+  _brRes = null; _brResSeq++;   // 결과물 영역도 옛 브랜드 것이다
   if (_bcCurrentArg()) history.replaceState(null, '', location.pathname + location.search + '#campaigns');
 });
 _bcMobileMq.addEventListener('change', () => _bcRerenderIfShown());
