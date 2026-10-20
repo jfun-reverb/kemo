@@ -199,3 +199,11 @@
 ---
 
 ## 구현 결과 (개발 세션이 채울 것)
+
+> 조각 순서·담당은 작업표 `docs/specs/2026-10-19-cs-history-management-breakdown.md`. 여기에는 조각마다 실제 번호·초안과 다른 결정만 적는다.
+
+### 1-1 CS 항목 기준 데이터 — 마이그레이션 **555** (2026-10-20, 개발서버 적용 대기)
+- 종류 검사 제약 베이스는 **554**(배송 리스트가 같은 날 `shipping_carrier` 를 더함 — 346 이 아님) → 18종
+- 종류 `cs_category` · 코드 `refund`·`campaign`·`shipping`·`operation`·`product`·`settlement`·`other` + `legacy_unclassified`(미분류(과거), 정렬 900). 일본어 返金·キャンペーン·配送·運営·商品·精算·その他·未分類（過去）
+- 잠금 트리거 `trg_lookup_cs_legacy_lock`(정의자 권한 아님 — `current_user` 판정): 로그인 역할이 미분류(과거)의 이름·활성·코드·종류를 바꾸거나 지우면 `cs_legacy_locked`. **초안 대비 달라진 것** — 정렬 번호만 바뀌는 수정은 통과시킨다(기준 데이터 화면의 순서 변경이 두 행을 따로 고치고 오류를 안 봐서, 막으면 옆 행만 바뀌어 번호가 겹친다). 시드는 `DO NOTHING`(재실행이 관리자가 고친 값을 덮지 않게)
+- 1-7(화면)로 넘길 것: `cs_legacy_locked` 한국어 오류 문구(`friendlyError`) · 미분류 행 조작 단추 숨김 · `isLookupInUse` 가 `cs_category` 를 모른다(CS 건 표가 생긴 뒤 「사용 중이면 지우기 막기」 검사 추가)

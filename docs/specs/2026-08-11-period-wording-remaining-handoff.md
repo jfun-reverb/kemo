@@ -1,7 +1,7 @@
 # 기간 문구·선정 기간 잔여분 인수인계
 
 **작성일:** 2026-08-11 (고문 세션)
-**상태:** 🟡 묶음 A 일곱 조각 중 **여섯 운영 반영** · 활동관리 제출 마감 이름(지도 2-3)은 **개발서버 반영 대기**(2026-10-20 구현) · 묶음 B 는 질문 2·4 해소, 질문 3 남음 — 아래 「구현 결과」
+**상태:** 🟡 묶음 A 일곱 조각 중 **여섯 운영 반영** · 활동관리 제출 마감 이름(지도 2-3)도 **운영 반영**(2026-10-20 — 개발 #2179 · 운영 #2180) · 묶음 B 는 질문 2·4 해소, 질문 3 남음 — 아래 「구현 결과」
 **상위 지도:** `docs/specs/2026-08-11-period-wording-rollout-gaps.md`
 **함께 볼 것:** `docs/specs/2026-08-11-selection-period-visibility.md` (선정 기간 — 미구현) · `docs/specs/2026-08-11-receipt-deadline-mail-fix.md` (영수증 마감 메일 — **구현 완료**)
 
@@ -66,7 +66,7 @@
 | 조각 | 결과 | 기록·근거 |
 |---|---|---|
 | 검수 구매일 경고 이름(지도 1-3) | ✅ 운영 | `2026-08-11-period-wording-rollout-gaps.md` 「구현 결과」 |
-| 활동관리 제출 마감 이름(지도 2-3) | 🟡 구현(2026-10-20, 개발 세션) — 운영 미반영 | 공용 함수 `campaignSubmissionLabelText(camp)`(`dev/js/application.js` 맨 위)를 캠페인 상세와 활동관리 마감 상자가 같이 쓴다(갈래는 `campaignSubmissionLabelCode` 그대로). 마감 상자 **세 문구 모두** 형식별 이름 — 마감 전 「{이름}: 날짜」 · 마감 지남 `activity.submissionEndPast` · 반려 남음 `activity.submissionEndPastButRejected` 가 `{label}` 자리를 받는다(사용자 결정 — 마감이 지나도 같은 이름). 안 쓰게 된 `activity.submissionEndLabel` 은 ja·ko 에서 지웠다. 낱말 전파: 「提出期限」은 메일(마감 임박 절)·`ui.js` 제출 거부 문구·마이그레이션 273 알림·메일 수신 설정 안내에서 **마감 전반을 부르는 말**로 쓰여 그대로 둔다 |
+| 활동관리 제출 마감 이름(지도 2-3) | ✅ 운영(2026-10-20 — 개발 #2179 · 운영 #2180) | 공용 함수 `campaignSubmissionLabelText(camp)`(`dev/js/application.js` 맨 위)를 캠페인 상세와 활동관리 마감 상자가 같이 쓴다(갈래는 `campaignSubmissionLabelCode` 그대로). 마감 상자 **세 문구 모두** 형식별 이름 — 마감 전 「{이름}: 날짜」 · 마감 지남 `activity.submissionEndPast` · 반려 남음 `activity.submissionEndPastButRejected` 가 `{label}` 자리를 받는다(사용자 결정 — 마감이 지나도 같은 이름). 안 쓰게 된 `activity.submissionEndLabel` 은 ja·ko 에서 지웠다. 낱말 전파: 「提出期限」은 메일(마감 임박 절)·`ui.js` 제출 거부 문구·마이그레이션 273 알림·메일 수신 설정 안내에서 **마감 전반을 부르는 말**로 쓰여 그대로 둔다 |
 | 캠페인 목록 선정 기간 열 | ✅ | `2026-08-11-selection-period-visibility.md` 「구현 결과」 조각 1 |
 | 진행현황 카드 선정 기간 줄 | ✅ | 같은 문서 조각 2 |
 | 엑셀 선정 기간 열(지도 3-2) | ✅ 운영 | 병합 요청 #1030(`4292cad0`, 2026-08-12) — `dev/js/admin-excel.js` 「캠페인 정보」 시트. ⚠️ 이 조각은 **다른 문서에 기록이 없어 여기가 유일한 기록**이다. 이후 2026-08-24 에 행사가 아닌 방문형까지 넓혔다(판정 `pickSelection` 한 곳) |
