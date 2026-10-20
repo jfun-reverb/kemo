@@ -43,6 +43,10 @@
 //     Function: translate-message
 //     HTTP Method: POST
 //     HTTP Headers: (기본)
+//   🔴 CS 이력 웹훅 둘(작업표 1-8 · 개발서버만 — 🔴 운영은 방침 시행일(화면 운영일)에 건다, 사양서 4-6-1):
+//     Name : translate-cs-comment   Table : public.cs_case_comments   Events : INSERT
+//     Name : translate-cs-case      Table : public.cs_cases           Events : INSERT, UPDATE
+//     나머지는 위와 같다(Supabase Edge Functions · translate-message · POST)
 //   🔴 웹훅 하나 더(서비스 문의 대화 제목 — 마이그레이션 507·508, 개발·운영 각각):
 //     Name    : translate-inquiry-thread-title
 //     Table   : public.general_inquiry_threads
@@ -167,6 +171,102 @@ async function callGoogleTranslate(text: string, target: string): Promise<Google
   }
 }
 
+// ── 번역 엔진 한 곳(사양서 D-21) ──────────────────────────────────
+//   엔진은 서버 비밀값 TRANSLATE_ENGINE 으로만 바꾼다(지금은 google 하나 — 비우면 google).
+//   다른 엔진(AI 번역 서비스)을 붙이면 여기에 갈래를 더한다 — 그때 방침 처리위탁·국외이전 줄이 새로 생긴다(P-10).
+//   🔴 모든 번역 호출(메시지·대화 제목·CS)은 이 함수를 거친다.
+async function translateText(text: string, target: "ko" | "ja"): Promise<GoogleTranslateResult> {
+  const engine = (env("TRANSLATE_ENGINE", "google") || "google").toLowerCase();
+  if (engine !== "google") throw new Error(`unsupported TRANSLATE_ENGINE: ${engine}`);
+  return await callGoogleTranslate(text, target);
+}
+
+// 어느 언어로 써도 반대 언어로(CS 메모·대응 안내·요약 — S-4). 한국어로 감지되면 일본어로, 그 밖은 한국어로.
+//   첫 호출(→ko)에서 원문이 한국어로 감지되면 같은 원문을 일본어로 한 번 더 보낸다. 감지가 ja·ko 가 아니면 ko 결과를 쓴다.
+async function translateToOpposite(text: string): Promise<{ text: string; lang: "ko" | "ja" }> {
+  const first = await translateText(text, "ko");
+  if (first.detectedSourceLanguage === "ko") {
+    return { text: (await translateText(text, "ja")).translatedText, lang: "ja" };
+  }
+  return { text: first.translatedText, lang: "ko" };
+}
+
+// ── CS 이력 메모 번역(작업표 1-8 · 556 cs_case_comments) ─────────────────
+//   🔴 번역 조건 = 상태 'pending'(562·563 이 사람이 그 자리에서 쓴 글에만 붙인다 — 시트 이관·지운 메모는 아니다)
+//      + 지우지 않음 + 본문 있음. 요청 본문은 번호만 쓰고 나머지는 행에서 읽는다(메시지 갈래와 같은 원칙)
+//   🔴 저장 직전에 아직 pending 이고 지우지 않았는지 다시 본다(그 사이 지운 메모에 번역이 붙지 않게)
+//      본문 글자로 대조하지 않는다 — 긴 글이 주소 길이 한도를 넘어 저장이 조용히 실패한다. 메모는 고치는 길이 없다(562 — 지우기만)
+async function handleCsComment(commentId: string): Promise<Response> {
+  const sb = getServiceClient();
+  const { data: row, error } = await sb.from("cs_case_comments")
+    .select("id, body, translate_status, deleted_at").eq("id", commentId).maybeSingle();
+  if (error || !row) return okJson({ skipped: true, reason: error ? "fetch_error" : "not_found" });
+  const body = (row.body ?? "").trim();
+  if (row.translate_status !== "pending" || row.deleted_at || !body) return okJson({ skipped: true, reason: "not_pending" });
+  const save = async (patch: Record<string, unknown>) => {
+    const { error: upErr } = await sb.from("cs_case_comments").update(patch)
+      .eq("id", commentId).eq("translate_status", "pending").is("deleted_at", null);
+    if (upErr) console.error("[translate-message] cs comment update failed", { commentId, error: upErr.message });
+  };
+  try {
+    const r = await translateToOpposite(body.slice(0, MAX_TRANSLATE_LEN));
+    await save({ translated: r.text, translated_lang: r.lang, translate_status: "done" });
+    return okJson({ translated: true, target: r.lang });
+  } catch (e) {
+    console.error("[translate-message] cs comment translate error", { commentId, message: (e as Error).message });
+    await save({ translate_status: "failed" });
+    return okJson({ translated: false, reason: "api_error" });
+  }
+}
+
+// ── CS 건 요약·대응 안내 번역(작업표 1-8 · 556 cs_cases) ──────────────────
+//   두 칸(summary_* · response_*)을 따로 본다 — 각각 상태가 'pending' 이고 글이 있을 때만(562 가 사람이 고친 순간에만 붙인다).
+//   🔴 개인정보를 비운 건(personal_purged_at)은 번역하지 않는다(사양서 1-6·4-1 「남은 것」 ②)
+const CS_CASE_FIELDS = [
+  { body: "summary_body", tr: "summary_translated", lang: "summary_translated_lang", st: "summary_translate_status" },
+  { body: "response_body", tr: "response_translated", lang: "response_translated_lang", st: "response_translate_status" },
+] as const;
+
+async function handleCsCase(caseId: string): Promise<Response> {
+  const sb = getServiceClient();
+  const { data: row, error } = await sb.from("cs_cases")
+    .select("id, updated_at, personal_purged_at, summary_body, summary_translate_status, response_body, response_translate_status")
+    .eq("id", caseId).maybeSingle();
+  if (error || !row) return okJson({ skipped: true, reason: error ? "fetch_error" : "not_found" });
+  if (row.personal_purged_at) return okJson({ skipped: true, reason: "purged" });
+  const done: string[] = [];
+  // 🔴 「그 사이 글이 바뀌었나」는 고친 시각(updated_at — 556 트리거가 고칠 때마다 올린다)으로 본다.
+  //    글자로 대조하면 긴 글(요약·대응 안내 최대 1만 자)이 주소 길이 한도를 넘어 저장이 조용히 실패하고 pending 으로 남는다.
+  //    한 칸을 저장하면 고친 시각이 바뀌므로 돌려받은 값으로 다음 칸을 대조한다
+  let stamp = (row as Record<string, unknown>).updated_at as string;
+  for (const f of CS_CASE_FIELDS) {
+    const text = ((row as Record<string, unknown>)[f.body] as string | null ?? "").trim();
+    if ((row as Record<string, unknown>)[f.st] !== "pending" || !text) continue;
+    let patch: Record<string, unknown>;
+    try {
+      const r = await translateToOpposite(text.slice(0, MAX_TRANSLATE_LEN));
+      patch = { [f.tr]: r.text, [f.lang]: r.lang, [f.st]: "done" };
+    } catch (e) {
+      console.error("[translate-message] cs case translate error", { caseId, field: f.body, message: (e as Error).message });
+      patch = { [f.st]: "failed" };
+    }
+    // 그 사이 안 고쳤고 그 칸이 아직 pending 이며 비우지 않은 건에만 저장(하나라도 바뀌었으면 0행 — 그 뒤 칸도 멈춘다.
+    //   남은 칸은 이 저장 또는 그 사이 고친 저장이 부른 다음 웹훅이 다시 읽어 처리한다)
+    const { data: saved, error: upErr } = await sb.from("cs_cases").update(patch)
+      .eq("id", caseId).eq("updated_at", stamp).eq(f.st, "pending").is("personal_purged_at", null)
+      .select("updated_at").maybeSingle();
+    if (upErr) { console.error("[translate-message] cs case update failed", { caseId, field: f.body, error: upErr.message }); break; }
+    if (!saved) { console.log("[translate-message] cs case changed meanwhile — left to next webhook", { caseId, field: f.body }); break; }
+    stamp = saved.updated_at as string;
+    done.push(f.body);
+  }
+  return okJson({ translated: done.length > 0, fields: done });
+}
+
+function okJson(body: unknown): Response {
+  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+}
+
 // ── 서비스 문의 대화 제목 번역(사양서 2026-10-06 「🔄 설계 개정」 R2-6) ─────────
 //   회원이 일본어로 쓴 제목을 관리자 화면용 한국어로. 결과는 general_inquiry_threads 의
 //   title_translated · title_translate_status 에 저장한다.
@@ -208,7 +308,7 @@ async function handleThreadTitle(threadId: string): Promise<Response> {
 
   let result: GoogleTranslateResult;
   try {
-    result = await callGoogleTranslate(title, "ko");
+    result = await translateText(title, "ko");
   } catch (apiErr) {
     console.error("[translate-message] google translate error (thread title)", { threadId, message: (apiErr as Error).message });
     await save({ title_translate_status: "failed" });
@@ -328,6 +428,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // CS 이력(작업표 1-8) — 메모 삽입 · 건 삽입/고쳐 쓰기. 예상 못 한 오류도 200(재시도 폭주 방지)
+  if ((payload?.table === "cs_case_comments" && payload?.type === "INSERT")
+      || (payload?.table === "cs_cases" && (payload?.type === "INSERT" || payload?.type === "UPDATE"))) {
+    const id = String(payload?.record?.id ?? "");
+    if (!id) return okJson({ skipped: true, reason: "no_id" });
+    try {
+      return payload.table === "cs_case_comments" ? await handleCsComment(id) : await handleCsCase(id);
+    } catch (e) {
+      console.error("[translate-message] cs top-level error", { table: payload.table, id, message: (e as Error).message });
+      return okJson({ skipped: true, reason: "error" });
+    }
+  }
+
   // INSERT + application_messages 이벤트만 처리 (Dashboard Webhook 필터가
   // 걸러주지만 이중 안전장치 — notify-orient-submitted 패턴 동일)
   if (
@@ -384,7 +497,7 @@ Deno.serve(async (req: Request) => {
 
     let result: GoogleTranslateResult;
     try {
-      result = await callGoogleTranslate(textToTranslate, target);
+      result = await translateText(textToTranslate, target);
     } catch (apiErr) {
       // 외부 API 실패·타임아웃 — best-effort, 원문 폴백 유지
       console.error("[translate-message] google translate error", {
@@ -410,7 +523,7 @@ Deno.serve(async (req: Request) => {
     if (detected === target && (detected === "ja" || detected === "ko")) {
       finalLang = target === "ja" ? "ko" : "ja";
       try {
-        finalText = (await callGoogleTranslate(textToTranslate, finalLang)).translatedText;
+        finalText = (await translateText(textToTranslate, finalLang)).translatedText;
       } catch (apiErr) {
         console.error("[translate-message] google translate error (reverse)", {
           messageId,
