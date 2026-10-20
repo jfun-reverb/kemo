@@ -2,6 +2,8 @@
 
 > 이 문서는 **현재 가동 중인 동작·핵심 컨벤션** 위주. 마이그레이션 번호·PR 노트·deprecated 메모 등 이력성 메타데이터는 [`docs/CLAUDE-ARCHIVE.md`](docs/CLAUDE-ARCHIVE.md) 참조.
 
+> 🔴 **영역 상세는 `.claude/rules/*.md`(경로 조건부)** — 각 절의 「상세 …」가 가리키는 파일이다. 그 영역 파일을 **Read 도구로** 열 때만 실린다(셸 `cat`·`sed`·`grep` 으로 보거나 고치면 안 실린다). 기획·고문 세션에서는 자동으로 안 읽히니 **설계·수정하면 그 규칙 파일부터 연다.** 여기 남긴 것은 그 파일이 안 실리는 자리에서도 알아야 하는 것(다른 영역·현재 원본 번호·잠금 상태). 「현재 원본 번호」 = 함수를 재정의할 때 베이스로 삼을 마지막 정의.
+
 ## Overview
 일본 시장 대상 인플루언서 체험단(리뷰어/기프팅/방문형) 모집 플랫폼.
 브랜드가 캠페인을 등록하고, 인플루언서가 신청하는 구조.
@@ -40,7 +42,6 @@
 - 발신 도메인 DNS 인증 완료 (SPF/DKIM/DMARC, cafe24 DNS 관리)
 
 ### 가동 중인 메일 파이프라인 (세부 구현은 `supabase/functions/*` + 사양서가 source of truth)
-> 상세는 주제별 규칙 파일(아래 지도) — 그 함수 폴더·마이그레이션을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
 - `get_promo_digest_targets` · `get_promo_digest_campaign_pool` — **471**(🔴 **`CREATE OR REPLACE` 로만** — `DROP` 후 `CREATE` 하면 375 의 실행 권한 회수가 풀려 회원 누구나 남의 이메일·수신거부 토큰을 받는다)
@@ -72,11 +73,11 @@
 - JS 동적: `t('key')` 헬퍼
 - 기본값 `ja`, navigator.language 자동 감지 사용 안 함
 - ⚠️ **운영 빌드에도 실려 있다**(`main` 산출물에 `setLang('ja')`·`setLang('ko')`·번역 런타임). **화면에 토글이 보이는지**는 미확인 — 운영에서 켤지 판단하려면 먼저 눈으로 볼 것
-- 적용 범위: 마이페이지, 인증, GNB/홈, 캠페인 목록·상세, 신청 모달, 활동관리, 알림, DB 에러 메시지 로케일 분기 (`friendlyErrorJa`)
+- 적용 범위: 회원 앱 화면 대부분 + DB 오류 문구(`friendlyErrorJa`)
 
 ## 내부 문서 (개발서버 한정)
 - `docs/flowchart-i18n.html` — i18n 다국어 흐름도
-- 접속: https://dev.globalreverb.com/docs/flowchart-i18n.html (전체 서비스 플로우차트 `service-flow.html` 은 더 쓰지 않아 2026-10-19 삭제)
+- 접속: https://dev.globalreverb.com/docs/flowchart-i18n.html
 - **운영서버(main)에 머지하지 않음** — 내부 직원용 참고 자료
 
 ## Architecture
@@ -90,7 +91,6 @@
 - 🔴 **빌드는 ES 모듈이 아니라 단순 이어붙이기(concat)라 전역 스코프가 하나다** — `admin-core.js` 가 다른 `admin-*` 보다 **앞**, `admin.js` 가 페인 파일들보다 **뒤**, `admin/app.js` 가 **맨 마지막**(`dev/build.sh` 의 순서). 인플루언서 쪽은 `lib/*` 가 `js/*` 보다 앞, `js/app.js` 가 맨 마지막
 - Supabase 미연결 시 localStorage 로 동작 (DEMO_MODE)
 ## Features — 인플루언서 (모바일)
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
 - 가입 트리거(폼 값 저장) `handle_new_user` — **526**(382 → 420 → 526 — 526 는 맨 앞 브랜드 계정 분기만 더함. 🔴 420 을 베이스로 잡으면 브랜드 계정에 인플루언서 행이 생긴다) · 모집 마감 후 응모 차단 트리거 — **326**(272 → 326) · 응모 삽입 상태값 위조 차단 `guard_application_insert_status` — **537**(314 → 537, 안내 확인 시각도 비운다. 🔴 `CREATE OR REPLACE` 로만 — 트리거 이름이 049 자동 승인보다 알파벳순으로 앞서야 한다)
@@ -106,18 +106,15 @@
 
 ## Features — 관리자 (PC)
 - **사이드바**: Material Icons, 접기/펼치기 토글, `data-pane` 속성 기반 라우팅, pending 배지 항상 표시
-- **페이지 새로고침**: `visibility:hidden` cloak 기법 (깜빡임 완전 방지), 서브패널 새로고침 시 부모 패널로 리다이렉트
-- **대시보드**: KPI 카드(캠페인/인플/신청/승인), 상태별·채널별 캠페인 분포(복수 채널은 중복 집계), 가입 추이 차트(Chart.js, 7일/30일/전체), 오늘·이번주 가입 KPI, 프로필 완성률(SNS·배송지·PayPal), 도도부현 분포 도넛(Top 10 + 未登録/海外, 한국어 라벨), 최근 신청 테이블
-- **로딩 UX**: 테이블·KPI·차트 영역 인라인 스피너
+- **페이지 새로고침**: 서브패널 새로고침 시 부모 패널로 리다이렉트
+- **대시보드**(`admin-dashboard.js`): KPI 카드·캠페인 분포(복수 채널은 중복 집계)·가입 추이(Chart.js)·프로필 완성률·도도부현 분포·최근 신청
 
 ### 캠페인 관리
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 - 캠페인 삭제 복구·번호 매기기(🔴 복제는 원본의 `brand_id`·`source_application_id` 를 둘 다 이어받는다)·등록/편집 폼·브랜드 변경 확인 창·가이드 칸 이름 판정(🔴 형식만 보고 바꾸면 기존 리뷰어형 제목이 한꺼번에 바뀐다)·미리보기·목록 「결과물 현황」 열(🔴 방문형 현장 사진도 `kind='receipt'`)·상태 6단계·노출 토글(신규 폼 안내 문구와 저장 상태를 같이 고친다)·상태 전이·마감일 연장 확인 — 상세 `.claude/rules/campaign-admin.md`
 - 캠페인 리치 텍스트 편집기 이미지(⚠️ 정화·편집기 형식·CSS **세 곳이 한 세트** · `image-compress.js` 는 관리자 빌드에도 · 본문에서 빼도 저장소 파일은 남는다 — 복제본이 가리킨다) — 상세 `.claude/rules/rich-editor-images.md`
 
 ### 신청·결과물 관리
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
 - `get_report_share_data` — **545**(414 → 449 → 457 → 469 → 491 → 545). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다. 545 부터 본체는 내부 함수 `_results_payload_core`·`_results_ext_rows`(브랜드 결과물과 공유가 같이 쓴다 — 본문을 고칠 때는 `_results_payload_core` 는 **565**(가구매 키 제거, 개발서버만), `_results_ext_rows` 는 545 베이스로) · 회원 응답에 `is_audit` 없음 · 「또는」 캠페인(채널 하나 캠페인 포함 — 기본값이 'or')은 게시한 채널 계정만(사양서 `2026-07-15-brand-portal.md` §17 — 개발서버만, 운영은 출시 날 ①)
@@ -129,7 +126,6 @@
 - 캠페인 리포트·브랜드 공유(🔴 계정 열 채널 추가 시 고칠 자리 넷 · 공유 열 끄기 판정 사본 두 벌 · 끈 열 값은 서버가 비운다 · 반려·취소·탈퇴 줄은 공유 응답에 없다) — 상세 `.claude/rules/report-share.md`
 
 ### 브랜드 서베이 (광고주 신청 관리)
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
 - `merge_brands` — **528**(175 → 328 → 467 → 528, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **528**(174 → 191 → 325 → 528, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 528 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 526 → 527 → 528 한 묶음, 528 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
@@ -140,16 +136,15 @@
 
 ### 인플루언서 관리
 - **목록**: 채널/인증/위반 드롭다운 + 주소지(도도부현 다중, 「未登録」·「海外」) + 팔로워 범위(채널 기준, 전체=4채널 합계) + 통합 검색 + 인원수. 주소지·팔로워는 클라 필터(`getFilteredInfluencersForView` — 화면·엑셀 공용. `classifyPrefecture`/`followerValueByChannel`, admin-core.js). SNS 채널 선택 시 열은 항상 전체 10컬럼 고정
-- **엑셀 내보내기**(`exportInfluencersExcel`, admin-excel.js): 현재 필터 결과(화면에 보이는 대상)를 .xlsx 로. 기본 16열(이름 한자/가나·이메일·대표SNS·4채널 핸들+팔로워·합계·도도부현·시군구·등록일). 민감정보 6열(전화·LINE·PayPal·우편번호·건물·상세주소)은 `canRead('influencer.excel_sensitive')` + 「민감정보 포함」 체크 시만. ⚠️ 그 열쇠말은 화면 열람용 `sensitive_pii` 와 **별개**다(엑셀 대량 유출을 따로 통제). **민감정보 서버 실차단(마이그레이션 212·213)**: `fetchInfluencers`/`fetchInfluencersByIds` 가 가림막 뷰 `influencers_admin_view`(security_invoker) 경유, `has_permission('influencer.sensitive_pii','read')` 가 false 인 등급(213으로 campaign_manager=hidden)에게 6종을 **서버에서 NULL 마스킹** + `has_phone`/`has_line`/`has_paypal` 불리언. 화면은 「열람 권한 없음」. **신청자·결과물 엑셀도 자동 마스킹**. `_excel*` 헬퍼 재사용
+- **엑셀 내보내기**(`exportInfluencersExcel`, admin-excel.js): 현재 필터 결과(화면에 보이는 대상)를 .xlsx 로. 기본 16열. 민감정보 6열(전화·LINE·PayPal·우편번호·건물·상세주소)은 `canRead('influencer.excel_sensitive')` + 「민감정보 포함」 체크 시만. ⚠️ 그 열쇠말은 화면 열람용 `sensitive_pii` 와 **별개**다(엑셀 대량 유출을 따로 통제). **민감정보 서버 실차단(마이그레이션 212·213)**: `fetchInfluencers`/`fetchInfluencersByIds` 가 가림막 뷰 `influencers_admin_view`(security_invoker) 경유, `has_permission('influencer.sensitive_pii','read')` 가 false 인 등급(213으로 campaign_manager=hidden)에게 6종을 **서버에서 NULL 마스킹** + `has_phone`/`has_line`/`has_paypal` 불리언. 화면은 「열람 권한 없음」. **신청자·결과물 엑셀도 자동 마스킹**.
 - **상태 관리**(인증/위반/블랙리스트): 상태 관리 카드 + 이력 카드(사유별 pill + 타임라인 + 위반 행 편집). 사유는 `blacklist_reason` ∪ `violation_reason`. 증빙은 `influencer-flag-evidence` 비공개 버킷(10MB, image/PDF). RPC: `setInfluencerVerified`/`setInfluencerBlacklist`/`recordInfluencerViolation`/`updateInfluencerViolation` (evidence_paths 미변경=null, 전체 삭제=[])
-- **전화번호 표시**(`formatPhoneDisplay` in ui.js): KR/JP 정규화(11자리 3-4-4, 10자리 02/03/06 → 2-4-4 else 3-3-4, `+81`/`+82`). 실패 시 원문
+- **전화번호 표시**(`formatPhoneDisplay` in ui.js): 한국·일본 번호 정규화, 실패 시 원문
 
 ### 아웃바운드 인플루언서 명단 (추천 도구 1·2단계 — ★**운영 반영 완료**)
-> 상세는 **`.claude/rules/outbound.md`** — `admin-outbound.js`·아웃바운드 마이그레이션을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+> 상세는 **`.claude/rules/outbound.md`** — `admin-outbound.js`·아웃바운드 마이그레이션을 열면 실린다.
 - 입구 `/admin/?app=outbound`(영업팀 전용 모드 — **보안 경계 아님**, `outbound.view` 가 서버에서 강제) · 명단 페인 `/admin#outbound` · 조건 추천 탭은 **데이터베이스 변경 없이** 클라이언트 계산. 3~5단계 미착수
 
 ### 기준 데이터·번들·관리자 계정
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
 - `invite_admin` — **528**(245 → 417 → 528 — 브랜드 계정 이메일 거부 `brand_account_email`. ⚠️ 528 은 개발서버만, 운영 원본은 417)
@@ -175,11 +170,11 @@
   - `reward_note` 는 지급 조건·정산 시점 등 자유 텍스트
   - 홍보 메일: `first_active_at timestamptz NULL` — 처음 active 가 된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`) 자동 기록·불변 (마이그레이션 140)
   - 동시 저장 방어(마이그레이션 275): `version integer NOT NULL DEFAULT 1` — 나중 저장이 앞 저장을 조용히 덮는 것을 막는다. `campaigns_bump_version()` 트리거가 **제외 6개**(`version`·`updated_at`·`view_count`·`applied_count`·`order_index`·`first_active_at`) 외 변경 시에만 +1(새 컬럼은 자동 보호). 편집 저장은 `updateCampaign(id, updates, expectedVersion)` 의 `.eq('version', …)` → 0행이면 충돌 안내. ⚠️ **코드보다 마이그레이션을 먼저**(반대면 자동 마감 실패). ⚠️ 자동 전이(`autoOpen/Close/EndCampaigns`)도 version 을 올리므로 캐시를 `.select('version')` 으로 갱신 — 안 하면 **가짜 충돌**
-  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 2026-10-20 철거: 화면·메일은 이 칸을 안 본다(단계 A). 서버 판정 함수 넷(정산 후보·인증 성공 숫자·제출 관문 `get_deliverable_gate`·오리엔시트 연결)은 564 부터 가구매 갈래가 없다(현재 원본 564). 결과 공유 본체 `_results_payload_core` 는 565 가 응답 키를 뺀다 — 🔴 565 는 545 뒤에만(운영엔 545 가 아직 없다). 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
+  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 철거됨: 화면·메일·서버 판정 함수 넷(정산 후보·인증 성공 숫자·제출 관문·오리엔시트 연결 — 현재 원본 564)은 이 칸을 안 본다. 결과 공유 본체 `_results_payload_core` 는 565 가 응답 키를 뺀다 — 🔴 565 는 545 뒤에만(운영엔 545 가 아직 없다). 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
 - `numbering_legacy_map` — 신구 채번 양방향 매핑
 - `applications` — `user_id`, `campaign_id`, `message`, `address`, `status`(pending/approved/rejected/cancelled), `reviewed_by`, `reviewed_at`, `oriented_at`, `reviewed_version`(낙관적 락), `caution_agreed_at`, `caution_snapshot jsonb`, `guide_acknowledged_at`(537 — 응모 직후 「응모 완료 모달」에서 「확인」을 누른 시각. 기록은 `acknowledge_application_guide(uuid)` 로만·덮지 않음, 응모 삽입 때 보낸 값은 314→537 가드가 지운다. 관리자 신청자 표 「안내 확인」 배지). 취소 보조 5종: `cancelled_at`, `cancel_reason`, `cancel_reason_code`, `cancel_phase CHECK(recruit|purchase|visit|post|other)`, `previous_status`. `(user_id, campaign_id)` partial unique index(cancelled 제외) → 재응모 가능
-- `deliverables` — `kind`('receipt'|'review_image'|'post'), `status`, **`submitted_at` = 마지막으로 제출한 시각**(512 트리거가 **임시저장 → 검수 대기 순간에만** 찍는다 — 관리자 되돌리기·승인에는 안 바뀐다. 🔴 조건을 넓히지 말 것. 512 이전 행은 「처음 만든 날」), `receipt_url`/`purchase_date`/`purchase_amount`/`order_number`, `post_url`/`post_channel`/`post_submissions`, `reject_reason`, `reviewed_by`/`reviewed_at`, `version`. **대리 등록 4종**: `submitted_by_admin`(NULL=본인) + `submitted_by_admin_reason_code`/`_reason`/`_at`. 부분 인덱스 `idx_deliverables_proxy WHERE submitted_by_admin IS NOT NULL`. **`admin_create_deliverable_proxy` 게시물 분기**(182): ①요구 채널 불일치 차단(⚠️ 채널이 빈값이면 우회된다) ②같은 채널 반려·검수대기 게시물은 **교체**(`status='approved'`, `post_submissions` 누적, `version`+1) — **승인 게시물은 교체 차단**(`insertDraftDeliverable` 과 같은 규칙). **잘못된 채널 잔존 행 정리**(183, `delete_mismatched_post_deliverable`): 「채널 불일치」 배지 + super_admin 수동 삭제. **반려·검수중·임시저장만**, `post_channel` 이 NULL 이거나 정상 채널이면 거부. `deliverable_events` 는 **328 이후 `SET NULL` 이라 감사 기록이 남는다**
+- `deliverables` — `kind`('receipt'|'review_image'|'post'), `status`, **`submitted_at` = 마지막으로 제출한 시각**(512 트리거가 **임시저장 → 검수 대기 순간에만** 찍는다 — 관리자 되돌리기·승인에는 안 바뀐다. 🔴 조건을 넓히지 말 것. 512 이전 행은 「처음 만든 날」), `receipt_url`/`purchase_date`/`purchase_amount`/`order_number`, `post_url`/`post_channel`/`post_submissions`, `reject_reason`, `reviewed_by`/`reviewed_at`, `version`. **대리 등록 4종**: `submitted_by_admin`(NULL=본인) + `submitted_by_admin_reason_code`/`_reason`/`_at`. **`admin_create_deliverable_proxy` 게시물 분기**(182): 요구 채널 불일치 차단(⚠️ 채널이 빈값이면 우회된다) · 같은 채널 반려·검수대기 게시물은 승인으로 **교체**, **승인 게시물은 교체 차단**(`insertDraftDeliverable` 과 같은 규칙). **잘못된 채널 잔존 행 정리**(183 `delete_mismatched_post_deliverable`): 「채널 불일치」 배지 + super_admin 수동 삭제 — 반려·검수중·임시저장만.
 - `deliverable_events` — `action`(submit/resubmit/approve/reject/revert/admin_proxy_submit/admin_proxy_revoke/channel_assign/channel_unassign), 트리거/RPC 만 INSERT. ⚠️ **마이그레이션 328로 `ON DELETE SET NULL`**(옛 `CASCADE` 는 이력도 지웠다) — 스냅샷 칸 4종(`kind`·`post_channel`·`status` 등)으로 **결과물이 지워져도 무엇의 이력인지 남는다**(`admin_proxy_revoke` 포함)
 - `application_events` — 신청 status 변경 audit(운영자 액션). `action`(approve|reject|revert_to_pending|**restore_cancelled**). `trg_application_status_event` 트리거 INSERT(본인 취소·재응모 미경유). RLS SELECT `is_admin()` — **단 `restore_cancelled` 는 `restore_cancelled_application`(440)이 직접 넣는다**(「취소 되돌리기」 참조). ⚠️ **검사 제약 이름은 440 부터 `application_events_action_check`**(131 은 자동 생성 이름). 다음에 `action` 을 늘릴 땐 440 이 베이스
 - `receipt_edit_history` — 영수증 수정 감사. `deliverable_id` FK **SET NULL**(마이그레이션 253) + 3종 prev/next 스냅샷. RLS SELECT `is_admin()`, INSERT 는 `update_receipt_admin` 만
@@ -187,8 +182,8 @@
 - `campaign_change_history` — **캠페인 전체 항목 변경 audit**(마이그레이션 265·266). 「바뀐 항목 1개 = 1행」 + `change_group_id` + `changed_by`/`changed_by_name`/`changed_at` + `field_name`(CHECK 화이트리스트 **48개**) + `old_value`/`new_value` jsonb + `change_source`(admin / auto / system). RLS SELECT `is_super_admin()`, 쓰기는 트리거만(`record_campaign_change_history()` AFTER UPDATE — 구 `record_caution_history` 와 달리 같은 트랜잭션이라 감사 공백 없음). ⚠️ **화이트리스트는 세 곳(265 CHECK · 266 v_fields · 266 트리거 `AFTER UPDATE OF` 목록)이 항상 같은 집합** — 어긋나면 CHECK 위반으로 INSERT 실패. 조회수·신청 수·수정일·순서·채번 제외. 3영역은 기존 표와 병존. 사양서 `docs/specs/2026-07-27-campaign-full-change-history.md`
 
 ### 브랜드 계정·로그인·멤버 관리 (마이그레이션 526~528 · 530~533 — 🔴 **개발서버만**, 운영 반영 보류)
-> 상세는 **`.claude/rules/brand-account.md`** — 브랜드 화면(`dev/brand/**`·`dev/js/brand-*.js`)·관리자 브랜드 상세(`admin-brand.js`)·브랜드 메일 함수 둘·526~528을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md`(조각 11개 · 결정 기록) · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md`(묶음 ① 서버) · 화면 작업표 `docs/specs/2026-10-15-brand-member-screen-breakdown.md`(묶음 ② 브랜드 화면 완료 2026-10-16 — 관리자 화면 묶음 ③ 미착수) · 인수인계 `…-brand-login-handoff.md`
+> 상세는 **`.claude/rules/brand-account.md`** — 브랜드 화면(`dev/brand/**`·`dev/js/brand-*.js`)·관리자 브랜드 상세(`admin-brand.js`)·브랜드 메일 함수 둘·526~528을 열면 실린다.
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md` · 화면 작업표 `docs/specs/2026-10-15-brand-member-screen-breakdown.md`(관리자 화면 묶음 ③ 미착수) · 인수인계 `…-brand-login-handoff.md`
 
 **현재 원본 번호**
 - 브랜드 관리 화면 함수 셋 `get_my_brand_profile`·`update_my_brand_info`·`update_my_brand_company` + 이력 표 `brand_profile_history`(트리거 `trg_brands_profile_history`·`trg_companies_profile_history` — 관리자·브랜드 구분 없이 바뀐 칸마다 한 줄) — **536**(신설, 개발서버만 · 운영 묶음은 … → 534 → 536). 🔴 브랜드 계정이 처음으로 173(캠페인 브랜드명 동기화)·266(캠페인 변경 이력)을 부른다 — 이력은 `change_source='admin'`·`changed_by`=브랜드 계정·`changed_by_name` 빈 값(266 은 이름을 `admins` 에서만 찾는다, Q4 로 그대로 둠)
@@ -202,7 +197,7 @@
 - 배송 리스트 함수(관리자 조회·전달·송장 저장 / 브랜드 요약·목록·내려받기·저장 / 메일 선점) — **557**(개발서버만 · 운영은 L1) · 🔴 트리거 함수 `_application_shipping_sync` 현재 원본도 **557** · 🔴 `_brand_mailable_accounts` 는 `notify-orient-sheet` 받는 사람 규칙의 사본 · 상세 `.claude/rules/shipping-list.md`
 - 관리자 진행현황 「배송 리스트」 탭(조각 S3, `admin-shipping.js`) — 🔴 보일지 판정은 `campShippingTabOn` 한 곳(시딩형 + `_brandAccountEnabled()` + 권한) · 권한 카탈로그 `shipping.manage` 는 `staging_only`(운영 권한 화면에서 숨김) · 기준 데이터 「택배사」 탭(S4)도 같은 판정 — 출시 때 셋 다 걷는다 · 🔴 택배사는 삭제·코드 변경 금지(저장된 송장 이름이 빈다 — 끄기만) · 상세 `.claude/rules/shipping-list.md`
 - 브랜드 결과물 `get_my_brand_campaign_results` + 목록·상세 `get_my_brand_campaigns`·`get_my_brand_campaign` — **547**(543 베이스 금지) · 🔴 요약 `_brand_campaign_summary` — **550**(547 베이스 금지) · 둘 다 개발서버만, 운영은 출시 날 ①
-- 캠페인 탭 함수 `get_my_brand_campaigns`·`get_my_brand_campaign` + 내부 셋(`_brand_campaign_counts`·`_brand_campaign_channel_names`·`_brand_campaign_view_status`) — **543**(신설, 개발서버만 · 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다). 🔴 상태는 저장값이 아니라 `_brand_campaign_view_status` 가 일본 날짜로 다시 판정한 값 — **관리자 자동 전환(`storage.js` `autoOpen/Close/EndCampaigns`)의 사본**이라 그 식을 바꾸면 함께. 결과물 영역(2단계)은 547 — ⚠️ 목록·상세 두 함수의 현재 원본은 이제 **547**(위 줄)
+- 캠페인 탭 내부 셋(`_brand_campaign_counts`·`_brand_campaign_channel_names`·`_brand_campaign_view_status`) — **543**(개발서버만 · 목록·상세 두 함수는 547 — 위 줄 · 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다). 🔴 상태는 저장값이 아니라 `_brand_campaign_view_status` 가 일본 날짜로 다시 판정한 값 — **관리자 자동 전환(`storage.js` `autoOpen/Close/EndCampaigns`)의 사본**이라 그 식을 바꾸면 함께
 - `get_brand_invite_link_state` — **534**(베이스 532 — 새 이메일 초대만 `email`, 두 갈래 `issued_at` 추가. 🔴 `CREATE OR REPLACE` 로만 — 비로그인 실행 권한 유지) · ⚠️ 534 도 개발서버만, 운영 묶음은 526 → … → 533 → 534
 - 527 함수 여섯(`get_my_brand_login_state`·`get_brand_link_state`·`service_issue_brand_account_link`·`complete_brand_account_setup`·`complete_brand_password_reset`·`service_mark_brand_setup_mail_sent`) — **532**(마지막은 4인자 — 옛 3인자 지움) · `admin_upsert_brand_owner_account`·`admin_get_brand_account_status` — **533**. 🔴 527 을 베이스로 잡으면 532·533 의 새 칸·`can_manage`·권한 가드가 사라진다
 - 표 `brand_invites`·`brand_member_limits`·권한 항목 `brand.account_manage`(시드 3행) — **530** · 대표 함수 — **531** · 관리자 쓰기 — **533**. ⚠️ 운영 적용은 526 → 527 → 528 → 530 → 531 → 532 → 533 한 묶음(순서는 사양서 「운영 반영 전 남은 관문」)
@@ -222,25 +217,22 @@
 - `brand_application_history` — 광고주 신청 변경 audit
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용
 - `brand_survey_settings` — 공개 제출 차단 싱글톤(id=1). `submissions_open boolean DEFAULT false`. RLS SELECT `is_admin()` / UPDATE `is_super_admin()`. **`submit_brand_application` 0단계 가드가 차단 시 `RAISE 'submissions_closed'`(P0001)** — 폼은 `error.message==='submissions_closed'` 로 분기. anon 조회 `is_brand_survey_open()`(bool만). 관리자 예외 입력 `admin_create_brand_application`(091). 마이그레이션 206. 사양서 `docs/specs/2026-06-30-brand-survey-submit-lock.md`. ⚠️`submissions_open=true` 재개 시 `sales/index.html`(정적 차단 안내)도 함께 되돌려야 함(reviewer/seeding 은 동적)
-- `companies` — 회사 마스터(회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화) + `business_no` + `address` + `address_detail`(상세 주소, 535 — 개발·운영 모두 적용(운영 2026-10-16 선적용). 🔴 칸을 지우려면 관리자 회사 화면(`fetchCompanies` 칸 목록) 코드를 **먼저** 되돌린다 — 없으면 회사 목록 조회가 실패해 빈 목록이 되고(실패도 `[]`) 브랜드 편집 폼에서 회사가 떨어진다) + `homepage_url` + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands`(`recalc_company_total_brands` 트리거, `brands.company_id` 변경 시). RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상. ⚠️ `name_normalized` 는 마이그레이션 119에서 공백 압축 패턴(`lower(trim(regexp_replace(name_ko,'\s+',' ','g')))`)으로 교체(118 원본은 압축 없음)
+- `companies` — 회사 마스터(회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화) + `business_no` + `address` + `address_detail`(상세 주소, 535 — 개발·운영 모두 적용(운영 2026-10-16 선적용). 🔴 칸을 지우려면 관리자 회사 화면(`fetchCompanies` 칸 목록) 코드를 **먼저** 되돌린다 — 없으면 회사 목록 조회가 실패해 빈 목록이 되고(실패도 `[]`) 브랜드 편집 폼에서 회사가 떨어진다) + `homepage_url` + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands`(`recalc_company_total_brands` 트리거, `brands.company_id` 변경 시). RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상. ⚠️ `name_normalized` 정규화식은 119 판(공백 압축 — 118 베이스 금지)
 - `brands` — `name`, `name_normalized`, `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
 - `brand_memos`(466) — 브랜드 영업 메모 여러 건(옛 `brands.memo` 는 더 안 쓴다). 관리자 전원 읽기·쓰기, 브랜드 삭제 시 함께 삭제. `merge_brands`(**현재 원본 467**, 베이스 328)가 메모도 옮긴다
-- `get_brand_ops_overview(p_company_id uuid)` — 22컬럼 집계 RPC(`SECURITY DEFINER + SET search_path='' + is_admin()`). 148 로 `alert_reasons text[]` + `soonest_deadline date` + `d1_count bigint` 추가. 임계값 120 기준, `flag_agg` CTE 로 1회 계산 후 재참조. 181 로 `app_agg`·`deliv_agg` 에 `JOIN influencers AND is_audit=false`(감사용 격리)
-- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb. 149 로 캠페인 항목에 `channel`/`channel_match`/`img1`/`recruit_start`/`submission_end` + `approved_app_count`·`deliv_submitted_inf`·`deliv_total`·`deliv_approved`, 150 으로 `purchase_start`/`purchase_end`·`visit_start`/`visit_end`. 미니카드 진행바 중 **인증 성공률**은 RPC에 없어 `hydrateCampCertBars`(admin-brand-ops.js)가 `fetchDeliverablesByCampaign`(🔴 **실패 `null`·0건 `[]`** — 실패를 「0%」로 그리지 않는다. 진행현황 요약 카드도 같다) 후 `countCertSuccess`(admin-deliverables.js — `buildDeliverableGroups`+`computeCertStatus` 단일 소스)로 비동기 채움
+- `get_brand_ops_overview(p_company_id uuid)` — 브랜드별 집계(`is_admin()`). 경고 사유·가장 이른 마감은 `flag_agg` 에서 1회 계산 후 재참조 · 응모·결과물 집계는 감사용 계정 제외(181)
+- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb(캠페인 항목 칸은 함수 본문). 미니카드 진행바 중 **인증 성공률**은 RPC에 없어 `hydrateCampCertBars`(admin-brand-ops.js)가 `fetchDeliverablesByCampaign`(🔴 **실패 `null`·0건 `[]`** — 실패를 「0%」로 그리지 않는다. 진행현황 요약 카드도 같다) 후 `countCertSuccess`(admin-deliverables.js — `buildDeliverableGroups`+`computeCertStatus` 단일 소스)로 비동기 채움
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
 ### 브랜드 셀프 오리엔시트 (마이그레이션 186~195·200)
-> 상세는 **`.claude/rules/orient-sheet.md`** — 오리엔시트 화면·작성 폼·오리엔시트 마이그레이션을 열면 자동으로 읽힌다.
-> 🔴 **이 영역을 설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 🔴 아래는 규칙 파일이 자동으로 안 읽히는 자리에서도 알아야 하는 것이라 여기 남겼다(다른 영역·현재 원본 번호·잠금 상태 등).
-> 🔴 **이 영역 파일은 Read 도구로 연다** — 셸(`cat`·`sed`·`grep`)로 보거나 고치면 규칙 파일이 **안 실린다**.
+> 상세는 **`.claude/rules/orient-sheet.md`** — 오리엔시트 화면·작성 폼·오리엔시트 마이그레이션을 열면 실린다.
 
-**현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
+**현재 원본 번호**
 - `create_orient_sheet` — **490**(5인자 `CREATE OR REPLACE` — 권한 `authenticated` 보존. 465 의 「`DROP` 후 재생성」 표기는 틀렸다)
 - `get_orient_tier_fees` — **489** · ⚠️ **개발서버는 539**(토큰 함수 자체는 542 가 닫았다 — 아래 542 줄) — 토큰 함수 넷(저장·제출·미리보기·구간)은 「토큰 → 시트 번호」만 하고 본문은 내부 함수 `_orient_save_core`·`_orient_submit_core`·`_orient_preview_core`·`_orient_tier_fees_core`(539 신설 — 로그인 브랜드 함수와 한 벌)에 있다. 🔴 본문을 고칠 때는 `*_core` 를 539 베이스로(운영은 아직 538·430·489 — 539 는 브랜드 묶음과 함께, 적용 순간 운영 링크 폼이 새 본체로 돈다). 칸 `last_edited_at`·`last_edited_by`(539 — 브랜드 저장·제출 성공 때만, 토큰 폼은 계정 NULL) · 브랜드 화면 상태 판정 `_orient_brand_view_status`(539 — 발급 직후 `version` 은 **0**) · 브랜드 로그인 계정 함수 일곱 `get_my_orient_sheets`·`get_my_orient_sheet`·`save_my_orient_draft`·`submit_my_orient_sheet`·`preview_my_orient_quote`·`get_my_orient_tier_fees`·`resolve_my_orient_link` — **540**(개발서버만, 시트의 `brand_id` 로 `is_my_brand` 판정 · 거부는 `not_found` 하나 · 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다)
 - 큐텐 불러오기 계정 관문 `orient_lookup_gate_account`(서비스 키 전용 — 활성 연결·활성 브랜드 식은 530 `my_brand_role` 의 **사본**이라 그 식을 바꾸면 함께) · 업로드 허가 `orient_account_can_upload` + 정책 `orient_images_account_insert`(`s/{시트 번호}/…`, `upsert:false`) · `orient_lookup_hits.auth_id` — **541**(개발서버만). 서버 함수 `qoo10-product-lookup` 은 본문에 `sheet_id` 가 있으면 로그인 토큰을 `auth.getUser` 로 검증하는 계정 갈래(개발 프로젝트에만 배포 — 옛 `token` 갈래는 그대로라 운영에 먼저 나가도 해는 없으나 운영 DB 에 541 이 없으면 새 갈래는 늘 `ok:false`)
 - `_orient_apply_issued_rules` — **445**
-- `submit_orient_sheet` · `save_orient_draft` — **538**(⚠️ 개발서버는 542 — 아래) (베이스 524 — 기한이 지나면 작성 중(`draft`)만 만료로 바꾸고 제출된 시트는 상태를 그대로 둔 채 거부만. 🔴 524 로 되돌리면 제출 시트가 기한 뒤 저장 시도 한 번으로 만료가 되어 캠페인 등록이 막힌다 · 개발·운영 모두 적용(운영 2026-10-16 — 브랜드 묶음과 별개로 먼저 넣음)) · `get_orient_sheet` — **524**(세 함수 공통 — 524 의 베이스 461·425·187 — 🔴 제출된 시트의 임시저장은 `data` 가 아니라 작성본 `draft_data` 에 간다. 관리자 화면은 작성본 내용을 안 받는다(화면 기준 — 서버 정책은 칸 단위로 안 막는다) — `fetchOrientSheetById` 에 `select('*')` 금지)
+- `submit_orient_sheet` · `save_orient_draft` — **538**(⚠️ 개발서버는 542 — 아래) (베이스 524 — 기한이 지나면 작성 중(`draft`)만 만료로 바꾸고 제출된 시트는 상태를 그대로 둔 채 거부만. 🔴 524 로 되돌리면 제출 시트가 기한 뒤 저장 시도 한 번으로 만료가 되어 캠페인 등록이 막힌다 · 개발·운영 모두 적용) · `get_orient_sheet` — **524**(세 함수 공통 — 524 의 베이스 461·425·187 — 🔴 제출된 시트의 임시저장은 `data` 가 아니라 작성본 `draft_data` 에 간다. 관리자 화면은 작성본 내용을 안 받는다(화면 기준 — 서버 정책은 칸 단위로 안 막는다) — `fetchOrientSheetById` 에 `select('*')` 금지)
 - `_orient_compute_quote` — **463**
 - `link_orient_card_to_campaign` — **564**(237 → 464 → 564 — 가구매 카드 거부 `form_type_retired`, 응답에서 `campaign_proxy_purchase` 키 제거. 🔴 464 베이스 금지)
 - 🔴 **링크 폼 닫기 542 — 개발서버만**(2026-10-19): 토큰 함수 다섯(`get_orient_sheet`·`save_orient_draft`·`submit_orient_sheet`·`preview_orient_quote`·`get_orient_tier_fees`)이 `{success:false, reason:'moved'}`, `orient_token_can_upload`·`orient_lookup_gate` 는 거짓 고정(전부 `CREATE OR REPLACE` — 권한 보존). 개발서버에서는 이 다섯·둘의 현재 원본이 **542**(다시 열려면 524·539[7]·200·428 판 재실행 — 542 머리말). 견적서 끼워 넣기(`?embed=quote`)는 서버를 안 써서 그대로. 🔴 **운영 순서**: 브랜드 페이지 운영 반영 → `dev/sales/orient.html` `boot()` 의 `token && SUPABASE_ENV !== 'production'` 막음을 걷어 `reverb-sales` 운영 배포 → 운영 옛 링크가 `/brand/?orient_token=` 으로 넘어가는 것을 눈으로 확인 → 그 뒤 542(반대면 운영 브랜드가 옛 링크에서 오류 화면만 본다)
@@ -252,14 +244,13 @@
 - 🔴 캠페인 발행(판매가는 캠페인 어느 칸에도 자동으로 안 들어간다 · 리뷰어형 제품 금액 0 확인창은 세 경로 모두)·기존 캠페인 연결(가구매 카드는 화면이 발행·연결을 막는다 — 2026-10-20 철거)·구매 가이드 모드(NULL = 옛 판) — 상세 `.claude/rules/orient-publish.md`
 
 ### 오프라인 팝업 방문 예약(티켓팅)
-> 상세는 **`.claude/rules/event-ticketing.md`** — 행사 화면(`admin-event.js`·`event-ticket.js`·`event-scan.html`)이나 행사 마이그레이션을 열면 자동으로 읽힌다.
+> 상세는 **`.claude/rules/event-ticketing.md`** — 행사 화면(`admin-event.js`·`event-ticket.js`·`event-scan.html`)이나 행사 마이그레이션을 열면 실린다.
 > ⚠️ **기능은 전부 운영에 있으나 아무도 켠 적이 없다** — 데이터 0건. 다음에 쓸 캠페인이 생기면 캠페인 등록·타임 생성·묶음 지정이 필요하다.
 > 🔴 **다른 영역을 고칠 때 알아야 하는 셋** (위 규칙 파일은 행사 파일을 열어야 뜬다):
 > - **캠페인 변경 이력**(265·266)의 화이트리스트에 행사 칸 4종(`event_mode`·`is_invite_only`·`event_group_id`·`event_selection_mode`)을 **의도적으로 안 넣었다**(세 곳 동시 수정 위험) — 「빠졌다」고 넣지 말 것
 > - **인플루언서 일일 다이제스트 메일이 행사 낙선 통지를 겸한다** — 낙선은 응모를 `rejected` 로 두어 그 메일과 「落選」 배지를 그대로 쓴다. 그 메일을 고칠 때 행사가 딸려 온다
 > - **선정 기간(`selection_start`/`selection_end`) 표시 조건이 여섯 곳**(인플루언서 상세·관리자 미리보기·진행현황·엑셀·운영현황 일정 뷰·브랜드 페이지 캠페인 상세 — 목록은 `application.js` 그 줄 주석)에서 **글자 그대로 같아야** 한다(폼에만 「이미 값이 저장돼 있으면 보여준다」 예외가 하나 더)
 ### 인플루언서·관리자
-> 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 > ⚠️ **아직 안 한 것**: 위반 기록 3년 파기는 **행만 지우고 증빙 파일 경로는 대기열에 쌓기만** 한다 — 대기열을 소비하는 화면이 아직 없다(방침 문구에 「집행 완료」로 적지 말 것)
 
@@ -269,7 +260,7 @@
 - `outbound_influencers`(⚠️ 정책은 `is_admin()` 금지 — `has_permission('outbound.view')`) — 상세 `.claude/rules/outbound.md`
 
 ### 응모건 메시지 (인플루언서 ↔ 관리자, 마이그레이션 144·145)
-> 상세는 **`.claude/rules/messages-admin.md`** — 메시지 화면(`admin-messaging.js`·`messaging.js`)·메시지 마이그레이션을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(회원 쪽 화면은 `member-messages.md` · 기획·고문 세션에서는 자동으로 안 읽힌다).
+> 상세는 **`.claude/rules/messages-admin.md`** — 메시지 화면(`admin-messaging.js`·`messaging.js`)·메시지 마이그레이션을 열면 실린다. 회원 쪽 화면은 `member-messages.md`.
 **현재 원본 번호**
 - `send_application_message` — **509**(베이스 323. `CREATE OR REPLACE` 로만) · 「응모 끝나고 90일이면 회원은 못 씀」 판정은 **`_application_message_writable`(509) 한 곳**(종료 시각은 `_application_message_ended_at`) — 회원 화면은 `get_my_application_message_status()`(509, 본인 응모 전부 jsonb)로 「지난 문의」를 가른다. 🔴 90일을 화면에서 계산하지 않는다. 배포는 509 먼저
 
@@ -277,8 +268,8 @@
 - `application_messages` — **475 부터 `application_id` 가 비어 있을 수 있다**(일반 문의 행 — 아래 「일반 문의 창구」). 🔴 일괄 발송 `send_application_message_bulk` 현재 원본 **417**(베이스 390)
 - ⚠️ **감싸지 않은 `is_admin()` 정책이 운영에 84개 더 있다** — 행마다 평가돼 조회가 느려지면 415 처럼 `(SELECT public.is_admin())` 로 감싼다. 회원 역할 실행 계획은 SQL 편집기에서 `set local role authenticated` 를 넣어야 정책이 평가된다
 
-### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 — ★운영 반영 2026-10-06 · 서비스 문의 여러 대화 504~508 은 **개발서버만**)
-> 상세는 **`.claude/rules/general-inquiry.md`** — 문의 화면(`messaging.js`·`admin-messaging.js`)·일반 문의 마이그레이션을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 — ★운영 반영 · 서비스 문의 여러 대화 504~508 은 **개발서버만**)
+> 상세는 **`.claude/rules/general-inquiry.md`** — 문의 화면(`messaging.js`·`admin-messaging.js`)·일반 문의 마이그레이션을 열면 실린다.
 
 **현재 원본 번호**
 - `send_general_inquiry_message`(6인자) · `reopen_general_inquiry_thread` · 뷰 `general_inquiry_thread_summary` — **508**(베이스 505·505·506. 🔴 발신은 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다) · `update_general_inquiry_thread_title` · `_general_inquiry_open_limit`(상한 5 — 숫자는 여기 한 곳) — **508** 신설
@@ -290,28 +281,25 @@
 
 ### CS 이력 관리 (마이그레이션 555~ — 🔴 개발서버만, 화면 없음)
 > 사양서 `docs/specs/2026-10-16-cs-history-management.md` · 작업표 `…-breakdown.md`(조각 21 · 진행은 사양서 「구현 결과」)
-- 표 `cs_cases`·`cs_case_messages`(기본 키 = 메시지 id)·`cs_case_comments`·`cs_case_comment_reads` + 비공개 통 `cs-case-attachments` — **556**. 🔴 접근은 **읽기만** `has_permission('menu.messages','read')`(메시지 표의 `is_admin()` 보다 좁다) — 쓰기는 정의자 권한 함수만(표 권한도 SELECT 만). 🔴 응모·대화·메시지·회원·캠페인 외래 키는 전부 **비우기** — 원본이 지워져도 건은 통계로 남는다(앱 건 원본 칸 둘이 다 비면 「원본 대화 삭제됨」). ⚠️ 그래서 **원본을 지우는 경로(캠페인 보관 삭제·탈퇴 파기 등)가 CS 건의 개인정보 사본을 따로 비워야 한다** — 아직 연결 안 됨(4-1)
+- 표 `cs_cases`·`cs_case_messages`(기본 키 = 메시지 id)·`cs_case_comments`·`cs_case_comment_reads` + 비공개 통 `cs-case-attachments` — **556**. 🔴 접근은 **읽기만** `has_permission('menu.messages','read')`(메시지 표의 `is_admin()` 보다 좁다) — 쓰기는 정의자 권한 함수만(표 권한도 SELECT 만). 🔴 응모·대화·메시지·회원·캠페인 외래 키는 전부 **비우기** — 원본이 지워져도 건은 통계로 남는다(앱 건 원본 칸 둘이 다 비면 「원본 대화 삭제됨」). 개인정보 사본 비우기는 563(아래)
 - 자동 생성 트리거 `trg_cs_case_on_member_message`(메시지 표의 **첫 마이그레이션 트리거**, 회원 글만) + 3개월 백필 — **558**. 🔴 트리거는 **예외를 삼킨다**(회원 문의 발신을 절대 막지 않게 — 대화 잠금 대기 2초) · 실패한 글은 건에 안 붙는다. 🔴 같은 대화 잠금(`hashtext('cs_case_conv:'||…)`)을 잡는 새 함수는 잠금을 **먼저** 잡는다(발신과 교착)
 - 조회 함수 넷 `get_cs_cases`·`get_cs_summary`·`get_cs_cases_for_conversation`·`get_cs_comment_summaries` + 내부 `_cs_case_rows`(첫 답장·감사용 제외 한 곳) — **560**. 전부 jsonb 한 값 · 메시지 메뉴 권한 없으면 42501(대화별은 인자가 둘 다 있거나 둘 다 없으면 22023)
 - 쓰기 함수 열 개(완료·다시 열기·진행현황·CS 추가·요약·수기 등록/편집·메모 쓰기/지우기·읽음) — **562**. 거부는 코드 문자열(P0001 — 목록은 사양서 「구현 결과」 1-5) · 건 고치기는 `p_version` 낙관적 잠금 · 🔴 건 행 잠금은 `FOR NO KEY UPDATE`(그냥 `FOR UPDATE` 면 회원 글 연결 트리거가 2초 뒤 포기한다) · 「미분류(과거)」는 어디서도 못 고른다
 - 개인정보 비우기 — **563**. 🔴 **원본(응모·대화·회원)이 지워지면 CS 건 트리거가 외래 키 비우기 순간에 사본을 함께 비운다** — 그래서 삭제 함수를 새로 만들거나 고쳐도 CS 쪽은 따로 손댈 필요가 없다. 🔴 그 트리거는 **외래 키 동작만** 잡는다(`pg_trigger_depth() > 1`) — 이 조건을 빼면 수기 건의 회원 연결을 푸는 편집이 건을 통째로 비운다. 🔴 탈퇴는 520 의 이메일 바꿔치기에 거는 인플루언서 AFTER 트리거(361 과 같은 자리 — **자리표시 주소 문자열을 바꾸면 이 트리거도 함께**) · 수기 3년 예약 06:15 · ⚠️ 메모 첨부 **파일**은 아직 안 지운다(다음 조각)
 
 ### 자동응답(FAQ 가이드형, 마이그레이션 146)
-> 🔄 **2026-10-07 회원 화면 진입로가 바뀌었다**: 대화 맨 위 봇 카드는 없앴고, 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 어느 문의에 보일지는 **노출 위치 칸 둘**(마이그레이션 510 — 개발서버만)을 `faqNodeVisibleIn`(shared.js)이 본다 — 자기 칸 + 위 분류 칸이 모두 켜져야 보인다. 🔴 칸이 없는 서버(510 전)는 옛 규칙(`FAQ_GENERAL_CATEGORY_IDS` 카테고리 셋)으로 폴백하지만 **관리자 편집 저장은 새 칸을 보내 실패한다** — 운영은 510 먼저. 질문 문안은 데이터라 패치로 고친다(2026-10-07 운영 대조 정정 `supabase/patches/2026-10-07-faq-accuracy-fix.sql` + 되돌리기, 사양서 `docs/specs/2026-10-07-faq-accuracy-review-2.md`)
-> 응모건 메시지의 「문의 게이트」형 FAQ. 사양서 `docs/specs/2026-05-21-message-faq.md`. 빈 구멍 분석 `docs/specs/2026-05-29-message-faq-improvement.md`.
+> **회원 화면 진입로**: 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 어느 문의에 보일지는 **노출 위치 칸 둘**(마이그레이션 510 — 개발서버만)을 `faqNodeVisibleIn`(shared.js)이 본다 — 자기 칸 + 위 분류 칸이 모두 켜져야 보인다. 🔴 칸이 없는 서버(510 전)는 옛 규칙(`FAQ_GENERAL_CATEGORY_IDS` 카테고리 셋)으로 폴백하지만 **관리자 편집 저장은 새 칸을 보내 실패한다** — 운영은 510 먼저. 질문 문안은 데이터라 패치로 고친다(`supabase/patches/`)
+> 응모건 메시지의 「문의 게이트」형 FAQ.
 - `faq_nodes` — 자기참조 트리. `parent_id`/`kind`(category|item), `label_ko/ja`, `body_ko/ja`, `action_type`/`action_target`(앱 해시 경로 8종), `is_human_handoff`, `relevant_stages text[]`, `sort_order`, `active`, `show_in_campaign`(기본 true)·`show_in_service`(기본 false — 510). RLS SELECT authenticated / CUD `is_campaign_admin()`
 - `faq_interactions` — `action`(viewed|resolved|handoff), `view_count`. `viewed` 부분 유니크. RLS INSERT 본인행 / SELECT `is_admin()`
 - `record_faq_interaction(...)` RPC(SECURITY DEFINER, `influencer_id=auth.uid()` 강제, `viewed` 멱등 UPSERT)
 - 화면: 관리자 `#adminPane-faq`(`dev/js/admin-faq.js`) / 인플 「문의 게이트」(`dev/js/messaging.js`) / 관리자 응대 보조(`dev/js/admin-messaging.js`). 판정 공용 `faqComputeStatus`/`faqComputeCancelPhase`(`dev/lib/shared.js`). 사양서 `docs/specs/2026-05-21-message-faq.md`
 
-### 정산 (인플루언서 리워드 — 마이그레이션 217~223·299~303·337~342, ★운영 배포 완료 · 337~339·342 포함)
-> 상세는 **`.claude/rules/settlement.md`** — 정산 화면·정산 마이그레이션을 열면 자동으로 읽힌다.
-> 🔴 **이 영역을 설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 🔴 아래는 규칙 파일이 자동으로 안 읽히는 자리에서도 알아야 하는 것이라 여기 남겼다(다른 영역·현재 원본 번호·잠금 상태 등).
-> 🔴 **이 영역 파일은 Read 도구로 연다** — 셸(`cat`·`sed`·`grep`)로 보거나 고치면 규칙 파일이 **안 실린다**.
+### 정산 (인플루언서 리워드 — 마이그레이션 217~223·299~303·337~342, ★운영 배포 완료)
+> 상세는 **`.claude/rules/settlement.md`** — 정산 화면·정산 마이그레이션을 열면 실린다.
 > 설계·질문이면 **`reverb-settlement` 스킬**이 길을 안내한다(파일을 안 여는 세션용 입구).
 
-**현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
+**현재 원본 번호**
 - `mark_settlements_paid_bulk` · `mark_settlement_revert` · `mark_settlement_paid` · `register_past_settlements` · `correct_settlement_payment` — **486**(베이스 416·416·343·339·341 아님)
 - `_settlement_cert_candidates` — **564**(… → 455 → 564 — 가구매 갈래 제거. 232·455 를 베이스로 재작성하면 알림 잠금·가구매 철거가 사라진다 — 번호가 가장 큰 정의를 베이스로)
 - `get_settlement_transfer_monthly` · `get_settlement_transfer_by_round` — **502**(베이스 487 아님. 🔴 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다)
@@ -330,12 +318,9 @@
 - ⚠️ `settlement.view` 를 캠페인 매니저에게 열면 PayPal 이 노출된다 · 신청 반려·취소 → 정산 자동 보류 트리거·화면 가드 · 송금 묶음 표·확인 창·화면 배타 — 상세 `.claude/rules/settlement.md`
 
 ### 회원 탈퇴 (마이그레이션 345~367 — ★운영 배포 완료 · 회원이 실제로 탈퇴할 수 있다)
-> 상세는 **`.claude/rules/member-withdrawal.md`** — 탈퇴 메일·파기 함수·탈퇴 마이그레이션·관리자 회원 화면을 열면 자동으로 읽힌다.
-> 🔴 **이 영역을 설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
-> 🔴 아래는 규칙 파일이 자동으로 안 읽히는 자리에서도 알아야 하는 것이라 여기 남겼다(다른 영역·현재 원본 번호·잠금 상태 등).
-> 🔴 **이 영역 파일은 Read 도구로 연다** — 셸(`cat`·`sed`·`grep`)로 보거나 고치면 규칙 파일이 **안 실린다**.
+> 상세는 **`.claude/rules/member-withdrawal.md`** — 탈퇴 메일·파기 함수·탈퇴 마이그레이션·관리자 회원 화면을 열면 실린다.
 
-**현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
+**현재 원본 번호**
 - `cancel_withdrawal` — **356**
 - `request_withdrawal` · `request_withdrawal_for_member` · `advance_withdrawal_states` — **450**
 - `purge_withdrawn_personal_data` — **520**(352 → 396 → 520)
@@ -352,26 +337,26 @@
 - ⚠️ 관리자 사이드바 경고 아이콘은 **항목마다 장치 하나 · 자리 셋**(나중에 도는 쪽이 이긴다) — 상세 `.claude/rules/admin-sidebar-indicators.md`
 
 ### 일별 방문자수 (마이그레이션 332)
-> 상세는 **`.claude/rules/site-visits.md`** — 관리자 대시보드(`admin-dashboard.js`)·마이그레이션 332를 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+> 상세는 **`.claude/rules/site-visits.md`** — 관리자 대시보드(`admin-dashboard.js`)·마이그레이션 332를 열면 실린다.
 - `site_daily_visits` + `record_site_visit(p_app, p_is_new_visitor)`(관리자·감사용 계정은 서버가 제외, 날짜는 서버가 만든다)
 - ⚠️ 호출은 **부팅 1회**, **세션 복원 뒤**(`dev/js/app.js` `init()` 의 `updateGnb()` 직후) — 아니면 **운영자 접속이 방문자로 세어진다**
 - ⚠️ **관리자·감사용 제외는 SQL 편집기로 검증 못 한다**(서비스 키라 그 분기가 안 돈다 — 마이그레이션 272 와 같은 함정). 로그인 브라우저로만 확인
 - ⚠️ **저장소를 못 쓰면 세지 않는다 — 조회수(263)와 정반대이고 의도한 것이다.** 하루 한 행이라 한 사람의 새로고침이 그대로 그날 수가 된다. 「일관성 없다」며 맞추지 말 것 (`_markSiteVisited`·`recordSiteVisit`)
 
 ### 메타 픽셀 (마이그레이션 438·439 — ★**운영 적용 완료** · 🔴 **운영 전송 중**(설정 시행일 `2026-09-18` · 켜짐 · 아이디 입력))
-> 상세는 **`.claude/rules/admin-tools.md`** — 광고 추적 화면·`meta-pixel.js`·픽셀 마이그레이션을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+> 상세는 **`.claude/rules/admin-tools.md`** — 광고 추적 화면·`meta-pixel.js`·픽셀 마이그레이션을 열면 실린다.
 > 방문·가입·신청을 Meta 로 보낸다. 관리 화면은 「광고 추적」, 전송은 `dev/js/meta-pixel.js`. 사양서 `docs/specs/2026-09-03-meta-pixel.md` · 작업표 `…-meta-pixel-breakdown.md`
 > 🔴 **잠금 구조** — 설정 시행일이 비었거나 미래면 켜기 거부·앱용 조회 빈 값. **그 날짜 입력이 곧 잠금 해제**. ⚠️ 방침 문서·앱 공지·통지 메일의 시행일 `2026-10-17` 은 어긋남이 아니라 사용자 결정이다. 되돌리지 말 것.
-- 🔴 **시행일 판정식은 `_meta_pixel_policy_in_effect(date)` 한 곳**이고 저장 거부·앱용 조회·상태 배지가 그것을 부른다. 식 = `p_date IS NOT NULL AND p_date <= (now() AT TIME ZONE 'Asia/Tokyo')::date`. **다른 함수에 복사하지 말 것**
+- 🔴 **시행일 판정식은 `_meta_pixel_policy_in_effect(date)` 한 곳**이고 저장 거부·앱용 조회·상태 배지가 그것을 부른다. **다른 함수에 복사하지 말 것**
 - 🔴 **민감 주소 판정은 부팅 때 한 번뿐**(`metaPixelUrlHasSensitiveValue`) — 이미 켜진 탭에서 주소에 붙는 값은 못 막는다. 그래서 **초대 번호는 주소에 남기지 않는다** — 저장소(`reverb.inviteCtx`)가 기억하고 `captureInviteFromHash` 가 주소에서 걷어낸다(`stripInviteFromUrl`, 저장소를 못 쓰면 남김). 주소에 값을 싣는 새 링크를 만들면 같은 처리를. ⚠️ 초대 링크로 처음 들어온 방문은 픽셀이 꺼진 채 시작한다(의도). **iOS 앱(Capacitor 웹뷰)에서는 꺼짐**(앱 추적 투명성 동의 없음)
-- 🔴 **배포는 데이터베이스 먼저, 코드 나중** — 반대면 없는 함수를 불러 오류가 쌓인다. ⚠️ 개발에서 앱 코드가 438 보다 먼저 나간 적이 있다. 439 는 438 뒤, **관리 화면과 같은 배포**에(화면은 못 읽으면 열고 서버는 거부 — 방향이 반대)
+- 🔴 **배포는 데이터베이스 먼저, 코드 나중** — 반대면 없는 함수를 불러 오류가 쌓인다. 439 는 438 뒤, **관리 화면과 같은 배포**에(화면은 못 읽으면 열고 서버는 거부 — 방향이 반대)
 
 ### 메일·기준 데이터·알림
-- `lookup_values` — 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason/**admin_proxy_reason**), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`(channel 만 사용). `admin_proxy_reason`(마이그레이션 160) 시드 4건: shipping_delay/system_error/inflexible_deadline/other. 🔴 **종류 검사 제약의 현재 원본은 555**(18종 — 554 의 17종[346 + `shipping_carrier`]에 `cs_category` 추가. 위 목록은 일부 — 전체는 555 파일). 🔴 **이 제약을 고칠 땐 병합 직전 origin/dev 의 마지막 정의를 다시 본다**(같은 날 554·555 가 따로 만들어졌다). `cs_category`(CS 항목 8행, 개발서버만) 중 `legacy_unclassified`(미분류(과거) — 백필 전용)는 트리거 `trg_lookup_cs_legacy_lock` 이 로그인 역할의 이름·활성·코드 변경과 삭제를 거부(`cs_legacy_locked`) — **정렬 번호만은 통과**(순서 변경 `swapLookupOrder` 가 두 행을 따로 고쳐서)
+- `lookup_values` — 기준 데이터. `kind`(종류 — 전체 목록은 마이그레이션 555), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`(channel 만 사용). 🔴 **종류 검사 제약의 현재 원본은 555**(18종 — 554 + `cs_category`). 🔴 **이 제약을 고칠 땐 병합 직전 origin/dev 의 마지막 정의를 다시 본다**(같은 날 554·555 가 따로 만들어졌다). `cs_category`(CS 항목 8행, 개발서버만) 중 `legacy_unclassified`(미분류(과거) — 백필 전용)는 트리거 `trg_lookup_cs_legacy_lock` 이 로그인 역할의 이름·활성·코드 변경과 삭제를 거부(`cs_legacy_locked`) — **정렬 번호만은 통과**(순서 변경 `swapLookupOrder` 가 두 행을 따로 고쳐서)
 - `participation_sets` — 참여방법 번들. `name_ko`/`ja`, `recruit_types[]`, `steps jsonb`, `sort_order`, `active`. `campaigns.participation_steps jsonb` 스냅샷 + `participation_set_id` FK ON DELETE SET NULL
 - `caution_sets` — 주의사항. items `{text_ko, text_ja, link_url?, link_label_ko?, link_label_ja?, text_after_ko?, text_after_ja?}`. `campaigns.caution_items jsonb` + `caution_set_id` FK ON DELETE SET NULL. RLS SELECT 관리자
 - `ng_sets` — NG. items `{html_ko, html_ja}`(DOMPurify, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb` 스냅샷. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상.
-- `notifications` — 인플루언서 알림. `kind`(deliverable_rejected/deliverable_changed/deliverable_approved/application_cancelled/message_received/application_approved/**deliverable_proxy_submitted**/**settlement_paypal_required**/**settlement_paid**), `ref_table`/`ref_id`, `title`, `body`, `read_at`. deliverable_* 는 status 전이 트리거가 생성, 재제출 시 미읽음 자동 dismiss. `message_received`(145)=관리자 답장 시 send 함수 · `application_approved`(154)=→approved 전이 시 `record_application_status_event()`(「キャンペーンに当選しました」 — 당선 안내) · `deliverable_proxy_submitted`(160)=대리 등록 시 `admin_create_deliverable_proxy()`(「結果物が登録されました」 — 결과물 등록됨). 셋 다 **미읽음 중복 방지**. 클릭 시 `message_received` 는 메시지 모달, `application_approved`/`application_cancelled`/`application_restored`는 응모이력(ref_table='applications' 공유라 kind 한정 필수). 🔴 **종류 검사 제약의 현재 원본은 440**(13종) — 376 이 아니라 440 을 베이스로
+- `notifications` — 인플루언서 알림. `kind`(종류 — 전체 목록은 마이그레이션 440), `ref_table`/`ref_id`, `title`, `body`, `read_at`. deliverable_* 는 status 전이 트리거가 생성, 재제출 시 미읽음 자동 dismiss. `message_received`(145)=관리자 답장 시 send 함수 · `application_approved`(154)=→approved 전이 시 `record_application_status_event()` · `deliverable_proxy_submitted`(160)=대리 등록 시 `admin_create_deliverable_proxy()`. 셋 다 **미읽음 중복 방지**. 클릭 시 `message_received` 는 메시지 모달, `application_approved`/`application_cancelled`/`application_restored`는 응모이력(ref_table='applications' 공유라 kind 한정 필수). 🔴 **종류 검사 제약의 현재 원본은 440**(13종) — 376 이 아니라 440 을 베이스로
 - `admin_daily_digest_runs` — 관리자 통합 다이제스트 로그. `digest_date` UNIQUE(mutex) + `status CHECK(sent|skipped_no_data|failed)` + `sections_summary jsonb`(`{received, cancelled, submitted, reprocessed}`) + `recipients_count` + `error_message` + `run_at`. RLS SELECT `is_admin()`, INSERT 는 service_role 만
 - `influencer_daily_digest_runs` / `application_received_admin_digest_runs` — 로그. `digest_date` UNIQUE
 - `deadline_reminder_email_sent` — D-5·D-1 임박 메일 재발송 차단. UNIQUE `(influencer_id, campaign_id, kind, d_minus)`
@@ -384,7 +369,7 @@
 - 헬퍼 `_yesterday_kst_window()` STABLE — 어제·오늘 KST 날짜
 
 ### 사용자 앱 에러 수집 (마이그레이션 165)
-> 상세는 **`.claude/rules/admin-tools.md`** — 오류 로그 화면·`error-report.js`·오류 로그 마이그레이션을 Read 도구로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
+> 상세는 **`.claude/rules/admin-tools.md`** — 오류 로그 화면·`error-report.js`·오류 로그 마이그레이션을 열면 실린다.
 - `report_client_error`(비로그인 수집) 현재 원본 **522**(베이스 308) — 🔴 인자 10개 그대로 `CREATE OR REPLACE` 로만(틀리면 수집 전체가 조용히 멈춘다). 🔴 브라우저 문자열·회원 아이디·받은 시각(`identity_at`)은 **한 쌍으로** 함께 갱신 · `resolve_client_error` 현재 원본 **522**(베이스 518)
 - **보관 3개월**(522 · 개인정보처리방침 「자동 수집 3개월」 근거) — 매일 `identity_at` 기준으로 쌍을 비운다. 탈퇴 확정 회원은 520 이 즉시
 
