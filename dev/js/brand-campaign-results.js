@@ -10,7 +10,7 @@
 //   ⚠️ 이 페이지에서 뺀 열: No.·캠페인 번호·캠페인명·구매기간 — 한 캠페인 화면이라 머리·일정에 이미 있다(피그마 bw05-01e).
 //      이름(한자)·후리가나는 「이름」 한 칸으로 합쳐 「구분」 바로 뒤에 그린다(피그마). 「구분」은 늘 맨 앞(S25 · 열 고르기 대상 아님).
 //   엑셀(조각 15): purpose:'excel' 한 번 — 영수증만 서버가 7일 서명(올린 사람 대조 551), 줄·열은 화면과 같은 _brBuildRowsCols ·
-//      A1 안내(S27) · 파일 이름 「결과물_{제품명}_{YYYYMMDD}.xlsx」(S5) · 내려받기 기록 없음(S8). 열람 정지(S24)는 서버가 아직 안 준다(조각 4c) — 응답 reason:'suspended' · 요약 results_suspended 로 그린다.
+//      A1 안내(S27) · 파일 이름 「결과물_{제품명}_{YYYYMMDD}.xlsx」(S5) · 열람·내려받기 제공 기록은 서버 함수가 남긴다(배송 리스트 작업표 조각 R1 — 기록 실패면 응답 reason:'record_failed' → 기존 실패 문구). 열람 정지(S24)는 서버가 아직 안 준다(조각 4c) — 응답 reason:'suspended' · 요약 results_suspended 로 그린다.
 
 const BRAND_RES_PAGE = 20;
 const BRAND_RES_MSG = {

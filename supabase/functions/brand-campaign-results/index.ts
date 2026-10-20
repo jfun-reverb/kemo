@@ -22,6 +22,11 @@
 //    receipt_url 은 회원이 쓰는 칸이라, 남의 파일 경로를 자기 줄에 적으면 경로 검사만으로는 남의 영수증이 서명된다.
 //    대조에 걸리거나 대조 자체가 실패하면 서명하지 않는다(null · receipt 갈래는 not_found).
 // 🔴 옛 공개 전체 주소(「://」 포함)는 그대로 통과(출시 전 이중 지원). 다른 서비스 영수증(ext_rows)도 외부 주소라 그대로.
+// 🔴 제공 기록(조각 R1 — 배송 리스트 작업표 · 마이그레이션 552): view 는 화면에 돌려주기 **전에** results_view(30분 합치기 —
+//    552 _record_brand_provision 한 곳), excel 은 서명하기 **전에** results_excel 을 service_record_brand_provision 으로 남긴다.
+//    「누가」 = 토큰에서 확인한 계정(화면이 보낸 값 아님) · 칸 = 응답 columns · 사람 = 응답 users(회원 번호 + 응답에 실린 가린 이름).
+//    기록이 실패하면 응답을 돌려주지 않는다 {success:false, reason:'record_failed'}(「기록 없는 제공」 없음). receipt 는 기록하지 않는다
+//    (그 사진을 담은 표 열람이 이미 view 로 남는다). 공개 꺼짐(ready:false)이면 기록 없음.
 // 브라우저가 직접 부른다 — CORS + OPTIONS 필수. 공개 키 거부는 걸지 않는다(판정은 로그인 토큰).
 // 환경변수: SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY(자동 주입) — 새 비밀값 없음.
 // 로그: 경로·주소·토큰을 남기지 않는다(오류 코드만).
@@ -80,6 +85,32 @@ async function signableMap(svc: any, ids: string[]): Promise<Map<string, Signabl
     }
   }
   return out;
+}
+
+// 제공 기록 — 실패면 false(부르는 쪽이 record_failed 로 닫는다)
+// deno-lint-ignore no-explicit-any
+async function recordProvision(svc: any, userDb: any, token: string, campaignId: string, action: "results_view" | "results_excel", res: any): Promise<boolean> {
+  const { data: who, error: whoErr } = await userDb.auth.getUser(token);
+  const uid = who?.user?.id;
+  if (whoErr || !uid) {
+    console.error("[brand-campaign-results] record: user lookup failed", errTag(whoErr, "user"));
+    return false;
+  }
+  const users = res && res.users && typeof res.users === "object" ? Object.values(res.users) : [];
+  // deno-lint-ignore no-explicit-any
+  const persons = (users as any[]).filter((u) => u && u.id).map((u) => ({
+    influencer_id: String(u.id),
+    name: (typeof u.name_kanji === "string" && u.name_kanji) || (typeof u.name_kana === "string" && u.name_kana) || null,
+  }));
+  const columns = Array.isArray(res?.columns) ? res.columns : [];
+  const { error } = await svc.rpc("service_record_brand_provision", {
+    p_actor_auth_id: uid, p_campaign_id: campaignId, p_action: action, p_columns: columns, p_persons: persons,
+  });
+  if (error) {
+    console.error("[brand-campaign-results] record failed", errTag(error, "record"));
+    return false;
+  }
+  return true;
 }
 
 function errTag(err: { code?: string; name?: string; message?: string } | null | undefined, fallback: string): string {
@@ -159,10 +190,26 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: true, url: one.signedUrl, expires_in: EXPIRES.receipt });
   }
 
-  // 2-b) view — 서명하지 않는다(S26). 저장값 그대로
-  if (purpose === "view") return jsonResponse(res);
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
 
-  // 2-c) excel — 응답 안의 영수증 통 경로만 7일 서명(원본 + 썸네일) · 올린 사람 대조에 걸린 줄은 비운다
+  // 2-b) view — 서명하지 않는다(S26). 저장값 그대로 · 돌려주기 전에 열람 기록(R1)
+  if (purpose === "view") {
+    const svcLog = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (!(await recordProvision(svcLog, userDb, token, campaignId, "results_view", res))) {
+      return jsonResponse({ success: false, reason: "record_failed" });
+    }
+    return jsonResponse(res);
+  }
+
+  // 2-c-1) excel — 서명하기 전에 내려받기 기록(R1)
+  {
+    const svcLog = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (!(await recordProvision(svcLog, userDb, token, campaignId, "results_excel", res))) {
+      return jsonResponse({ success: false, reason: "record_failed" });
+    }
+  }
+
+  // 2-c-2) excel — 응답 안의 영수증 통 경로만 7일 서명(원본 + 썸네일) · 올린 사람 대조에 걸린 줄은 비운다
   if (targets.length) {
     const svc = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     // deno-lint-ignore no-explicit-any
