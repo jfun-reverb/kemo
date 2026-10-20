@@ -127,6 +127,8 @@ function updateInboxStage() {
   } else if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
   else if (!threadOpen) pane.classList.add('stage-threads');
   else pane.classList.add('stage-view');
+  // CS 패널(admin-cs-panel.js — 작업표 3-1)이 대화가 바뀌었는지 보고 자기 단계(stage-cs)를 붙이거나 뗀다
+  if (typeof syncInboxCsPanel === 'function') syncInboxCsPanel(pane, !!threadOpen);
 }
 
 // 뷰 + 본인 미열람 맵을 다시 조회하고 좌/중 패널 재렌더

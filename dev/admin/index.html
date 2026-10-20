@@ -2245,6 +2245,10 @@
           </div>
           <div class="inbox-3pane stage-campaigns" id="inboxMainView">
             <div class="inbox-col inbox-col-camps">
+              <!-- CS 패널이 열리면 캠페인 단은 이 띠만 남는다 — 누르면 패널을 닫고 캠페인 단을 되살린다(3-1) -->
+              <button type="button" class="inbox-camps-fold" onclick="toggleInboxCsPanel(false)" title="CS 패널을 닫고 캠페인 목록 보기" aria-label="CS 패널을 닫고 캠페인 목록 보기">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span>
+              </button>
               <div class="inbox-col-header" onclick="setInboxStageCampaigns()" title="클릭하면 캠페인 목록을 넓게 봅니다">
                 <span>캠페인</span>
                 <span class="material-icons-round notranslate inbox-col-header-icon" translate="no">unfold_more</span>
@@ -2261,8 +2265,27 @@
             <div class="inbox-col inbox-col-view">
               <div class="inbox-col-header inbox-col-header-static">
                 <span>대화 내용</span>
+                <!-- CS 패널 열기·닫기(작업표 3-1 · a10-01) — 대화를 열었고 개발서버일 때만 보인다(admin-cs-panel.js) -->
+                <button type="button" id="inboxCsToggle" class="inbox-cs-toggle" style="display:none" onclick="toggleInboxCsPanel()"></button>
               </div>
               <div class="inbox-col-body" id="inboxThreadView"></div>
+            </div>
+            <!-- CS 패널(작업표 3-1 · a10-02) — 열면 캠페인 단이 얇게 접힌다(.stage-cs) -->
+            <div class="inbox-col inbox-col-cs" id="inboxCsPanel" style="display:none">
+              <div class="inbox-col-header inbox-col-header-static">
+                <span id="inboxCsTitle" style="display:flex;align-items:center;gap:6px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px">support_agent</span> <span id="inboxCsTitleText">CS 관리</span>
+                </span>
+                <span style="display:flex;align-items:center;gap:4px">
+                  <button type="button" id="inboxCsAddBtn" class="btn btn-ghost btn-xs" onclick="startInboxCsSplit()" style="display:inline-flex;align-items:center;gap:2px">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span> CS 추가
+                  </button>
+                  <button type="button" class="inbox-cs-close" onclick="toggleInboxCsPanel(false)" aria-label="CS 패널 닫기">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span>
+                  </button>
+                </span>
+              </div>
+              <div class="inbox-col-body" id="inboxCsBody"></div>
             </div>
           </div>
           <!-- 발송 이력 탭 (PR 3 일괄 발송) -->
