@@ -45,6 +45,7 @@ SYNC_GROUPS=(
   "notify-admin-invite|admin-invite.html"
   "notify-brand-account-setup|brand-account-setup.html,brand-link-notice.html"
   "notify-brand-invite|brand-invite-new.html,brand-invite-existing.html,brand-invite-blocked.html"
+  "notify-brand-shipping-list|brand-shipping-delivered.html"
   "admin-password-reset-request|admin-password-reset.html"
   "brand-password-reset-request|brand-password-reset.html,brand-account-setup.html"
   "notify-withdrawal-scheduled|withdrawal-scheduled.html"
@@ -112,6 +113,7 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "admin-password-reset-request" ]] || \
      [[ "$fn_name" == "brand-password-reset-request" ]] || \
      [[ "$fn_name" == "notify-withdrawal-scheduled" ]] || \
+     [[ "$fn_name" == "notify-brand-shipping-list" ]] || \
      [[ "$fn_name" == "signup-code-send" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
