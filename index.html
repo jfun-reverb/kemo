@@ -15928,6 +15928,8 @@ const csUpdateManualCase = (caseId, version, f) => _csRpc('cs_update_manual_case
 const csAddComment = (caseId, body, parentId, attachments) =>
   _csRpc('cs_add_comment', { p_case_id: caseId, p_body: body || '', p_parent_id: parentId || null, p_attachments: attachments || [] });
 const csDeleteComment = (commentId) => _csRpc('cs_delete_comment', { p_comment_id: commentId });
+// 열린 건 삭제(570 — D-22) — 반환 {moved_to, moved_count, queued_files}. 회원 글은 같은 대화의 다른 건으로 옮겨진다
+const csDeleteCase = (caseId, version) => _csRpc('cs_delete_case', { p_case_id: caseId, p_version: version });
 // 읽음 — 실패해도 화면은 그대로(다음에 열 때 다시 읽음 처리된다)
 async function csMarkCaseCommentsRead(caseId) {
   try { return await _csRpc('cs_mark_case_comments_read', { p_case_id: caseId }); }

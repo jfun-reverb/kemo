@@ -403,11 +403,13 @@ function _csCdFootHtml(r) {
   const left = r.personal_purged_at ? '' : csIsManual(r)
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdEdit()">편집</button>`
     : (r.source_deleted ? '' : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdOpenConversation()">대화 열기 →</button>`);
+  // 잘못 열린 건 삭제(D-22) — 열린 건만(완료 건은 「다시 열기」 뒤)
+  const del = (r.status !== 'done' && !r.personal_purged_at) ? `<button type="button" class="btn btn-ghost btn-sm cs-btn-danger" onclick="csCdDelete()">삭제</button>` : '';
   const purged = !!r.personal_purged_at;
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
     : `<button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
-  return `<div>${left}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
+  return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
 // 저장 뒤 — 그 건을 다시 읽어 그리고 표를 다시 그린다.
@@ -496,6 +498,31 @@ async function csCdReopen() {
   const ok = await showConfirm('이 CS 건을 다시 열까요? 진행현황이 「진행중」으로 돌아가고, 다시 완료할 때 해결 시간이 새로 계산됩니다.');
   if (!ok) return;
   await _csCdWrite(() => csReopenCase(r.id, r.version), 'CS 건을 다시 열었습니다');
+}
+
+// 건 삭제(D-22) — 확인 뒤 지우고 모달을 닫는다. 표·열린 패널을 다시 그린다
+async function csCdDelete() {
+  const r = _csCd && _csCd.row;
+  if (!r || _csCd.busy) return;
+  if (!(await showConfirm(csDeleteConfirmText(r)))) return;
+  _csCd.busy = true;
+  let res;
+  try {
+    res = await csDeleteCase(r.id, r.version);
+  } catch (e) {
+    if (_csCd) _csCd.busy = false;
+    toast(csErrorText(e), 'error');
+    if (csErrorCode(e) === 'version_conflict') await _csCdReload(false);
+    return;
+  }
+  // 지운 뒤 — 다시 그리기가 실패해도 「삭제 실패」로 보이지 않게 따로 둔다
+  toast(res && res.moved_count ? `CS 건을 삭제했습니다(회원 글 ${res.moved_count}개를 다른 건으로 옮김)` : 'CS 건을 삭제했습니다', 'success');
+  closeModal('csCaseDetailModal');
+  _csCd = null;
+  try {
+    await refreshPane('cs-history');
+    if (typeof loadInboxCsPanel === 'function' && typeof _csPanelKey !== 'undefined' && _csPanelKey) loadInboxCsPanel();
+  } catch (e) { console.warn('[csCdDelete] refresh after delete failed', e); }
 }
 
 function csCdOpenConversation() {

@@ -95,6 +95,38 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+// ── 삭제된 CS 건의 메모 첨부(570 cs_delete_case 가 넣은 파기 대기 표) ─────────────
+//   건이 지워지면 메모 행이 CASCADE 로 사라져 위 목록으로는 못 찾는다 — 지우기 전에 경로만 대기 표에 남겨 둔다.
+//   같은 원칙: 지우고 → 대기에서 뺀다. 한 묶음이라도 실패하면 그 묶음 경로는 대기에 남겨 다음 실행에 다시
+// 예외(네트워크 단절 등)가 나도 앞 단계 보고를 잃지 않게 감싼다 — 대기 표는 그대로라 다음 실행에 다시 한다
+// deno-lint-ignore no-explicit-any
+async function purgeQueue(sb: any) {
+  try { return await purgeQueueInner(sb); }
+  catch (e) {
+    console.error("[purge-cs-attach] queue step threw", e);
+    return { queue_listed: 0, queue_deleted: 0, queue_cleared: 0, queue_error: "exception" };
+  }
+}
+// deno-lint-ignore no-explicit-any
+async function purgeQueueInner(sb: any) {
+  const { data, error } = await sb.rpc("list_cs_attachment_purge_queue", { p_limit: BATCH_LIMIT });
+  if (error) {
+    console.error("[purge-cs-attach] queue list failed", error);
+    return { queue_listed: 0, queue_deleted: 0, queue_cleared: 0, queue_error: "list_failed" };
+  }
+  const paths: string[] = (Array.isArray(data) ? data : []).map((x: unknown) => String(x)).filter(Boolean);
+  let deleted = 0, cleared = 0;
+  for (const group of chunk(paths, DELETE_CHUNK)) {
+    const { error: rmErr } = await sb.storage.from(BUCKET).remove(group);
+    if (rmErr) { console.error(`[purge-cs-attach] queue remove failed for ${group.length} files`, rmErr); continue; }
+    deleted += group.length;
+    const { data: n, error: clrErr } = await sb.rpc("clear_cs_attachment_purge_queue", { p_paths: group });
+    if (clrErr) console.error("[purge-cs-attach] queue clear failed (self-heals next run)", clrErr);
+    else cleared += typeof n === "number" ? n : group.length;
+  }
+  return { queue_listed: paths.length, queue_deleted: deleted, queue_cleared: cleared };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -155,9 +187,10 @@ Deno.serve(async (req: Request) => {
 
   const rows: PurgeRow[] = Array.isArray(data) ? data : [];
   if (rows.length === 0) {
-    console.log("[purge-cs-attach] nothing to purge");
+    const queue = await purgeQueue(sb);
+    console.log("[purge-cs-attach] no deleted-memo candidates", queue);
     return new Response(
-      JSON.stringify({ ok: true, candidates: 0, deleted_files: 0, marked: 0 }),
+      JSON.stringify({ ok: true, candidates: 0, deleted_files: 0, marked: 0, ...queue }),
       { headers: { "content-type": "application/json" } },
     );
   }
@@ -221,8 +254,10 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  const queue = await purgeQueue(sb);
   const result = {
     ok: true,
+    ...queue,
     candidates: rows.length,
     deleted_files: deletedFiles,
     marked,

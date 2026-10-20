@@ -21,6 +21,7 @@ const CS_ERROR_TEXT_KO = {
   case_purged: '개인정보가 정리된 건이라 고칠 수 없습니다.',
   already_done: '이미 완료된 건입니다.',
   not_done: '완료된 건이 아닙니다.',
+  not_open: '열린 건만 삭제할 수 있습니다. 완료된 건은 「다시 열기」 뒤에 삭제하세요.',
   category_required: '항목을 골라 주세요.',
   invalid_category: '고를 수 없는 항목입니다. 다른 항목을 골라 주세요.',
   response_required: '대응 안내 내용을 적어 주세요.',
@@ -164,6 +165,14 @@ function csReadCompleteForm(row, prefix) {
   [cat, resp, at].forEach(el => { if (el) el.classList.toggle('cs-field-error', missing.includes(el)); });
   out.ok = missing.length === 0;
   return out;
+}
+
+// 건 삭제 확인 문구 — 표 화면·패널 공용(D-22). 되돌릴 수 없으니 무엇이 사라지고 어디로 가는지 적는다
+function csDeleteConfirmText(row) {
+  const conv = row && (row.application_id || row.general_thread_id);
+  return `CS 건 #${row ? row.case_no : ''} 을(를) 삭제할까요? 되돌릴 수 없습니다.\n`
+    + '· 이 건의 메모·답글·첨부 사진이 함께 지워집니다.\n'
+    + (conv ? '· 이 건에 묶인 회원 글은 같은 대화의 다른 건(열린 건이 있으면 그 건)으로 옮겨집니다. 다른 건이 없으면 어느 건에도 묶이지 않습니다.' : '· 수기 등록 건이라 옮길 회원 글이 없습니다.');
 }
 
 // 상태 배지 — 완료(보라 강조)·확인필요(주황)·진행중(회색)
