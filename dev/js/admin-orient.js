@@ -2075,6 +2075,7 @@ async function osRefreshAfterSheetChange() {
 function osLinkFailMsg(reason) {
   switch (reason) {
     case 'brand_mismatch':           return '브랜드가 일치하지 않습니다.';
+    case 'form_type_retired':        return '가구매는 더 이상 발행하지 않습니다.';
     case 'recruit_type_mismatch':    return '이 캠페인의 모집 형식이 이 카드와 다릅니다. 캠페인을 편집해 형식을 맞추거나, 다른 캠페인을 골라 주세요.';
     case 'campaign_already_linked':  return '이미 다른 카드/시트에 연결된 캠페인입니다.';
     case 'already_published':        return '이미 발행된 카드입니다.';

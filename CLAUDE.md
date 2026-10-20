@@ -44,7 +44,7 @@
 
 **현재 원본 번호**
 - `get_promo_digest_targets` · `get_promo_digest_campaign_pool` — **471**(🔴 **`CREATE OR REPLACE` 로만** — `DROP` 후 `CREATE` 하면 375 의 실행 권한 회수가 풀려 회원 누구나 남의 이메일·수신거부 토큰을 받는다)
-- `_campaign_cert_success_counts` — **456**(베이스 433)
+- `_campaign_cert_success_counts` — **564**(456 → 564 — 가구매 갈래 제거. 🔴 456 베이스 금지)
 
 - 일일 메일 3종(관리자 메일 다섯째 절은 시간 창 없음 · ⚠️ 사유 문구 표 두 벌)·🔴 수신자 단위 발송 기록(선점 조건과 바꾸는 값이 같은 칸 · 배포는 데이터베이스 먼저 · **「복사 목록」 9개가 세 함수에 같은 본문**)·1,000행 상한(🔴 인플루언서 메일은 조회 실패 시 마감 절을 통째로 건너뛴다) — 상세 `.claude/rules/mail-digests.md`
 - 웹훅 메일(광고주 접수·오리엔시트 제출 과다 발송 게이트 2단·🔴 알림 1건 = 메일 1통은 「선점 먼저」·요청 본문을 믿지 않는다·같은 호출자 검사 본문 12개) — 상세 `.claude/rules/mail-webhooks.md`
@@ -120,7 +120,7 @@
 > 상세는 주제별 규칙 파일(아래 지도) — 그 화면 파일을 Read 로 열면 자동으로 실린다. 🔴 **설계·수정하면 그 파일부터 연다**(기획·고문 세션에서는 자동으로 안 읽힌다).
 
 **현재 원본 번호**
-- `get_report_share_data` — **545**(414 → 449 → 457 → 469 → 491 → 545). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다. 545 부터 본체는 내부 함수 `_results_payload_core`·`_results_ext_rows`(브랜드 결과물과 공유가 같이 쓴다 — 본문을 고칠 때는 이 둘을 545 베이스로) · 회원 응답에 `is_audit` 없음 · 「또는」 캠페인(채널 하나 캠페인 포함 — 기본값이 'or')은 게시한 채널 계정만(사양서 `2026-07-15-brand-portal.md` §17 — 개발서버만, 운영은 출시 날 ①)
+- `get_report_share_data` — **545**(414 → 449 → 457 → 469 → 491 → 545). 🔴 **`CREATE OR REPLACE` 로만** — `DROP` 하면 413 이 비로그인에 준 권한이 풀려 공유 링크가 전부 죽는다. 545 부터 본체는 내부 함수 `_results_payload_core`·`_results_ext_rows`(브랜드 결과물과 공유가 같이 쓴다 — 본문을 고칠 때는 `_results_payload_core` 는 **565**(가구매 키 제거, 개발서버만), `_results_ext_rows` 는 545 베이스로) · 회원 응답에 `is_audit` 없음 · 「또는」 캠페인(채널 하나 캠페인 포함 — 기본값이 'or')은 게시한 채널 계정만(사양서 `2026-07-15-brand-portal.md` §17 — 개발서버만, 운영은 출시 날 ①)
 - `touch_campaign_report_updated_at` — **491**
 - `admin_create_deliverable_proxy` — **511**(184 → 511, 대리 등록 기간 거부 `proxy_window_closed` — 화면 판정 `isProxyWindowOpen` 과 같은 식). 🔴 **`CREATE OR REPLACE` 로만**(184 의 `DROP` 을 옮기지 말 것)
 
@@ -175,7 +175,7 @@
   - `reward_note` 는 지급 조건·정산 시점 등 자유 텍스트
   - 홍보 메일: `first_active_at timestamptz NULL` — 처음 active 가 된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`) 자동 기록·불변 (마이그레이션 140)
   - 동시 저장 방어(마이그레이션 275): `version integer NOT NULL DEFAULT 1` — 나중 저장이 앞 저장을 조용히 덮는 것을 막는다. `campaigns_bump_version()` 트리거가 **제외 6개**(`version`·`updated_at`·`view_count`·`applied_count`·`order_index`·`first_active_at`) 외 변경 시에만 +1(새 컬럼은 자동 보호). 편집 저장은 `updateCampaign(id, updates, expectedVersion)` 의 `.eq('version', …)` → 0행이면 충돌 안내. ⚠️ **코드보다 마이그레이션을 먼저**(반대면 자동 마감 실패). ⚠️ 자동 전이(`autoOpen/Close/EndCampaigns`)도 version 을 올리므로 캐시를 `.select('version')` 으로 갱신 — 안 하면 **가짜 충돌**
-  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 2026-10-20 철거: 화면·메일은 이 칸을 안 본다(단계 A). 서버 판정 다섯 함수 455·456·276·464·545 는 단계 B 전까지 아직 「영수증만」으로 가른다. 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
+  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 2026-10-20 철거: 화면·메일은 이 칸을 안 본다(단계 A). 서버 판정 함수 넷(정산 후보·인증 성공 숫자·제출 관문 `get_deliverable_gate`·오리엔시트 연결)은 564 부터 가구매 갈래가 없다(현재 원본 564). 결과 공유 본체 `_results_payload_core` 는 565 가 응답 키를 뺀다 — 🔴 565 는 545 뒤에만(운영엔 545 가 아직 없다). 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
 - `numbering_legacy_map` — 신구 채번 양방향 매핑
 - `applications` — `user_id`, `campaign_id`, `message`, `address`, `status`(pending/approved/rejected/cancelled), `reviewed_by`, `reviewed_at`, `oriented_at`, `reviewed_version`(낙관적 락), `caution_agreed_at`, `caution_snapshot jsonb`, `guide_acknowledged_at`(537 — 응모 직후 「응모 완료 모달」에서 「확인」을 누른 시각. 기록은 `acknowledge_application_guide(uuid)` 로만·덮지 않음, 응모 삽입 때 보낸 값은 314→537 가드가 지운다. 관리자 신청자 표 「안내 확인」 배지). 취소 보조 5종: `cancelled_at`, `cancel_reason`, `cancel_reason_code`, `cancel_phase CHECK(recruit|purchase|visit|post|other)`, `previous_status`. `(user_id, campaign_id)` partial unique index(cancelled 제외) → 재응모 가능
@@ -242,7 +242,7 @@
 - `_orient_apply_issued_rules` — **445**
 - `submit_orient_sheet` · `save_orient_draft` — **538**(⚠️ 개발서버는 542 — 아래) (베이스 524 — 기한이 지나면 작성 중(`draft`)만 만료로 바꾸고 제출된 시트는 상태를 그대로 둔 채 거부만. 🔴 524 로 되돌리면 제출 시트가 기한 뒤 저장 시도 한 번으로 만료가 되어 캠페인 등록이 막힌다 · 개발·운영 모두 적용(운영 2026-10-16 — 브랜드 묶음과 별개로 먼저 넣음)) · `get_orient_sheet` — **524**(세 함수 공통 — 524 의 베이스 461·425·187 — 🔴 제출된 시트의 임시저장은 `data` 가 아니라 작성본 `draft_data` 에 간다. 관리자 화면은 작성본 내용을 안 받는다(화면 기준 — 서버 정책은 칸 단위로 안 막는다) — `fetchOrientSheetById` 에 `select('*')` 금지)
 - `_orient_compute_quote` — **463**
-- `link_orient_card_to_campaign` — **464**(베이스 237)
+- `link_orient_card_to_campaign` — **564**(237 → 464 → 564 — 가구매 카드 거부 `form_type_retired`, 응답에서 `campaign_proxy_purchase` 키 제거. 🔴 464 베이스 금지)
 - 🔴 **링크 폼 닫기 542 — 개발서버만**(2026-10-19): 토큰 함수 다섯(`get_orient_sheet`·`save_orient_draft`·`submit_orient_sheet`·`preview_orient_quote`·`get_orient_tier_fees`)이 `{success:false, reason:'moved'}`, `orient_token_can_upload`·`orient_lookup_gate` 는 거짓 고정(전부 `CREATE OR REPLACE` — 권한 보존). 개발서버에서는 이 다섯·둘의 현재 원본이 **542**(다시 열려면 524·539[7]·200·428 판 재실행 — 542 머리말). 견적서 끼워 넣기(`?embed=quote`)는 서버를 안 써서 그대로. 🔴 **운영 순서**: 브랜드 페이지 운영 반영 → `dev/sales/orient.html` `boot()` 의 `token && SUPABASE_ENV !== 'production'` 막음을 걷어 `reverb-sales` 운영 배포 → 운영 옛 링크가 `/brand/?orient_token=` 으로 넘어가는 것을 눈으로 확인 → 그 뒤 542(반대면 운영 브랜드가 옛 링크에서 오류 화면만 본다)
 - 🔴 **발급 메일 = 브랜드 계정 전원(조각 10 — 개발서버만)**: `notify-orient-sheet` 는 비밀값 `ORIENT_MAIL_TO_BRAND_ACCOUNTS=1` **그리고** 개발 프로젝트일 때만 받는 사람 = 시트 브랜드의 비밀번호를 정한 연결 계정 전원(1명당 1통, 링크 `PUBLIC_BRAND_URL/brand/?orient=<시트 번호>`, 화면 주소 무시, 0명이면 `no_account` — 나중에 다시 보내지 않는다), 양식 `orient-sheet-invite-brand`. 관리자 발급 창(받는 사람 칸 숨김·계정 없는 브랜드 경고·브랜드 페이지 링크)은 `_brandAccountEnabled()` 아래. 🔴 **출시 때 걷을 것 셋**: ①운영 비밀값 `ORIENT_MAIL_TO_BRAND_ACCOUNTS=1` ②함수의 `isStagingProject()` 조건을 걷어 운영 배포(남기면 운영에서 스위치를 넣어도 안 켜진다) ③화면의 `_brandAccountEnabled()` 판정(브랜드 페이지 공통 출시 단계). 옛 양식 `orient-sheet-invite.html` 은 출시 확인 뒤 정리
 
@@ -313,7 +313,7 @@
 
 **현재 원본 번호** (함수를 재정의할 때 베이스 — 옮긴 덩어리의 ③ 줄마다 한 줄)
 - `mark_settlements_paid_bulk` · `mark_settlement_revert` · `mark_settlement_paid` · `register_past_settlements` · `correct_settlement_payment` — **486**(베이스 416·416·343·339·341 아님)
-- `_settlement_cert_candidates` — **455**(232 를 베이스로 재작성하면 알림 잠금이 사라진다 — 번호가 가장 큰 정의를 베이스로)
+- `_settlement_cert_candidates` — **564**(… → 455 → 564 — 가구매 갈래 제거. 232·455 를 베이스로 재작성하면 알림 잠금·가구매 철거가 사라진다 — 번호가 가장 큰 정의를 베이스로)
 - `get_settlement_transfer_monthly` · `get_settlement_transfer_by_round` — **502**(베이스 487 아님. 🔴 반환 칸을 바꾸면 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다)
 - 송금별 요율(513~517, 사양서 `docs/specs/2026-10-02-settlement-per-transfer-fee-rule.md`): `record_settlement_transfers` — **514**(베이스 486) · `preview_settlement_fees` — **515**(베이스 488, 4인자) · `get_settlement_transfers` — **516**(베이스 502) · `correct_settlement_transfer` — **517**(베이스 502, 8인자 — 🔴 옛 6인자는 지웠다. 두 벌이면 화면 호출이 모호 오류). 칸 `settlement_transfers.fee_rule_custom`(513) = 「이 송금만」 — 저장 순간 설정과 요율·고정액이 다름(끝수 비교 안 함), 화면은 이 저장값만 본다
 - `backfill_settlement_transfers_from_sheet` — **501**(과거 지급 시트 소급 전용. 🔴 시트 소급은 이것으로만 — `record_settlement_transfers` 로 넣으면 출처가 `app` 이 되어 그 순간 도입일이 생긴다)
