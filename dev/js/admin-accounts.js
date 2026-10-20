@@ -247,6 +247,8 @@ function applyLookupMenuVisibility() {
     if (!el) return;  // 사이드바에 아직 없는 페인(예: permissions = 조각 C 에서 추가)
     el.style.display = (typeof isHidden === 'function' && isHidden(f.key)) ? 'none' : '';
   });
+  // 카탈로그에 없는 최고 관리자 전용 메뉴(개인정보 기록 — 개발서버만)
+  if (typeof applyPrivacyLogsMenuVisibility === 'function') applyPrivacyLogsMenuVisibility();
 }
 
 // ════════════════════════════════════════════════════════════════════

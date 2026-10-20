@@ -1288,6 +1288,10 @@ function renderBrandDetailPaneHeadHtml(b, canDeleteBrand, isAdm, countsKnown, id
     // ⚠️ 「이 브랜드로 신규 신청」(서베이 등록)은 2026-09-21 에 뺐다 — 사용자 결정(신규 서베이 등록 경로 종료).
     //    `openNewBrandAppModal` 함수·모달은 **남긴다**(기존 신청 수정 경로가 같은 모달을 쓴다).
     //    `margin-right:auto` 는 그 버튼에 있었으므로 여기로 옮겨 왼쪽 묶음 배치를 유지한다.
+    // 「제공 기록」 — 이 브랜드에 인플루언서 정보를 준 기록(개인정보 기록 화면을 이 브랜드로 걸러 연다). 최고 관리자·개발서버만(조각 R3)
+    + ((typeof _privacyLogsAllowed === 'function' && _privacyLogsAllowed())
+        ? '<button class="btn btn-ghost btn-sm" onclick="openPrivacyLogs({brandId:' + jsStr(id) + ',brandName:' + jsStr(b.name || '') + '})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">policy</span>제공 기록</button>'
+        : '')
     + '<button class="btn btn-ghost btn-sm" onclick="osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
     // 🔴 삭제를 잠근 이유를 말한다 — 캠페인 수 조회 실패는 이 줄이 **유일한 안내**다
     //    (시트 실패는 구역 본문이, 서베이 실패는 안내줄이 따로 말한다)

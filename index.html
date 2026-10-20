@@ -4581,6 +4581,10 @@ const PANE_REFRESHERS = {
   'ad-tracking': async () => {
     if (typeof loadAdTrackingPane === 'function') await loadAdTrackingPane();
   },
+  // 개인정보 기록(배송 리스트 조각 R3 — 최고 관리자·개발서버만) — 로더 이름은 switchAdminPane loaders 와 같아야 한다
+  'privacy-logs': async () => {
+    if (typeof loadPrivacyLogsPane === 'function') await loadPrivacyLogsPane();
+  },
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
@@ -10357,6 +10361,15 @@ async function fetchBrandProvisionPersons(logId) {
     if (error) throw error;
     return Array.isArray(data) ? data : null;
   } catch (e) { console.error('[fetchBrandProvisionPersons]', e); return null; }
+}
+// 관리자 접속 기록(552 — 최고 관리자만, 개인정보 기록 화면 「접속」 탭) — {rows, has_more} · 실패 null
+async function fetchDataAccessLogs(filters) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_data_access_logs', { p_filters: filters || {} });
+    if (error) throw error;
+    return (data && Array.isArray(data.rows)) ? data : null;
+  } catch (e) { console.error('[fetchDataAccessLogs]', e); return null; }
 }
 
 async function fetchDeliverablesForReport(campaignIds) {

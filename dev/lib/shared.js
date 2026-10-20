@@ -1508,6 +1508,10 @@ const PANE_REFRESHERS = {
   'ad-tracking': async () => {
     if (typeof loadAdTrackingPane === 'function') await loadAdTrackingPane();
   },
+  // 개인정보 기록(배송 리스트 조각 R3 — 최고 관리자·개발서버만) — 로더 이름은 switchAdminPane loaders 와 같아야 한다
+  'privacy-logs': async () => {
+    if (typeof loadPrivacyLogsPane === 'function') await loadPrivacyLogsPane();
+  },
 };
 async function refreshPane(paneId) {
   const fn = PANE_REFRESHERS[paneId];
