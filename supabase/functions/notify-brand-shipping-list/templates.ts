@@ -24,7 +24,7 @@ export const TEMPLATES: Record<string, string> = {
 
   Note:
     🔴 회원 정보(이름·주소·전화)는 넣지 않는다(사양서 ① 결정 5) — 브랜드 페이지에서만 본다.
-    문의처는 개인 연락처 대신 「브랜드 페이지」 한 줄(작업표 D23). 피그마 초안의 KakaoTalk·TEL 줄은 쓰지 않는다.
+    문의처는 「REVERB 운영팀 담당자에게 직접」 한 줄(다른 브랜드 메일과 같은 문장 — 2026-10-20 사용자 결정으로 작업표 D23 「브랜드 페이지에서」를 바꿈: 브랜드 페이지에 문의 메뉴가 아직 없다). 피그마 초안의 KakaoTalk·TEL 줄은 쓰지 않는다.
     브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
 -->
 <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
@@ -45,7 +45,7 @@ export const TEMPLATES: Record<string, string> = {
   <p style="margin:0 0 22px;font-family:monospace;font-size:12px;color:#555;word-break:break-all">{{link}}</p>
   <div style="border-top:1px solid #EAEAE4;padding-top:16px">
     <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">이 메일은 「{{brand_name}}」 브랜드에 연결된 계정 모두에게 보냈습니다.</p>
-    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">문의는 REVERB 브랜드 페이지에서 남겨 주십시오.</p>
+    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주십시오.</p>
     <p style="margin:12px 0 0;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
   </div>
 </div>`,

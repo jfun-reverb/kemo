@@ -19,7 +19,7 @@
 //   · 제한 걸림                  → 조용히 종료
 //   · 있음 + service_issue_brand_account_link(auth_id,'auto'):
 //       kind=reset  → 재설정 메일 (brand-password-reset 양식, 링크 …/brand/?link=<id>&mode=reset#confirm=…)
-//       kind=setup  → 처음 받은 설정 메일 다시 (brand-account-setup 양식의 「다시 보냄」 문구 그대로,
+//       kind=setup  → 설정 메일 (brand-account-setup 양식 + 본인 요청 문구 — 2026-10-20,
 //                      mode=setup) + service_mark_brand_setup_mail_sent
 //       그 밖(no_active_brand 등) → 무동작
 //
@@ -82,6 +82,14 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// 제목 끝에 붙이는 보낸 시각(일본·한국 시각 「MM/DD HH:MM」) — 같은 제목이면 메일 앱이 한 대화로 묶어 앞 메일 끝부분을 접는다(2026-10-20 사용자 결정)
+// ⚠️ 같은 함수가 notify-brand-account-setup · brand-password-reset-request · notify-brand-invite 에 한 벌씩 있다
+function kstStamp(d = new Date()): string {
+  const k = new Date(d.getTime() + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(k.getUTCMonth() + 1)}/${p(k.getUTCDate())} ${p(k.getUTCHours())}:${p(k.getUTCMinutes())}`;
 }
 
 // 🔴 두 겹 잠금 — 위 머리말 참고(notify-brand-account-setup 과 같은 판정).
@@ -224,17 +232,18 @@ async function process(rawEmail: unknown): Promise<void> {
       link: escapeHtml(mailLink),
       expires: escapeHtml(expiresNote),
     });
-    subject = "[REVERB] 브랜드 페이지 비밀번호 재설정";
+    subject = `[REVERB JP] 브랜드 페이지 비밀번호 재설정 (${kstStamp()})`;
     text =
       `${contactName} 님\n\n` +
       `REVERB 브랜드 페이지의 비밀번호 재설정이 요청되었습니다.\n` +
-      `아래 링크에서 새 비밀번호를 정해 주세요.\n\n` +
+      `아래 링크에서 새 비밀번호를 정해 주십시오.\n\n` +
       `링크: ${mailLink}\n\n` +
-      `${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 로그인 화면에서 「비밀번호를 잊으셨나요」를 다시 눌러 주세요. ` +
+      `${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 로그인 화면에서 「비밀번호를 잊으셨나요」를 다시 눌러 주십시오. ` +
       `여러 번 요청하셨다면 가장 최근에 받은 링크만 사용할 수 있습니다.\n\n` +
-      `본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 비밀번호는 바뀌지 않습니다.\n`;
+      `본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 비밀번호는 바뀌지 않습니다.\n` +
+      `이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주십시오.\n`;
   } else {
-    // 설정 전 계정 — 처음 받은 설정 메일을 다시 보낸다(notify-brand-account-setup 의 「다시 보냄」 문구와 같음).
+    // 설정 전 계정 — 설정 메일 양식으로 새 링크를 보낸다(문구는 본인 요청용 — 아래).
     const { data: linkRows } = await sb
       .from("brand_account_links")
       .select("brand_id, role")
@@ -249,27 +258,35 @@ async function process(rawEmail: unknown): Promise<void> {
       const { data: brandRow } = await sb.from("brands").select("name").eq("id", pick.brand_id).maybeSingle();
       brandName = String(brandRow?.name || "").trim() || "브랜드";
     }
-    // ⚠️ 설정 메일 「다시 보냄」 제목·소개 문장은 supabase/functions/notify-brand-account-setup/index.ts 에도 같은 글자로 있다 — 고치면 두 곳을 함께 고친다
+    // 본인이 「비밀번호 찾기」로 요청한 재발송 — 운영팀이 보낸 것처럼 읽히지 않게 문구를 따로 쓴다(2026-10-20 사용자 결정).
+    //   운영팀이 「다시 보내기」로 보내는 문구는 notify-brand-account-setup 에 있다(양식은 같고 자리표시 값만 다르다).
     const intro =
-      `REVERB 운영팀이 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`;
+      `요청하신 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 보내 드립니다. 이 계정은 아직 비밀번호가 설정되지 않았습니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`;
+    const expiresAfter =
+      "기한이 지나면 링크가 열리지 않습니다. 그때는 로그인 화면에서 「비밀번호를 잊으셨나요」를 다시 눌러 주십시오. 여러 번 요청하셨다면 가장 최근에 받은 링크만 사용할 수 있습니다.";
+    const sentBy = "이 메일은 브랜드 페이지 로그인 화면에서 「비밀번호를 잊으셨나요」로 요청하신 내용에 따라 보냈습니다.";
     const tpl = TEMPLATES["brand-account-setup"].replace(/<!--[\s\S]*?-->/g, "");
     html = render(tpl, {
-      heading: escapeHtml(`「${brandName}」 브랜드 계정이 만들어졌습니다`),
+      heading: escapeHtml(`「${brandName}」 브랜드 계정 비밀번호 설정 링크`),
       brand_name: escapeHtml(brandName),
       contact_name: escapeHtml(contactName),
       link: escapeHtml(mailLink),
       intro: escapeHtml(intro),
       expires: escapeHtml(expiresNote),
+      expires_after: escapeHtml(expiresAfter),
+      sent_by: escapeHtml(sentBy),
     });
-    subject = `[REVERB] 「${brandName}」 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다`;
+    subject = `[REVERB JP] 「${brandName}」 브랜드 계정 — 요청하신 비밀번호 설정 링크입니다 (${kstStamp()})`;
     text =
       `${contactName} 님\n\n` +
       `${intro}\n` +
-      `아래 링크에서 사용하실 비밀번호를 설정해 주세요. 설정을 마치면 REVERB 브랜드 페이지에 로그인하실 수 있습니다.\n\n` +
+      `아래 링크에서 사용하실 비밀번호를 설정해 주십시오. 설정을 마치면 REVERB 브랜드 페이지에 로그인하실 수 있습니다.\n\n` +
       `링크: ${mailLink}\n\n` +
-      `REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주세요.\n\n` +
-      `${expiresNote} 기한이 지나면 링크가 열리지 않으니, 그때는 REVERB 운영팀에 다시 보내 달라고 요청해 주세요.\n\n` +
-      `본인이 요청하지 않았거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n`;
+      `${expiresNote} ${expiresAfter}\n\n` +
+      `REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주십시오.\n\n` +
+      `${sentBy}\n` +
+      `본인이 요청하지 않았거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n` +
+      `이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주십시오.\n`;
   }
 
   // 7) 발송

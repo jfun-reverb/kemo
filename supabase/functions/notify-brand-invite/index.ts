@@ -85,6 +85,14 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// 제목 끝에 붙이는 보낸 시각(일본·한국 시각 「MM/DD HH:MM」) — 같은 제목이면 메일 앱이 한 대화로 묶어 앞 메일 끝부분을 접는다(2026-10-20 사용자 결정)
+// ⚠️ 같은 함수가 notify-brand-account-setup · brand-password-reset-request · notify-brand-invite 에 한 벌씩 있다
+function kstStamp(d = new Date()): string {
+  const k = new Date(d.getTime() + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(k.getUTCMonth() + 1)}/${p(k.getUTCDate())} ${p(k.getUTCHours())}:${p(k.getUTCMinutes())}`;
+}
+
 // 🔴 두 겹 잠금 — 위 머리말 참고. 둘 중 하나라도 빼지 말 것.
 function devEchoEnabled(): boolean {
   return env("BRAND_SETUP_DEV_ECHO") === "1"
@@ -206,8 +214,13 @@ Deno.serve(async (req: Request) => {
     const toEmail = String(inv.email);
     const link = kind === "blocked" ? "" : `${brandBase}/brand/?link=${inv.link_id}&kind=invite`;
 
-    // 제목은 세 갈래 같다(피그마 제목 끝 「(초안)」은 시안 표시라 넣지 않는다)
-    const subject = `[REVERB] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다`;
+    // 제목은 갈래마다 다르고 끝에 보낸 시각을 붙인다 — 같은 제목이면 메일 앱이 한 대화로 묶어 앞 메일 끝부분(발신 전용·© 줄)을 접는다
+    //   (2026-10-20 사용자 결정 — 10/16 「세 갈래 같은 제목」을 바꿈. 각 양식 머리말 주석의 제목도 함께)
+    const subject = kind === "new"
+      ? `[REVERB JP] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다 — 비밀번호를 설정해 주십시오 (${kstStamp()})`
+      : kind === "brand"
+      ? `[REVERB JP] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다 — 로그인해 수락해 주십시오 (${kstStamp()})`
+      : `[REVERB JP] 「${brandName}」 브랜드 페이지 초대 — 이 이메일로는 계정을 만들 수 없습니다 (${kstStamp()})`;
     const tplKey = kind === "new" ? "brand-invite-new" : kind === "brand" ? "brand-invite-existing" : "brand-invite-blocked";
 
     // HTML 주석 strip — 템플릿 안 주석(용도 안내)이 메일 본문에 누출되는 것 차단

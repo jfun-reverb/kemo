@@ -354,7 +354,8 @@ function _bofCardHtml(st, card) {
       _bofField('판매처', '<input type="text" class="bof-input f-market" value="Qoo10" readonly aria-readonly="true">', { cls: 'bof-w-market' }) +
       _bofField('Qoo10 상품 주소', '<input type="url" id="' + id + 'Url" class="bof-input f-sale-url" placeholder="www.qoo10.jp/g/..." value="' + brandEsc(sale.url) + '" inputmode="url" autocomplete="off">' +
         '<p class="bof-hint bof-caution f-saleurl-warn" hidden>Qoo10 상품 주소가 아닌 것 같습니다. 주소를 한 번 더 확인해 주십시오. (그대로 제출할 수 있습니다)</p>', { req: true, forId: id + 'Url', cls: 'bof-w-url' }) +
-      _bofField('상품번호', '<input type="text" class="bof-input f-goods-code" value="' + brandEsc(sale.goods_code || '') + '" readonly aria-readonly="true" tabindex="-1">' +
+      _bofField('상품번호', '<input type="text" class="bof-input f-goods-code" value="' + brandEsc(sale.goods_code || '') + '" placeholder="자동 입력" readonly aria-readonly="true" tabindex="-1">' +
+        '<p class="bof-hint">Qoo10 상품 주소를 넣으면 자동으로 채워집니다.</p>' +
         '<p class="bof-hint f-lookup-hint" hidden></p>', { cls: 'bof-w-goods' }) +
     '</div>';
 
@@ -816,7 +817,7 @@ async function _bofLookup(st, input) {
   if (st !== _bof || !input.isConnected || (input.value || '').trim() !== url) return;   // 기다리는 사이 주소가 바뀌었으면 버린다
   const res = r && r.body;
   if (!res || res.ok !== true) {
-    _bofSetLookupHint(card, '자동으로 못 불러왔습니다. 직접 입력해 주십시오.', 'fail');
+    _bofSetLookupHint(card, '자동으로 못 불러왔습니다. 제품명·판매가를 직접 입력해 주십시오.', 'fail');
     const had = !!card.dataset.saleGoodsCode;
     _bofClearQoo10Meta(card);
     if (had) _bofOnInput(st);
@@ -1041,9 +1042,14 @@ function _bofFindInvalid(st, mode) {
     return { message: '게시물에 태그할 계정을 입력해 주십시오.', target: el.querySelector('.f-account-tags') };
   const pendingUrl = Array.from(el.querySelectorAll('.bof-img-url:not([hidden]) .bof-img-url-input')).find(i => i.value.trim());
   if (pendingUrl) return { message: '공유 링크를 「확인」 단추로 확정해 주십시오.', target: pendingUrl };
-  const ack = st.root.querySelector('#bofNoticeAck');
-  if (forSubmit && ack && !ack.checked) return { message: '맨 아래 「꼭 확인해 주십시오」를 읽고 체크해 주십시오.', target: st.root.querySelector('#bofNoticeLabel') };
+  if (forSubmit && _bofNoticeUnchecked(st)) return { message: BOF_NOTICE_ACK_MSG, target: st.root.querySelector('#bofNoticeLabel') };
   return null;
+}
+// 「꼭 확인해 주십시오」 체크 판정 — 제출 검사·확인 화면 안내가 함께 쓴다
+const BOF_NOTICE_ACK_MSG = '맨 아래 「꼭 확인해 주십시오」를 읽고 체크해 주십시오.';
+function _bofNoticeUnchecked(st) {
+  const ack = st.root.querySelector('#bofNoticeAck');
+  return !!(ack && !ack.checked);
 }
 function _bofClearFieldErrors(st) {
   st.root.querySelectorAll('.is-invalid').forEach(e => e.classList.remove('is-invalid'));
@@ -1229,6 +1235,12 @@ function _bofBindEvents(st) {
       case 'quote': _bofOpenQuote(st); break;
       case 'quote-retry': _bofOpenQuote(st); break;
       case 'to-confirm': _bofShowScreen(st, 'confirm'); break;
+      case 'to-notice': {
+        _bofShowScreen(st, 'form');
+        const lbl = st.root.querySelector('#bofNoticeLabel');
+        if (lbl) { lbl.scrollIntoView({ behavior: 'smooth', block: 'center' }); const ack = st.root.querySelector('#bofNoticeAck'); if (ack) ack.focus({ preventScroll: true }); }
+        break;
+      }
       case 'submit': _bofSubmit(st); break;
       case 'edit': _bofShowScreen(st, 'form'); break;
       case 'print': _bofPrintQuote(st); break;
@@ -1525,7 +1537,13 @@ function _bofConfirmHtml(st, data) {
   rows += _bofRow('예시 이미지·자료', (c.images || []).length ? '이미지 ' + c.images.length + '개' : '');
   const b = data.brand || {};
   const title = '제품 1 · ' + ((c.product && c.product.name) || '제품명 없음') + '  —  ' + (BOF_FORM_LABEL[ft] || ft) + (where ? ' · ' + where : '');
-  return '<div class="bof-band">아래 내용으로 제출됩니다. 틀린 부분이 있으면 「수정으로 돌아가기」를 눌러 고쳐 주십시오.</div>' +
+  // 제출은 막지 않고(2026-09-16 결정) 맨 위에서 미리 알린다
+  const ackBand = _bofNoticeUnchecked(st)
+    ? '<div class="bof-band is-warn" role="status"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">error_outline</span>' +
+      '<span style="flex:1">확인 항목 1개가 남았습니다. 제출하려면 맨 아래 「꼭 확인해 주십시오」를 읽고 체크해 주십시오.</span>' +
+      '<button type="button" class="bof-band-link" style="color:inherit" data-bof-act="to-notice">확인하러 가기</button></div>'
+    : '';
+  return ackBand + '<div class="bof-band">아래 내용으로 제출됩니다. 틀린 부분이 있으면 「수정으로 돌아가기」를 눌러 고쳐 주십시오.</div>' +
     '<section class="bof-card bof-pv-card"><h3 class="bof-pv-title">' + brandEsc(title) + '</h3>' + rows + '</section>' +
     '<section class="bof-card bof-pv-card"><h3 class="bof-pv-title">브랜드 정보</h3>' +
       _bofRow('브랜드명', b.name) + _bofRow('담당자명', b.contact_name) + _bofRow('연락처', b.phone) + _bofRow('이메일', b.email) + '</section>';
@@ -1750,7 +1768,7 @@ async function _bofSubmit(st) {
   if (r === 'conflict') { _bofShowScreen(st, 'form'); _bofEnterConflict(st); return; }
   if (r === 'not_found') { _bofHandleNotFound(st); return; }
   if (r === 'expired' || r === 'consumed') { _bofReopenAfterLock(st, r); return; }
-  if (r === 'notice_not_acknowledged') { _bofBackToField(st, st.root.querySelector('#bofNoticeLabel'), '맨 아래 「꼭 확인해 주십시오」를 읽고 체크해 주십시오.'); return; }
+  if (r === 'notice_not_acknowledged') { _bofBackToField(st, st.root.querySelector('#bofNoticeLabel'), BOF_NOTICE_ACK_MSG); return; }
   if (r === 'slots_below_min') {
     const card = st.root.querySelector('#boForm > .bof-card[data-ctype]');
     _bofBackToField(st, _bofSlotsTarget(card), _bofSlotsMessage(res.min_slots)); return;
