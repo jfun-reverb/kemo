@@ -149,6 +149,8 @@ function friendlyError(msg) {
   // 마이그레이션 527 — 브랜드 로그인 계정 가드(병합·관리자 초대). 영어 코드 문자열이라 아래 일반 규칙에 닿기 전에 바꾼다
   if (s.includes('brand_has_account_links')) return '이 브랜드에 브랜드 계정이 연결돼 있어 병합할 수 없습니다. [ERR_BRAND_HAS_ACCOUNT_LINKS]';
   if (s.includes('brand_account_email')) return '브랜드 계정 이메일이라 관리자로 초대할 수 없습니다. [ERR_BRAND_ACCOUNT_EMAIL]';
+  // 마이그레이션 555 — CS 「미분류(과거)」 항목 잠금(트리거 trg_lookup_cs_legacy_lock)
+  if (s.includes('cs_legacy_locked')) return '「미분류(과거)」 항목은 바꾸거나 지울 수 없습니다. [ERR_CS_LEGACY_LOCKED]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
   if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
   if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
