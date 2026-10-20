@@ -592,7 +592,6 @@ window.I18N_KO = {
     periodTagRecruit: '(모집)',
     periodTagPurchase: '(구매)',
     submissionEndMonitor: '영수증·게시물 인증샷 제출 마감일',
-    submissionEndProxy: '영수증 제출 마감일',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNoticeLine1Split: '구매 기간에 구매하신 경우에만 페이백 대상입니다.',

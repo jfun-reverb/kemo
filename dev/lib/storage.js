@@ -1263,7 +1263,7 @@ async function _queryDeliverables(filters, opts) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -1505,9 +1505,8 @@ async function fetchDeliverablesByCampaign(campaignId) {
     //   결과물이 운영 최대 74건이라 지금은 안 잘리지만, 잘리면 오류 없이 인증 상태가 틀린다.
     //   정렬에 id 를 덧붙여 페이지 경계를 안정시킨다.
     const data = await fetchAllPaged(() => db.from('deliverables')
-      // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 가구매(proxy_purchase) 여부를 봐야 한다.
-      //   이게 없으면 가구매 캠페인이 일반 리뷰어형으로 취급돼 리뷰 인증샷을 영원히 기다린다.
-      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, proxy_purchase, product_price, purchase_start, purchase_end)')
+      // campaigns 임베드 — 인증 성공 판정(computeCertStatus)이 모집 형식·채널·묶음 방식을 봐야 한다.
+      .select('id, application_id, campaign_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence, applications:application_id (status), campaigns:campaign_id (id, campaign_no, title, recruit_type, channel, channel_match, product_price, purchase_start, purchase_end)')
       .eq('campaign_id', campaignId)
       // 임시저장 제외 — 결과물 관리(fetchDeliverables)·정산 판정(마이그레이션 318)과 같은 기준.
       //   빼지 않으면 아직 제출하지 않은 행이 「제출중」으로 세어져 이 화면만 다른 답을 낸다.
@@ -2174,7 +2173,7 @@ async function fetchDeliverablesForReport(campaignIds) {
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
         applications:application_id (status),
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, proxy_purchase, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end, product_price)
       `).neq('status', 'draft').in('campaign_id', chunk)
         .order('submitted_at', {ascending: false}).order('id'));
       rows = rows.concat(part || []);
@@ -3860,7 +3859,7 @@ async function fetchCampaignsByBrand(brandId) {
   if (!db || !brandId) return null;
   try {
     return await fetchAllPaged(() => db.from('campaigns')
-      .select('id,campaign_no,title,status,recruit_type,proxy_purchase,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
+      .select('id,campaign_no,title,status,recruit_type,channel,channel_match,img1,recruit_start,deadline,submission_end,purchase_start,purchase_end,visit_start,visit_end')
       .is('deleted_at', null).eq('brand_id', brandId)
       .order('created_at', {ascending:false}).order('id', {ascending:true}));
   } catch(e) { console.error('[fetchCampaignsByBrand]', e); return null; }
@@ -6237,7 +6236,7 @@ async function submitOrientSheet(token, data, version) {
 //   · formType 없음(null) → 옛 구조 {brand:{name,intro,official_accounts}, cards:[]} — 전환 구간 전용
 // 반환: {success, id, token, token_expires_at, orient_no} | {success:false, reason}
 //   거부 reason: brand_not_found·brand_seq_missing·application_not_found·brand_mismatch·
-//   [424] invalid_form_type(가구매 포함)·channel_required·invalid_channel · [447] invalid_recruit_fee
+//   [424] invalid_form_type(리뷰어·시딩 밖의 형식)·channel_required·invalid_channel · [447] invalid_recruit_fee
 // [447] recruitFeeKrw — 이 시트만 모집비(리뷰어)·진행비(시딩)를 1건당 이 값으로(→ data.issued.recruit_fee_krw).
 //   🔴 **값이 있을 때만** 인자를 보낸다. 0 은 값이다(무료 진행) — null·undefined 만 「없음」.
 //      늘 보내면(null 이라도) 447 이 아직 안 들어간 데이터베이스에서 「그 인자를 받는 함수가 없다」로 **발급이 통째로 막힌다**.

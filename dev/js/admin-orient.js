@@ -26,9 +26,11 @@ let _osMemoSummary = {};     // `${시트id}_${카드고유번호}` → {count, 
 let _osMemoDraft = {};       // 작성 중인 새 메모 본문 — 카드 순번(또는 'orphan') 기준
 let _osMemoEditDraft = {};   // 수정 중인 메모 본문 — 메모 id 기준
 
-const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
+// 2026-10-20 가구매 철거 — 옛 카드 표시용. 가구매 카드는 더 발행·연결하지 않고(OS_RETIRED_FORM_TYPES) 이름표만 남긴다.
+//   칩 색은 없앴다 — 옛 카드 칩은 기본 회색으로 그려진다.
+const OS_TYPE_LABEL = { proxy_purchase: '가구매(종료)', reviewer: '리뷰어', seeding: '시딩' };
+const OS_RETIRED_FORM_TYPES = ['proxy_purchase'];
 const OS_TYPE_CHIP = {
-  proxy_purchase: { color: '#B45309', bg: '#FEF3E2' },
   reviewer:       { color: '#C41E3A', bg: '#FFF0F2' },
   seeding:        { color: '#1D4ED8', bg: '#E7F1FE' },
 };
@@ -50,7 +52,7 @@ const OS_STATUS_TABS = [
 let _orientActiveStatusTab = null;
 // ⚠️ 이 표는 **시딩 폼의 게시 채널**(`sd.channels`) 라벨용이다 — 캠페인 채널 코드가 아니다.
 //    입력 도메인은 sales/orient.html 의 SEEDING_CHANNELS 5종뿐이라 qoo10·lips·atcosme 키는
-//    실제로 도달하지 않는다(그 값들은 리뷰어·가구매 폼의 sale.market 몫). 그래서 캠페인 채널
+//    실제로 도달하지 않는다(그 값들은 리뷰어 폼의 sale.market 몫). 그래서 캠페인 채널
 //    코드 정정(atcosme→cosme, osPrefillChannels)의 영향을 받지 않는다. 도달하지 않을 뿐
 //    「안 쓰이는 표」는 아니므로, sd.channels 의 값 범위를 넓힐 땐 여기도 함께 봐야 한다.
 const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
@@ -152,7 +154,7 @@ function osChannelChip(ch) {
 // 형식 칩 (상세 모달 카드 헤더)
 function osTypeChip(ft) {
   if (!ft) return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#8A8A90;background:#F0F0F0">형식 미선택</span>';
-  const c = OS_TYPE_CHIP[ft] || OS_TYPE_CHIP.reviewer;
+  const c = OS_TYPE_CHIP[ft] || { color: '#8A8A90', bg: '#F0F0F0' };   // 모르는·종료된 형식(옛 가구매 카드)은 회색
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${c.color};background:${c.bg}">${OS_TYPE_LABEL[ft] || esc(ft)}</span>`;
 }
 
@@ -1444,6 +1446,7 @@ function osCardDetail(c, idx, catMap, readonly, sheet) {
     + (r.recruit_end ? osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end)) : osField('희망 모집 시작일', r.recruit_start))
     + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
+  // 2026-10-20 가구매 철거 — 옛 가구매 카드도 판매처·판매가를 그대로 보인다(옛 카드 표시용)
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('Qoo10 상품 주소', osLinkOrText(sale.url), true)
       + osField('판매가', sale.price_regular);
@@ -1521,6 +1524,7 @@ function osCardPublishControl(c, idx, readonly) {
   }
   if (s && s.status === 'submitted') {
     if (!c || !c.form_type) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">형식 미선택</span>';
+    if (OS_RETIRED_FORM_TYPES.indexOf(c.form_type) !== -1) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">종료된 형식 — 발행하지 않음</span>';
     return `<button type="button" class="btn btn-primary btn-xs" style="flex-shrink:0" onclick="osPublishCard(${idx})">이 카드로 발행</button>`;
   }
   return '';   // draft(미제출)·expired 는 발행 버튼 없음
@@ -1859,6 +1863,8 @@ function osPublishCard(cardIdx) {
   if (!card) return;
   if (card.campaign_id) { toast('이미 발행된 카드입니다.'); return; }
   if (!card.form_type) { toast('형식이 선택되지 않은 카드는 발행할 수 없습니다.'); return; }
+  // 가구매는 더 이상 발행·연결하지 않는다(2026-10-20 철거) — 발행 방식 창(신규·기존 연결)이 이 함수로만 열린다
+  if (OS_RETIRED_FORM_TYPES.indexOf(card.form_type) !== -1) { toast('가구매는 더 이상 발행하지 않습니다.'); return; }
   _osPublishCardIdx = cardIdx;
   // 선택 화면을 기본으로(목록 화면은 숨김) 리셋 후 모달 오픈. 상세 모달은 뒤에 그대로 둔다.
   ensureOrientModals();
@@ -1947,21 +1953,16 @@ function osLinkedCampaignIds() {
   return set;
 }
 
-// 카드 형식 → 캠페인이 가져야 할 모집 형식. 🔴 서버(link_orient_card_to_campaign, 464)와 같은 매핑.
-//   reviewer 와 proxy_purchase 는 recruit_type 이 같아(monitor) proxy_purchase 로만 가른다.
+// 카드 형식 → 캠페인이 가져야 할 모집 형식. 🔴 서버(link_orient_card_to_campaign)와 같은 매핑.
 //   방문형(visit)은 대응하는 카드 형식이 없다 — 어느 카드로도 목록에 안 뜬다.
 const OS_CARD_CAMPAIGN_TYPE = {
-  reviewer:       { recruit_type: 'monitor', proxy: false, label: '리뷰어' },
-  proxy_purchase: { recruit_type: 'monitor', proxy: true,  label: '가구매' },
-  seeding:        { recruit_type: 'gifting', proxy: null,  label: '시딩' },
+  reviewer: { recruit_type: 'monitor', label: '리뷰어' },
+  seeding:  { recruit_type: 'gifting', label: '시딩' },
 };
 function osCampaignMatchesCardType(c, cardFt) {
   const exp = OS_CARD_CAMPAIGN_TYPE[cardFt];
   if (!exp) return true;   // 카드 형식을 모르면 막지 않는다(서버와 같은 원칙)
-  if (c.recruit_type !== exp.recruit_type) return false;
-  // ⚠️ proxy_purchase 칸이 안 실린 캐시(목록 전용 조회)면 가르지 않는다 — 서버가 최종 방어선
-  if (exp.proxy !== null && c.proxy_purchase !== undefined && !!c.proxy_purchase !== exp.proxy) return false;
-  return true;
+  return c.recruit_type === exp.recruit_type;
 }
 
 // 기존 캠페인 목록 렌더 — 같은 브랜드 + 미연결 + **카드와 같은 모집 형식**(464)만. q 로 캠페인명·번호 부분일치 필터.
@@ -2161,7 +2162,7 @@ function osWarnDroppedPrefillChannels(wanted) {
   wrap.insertAdjacentElement('afterend', box);
 }
 
-// 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
+// 시딩=게시 채널 / 리뷰어=판매처(마켓)를 채널 코드로
 function osPrefillChannels(card) {
   if (card.form_type === 'seeding') {
     // 오리엔시트 내부 코드(피드/릴스)를 캠페인 채널 체계로 변환 + 중복 제거. 미매칭(random 등) 제외.
@@ -2180,25 +2181,11 @@ function osPrefillChannels(card) {
   const out = map[m] ? [map[m]] : [];
   // [2026-09-16 §4-9] 리뷰어 추가 옵션(LIPS·@cosme)을 채널로 넘긴다 → ['qoo10','lips'] 처럼.
   //   🔴 허용 목록으로만 옮긴다 — 시트 값은 브랜드가 보낸 것이라 그대로 넘기면 없는 코드가 섞여 체크박스가 안 그려진다.
-  //   ⚠️ 가구매(proxy_purchase)에는 넘기지 않는다 — 가구매는 영수증만 받아 리뷰 채널이 없다.
   if (card.form_type === 'reviewer') {
     const extras = (card.sale && Array.isArray(card.sale.extra_markets)) ? card.sale.extra_markets : [];
     OS_EXTRA_MARKET_CHANNELS.forEach(code => { if (extras.indexOf(code) !== -1 && out.indexOf(code) === -1) out.push(code); });
   }
   return out;
-}
-
-// 발행 형식 안내를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
-// ⚠️ 판매가는 넣지 않는다(2026-08-11 사용자 결정). 두 가지 이유 —
-//   ①「캠페인 어느 칸에도 자동으로 넣지 않는다」는 결정이 제품 가격 칸에만 적용되면 반쪽이다.
-//     판매가가 여기 남으면 지급 상한으로는 안 쓰이지만 **글자로는 그대로 남아** 관리자가
-//     확인하지 않은 금액을 사실인 것처럼 보여 준다.
-//   ②`reward_note` 는 **인플루언서 응모 화면에 그대로 노출**된다(application.js). 브랜드가 쓴
-//     한국어가 일본어 화면에 실리는 자리다.
-function osBuildRewardNote(card) {
-  const parts = [];
-  if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
-  return parts.join(' / ');
 }
 
 // 평문 → 리치 텍스트 HTML (이스케이프 + 줄바꿈)
@@ -2258,9 +2245,9 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   const isNew = !!(orientData && orientData.issued && typeof orientData.issued === 'object');
   if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
   // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
-  // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
+  // addCampaign 이 일본어 게이트·발행 소비에 사용.
   // sheetBrandId — 발행 폼에서 브랜드를 바꿨는지 저장 직전에 비교하는 기준(사양서 2026-09-22-campaign-brand-change-confirm §3-3)
-  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase', sheetBrandId: brandId || '' };
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, sheetBrandId: brandId || '' };
   // [2026-09-16 §4-3] 자율/지정 선택을 시트 값 그대로 골라 둔다 —
   //   🔴 본문만 채우고 이 선택을 비워 두면 **저장하는 순간 옛 판으로 떨어진다**(이름만 새 판이고 값이 NULL).
   //   ⚠️ 바로 위 switchAdminPane 이 이 칸을 비운 **뒤**에 넣는다(동기 함수라 순서가 보장된다). 라벨은 아래
@@ -2268,7 +2255,7 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   const pgMode = osPurchaseGuideMode(card, isNew);
   setCampPgMode('new', pgMode || 'free');   // 새 등록 폼에는 「고르지 않음」이 없다 — 옛 시트·형식 불명은 자율구매
   const ft = card.form_type;
-  const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
+  const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 리뷰어→리뷰어(monitor), 시딩→기프팅
 
   // 형식이 정해졌으면 기간 칸(구매·방문·선정) 표시부터 맞춘다 — 아래 라디오를 세우기까지
   //   브랜드 목록·연결 신청을 조회하느라 0.4초쯤 걸리고, 그 사이 화면은 바로 위
@@ -2314,7 +2301,8 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   //      안 뜨고 ②정산이 「금액 미확정」으로 자동 등록에서 빠진다(마이그레이션 300).
   //      후자는 마이그레이션 324 이후 「과거 미등록」 화면에 나타나므로 조용히 사라지진 않는다.
   osSetVal('newCampProductPrice', 0);
-  osSetVal('newCampRewardNote', osBuildRewardNote(card));
+  // 리워드 안내(reward_note)는 비워 둔다 — 인플루언서 응모 화면에 그대로 노출되는 칸이라 브랜드가 쓴 한국어·판매가를 옮기지 않는다
+  osSetVal('newCampRewardNote', '');
   // 해시태그는 히든 입력칸에 직접 넣지 않고 태그 칩 위젯을 거친다.
   //   값을 공백으로 이어 붙여 넣으면 ①칩이 안 그려져 관리자 화면에서 안 보이고
   //   ②저장 포맷(쉼표 구분)과 달라 「#A #B」가 한 덩어리로 저장된다 (2026-07-27 운영 확인).
@@ -2338,7 +2326,7 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   const recruitEnd = isNew ? (osAddDays(r.recruit_start, 14) || null) : (r.recruit_end || null);
   const uploadStart = isNew ? null : (r.upload_start || null);
   const uploadEnd = isNew ? null : (r.upload_end || null);
-  // 업로드 기간 → 가구매·리뷰어(monitor)는 구매 기간에, 시딩(gifting)은 구매 행이 없어 결과물 마감일에만 반영
+  // 업로드 기간 → 리뷰어(monitor)는 구매 기간에, 시딩(gifting)은 구매 행이 없어 결과물 마감일에만 반영
   // ⚠️ 이 monitor 분기는 applyDeadlineFieldsVisibility 의 구매 필드 노출 조건(monitor 만 유지)과 맞물려 있음.
   //    오리엔 카드에 visit(방문형) 형식이 추가되면 이 가정이 깨지므로 그때 매핑 재검토 필요.
   const purchasePair = (recruitType === 'monitor') ? [uploadStart, uploadEnd] : [null, null];
