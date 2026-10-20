@@ -23,7 +23,7 @@
 //   DRY_RUN           (옵션) 비어 있지 않고 "0" 이 아니면 발송 없이 본문만 파일로
 //   DRY_RUN_OUT       (옵션) DRY_RUN 출력 경로. 기본 /tmp/reverb-admin-digest-preview.html
 //   TEST_RECIPIENT    (옵션) 기본 younggeun.kim@jfun.co.kr
-//   PUBLIC_ADMIN_URL  (옵션) 기본 https://globalreverb.com/admin/
+//   PUBLIC_ADMIN_URL  (옵션) 사이트 첫 주소(기본 https://globalreverb.com) — 「…/admin/」이어도 끝 /admin 을 떼어 맞춘다
 //
 // ※ DB 와 무관 — Brevo API 만 호출. dev/운영 어느 환경 BREVO 키로 보내든 동일.
 // ※ 발송 후 「관리자 일일 통합 요약 — [TEST]」 메시지를 받음.
@@ -485,7 +485,8 @@ const summaryChipHtml = chipDef
   )
   .join("");
 
-const adminPaneUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/").replace(/\/$/, "") + "/";
+// 서버 함수 siteRootFromAdminUrl 과 같은 규칙 — 값이 사이트 첫 주소든 「…/admin/」이든 /admin/ 으로 맞춘다
+const adminPaneUrl = String(env("PUBLIC_ADMIN_URL", "https://globalreverb.com")).trim().replace(/\/+$/, "").replace(/\/admin$/i, "") + "/admin/";
 
 const mainTpl = await loadTemplate("admin-daily-digest");
 let html = render(mainTpl, {

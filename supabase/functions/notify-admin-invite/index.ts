@@ -24,7 +24,10 @@
 // 환경변수 (Edge Functions Secrets):
 //   BREVO_API_KEY          Brevo Transactional API 키
 //   PUBLIC_ADMIN_URL       사이트 절대 URL (운영 https://globalreverb.com / 개발 https://dev.globalreverb.com)
-//                          — 링크 도메인을 서버가 정한다(클라 조작 방지)
+//                          — 링크 도메인을 서버가 정한다(클라 조작 방지). 기본값 없음(비면 오류)
+//                          🔴 관리자 알림 메일 5곳은 같은 값을 「…/admin/」으로 읽는다 — 그래서 끝 「/admin」을
+//                          떼어 사이트 첫 주소로 맞춘다(siteRootFromAdminUrl). 어느 쪽 값이 들어와도 링크가 맞는다
+//                          (2026-10-20: 값을 …/admin/ 으로 바꾸자 이 링크가 /admin/admin-setpw.html 404 가 됐다)
 //   BREVO_SENDER_EMAIL     발신자 이메일 (기본 noreply@globalreverb.com)
 //   BREVO_SENDER_NAME      발신자 이름 (기본 REVERB JP)
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY  (런타임 자동 주입)
@@ -66,6 +69,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
+}
+
+// PUBLIC_ADMIN_URL 을 사이트 첫 주소로 맞춘다 — 끝 「/」와 「/admin」을 뗀다.
+//   🔴 같은 값을 함수마다 다른 뜻으로 읽었다(관리자 초대·비밀번호 찾기 = 사이트 첫 주소 + /admin-setpw.html,
+//   관리자 알림 메일 = 「…/admin/」 + /#화면). 값을 …/admin/ 으로 바꾸자 초대 링크가 404 가 됐다(2026-10-20).
+//   여섯 함수가 같은 본문을 갖는다 — 고치면 함께(notify-admin-invite·admin-password-reset-request·
+//   notify-brand-application·notify-orient-submitted·notify-admin-daily-digest·notify-brand-daily-digest).
+function siteRootFromAdminUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "").replace(/\/admin$/i, "");
 }
 
 function render(html: string, data: Record<string, string>): string {
@@ -187,7 +199,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // 3) 비밀번호 설정 링크 발급 (서버 발급 — 브라우저 검증값에 의존하지 않음)
-    const adminBase = env("PUBLIC_ADMIN_URL", "https://dev.globalreverb.com").replace(/\/$/, "");
+    const adminBase = siteRootFromAdminUrl(env("PUBLIC_ADMIN_URL"));
+    if (!adminBase) throw new Error("PUBLIC_ADMIN_URL not configured");
     const redirectTo = `${adminBase}/admin-setpw.html?mode=${linkMode}`;
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: "recovery",

@@ -52,7 +52,7 @@ Placeholder는 Supabase가 자동 치환하는 Go template 문법 (`{{ .Confirma
 | `brand-ack-reviewer.html` | `brand_applications` INSERT (form_type='reviewer') | 신청자 본인 |
 | `brand-ack-seeding.html` | `brand_applications` INSERT (form_type='seeding') | 신청자 본인 |
 
-이 3개 메일은 Edge Function이 `_templates/` 디렉토리의 미러본을 읽어서 placeholder 치환 후 Brevo API로 발송. **HTML 수정 후 sync 스크립트 실행 필수** (아래 참고).
+이 3개 메일은 Edge Function이 `templates.ts`(sync 스크립트가 `_templates/` 미러본을 묶어 자동 생성)를 import 해서 placeholder 치환 후 Brevo API로 발송(2026-10-20 — 예전에는 `_templates/` 를 실행 중에 읽었으나 `--use-api` 배포가 그 파일을 안 올려 전환). **HTML 수정 후 sync 스크립트 실행 필수** (아래 참고).
 
 ## Placeholder 문법 (Edge Function 메일)
 
@@ -86,7 +86,7 @@ bash scripts/sync-email-templates.sh
 이후 `git add` + commit. CI에서 두 디렉토리 diff 검증 (TODO).
 
 ### 왜 미러가 필요한가
-Supabase Edge Function은 함수 디렉토리(`supabase/functions/{name}/`)만 번들 배포. 외부 파일(`docs/`)은 자동 포함되지 않음. Edge Function이 `Deno.readTextFile()`로 같은 디렉토리의 `_templates/*.html`을 읽어 placeholder 치환 후 발송.
+Supabase Edge Function은 함수 디렉토리(`supabase/functions/{name}/`)만 번들 배포. 외부 파일(`docs/`)은 자동 포함되지 않음. 게다가 배포 번들은 **import 로 이어진 코드 파일만** 싣는다 — `Deno.readTextFile()` 로 읽는 `.html` 은 빠진다(2026-10-20 `--use-api` 배포에서 확인). 그래서 sync 스크립트가 `_templates/*.html`(미러 — 원본 비교용, 지우지 않는다)을 `templates.ts` 로 묶고 함수는 그것을 import 한다. 🔴 배포 직전 sync 를 돌리고 업로드 목록에 `templates.ts` 가 있는지 확인할 것 — 없으면 함수가 기동조차 못 한다.
 
 ## 미리보기 갱신
 

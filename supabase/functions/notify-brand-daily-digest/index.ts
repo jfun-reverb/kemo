@@ -34,7 +34,7 @@
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (자동 주입)
 //   BREVO_API_KEY (양 서버 별도)
 //   NOTIFY_ADMIN_EMAILS (옵션 — 외부 수신자)
-//   PUBLIC_ADMIN_URL    기본 https://globalreverb.com/admin/
+//   PUBLIC_ADMIN_URL    사이트 첫 주소(예 https://globalreverb.com, 기본값) — 「…/admin/」이어도 끝 /admin 을 떼어 맞춘다(siteRootFromAdminUrl)
 //   BREVO_SENDER_EMAIL  기본 noreply@globalreverb.com
 //   BREVO_SENDER_NAME   기본 REVERB JP
 //
@@ -50,6 +50,15 @@ const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
+}
+
+// PUBLIC_ADMIN_URL 을 사이트 첫 주소로 맞춘다 — 끝 「/」와 「/admin」을 뗀다.
+//   🔴 같은 값을 함수마다 다른 뜻으로 읽었다(관리자 초대·비밀번호 찾기 = 사이트 첫 주소 + /admin-setpw.html,
+//   관리자 알림 메일 = 「…/admin/」 + /#화면). 값을 …/admin/ 으로 바꾸자 초대 링크가 404 가 됐다(2026-10-20).
+//   여섯 함수가 같은 본문을 갖는다 — 고치면 함께(notify-admin-invite·admin-password-reset-request·
+//   notify-brand-application·notify-orient-submitted·notify-admin-daily-digest·notify-brand-daily-digest).
+function siteRootFromAdminUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "").replace(/\/admin$/i, "");
 }
 
 function escapeHtml(s: string): string {
@@ -795,7 +804,7 @@ Deno.serve(async (req: Request) => {
       .join("");
 
     // ── 6. 메인 HTML 조립 ──
-    const adminUrlBase = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/").replace(/\/$/, "");
+    const adminUrlBase = siteRootFromAdminUrl(env("PUBLIC_ADMIN_URL", "https://globalreverb.com")) + "/admin";
     // 오리엔시트 발급·조회 페인은 모달 기반이라 per-row 딥링크 없음 → 페인 단일 CTA
     const orientPaneUrl = `${adminUrlBase}/#orient-sheets`;
 

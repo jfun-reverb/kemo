@@ -9,7 +9,7 @@
 // 환경변수 (Edge Functions Secrets):
 //   BREVO_API_KEY         Brevo Transactional API 키
 //   NOTIFY_ADMIN_EMAILS   관리자 수신자 추가(콤마 구분, DB 수신자와 합산). 없어도 됨.
-//   PUBLIC_ADMIN_URL      관리자 페이지 절대 URL (딥링크용)
+//   PUBLIC_ADMIN_URL      사이트 첫 주소(예 https://globalreverb.com, 기본값) — 「…/admin/」이어도 끝 /admin 을 떼어 맞춘다(siteRootFromAdminUrl)
 //   BREVO_SENDER_EMAIL    발신자 이메일 (기본 noreply@globalreverb.com)
 //   BREVO_SENDER_NAME     발신자 이름 (기본 환경별 REVERB JP 또는 REVERB JP [DEV])
 //
@@ -26,7 +26,8 @@
 //   _templates/brand-ack-seeding.html         브랜드 접수 확인 (seeding)
 //
 //   원본은 docs/email-templates/ 에 있고, scripts/sync-email-templates.sh 가
-//   _templates/ 로 복사한다. Edge Function 배포 직전 반드시 sync 실행.
+//   _templates/ 로 복사한 뒤 templates.ts 로 묶는다(함수는 templates.ts 를 import — 2026-10-20 전환).
+//   🔴 배포 직전 반드시 sync 실행 + 업로드 목록에 templates.ts 가 있는지 확인(없으면 기동 실패).
 //
 // 배포 명령 (개발 → 운영 순서로 양 환경 모두 배포 필수):
 //   bash scripts/sync-email-templates.sh
@@ -47,6 +48,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TEMPLATES } from "./templates.ts";
 
 interface BrandApplication {
   id: string;
@@ -143,6 +145,15 @@ function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
 }
 
+// PUBLIC_ADMIN_URL 을 사이트 첫 주소로 맞춘다 — 끝 「/」와 「/admin」을 뗀다.
+//   🔴 같은 값을 함수마다 다른 뜻으로 읽었다(관리자 초대·비밀번호 찾기 = 사이트 첫 주소 + /admin-setpw.html,
+//   관리자 알림 메일 = 「…/admin/」 + /#화면). 값을 …/admin/ 으로 바꾸자 초대 링크가 404 가 됐다(2026-10-20).
+//   여섯 함수가 같은 본문을 갖는다 — 고치면 함께(notify-admin-invite·admin-password-reset-request·
+//   notify-brand-application·notify-orient-submitted·notify-admin-daily-digest·notify-brand-daily-digest).
+function siteRootFromAdminUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "").replace(/\/admin$/i, "");
+}
+
 // 관리자 수신자 결정: get_subscribed_admin_emails('brand_notify') ∪ NOTIFY_ADMIN_EMAILS
 // (2026-05-11 migration 103 — 기존 admins.receive_brand_notify 단일 컬럼에서 마이그레이션)
 async function resolveAdminEmails(): Promise<string[]> {
@@ -196,7 +207,8 @@ function escapeHtml(s: string): string {
 
 // ──────────────────────────────────────────────────────────────────
 // HTML 템플릿 로딩 + placeholder 치환
-//   - 템플릿은 _templates/*.html (docs/email-templates/와 sync 스크립트로 동기화)
+//   - 템플릿은 templates.ts (sync 스크립트가 _templates/*.html 을 묶어 자동 생성 — 2026-10-20 전환.
+//     예전처럼 _templates/*.html 을 실행 중에 읽으면 `--use-api` 배포가 그 파일을 안 올려 양식을 못 찾는다)
 //   - placeholder 문법: {{key}} (이중 중괄호, 공백 없음)
 //   - 조건부/반복 섹션은 호출 측에서 미리 빌드된 HTML 문자열로 치환
 //   - 인스턴스 메모리 캐시로 매 요청 시 디스크 읽기 회피
@@ -206,8 +218,8 @@ const TEMPLATE_CACHE = new Map<string, string>();
 async function loadTemplate(name: string): Promise<string> {
   const cached = TEMPLATE_CACHE.get(name);
   if (cached) return cached;
-  const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const raw = await Deno.readTextFile(url);
+  const raw = TEMPLATES[name];
+  if (typeof raw !== "string") throw new Error(`template not found: ${name}`);
   // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
   // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
   const html = raw.replace(/<!--[\s\S]*?-->/g, "");
@@ -463,7 +475,7 @@ Deno.serve(async (req: Request) => {
 
     // 관리자 수신자: get_subscribed_admin_emails('brand_notify') + NOTIFY_ADMIN_EMAILS 병합
     const adminEmails = await resolveAdminEmails();
-    const adminUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/");
+    const adminUrl = siteRootFromAdminUrl(env("PUBLIC_ADMIN_URL", "https://globalreverb.com")) + "/admin/";
     console.log("[notify-brand-application] adminEmails resolved", {
       count: adminEmails.length,
       emails: adminEmails,

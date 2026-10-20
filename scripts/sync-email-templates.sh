@@ -97,9 +97,10 @@ for group in "${SYNC_GROUPS[@]}"; do
   #   - notify-influencer-daily-digest (인플루언서 일일 다이제스트 5종 — 마이그레이션 130)
   #   - notify-admin-daily-digest (관리자 통합 다이제스트 7종 — 마이그레이션 132, PR 2. 구 application_cancel·received 일일요약 2종 흡수 — 마이그레이션 164)
   #   - notify-campaign-promo-digest (캠페인 홍보 메일 다이제스트 3종 — 마이그레이션 139~143, PR 2)
-  # notify-brand-application 은 과거 deploy 가 _templates/ 를 포함했던 시점에
-  # 등록되어 그대로 동작 중 — 추후 재배포 회귀 발생 시 동일 분기로 이동.
-  if [[ "$fn_name" == "notify-deliverable-decision" ]] || \
+  # notify-brand-application 도 2026-10-20 이 분기로 옮겼다 — `--use-api` 재배포가 _templates/ 를
+  # 안 올려(index.ts 만 업로드) 양식을 못 읽게 되는 회귀를 확인했다.
+  if [[ "$fn_name" == "notify-brand-application" ]] || \
+     [[ "$fn_name" == "notify-deliverable-decision" ]] || \
      [[ "$fn_name" == "notify-influencer-daily-digest" ]] || \
      [[ "$fn_name" == "notify-admin-daily-digest" ]] || \
      [[ "$fn_name" == "notify-campaign-promo-digest" ]] || \

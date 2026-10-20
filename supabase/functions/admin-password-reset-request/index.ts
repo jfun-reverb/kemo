@@ -31,6 +31,8 @@
 //
 // 환경변수 (Edge Functions Secrets):
 //   BREVO_API_KEY / PUBLIC_ADMIN_URL / BREVO_SENDER_EMAIL / BREVO_SENDER_NAME
+//   PUBLIC_ADMIN_URL 은 사이트 첫 주소든 「…/admin/」이든 받는다 — 끝 「/admin」을 떼어 사이트 첫 주소로 맞춘다
+//   (siteRootFromAdminUrl, notify-admin-invite 와 같은 함수). 기본값 없음(비면 발송하지 않고 오류 기록)
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  (런타임 자동 주입)
 //
 // 배포 (개발 → 운영 양 환경 모두):
@@ -66,6 +68,15 @@ const CORS_HEADERS = {
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
+}
+
+// PUBLIC_ADMIN_URL 을 사이트 첫 주소로 맞춘다 — 끝 「/」와 「/admin」을 뗀다.
+//   🔴 같은 값을 함수마다 다른 뜻으로 읽었다(관리자 초대·비밀번호 찾기 = 사이트 첫 주소 + /admin-setpw.html,
+//   관리자 알림 메일 = 「…/admin/」 + /#화면). 값을 …/admin/ 으로 바꾸자 초대 링크가 404 가 됐다(2026-10-20).
+//   여섯 함수가 같은 본문을 갖는다 — 고치면 함께(notify-admin-invite·admin-password-reset-request·
+//   notify-brand-application·notify-orient-submitted·notify-admin-daily-digest·notify-brand-daily-digest).
+function siteRootFromAdminUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "").replace(/\/admin$/i, "");
 }
 
 function render(html: string, data: Record<string, string>): string {
@@ -174,7 +185,11 @@ async function process(rawEmail: unknown): Promise<void> {
   }
 
   // 4) 재설정 링크 발급 + 발송
-  const adminBase = env("PUBLIC_ADMIN_URL", "https://dev.globalreverb.com").replace(/\/$/, "");
+  const adminBase = siteRootFromAdminUrl(env("PUBLIC_ADMIN_URL"));
+  if (!adminBase) {
+    console.error("[admin-password-reset-request] PUBLIC_ADMIN_URL not configured");
+    return;
+  }
   const redirectTo = `${adminBase}/admin-setpw.html?mode=reset`;
   const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
     type: "recovery",
