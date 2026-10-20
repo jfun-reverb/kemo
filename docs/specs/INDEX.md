@@ -25,6 +25,7 @@
 | [2026-06-15-admin-permission-matrix.md](2026-06-15-admin-permission-matrix.md) | [2026-06-15-admin-permission-management.md](2026-06-15-admin-permission-management.md) | 감사 결과가 구현 사양서의 「현재 상태」·기본값이 됨 |
 | [2026-08-12-reward-promise-by-recruit-type.md](2026-08-12-reward-promise-by-recruit-type.md) | [2026-09-02-unpaid-campaign-reward-mail.md](2026-09-02-unpaid-campaign-reward-mail.md) | 검수 결과 메일의 「보수 지급」 문구 — 뒤 문서가 다시 설계해 구현 |
 | [2026-05-21-general-inquiry-desk.md](2026-05-21-general-inquiry-desk.md) §2 스레드 단위 | [2026-10-06-service-inquiry-threads.md](2026-10-06-service-inquiry-threads.md) | 서비스 문의 「회원당 대화 하나」 → 여러 대화(운영팀이 닫으면 새 대화) |
+| [2026-10-15-client-figma-reviewer-apply-screens.md](2026-10-15-client-figma-reviewer-apply-screens.md) 결정 12·§5 ⑫ | [2026-10-20-proxy-purchase-removal.md](2026-10-20-proxy-purchase-removal.md) | 가구매 표시 캠페인 중립 모달 안전장치 → 가구매 갈래 철거로 함께 걷힘 |
 | 관리자 머티리얼 3 디자인 사양(파일 없음) | 흑백 재설계 + 보라 강조색 | 관리자 화면 기준이 바뀌었다 — 옛 문서를 기준으로 삼지 말 것(`planning.md`) |
 
 ## 종류 안내
@@ -317,5 +318,6 @@
 | 2026-10-16 | [작업 분해표 — 응모 완료 모달 (c05-06)](2026-10-15-client-figma-reviewer-apply-screens-breakdown.md) | 작업표 | [인플루언서 앱 — 리뷰어 캠페인 신청 화면을 피그마로](2026-10-15-client-figma-reviewer-apply-screens.md) §7 |
 | 2026-10-19 | [브랜드 페이지 — 시딩형 배송 리스트 · 형식별 캠페인 상세](2026-10-19-brand-seeding-shipping-list.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) §15 |
 | 2026-10-19 | [개인정보 접속·제공 기록 — 관리자·브랜드의 열람·내려받기와 브랜드 제공](2026-10-19-personal-data-access-records.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) 16-8 |
+| 2026-10-20 | [가구매 철거 — 갈래 걷기 (칸은 남김)](2026-10-20-proxy-purchase-removal.md) | 사양서 |  |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
