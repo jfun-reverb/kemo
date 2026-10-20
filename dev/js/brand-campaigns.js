@@ -348,7 +348,9 @@ function renderBrandCampaignDetail(host, id) {
     inner = '<div class="bc-detail-head">' + _bcBackHtml() +
         '<div class="bc-detail-title"><h1>' + brandEsc(c.product || '') + '</h1>' + _bcBadge(c) + '</div>' +
         (sub ? '<p class="bc-detail-sub">' + brandEsc(sub) + '</p>' : '') + '</div>' +
-      _bcStatsHtml(c, d.today) + _bcStagesHtml(c, d.today) + _bcScheduleHtml(c) + brandResultSectionHtml(c);
+      _bcStatsHtml(c, d.today) + _bcStagesHtml(c, d.today) + _bcScheduleHtml(c) +
+      (typeof brandShippingCardHtml === 'function' ? brandShippingCardHtml(c) : '') +   // 시딩형 배송 카드(배송 리스트 조각 S5 — 일정과 결과물 사이)
+      brandResultSectionHtml(c);
   }
   host.innerHTML = '<div class="bc-page bc-detail">' + inner + '</div>';
 }
@@ -372,15 +374,29 @@ async function loadBrandCampaignDetail(id) {
   _bcDetail = { id, state: 'ok', camp, today: data.today || null };
   _bcRerenderIfShown();
   loadBrandCampaignResults(id);   // 결과물 영역(brand-campaign-results.js) — 상세가 그려진 뒤
+  if (camp.recruit_type === 'gifting' && typeof loadBrandShippingSummary === 'function') loadBrandShippingSummary(id);   // 배송 카드(brand-shipping.js)
 }
 
 // ── 페이지 등록 · 다시 그리기
+//   틀 안 주소의 인자 = 「캠페인 번호」 또는 「캠페인 번호/하위 페이지」(배송 리스트 조각 S5 — #campaigns/<번호>/shipping).
+//   🔴 인자를 쓰는 자리는 모두 _bcSplitArg 로 나눠 읽는다(나누지 않으면 「번호/shipping」 전체를 캠페인 번호로 넘겨 「찾을 수 없음」이 된다)
 function _bcCurrentArg() {
   const parts = splitBrandHash(location.hash.replace(/^#/, ''));
   return parts.page === 'campaigns' ? parts.arg : null;
 }
+function _bcSplitArg(arg) {
+  const s = String(arg || '');
+  const i = s.indexOf('/');
+  return i < 0 ? { id: s, sub: '' } : { id: s.slice(0, i), sub: s.slice(i + 1) };
+}
+const BRAND_CAMP_SUBPAGES = ['shipping'];
 function _bcRender(host, arg) {
-  if (arg) renderBrandCampaignDetail(host, arg);
+  const { id, sub } = _bcSplitArg(arg);
+  if (id && sub === 'shipping' && typeof renderBrandShippingPage === 'function') {
+    if (typeof _bsPullEditInputs === 'function') _bsPullEditInputs();   // 입력 중인 송장 칸 글자를 다시 그리기 전에 옮겨 둔다
+    renderBrandShippingPage(host, id); return;
+  }
+  if (id) renderBrandCampaignDetail(host, sub ? arg : id);   // 모르는 하위 페이지는 render 가 arg 전체로 「찾을 수 없음」을 넣어 둔다
   else renderBrandCampaignList(host);
 }
 function _bcRerenderIfShown() {
@@ -401,11 +417,15 @@ function _bcRerenderIfShown() {
 registerBrandPage('campaigns', {
   title: '캠페인',
   render(host, arg) {
-    // 주소의 캠페인 번호 형식을 먼저 거른다 — 형식이 틀리면 서버가 형 변환 오류를 내 「없음」과 모양이 달라진다
-    if (arg && !BRAND_UUID_RE.test(arg)) { _bcDetail = { id: arg, state: 'not_found' }; renderBrandCampaignDetail(host, arg); return; }
-    _bcRender(host, arg);
+    const { id, sub } = _bcSplitArg(arg);
+    // 주소의 캠페인 번호 형식을 먼저 거른다 — 형식이 틀리면 서버가 형 변환 오류를 내 「없음」과 모양이 달라진다. 모르는 하위 페이지도 「없음」
+    if (id && (!BRAND_UUID_RE.test(id) || (sub && BRAND_CAMP_SUBPAGES.indexOf(sub) === -1))) {
+      _bcDetail = { id: arg, state: 'not_found' }; renderBrandCampaignDetail(host, arg); return;
+    }
     // 들어올 때마다 새로 받는다(운영팀이 캠페인을 등록·변경했을 수 있다)
-    if (arg) loadBrandCampaignDetail(arg);
+    if (sub === 'shipping') { _bsEdit = null; renderBrandShippingPage(host, id); loadBrandShippingPage(id); return; }   // 다시 들어오면 옛 입력 상태를 버린다
+    _bcRender(host, arg);
+    if (id) loadBrandCampaignDetail(id);
     else loadBrandCampaignList();
   }
 });
@@ -435,7 +455,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (act === 'retry-list') { el.disabled = true; loadBrandCampaignList(); return; }
-  if (act === 'retry-detail') { el.disabled = true; const id = _bcCurrentArg(); if (id) loadBrandCampaignDetail(id); return; }
+  if (act === 'retry-detail') { el.disabled = true; const id = _bcSplitArg(_bcCurrentArg()).id; if (id) loadBrandCampaignDetail(id); return; }
   if (act === 'open') {
     e.stopPropagation();
     const id = el.dataset.campId;

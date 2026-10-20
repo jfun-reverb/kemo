@@ -102,7 +102,8 @@ function setBrandSessionFromState(state, opts) {
 function enterBrandApp(state, opts) {
   brandSession = null;          // 로그인 직후에는 이전 브랜드를 이어받지 않는다
   setBrandAuthed(state, opts);
-  goBrandScreen(BRAND_FIRST_PAGE);
+  // 배송 리스트 메일 링크(?shipping=)로 들어와 로그인했으면 그 리스트로 — 아니면 첫 페이지(brand-shipping.js)
+  goBrandScreen((typeof takeBrandShippingTarget === 'function' && takeBrandShippingTarget()) || BRAND_FIRST_PAGE);
 }
 
 // 판정을 다시 받아 세션 상태를 갱신 — 반환 state 또는 null(호출 실패).
