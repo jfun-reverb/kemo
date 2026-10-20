@@ -7,7 +7,7 @@
 //   🔴 조회 실패(null)는 오류 화면, 0줄은 「지금 보낼 분이 없습니다」(bw05-94 ⑤) — 섞지 않는다
 //   🔴 송장 형식 BRAND_SHIP_TRACKING_RE 는 서버 _shipping_check_row 의 사본(관리자 admin-shipping.js SHIP_TRACKING_RE 와 셋이 같은 식)
 //   · 전화번호는 회원이 적은 그대로(D24) · 탈퇴로 이름이 비면 「탈퇴한 회원」(D25) · 종료면 입력·수정·지우기 단추 없음(D2)
-//   · 엑셀 내려받기·올리기는 S6 · 모바일은 엑셀 없음(결정 12)
+//   · 엑셀 내려받기·올리기는 brand-shipping-excel.js(S6 — 패널 머리 단추 brandShippingExcelButtonsHtml) · 모바일은 엑셀 없음(결정 12)
 
 const BRAND_SHIP_TRACKING_RE = /^[A-Za-z0-9 -]{4,40}$/;
 const BRAND_SHIP_TARGET_KEY = 'reverb.brandShippingTarget';   // 메일 링크 ?shipping=<캠페인 번호>(D20) — 세션 저장소
@@ -271,7 +271,7 @@ function renderBrandShippingPage(host, id) {
     const allCancelled = (Number(k.total) || 0) > 0 && _bsReceivers(k) === 0 && !_bsTab;
     inner += _bsInfoHtml(d) +
       '<section class="bo-panel bs-panel" aria-label="배송 리스트">' +
-        '<div class="bs-panel-head">' + _bsTabsHtml(k) + '</div>' +
+        '<div class="bs-panel-head">' + _bsTabsHtml(k) + brandShippingExcelButtonsHtml(d) + '</div>' +
         (allCancelled ? '<div class="bs-empty"><p class="bs-empty-title">' + brandEsc(BRAND_SHIP_MSG.emptyTitle) + '</p><p class="bs-empty-desc">' + brandEsc(BRAND_SHIP_MSG.emptyDescCancelled) + '</p></div>' : '') +
         '<div class="bs-list">' + list + '</div>' +
         '<p class="br-note bs-note">송장번호를 저장하면 바로 「발송함」이 됩니다. 운영팀도 같은 내용을 봅니다. 인플루언서에게는 보이지 않습니다.</p>' +
