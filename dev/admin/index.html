@@ -2191,6 +2191,10 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;margin-bottom:8px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+              <!-- CS 이력 관리 진입(작업표 2-1 · a10-00) — 개발서버에서만 보인다(admin-cs-history.js 끝에서 켠다) -->
+              <button type="button" id="btnOpenCsHistory" class="btn btn-ghost btn-sm" onclick="switchAdminPane('cs-history')" style="display:none;margin-left:auto;align-items:center;gap:4px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">table_chart</span> CS 이력 관리
+              </button>
             </div>
             <!-- 탭 한 줄: 캠페인 문의 / 서비스 문의 / 일괄발송 이력(캠페인관리자 이상) — renderInboxKindTabs 가 그린다(조각 6-B).
                  ⚠️ 이력을 단추로 옮겼다가 탭으로 되돌렸다(2026-09-29 사용자 결정 — 탭이 더 낫다) -->
@@ -2264,6 +2268,82 @@
           <!-- 발송 이력 탭 (PR 3 일괄 발송) -->
           <div id="inboxBroadcastsView" style="display:none;flex:1;overflow:auto;padding:4px 0">
             <div id="broadcastsList" class="broadcasts-list"></div>
+          </div>
+        </div>
+
+        <!-- CS 이력 관리(작업표 2-1 · 피그마 1차 a10-08) — 사이드바 항목 없음, 메시지 제목 줄 단추로 들어온다 -->
+        <div id="adminPane-cs-history" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <button type="button" class="btn btn-ghost btn-xs" onclick="switchAdminPane('messages')" style="display:inline-flex;align-items:center;gap:2px;margin-bottom:6px;color:var(--muted)">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:15px">arrow_back</span> 메시지
+            </button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px">
+              <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--ink)">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--accent)">table_chart</span> CS 이력 관리
+              </div>
+              <button type="button" id="btnCsManualAdd" class="btn btn-primary btn-sm" onclick="openCsManualModal(null)" style="display:inline-flex;align-items:center;gap:4px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span> 수기 등록
+              </button>
+            </div>
+            <div class="admin-filter-bar">
+              <div class="admin-filter-group">
+                <label>기간</label>
+                <select id="csHistSince" class="admin-filter" onchange="loadCsHistoryPane()">
+                  <option value="1">최근 1개월</option>
+                  <option value="3" selected>최근 3개월</option>
+                  <option value="6">최근 6개월</option>
+                  <option value="12">최근 1년</option>
+                  <option value="0">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>진행현황</label>
+                <select id="csHistStatus" class="admin-filter" onchange="renderCsHistoryTable()">
+                  <option value="">전체</option><option value="in_progress">진행중</option><option value="needs_check">확인필요</option><option value="done">완료</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>항목</label>
+                <select id="csHistCategory" class="admin-filter" onchange="renderCsHistoryTable()"><option value="">전체</option></select>
+              </div>
+              <div class="admin-filter-group">
+                <label>출처</label>
+                <select id="csHistSource" class="admin-filter" onchange="renderCsHistoryTable()">
+                  <option value="">전체</option><option value="campaign_inquiry">캠페인 문의</option><option value="service_inquiry">서비스 문의</option><option value="mail">메일</option><option value="line">LINE</option><option value="other">기타</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>분류</label>
+                <select id="csHistKind" class="admin-filter" onchange="renderCsHistoryTable()">
+                  <option value="">전체</option><option value="monitor">리뷰어</option><option value="gifting">기프팅</option><option value="visit">방문형</option><option value="service">서비스</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="csHistSearch" name="cs-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름·이메일·캠페인" oninput="renderCsHistoryTable()">
+                </div>
+              </div>
+            </div>
+            <div id="csHistSummary" class="cs-summary"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px;flex:1">
+                <span class="admin-card-title">CS 건</span>
+                <span id="csHistCount" style="font-size:12px;color:var(--muted)"></span>
+              </div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table cs-hist-table">
+                <thead><tr>
+                  <th>번호</th><th>접수일시</th><th>출처</th><th>분류</th><th>캠페인</th><th>회원</th><th>이메일</th>
+                  <th>항목</th><th>문의 요약</th><th>진행현황</th><th>담당자</th><th>같은 대화</th><th>메모</th>
+                </tr></thead>
+                <tbody id="csHistTbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
