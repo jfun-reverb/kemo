@@ -138,18 +138,13 @@ function _excelMonitorResultRepr(campChannels, reviewByCh, channelKind) {
 //   ⚠️ 시딩·방문형도 **요구한 채널 전부**가 승인돼야 인증 성공이다(2026-08-10 결정, 마이그레이션 331).
 //   예전에는 result(채널 무관 최신 1건)만 봐서 **하나만 승인돼도 인증성공**으로 나갔다 —
 //   엑셀은 관리자가 정산을 대조하는 자리라 화면·서버와 어긋나면 안 된다.
-function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campChannels, postByCh, channelKind) {
+function _excelCertStatusKo(recruitType, receipt, result, campChannels, postByCh, channelKind) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status)
          || (result && result.applications && result.applications.status) || null;
   if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
-    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-    if (proxyPurchase) {
-      if (!hasReceipt) return '미제출';
-      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-    }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
     // 여기 도달하는 monitor 는 「채널 없는 리뷰어(레거시)」뿐(채널 있는 리뷰어는 _excelCertStatusMonitorKo 로 우회).
@@ -173,17 +168,12 @@ function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase, campCha
 }
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase, channelKind) {
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, channelKind) {
   // 검수 불필요 — 신청이 승인 후 반려·취소되면 검수 대상이 아니다 (결과물에 임베드된 신청 status 참조)
   var _as = (receipt && receipt.applications && receipt.applications.status) || null;
   if (!_as && reviewByCh) { for (var _k in reviewByCh) { if (reviewByCh[_k] && reviewByCh[_k].applications) { _as = reviewByCh[_k].applications.status; break; } } }
   if (_as === 'rejected' || _as === 'cancelled') return '검수 불필요';
   var hasReceipt = !!receipt;
-  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-  if (proxyPurchase) {
-    if (!hasReceipt) return '미제출';
-    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
-  }
   var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
   if (!hasReceipt && !hasReview) return '미제출';
   var repr = _excelMonitorResultRepr(campChannels, reviewByCh, channelKind);
@@ -610,9 +600,9 @@ function _reportCertStatus(g) {
   //   관리자 화면·서버와 다른 상태를 브랜드에게 보여주게 된다(2026-09-21, 2단계).
   const kind = _reportChannelKind(camp);
   if (camp.recruit_type === 'monitor' && chs.length > 0) {
-    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, !!camp.proxy_purchase, kind);
+    return _excelCertStatusMonitorKo(chs, g.receipt, g.reviewByCh, kind);
   }
-  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, !!camp.proxy_purchase, chs, g.postByCh, kind);
+  return _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, chs, g.postByCh, kind);
 }
 
 // REVERB 결과물 → 표준 행 배열.

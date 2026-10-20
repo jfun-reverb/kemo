@@ -196,7 +196,6 @@ function safeUrl(url: string): string {
 //  나가고 있었다 — 2026-08-04 마감 안내 오발송 사고와 같은 뿌리. 전수조사 묶음 F.)
 interface NextStepCampaign {
   recruit_type: string | null;
-  proxy_purchase: boolean | null;
   channel: string | null;
   // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지.
   // 🔴 조회에서 빠지면 `undefined` 가 되어 **전부 `or` 로 잡힌다** — 「그리고」 캠페인에
@@ -390,8 +389,7 @@ async function fetchLatestReceiptApproved(sb: any, applicationId: string): Promi
 // 승인 메일에 들어갈 "다음 단계" 안내 블록 (kind × 모집 형식 별 분기).
 //
 // ⚠️ 예전엔 kind 하나만 보고 문구를 정해서 아래 두 가지가 틀린 안내로 나가고 있었다:
-//   ① 영수증(receipt) 승인 → 무조건 "리뷰 인증샷을 내라" — 가구매(proxy_purchase) 캠페인은
-//      영수증만 받고 인증샷을 요구하지 않는데도 내라고 했고, 방문형(visit)은 다음 단계가
+//   ① 영수증(receipt) 승인 → 무조건 "리뷰 인증샷을 내라" — 방문형(visit)은 다음 단계가
 //      리뷰 인증샷이 아니라 게시물 URL 인데도 같은 문구가 나갔다.
 //   ② 리뷰 인증샷(review_image) 승인 → 무조건 "전부 제출 완료" — 캠페인이 요구하는 채널이
 //      여러 개인데 1채널만 승인돼도 이 문구가 가서, 받은 사람이 나머지 채널을 안 냈다.
@@ -413,7 +411,6 @@ async function buildNextStepBlock(
 ): Promise<string> {
   const recruitType = camp.recruit_type || null;
   const isMonitor = recruitType === "monitor";
-  const isProxyPurchase = isMonitor && !!camp.proxy_purchase;
 
   if (kind === "receipt") {
     // 방문형(visit)은 receipt 가 "현장 사진" 이고, 다음 단계는 게시물 URL 제출이다
@@ -423,14 +420,6 @@ async function buildNextStepBlock(
         "blue",
         `<div style="font-size:13px;color:#0C4A6E;line-height:1.7;margin-bottom:10px"><strong>次のステップ — 投稿URLの提出</strong></div>` +
         `<div style="font-size:13px;color:#222;line-height:1.7">現地写真が承認されました。次は「活動管理」からSNS投稿のURLを提出してください。</div>`,
-      );
-    }
-    // 가구매(proxy_purchase): 영수증만 받는 캠페인 — 리뷰 인증샷 제출 자체가 없다.
-    // (computeCertStatus 의 proxy_purchase 분기와 동일 기준 — 영수증 승인 = 인증 성공)
-    if (isProxyPurchase) {
-      return nextStepBox(
-        "green",
-        `<div style="font-size:13px;color:#222;line-height:1.7"><strong>全ての提出が完了しました。</strong>${completionTail(camp)}</div>`,
       );
     }
     // 리뷰어형(monitor) 일반 — 인증샷이 이미 다 모였으면 이 영수증 승인으로 완료다.
@@ -465,10 +454,10 @@ async function buildNextStepBlock(
   }
 
   if (kind === "review_image") {
-    // review_image 는 현재 UI 상 리뷰어형(monitor)·가구매 아님 캠페인에서만 발생한다.
-    // 예상과 다른 조합(recruit_type 이 monitor 가 아니거나 가구매)이 들어오면 방어적으로
+    // review_image 는 현재 UI 상 리뷰어형(monitor) 캠페인에서만 발생한다.
+    // 예상과 다른 조합(recruit_type 이 monitor 가 아님)이 들어오면 방어적으로
     // 완료를 단정하지 않는다.
-    if (!isMonitor || isProxyPurchase) {
+    if (!isMonitor) {
       return nextStepBox(
         "blue",
         `<div style="font-size:13px;color:#222;line-height:1.7">レビュー画像が承認されました。次のステップは「活動管理」でご確認ください。</div>`,
@@ -797,14 +786,14 @@ Deno.serve(async (req: Request) => {
   note.title = dbNote.title;
 
   // 결과물 + 캠페인 + 인플루언서 정보 조회
-  // application_id·campaigns.recruit_type/proxy_purchase/channel 은 buildNextStepBlock 이
+  // application_id·campaigns.recruit_type/channel 은 buildNextStepBlock 이
   // "다음 단계" 안내를 모집 형식별로 분기하는 데 필요(2026-08 전수조사 묶음 F).
   const { data: deliv, error: delivErr } = await sb
     .from("deliverables")
     .select(`
       id, application_id, kind, status, post_url, post_channel,
       submitted_at, reviewed_at, reject_reason,
-      campaigns:campaign_id (id, title, brand, recruit_type, proxy_purchase, channel, channel_match, reward, product_price)
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, reward, product_price)
     `)
     .eq("id", note.ref_id)
     .maybeSingle();
