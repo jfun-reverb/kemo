@@ -22,6 +22,7 @@ function _csPanelConversation() {
 function syncInboxCsPanel(pane, threadOpen) {
   const btn = $('inboxCsToggle'), panel = $('inboxCsPanel');
   const conv = (threadOpen && csHistoryEnabled()) ? _csPanelConversation() : null;
+  if (_csSplit && (!conv || conv.key !== _csSplit.key)) csSplitCancel(true);
   if (!conv) {
     if (btn) btn.style.display = 'none';
     if (panel) panel.style.display = 'none';
@@ -83,8 +84,6 @@ function toggleInboxCsPanel(force) {
   if (_csPanelOpen && Array.isArray(_csPanelRows)) renderInboxCsPanel();   // 닫힌 채 그린 카드에 메모를 이제 붙인다
 }
 
-// CS 추가(두 단계)는 조각 3-3 — 단추는 그때까지 숨긴다(renderInboxCsPanel)
-function startInboxCsSplit() { toast('CS 추가는 다음 작업에서 열립니다'); }
 
 // ── 3-2 건 카드(피그마 a10-03·06·07·07a) ─────────────────────────────
 //   펼친 건은 한 번에 하나 — 열린 건·완료 건을 통틀어(D-16). 펼쳐 메모가 보이는 순간 그 건 메모 읽음(D-20)
@@ -92,7 +91,7 @@ function startInboxCsSplit() { toast('CS 추가는 다음 작업에서 열립니
 //   항목은 완료 양식 안에서만 고른다(서버에 「진행 중 항목만 저장」하는 함수가 없다 — 562 는 완료 때 함께 저장)
 function renderInboxCsPanel() {
   const body = $('inboxCsBody'), title = $('inboxCsTitleText'), add = $('inboxCsAddBtn');
-  if (add) add.style.display = 'none';   // CS 추가는 3-3
+  if (add) add.style.display = (Array.isArray(_csPanelRows) && !_csSplit) ? 'inline-flex' : 'none';
   if (title) title.textContent = `CS 관리${Array.isArray(_csPanelRows) ? ` · 건 ${_csPanelRows.length}` : ''}`;
   if (!body) return;
   if (_csPanelRows === undefined) { body.innerHTML = _csPanelKey ? '<div class="inbox-empty">불러오는 중…</div>' : ''; return; }
@@ -100,7 +99,8 @@ function renderInboxCsPanel() {
     body.innerHTML = '<div class="inbox-empty">CS 건을 불러오지 못했습니다. <button type="button" class="cs-link" onclick="loadInboxCsPanel()">다시 시도</button></div>';
     return;
   }
-  if (!_csPanelRows.length) { body.innerHTML = '<div class="inbox-empty">이 대화에는 아직 CS 건이 없습니다.</div>'; return; }
+  if (_csSplit) { body.innerHTML = `<div class="cs-pn-list">${_csSplitCardHtml()}${_csPanelRows.map(r => _csPnLineHtml(r, true)).join('')}</div>`; return; }
+  if (!_csPanelRows.length) { body.innerHTML = '<div class="inbox-empty">이 대화에는 아직 CS 건이 없습니다. 「CS 추가」로 회원 글을 골라 건을 만들 수 있습니다.</div>'; return; }
   body.innerHTML = `<div class="cs-pn-list">${_csPanelRows.map(r => r.id === _csPn.expanded ? _csPnCardHtml(r) : _csPnLineHtml(r)).join('')}</div>`;
   _csPnAfterRender();
 }
@@ -136,15 +136,16 @@ function _csPnUnreadDot(id) {
 }
 
 // 접힌 줄 — 완료: 항목 · 해결 시간 · 다시 열기 / 열린 건: 항목 · 접수 · 메모 N
-function _csPnLineHtml(r) {
+function _csPnLineHtml(r, locked) {
   const cat = r.category_code ? csCategoryLabel(r.category_code) : '항목 없음';
   const mid = r.status === 'done'
     ? `${esc(cat)} · 해결 ${esc(csDurationBetween(r.received_at, r.completed_at, r.time_unknown))}`
     : `${esc(cat)} · 접수 ${esc(formatDateTime(r.received_at))} · 메모 ${(_csPn.memo[r.id] || {}).total || 0}`;
   const reopen = (r.status === 'done' && !r.personal_purged_at)
     ? `<button type="button" class="cs-link" onclick="csPnReopen(${jsStr(r.id)})">다시 열기</button>` : '';
-  return `<div class="cs-pn-line">${csStatusBadgeHtml(r.status)}<span class="cs-pn-line-main">${mid}</span>${_csPnUnreadDot(r.id)}
-    <button type="button" class="cs-link" onclick="csPnExpand(${jsStr(r.id)})">펼치기</button>${reopen}</div>`;
+  // CS 추가 중에는 다른 건이 접힌 채 잠긴다(4-1 잠금 범위)
+  return `<div class="cs-pn-line${locked ? ' cs-pn-locked' : ''}"${locked ? ' aria-disabled="true"' : ''}>${csStatusBadgeHtml(r.status)}<span class="cs-pn-line-main">${mid}</span>${_csPnUnreadDot(r.id)}
+    ${locked ? '' : `<button type="button" class="cs-link" onclick="csPnExpand(${jsStr(r.id)})">펼치기</button>${reopen}`}</div>`;
 }
 
 // 펼친 카드
@@ -324,4 +325,198 @@ async function csPnReopen(id) {
     const id = _csPn.completing;
     if (id && e.target.id === 'csPnCategory') (_csPn.drafts[id] = _csPn.drafts[id] || {}).cat = e.target.value;
   });
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// 3-3 CS 추가 두 단계(피그마 a10-04·04a · D-12·D-19)
+//   ① 대화의 회원 글 체크 → 답장 자리가 「N개 선택됨 · 취소 · 선택 완료」 막대 ② 패널 맨 위 새 건 양식 → 「추가」
+//   진행 중: 답장·「FAQ 열람 이력」·「응대 완료」·「숨김 이력」·패널의 다른 건이 잠기고 대화 검색만
+//   패널 닫기·다른 대화·탭·메뉴 이동은 「CS 추가를 그만둘까요?」 확인 뒤 취소(아래 가로채기)
+//   🔴 메시지 화면 파일은 체크 칸 자리 표시(data-cs-member)와 다시 그린 뒤 부르는 한 줄, 답장·응대 완료 막기만 고쳤다
+// ════════════════════════════════════════════════════════════════════
+let _csSplit = null;   // {key, step, selected:Set, starts:Set, busy}
+
+function csSplitActive() { return !!_csSplit; }
+
+function startInboxCsSplit() {
+  if (!Array.isArray(_csPanelRows) || !_csPanelKey || _csSplit) return;
+  // 다른 건의 시작 글 = 각 건에 붙은 가장 이른 글(message_ids 는 시각 순) — 고를 수 없다
+  const starts = new Set(_csPanelRows.map(r => (r.message_ids || [])[0]).filter(Boolean));
+  _csSplit = { key: _csPanelKey, step: 1, selected: new Set(), starts, busy: false };
+  _csSplitApplyLock();
+  renderInboxCsPanel();
+  const thread = $('inboxMsgThread');
+  if (thread) csSplitDecorateThread(thread);
+}
+
+// 체크 칸 — 렌더 함수 끝에서도 불린다(검색·30초 갱신으로 다시 그려도 고른 상태가 남는다)
+function csSplitDecorateThread(thread) {
+  if (!thread || thread.id !== 'inboxMsgThread') return;
+  thread.querySelectorAll('.cs-split-check').forEach(el => el.remove());
+  thread.classList.toggle('cs-splitting', !!_csSplit);
+  if (!_csSplit) return;
+  thread.querySelectorAll('.msg-row[data-cs-member="1"]').forEach(row => {
+    const id = row.getAttribute('data-msg-id');
+    const isStart = _csSplit.starts.has(id);
+    const label = document.createElement('label');
+    label.className = 'cs-split-check' + (isStart ? ' disabled' : '');
+    label.title = isStart ? '다른 건의 시작 글 — 고를 수 없음' : '이 글을 새 CS 건에 넣기';
+    label.innerHTML = `<input type="checkbox"${_csSplit.selected.has(id) ? ' checked' : ''}${(isStart || _csSplit.step !== 1) ? ' disabled' : ''}>`
+      + (isStart ? '<span class="cs-split-start">다른 건의 시작 글</span>' : '');
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) _csSplit.selected.add(id); else _csSplit.selected.delete(id);
+      _csSplitRenderBar();
+    });
+    row.append(label);   // 회원 글 줄은 row-reverse 라 마지막 자식이 맨 왼쪽(말풍선 앞)에 온다
+  });
+  // 대화 영역이 통째로 다시 그려졌으면(잠금 막대가 사라짐) 잠금을 다시 건다
+  if (!$('csSplitBar')) _csSplitApplyLock();
+}
+
+// 잠금 — 보라 안내 막대(대화 머리 아래·검색 줄 위) · 행동 줄 단추 잠금 · 답장 자리 → 선택 막대
+function _csSplitApplyLock() {
+  const view = $('inboxThreadView');
+  if (!view) return;
+  const bar = view.querySelector('.adm-msg-actionbar');
+  if (bar && !$('csSplitGuide')) bar.insertAdjacentHTML('beforebegin', '<div id="csSplitGuide" class="cs-split-guide"></div>');
+  if (bar) bar.querySelectorAll('button').forEach(b => {
+    if (!b.hasAttribute('data-cs-was-disabled')) b.setAttribute('data-cs-was-disabled', b.disabled ? '1' : '0');
+    b.disabled = true;
+  });
+  const composer = $('inboxComposer');
+  if (composer) {
+    composer.style.display = 'none';
+    if (!$('csSplitBar')) composer.insertAdjacentHTML('afterend', '<div id="csSplitBar" class="cs-split-bar"></div>');
+  }
+  _csSplitRenderBar();
+}
+
+function _csSplitRemoveLock() {
+  const g = $('csSplitGuide'); if (g) g.remove();
+  const b = $('csSplitBar'); if (b) b.remove();
+  const composer = $('inboxComposer'); if (composer) composer.style.display = '';
+  document.querySelectorAll('#inboxThreadView [data-cs-was-disabled]').forEach(btn => {
+    btn.disabled = btn.getAttribute('data-cs-was-disabled') === '1';
+    btn.removeAttribute('data-cs-was-disabled');
+  });
+  const thread = $('inboxMsgThread');
+  if (thread) csSplitDecorateThread(thread);
+}
+
+function _csSplitRenderBar() {
+  const guide = $('csSplitGuide'), bar = $('csSplitBar');
+  if (!_csSplit) return;
+  if (guide) guide.textContent = _csSplit.step === 1 ? '새 CS 건에 넣을 회원 글을 고르세요' : '오른쪽 새 건 양식을 채워 「추가」를 누르세요';
+  if (!bar) return;
+  const n = _csSplit.selected.size;
+  bar.innerHTML = _csSplit.step === 1
+    ? `<span class="cs-split-count">회원 글 ${n}개 선택됨</span><span style="flex:1"></span>
+       <button type="button" class="btn btn-ghost btn-sm" onclick="csSplitCancelAsk()">취소</button>
+       <button type="button" class="btn btn-primary btn-sm cs-btn-complete" onclick="csSplitNext()"${n ? '' : ' disabled'}>선택 완료</button>`
+    : '<span class="cs-split-locked"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">lock</span> CS 추가 중에는 답장을 쓸 수 없습니다</span>';
+}
+
+function csSplitNext() {
+  if (!_csSplit || !_csSplit.selected.size) return;
+  _csSplit.step = 2;
+  _csSplitRenderBar();
+  renderInboxCsPanel();
+  csSplitDecorateThread($('inboxMsgThread'));   // 체크 칸 잠금
+}
+function csSplitBack() {
+  if (!_csSplit) return;
+  _csSplit.step = 1;
+  _csSplitRenderBar();
+  renderInboxCsPanel();
+  csSplitDecorateThread($('inboxMsgThread'));
+}
+async function csSplitCancelAsk() {
+  if (!(await showConfirm('CS 추가를 그만둘까요? 고른 글과 쓰던 내용은 사라집니다.'))) return;
+  csSplitCancel();
+}
+// silent — 대화가 바뀌어 이미 떠난 경우(확인 창 없이)
+function csSplitCancel(silent) {
+  if (!_csSplit) return;
+  _csSplit = null;
+  _csSplitRemoveLock();
+  if (!silent) renderInboxCsPanel();
+}
+
+// 고른 글 중 가장 이른 글 = 접수 시각 · 문의 요약 기본값(D-12) — 서버도 같은 규칙으로 만든다(563 cs_split_case)
+function _csSplitFirstMsg() {
+  const msgs = (typeof _admMsgCurrentMsgs !== 'undefined' && Array.isArray(_admMsgCurrentMsgs)) ? _admMsgCurrentMsgs : [];
+  return msgs.filter(m => _csSplit.selected.has(m.id))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0] || null;
+}
+
+// 패널 맨 위 카드 — 1단계 안내 / 2단계 새 건 양식(a10-04a)
+function _csSplitCardHtml() {
+  if (_csSplit.step === 1) {
+    return `<div class="cs-pn-card cs-split-card"><div class="cs-cd-complete-head"><span class="material-icons-round notranslate" translate="no" style="font-size:17px">add_circle</span> CS 추가</div>
+      <div class="cs-summary-note">왼쪽 대화에서 이 건에 넣을 회원 글을 고르고 아래 「선택 완료」를 누르세요. 운영팀 글은 고를 수 없습니다.</div>
+      <div style="display:flex;justify-content:flex-end"><button type="button" class="btn btn-ghost btn-sm" onclick="csSplitCancelAsk()">취소</button></div></div>`;
+  }
+  const first = _csSplitFirstMsg();
+  const tr = (first && first.translate_status === 'done' && first.body_translated) ? `<div class="cs-pn-sum-tr">${esc(first.body_translated)}</div>` : '';
+  return `<div class="cs-pn-card cs-split-card"><div class="cs-cd-complete-head"><span class="material-icons-round notranslate" translate="no" style="font-size:17px">add_circle</span> 새 CS 건 · 회원 글 ${_csSplit.selected.size}개</div>
+    <div class="cs-field-label">문의 요약 <span class="cs-cd-sec-sub">가장 이른 글 — 추가한 뒤 고칠 수 있음</span></div>
+    <div class="cs-pn-summary"><div class="cs-pn-sum-text">${esc((first && first.body) || '—')}</div>${tr}</div>
+    <div class="cs-field-label">접수 ${esc(first ? formatDateTime(first.created_at) : '—')}</div>
+    <label class="cs-field-label" for="csSplitCategory">항목 <span class="cs-cd-sec-sub">선택 — 완료할 때 골라도 됩니다</span></label>
+    <select id="csSplitCategory" class="form-input cs-field">${csCategoryOptionsHtml(_csSplit.category || '')}</select>
+    <label class="cs-field-label" for="csSplitComment">첫 메모 <span class="cs-cd-sec-sub">선택 · 담당자끼리만 봅니다</span></label>
+    <textarea id="csSplitComment" class="form-input" rows="2" placeholder="메모 입력…">${esc(_csSplit.comment || '')}</textarea>
+    <div style="display:flex;justify-content:space-between;gap:6px;margin-top:4px">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="csSplitBack()">다시 고르기</button>
+      <span style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="csSplitCancelAsk()">취소</button>
+      <button type="button" id="csSplitAddBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csSplitSubmit()"${_csSplit.busy ? ' disabled' : ''}>추가</button></span></div></div>`;
+}
+
+async function csSplitSubmit() {
+  if (!_csSplit || _csSplit.busy || !_csSplit.selected.size) return;
+  const st = _csSplit;
+  st.category = ($('csSplitCategory') || {}).value || '';
+  st.comment = (($('csSplitComment') || {}).value || '').trim();
+  st.busy = true;
+  const btn = $('csSplitAddBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+  try {
+    const newId = await csSplitCase(Array.from(st.selected), st.category || null, st.comment || null);
+    if (_csSplit !== st) return;   // 그사이 그만두었으면 화면을 건드리지 않는다
+    csSplitCancel(true);
+    toast('새 CS 건을 추가했습니다', 'success');
+    _csPn.expanded = newId || null;
+    await loadInboxCsPanel();
+  } catch (e) {
+    st.busy = false;
+    toast(csErrorText(e), 'error');
+    if (_csSplit === st) renderInboxCsPanel();
+  }
+}
+
+// 그만둘지 묻기 — CS 추가 중에 다른 대화·탭·패널 닫기·메뉴를 누르면 먼저 확인하고, 그만두면 그 누름을 다시 보낸다
+(function () {
+  const SEL = '#inboxCampaigns, #inboxThreads, #inboxKindTabBar, .inbox-camps-fold, .inbox-cs-close, #inboxCsToggle, .admin-si, #btnOpenCsHistory, .inbox-col-camps .inbox-col-header, .inbox-col-threads .inbox-col-header, #inboxGenHead';
+  let replaying = false;
+  document.addEventListener('click', async (e) => {
+    if (!_csSplit || replaying) return;
+    const hit = e.target.closest && e.target.closest(SEL);
+    if (!hit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!(await showConfirm('CS 추가를 그만둘까요? 고른 글과 쓰던 내용은 사라집니다.'))) return;
+    csSplitCancel();
+    // 확인을 기다리는 사이 목록이 다시 그려졌으면(30초 갱신) 그 요소는 떨어져 나갔다 — 다시 누르게 안내
+    if (!document.contains(e.target)) { toast('CS 추가를 그만뒀습니다. 가려던 곳을 다시 눌러 주세요'); return; }
+    replaying = true;
+    try { e.target.click(); } finally { replaying = false; }
+  }, true);
+  // 2단계에서 쓰던 항목·첫 메모를 기억(패널을 다시 그려도 남게)
+  const body = document.getElementById('inboxCsBody');
+  if (body) body.addEventListener('input', (e) => {
+    if (!_csSplit) return;
+    if (e.target.id === 'csSplitComment') _csSplit.comment = e.target.value;
+    if (e.target.id === 'csSplitCategory') _csSplit.category = e.target.value;
+  });
+  if (body) body.addEventListener('change', (e) => { if (_csSplit && e.target.id === 'csSplitCategory') _csSplit.category = e.target.value; });
 })();
