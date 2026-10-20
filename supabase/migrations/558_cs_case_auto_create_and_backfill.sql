@@ -1,5 +1,5 @@
 -- ============================================================
--- 557_cs_case_auto_create_and_backfill.sql
+-- 558_cs_case_auto_create_and_backfill.sql
 -- CS 이력 관리 — 작업 1-3 (회원 글 → CS 건 자동 생성 트리거 + 최근 3개월 백필, 한 파일)
 -- 사양서: docs/specs/2026-10-16-cs-history-management.md D-3·D-6·D-7·D-12·D-17 · 4-2·4-3 · 4-4 ③·3-a·⑤
 -- 작업표: docs/specs/2026-10-19-cs-history-management-breakdown.md 1-3 (S-5)
@@ -128,7 +128,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public._cs_case_on_member_message() IS
-  '[557] 회원 글 → CS 건 자동 생성·연결(3-a·D-6). 실패해도 회원 글은 들어간다(예외를 삼키고 경고만).';
+  '[558] 회원 글 → CS 건 자동 생성·연결(3-a·D-6). 실패해도 회원 글은 들어간다(예외를 삼키고 경고만).';
 
 REVOKE ALL ON FUNCTION public._cs_case_on_member_message() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public._cs_case_on_member_message() FROM anon, authenticated;
