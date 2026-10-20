@@ -450,6 +450,7 @@ const CAMPAIGN_FIELD_LABELS = {
   img1: '이미지 1', img2: '이미지 2', img3: '이미지 3', img4: '이미지 4',
   img5: '이미지 5', img6: '이미지 6', img7: '이미지 7', img8: '이미지 8',
   image_url: '대표 이미지', image_crops: '이미지 자르기',
+  // proxy_purchase — 2026-10-20 가구매 철거 뒤에도 남긴다: 옛 변경 이력 줄을 그릴 때 쓴다(칸·이력 화이트리스트도 남아 있다)
   status: '상태', proxy_purchase: '가구매 캠페인', source_application_id: '연결된 서베이 신청',
   deleted_at: '보관 삭제', deleted_by: '삭제한 사람'
 };
@@ -498,7 +499,7 @@ function campaignFieldValueText(field, value) {
   }
   if (field === 'recruit_type') return ({ monitor: '리뷰어형', gifting: '시딩(기프팅)형', visit: '방문형' })[raw] || raw;
   if (field === 'channel_match') return raw === 'and' ? '모든 채널(and)' : '채널 중 하나(or)';
-  if (field === 'proxy_purchase') return (raw === 'true') ? '예' : '아니오';
+  if (field === 'proxy_purchase') return (raw === 'true') ? '예' : '아니오';   // 옛 변경 이력 줄 표시용(2026-10-20 가구매 철거 뒤에도 남김)
   if (typeof getLookupLabelsJoined === 'function') {
     if (kind === 'lookupChannel') return getLookupLabelsJoined('channel', raw, ', ', 'ko');
     if (kind === 'lookupContent') return getLookupLabelsJoined('content_type', raw, ', ', 'ko');
@@ -1957,12 +1958,11 @@ function campaignPeriodRowKind(camp) {
 }
 
 // 결과물 제출 마감 줄의 이름을 무엇으로 부를지(사양서 결정 7).
-//   'receiptOnly'    = 가구매 리뷰어형 — 영수증만 낸다. 인증샷을 이름에 넣으면 사실과 다르다
-//   'receiptAndPost' = 일반 리뷰어형 — 영수증 + 채널별 게시물 인증샷
+//   'receiptAndPost' = 리뷰어형 — 영수증 + 채널별 게시물 인증샷
 //   'default'        = 시딩·방문형 — 이름을 바꾸지 않는다
 function campaignSubmissionLabelCode(camp) {
   if (!camp || camp.recruit_type !== 'monitor') return 'default';
-  return camp.proxy_purchase === true ? 'receiptOnly' : 'receiptAndPost';
+  return 'receiptAndPost';
 }
 
 // ══════════════════════════════════════
