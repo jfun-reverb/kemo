@@ -225,7 +225,12 @@ async function restoreBrandSession() {
   }
   _brandCheckPending = false;
   const result = await applyBrandLoginState(state);
-  if (result === 'ok') routeBrand();
+  if (result === 'ok') {
+    // 배송 리스트 메일 링크로 들어왔으면 그 주소로(로그인 폼을 거친 경우는 enterBrandApp 이 꺼낸다)
+    const shipTarget = (typeof takeBrandShippingTarget === 'function') ? takeBrandShippingTarget() : null;
+    if (shipTarget) history.replaceState(null, '', location.pathname + location.search + '#' + shipTarget);
+    routeBrand();
+  }
 }
 
 function updatePreviewBar(name) {
@@ -342,6 +347,8 @@ async function bootBrand() {
   }
   // 「가려던 시트」(?orient= · ?orient_token=) — 링크 착지 갈래들 뒤, 해시 라우팅 앞. 주소에서 곧바로 지우고 세션 저장소에 둔다(brand-orient.js)
   captureBrandOrientTarget(params);
+  // 배송 리스트 메일 링크(?shipping=<캠페인 번호> — D20). 같은 방식으로 세션 저장소에 옮기고 주소에서 지운다(brand-shipping.js)
+  captureBrandShippingTarget(params);
   await restoreBrandSession();
 }
 

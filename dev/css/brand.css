@@ -1240,3 +1240,84 @@ a.bo-state-btn { display: inline-flex; align-items: center; justify-content: cen
   .br-lb { padding: 12px; }
 }
 .br-excel { width: auto; height: 34px; padding: 0 14px; font-size: 13px; font-weight: 600; flex: 0 0 auto; }
+
+/* ── 시딩형 배송 카드·배송 리스트(배송 리스트 조각 S5 · 피그마 bw05-01b·02·bm05-02·90·91·94) ── */
+.bs-badge { display: inline-block; padding: 3px 9px; border-radius: 100px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.bs-badge.is-shipped { background: #e8f7ee; color: #00873a; }
+.bs-badge.is-pending { background: #fff7ed; color: #c2410c; }
+.bs-badge.is-overdue { background: var(--b-error-bg); color: var(--b-error); }
+.bs-badge.is-cancelled { background: var(--b-disabled-bg); color: var(--b-muted); }
+.bs-badge.is-new { background: var(--b-info-bg); color: var(--b-info); }
+.bs-badge.is-ready { background: var(--b-disabled-bg); color: var(--b-muted); }
+.bs-badge.is-delivered { background: #e8f7ee; color: #00873a; }
+.bs-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.bs-card-head .bc-card-title { margin: 0; }
+.bs-open-btn { width: auto; height: 44px; margin-left: auto; padding: 0 16px; gap: 6px; font-size: 13px; }
+.bs-open-btn .material-icons-round { font-size: 18px; }
+.bs-card-desc { margin: 0 0 16px; font-size: 13px; color: var(--b-muted); line-height: 1.5; }
+.bs-counts .br-count b.is-warn { color: #c2410c; }
+.bs-overdue { font-style: normal; font-size: 11px; font-weight: 600; color: var(--b-error); }
+.bs-retry { width: auto; height: 44px; padding: 0 16px; font-size: 13px; }
+.bs-page { gap: 20px; }
+.bs-info { display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border: 1px solid var(--b-line); border-radius: 12px; background: var(--b-soft); font-size: 12px; color: var(--b-guide); line-height: 1.5; }
+.bs-info .material-icons-round { font-size: 18px; color: var(--b-muted); flex: 0 0 auto; }
+.bs-info.is-warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.bs-info.is-warn .material-icons-round { color: #c2410c; }
+.bs-panel { background: #fff; padding: 12px 16px 16px; }
+.bs-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.bs-tabs { flex: 1; }
+.bs-table { width: 100%; min-width: 1120px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.bs-table th { padding: 10px 12px; background: var(--b-soft); border-bottom: 1px solid var(--b-line); text-align: left; font-weight: 600; color: var(--b-label); white-space: nowrap; }
+.bs-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f2; color: var(--b-ink); vertical-align: middle; overflow-wrap: anywhere; }
+.bs-table .w-no { width: 52px; } .bs-table .w-name { width: 150px; } .bs-table .w-zip { width: 96px; } .bs-table .w-addr { width: 220px; }
+.bs-table .w-tel { width: 128px; } .bs-table .w-car { width: 130px; } .bs-table .w-trk { width: 160px; } .bs-table .w-date { width: 72px; }
+.bs-table .w-st { width: 150px; } .bs-table .w-act { width: 150px; }
+.bs-table .c-center { text-align: center; }
+.bs-table tr.is-cancelled td { color: var(--b-faint); }
+.bs-table tr.is-editing td { background: #fafafb; }
+.bs-edit-row { display: flex; gap: 8px; align-items: flex-start; }
+.bs-edit-carrier, .bs-edit-track { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.bs-in { height: 40px; font-size: 13px; }
+select.bs-in { padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--b-muted) 50%), linear-gradient(135deg, var(--b-muted) 50%, transparent 50%); background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+.bs-in:focus { padding-left: 11.5px; }
+.bs-name { font-weight: 600; }
+.bs-name .bs-badge { margin-left: 4px; font-size: 11px; padding: 2px 7px; }
+.bs-kana { margin: 2px 0 0; font-size: 12px; color: var(--b-muted); }
+.bs-hidden { font-size: 12px; color: var(--b-faint); }
+.bs-track { font-variant-numeric: tabular-nums; }
+.bs-due { margin-top: 4px; font-size: 11px; color: var(--b-faint); }
+.bs-act { white-space: nowrap; }
+.bs-link { min-height: 32px; padding: 0 6px; border: 0; background: none; font: inherit; font-size: 13px; color: var(--b-info); cursor: pointer; }
+.bs-link:hover { text-decoration: underline; }
+.bs-link:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; border-radius: 4px; }
+.bs-link.is-strong { font-weight: 700; }
+.bs-link.is-muted { color: var(--b-muted); }
+.bs-link.is-danger { color: var(--b-danger); }
+.bs-link:disabled { color: var(--b-disabled-btn); cursor: default; text-decoration: none; }
+.bs-dont { font-size: 12px; font-weight: 600; color: var(--b-error); white-space: normal; }
+.bs-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.bs-empty { margin: 4px 0 12px; padding: 24px 16px; border-radius: 10px; background: var(--b-soft); text-align: center; }
+.bs-empty-title { margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--b-ink); }
+.bs-empty-desc { margin: 0; font-size: 12px; color: var(--b-muted); line-height: 1.5; }
+.bs-skel { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--b-line); border-radius: 16px; background: #fff; }
+.bs-skel i { display: block; height: 38px; border-radius: 8px; background: var(--b-disabled-bg); }
+.bs-note { margin-top: 12px; }
+/* 모바일(bm05-02) — 줄마다 카드 · 한 줄 입력 · 누르는 칸 44px 이상 */
+.bs-cards { display: flex; flex-direction: column; gap: 12px; }
+.bs-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--b-line); border-radius: 14px; background: #fff; }
+.bs-card.is-cancelled { background: var(--b-soft); }
+.bs-card.is-cancelled .bs-card-name { color: var(--b-faint); }
+.bs-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.bs-card-name { margin: 0; font-size: 15px; font-weight: 700; color: var(--b-ink); }
+.bs-card-badges { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.bs-line { margin: 0; font-size: 13px; color: var(--b-guide); line-height: 1.5; }
+.bs-line.is-ship { color: var(--b-info); }
+.bs-card .bs-link { min-height: 44px; padding: 0; text-align: left; }
+.bs-card-edit { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.bs-card-edit .bs-in { height: 48px; font-size: 16px; }
+.bs-card-edit-sub { display: flex; justify-content: space-between; }
+@media (max-width: 600px) {
+  .bs-panel { padding: 12px; }
+  .bs-open-btn { width: 100%; margin-left: 0; }
+  .bs-tabs { overflow-x: auto; }
+}
