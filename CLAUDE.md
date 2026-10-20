@@ -291,6 +291,10 @@
 - 사이드바 메시지 미응대 수는 **두 종류 합산이고 세는 자리가 둘**(`updateInboxSidebarBadge` · 30초 `refreshMsgBadgesLight`) — 한쪽만 고치면 30초 뒤 숫자가 되돌아간다
 - 알림은 종류가 `message_received` 그대로이고 **`ref_table='general_inquiry'` 로만 갈린다** — 그 분기가 응모건 분기보다 **앞에** 있어야 한다(`notifications.js`, 뒤에 두면 응모건 화면으로 간다). 탈퇴 화면의 연락 안내는 이 창구로 간다. **로그인할 수 없는 자리**(로그아웃된 확정 회원 안내·가입 실패 안내)는 LINE 유지
 
+### CS 이력 관리 (마이그레이션 555~ — 🔴 개발서버만, 화면 없음)
+> 사양서 `docs/specs/2026-10-16-cs-history-management.md` · 작업표 `…-breakdown.md`(조각 21 · 진행은 사양서 「구현 결과」)
+- 표 `cs_cases`·`cs_case_messages`(기본 키 = 메시지 id)·`cs_case_comments`·`cs_case_comment_reads` + 비공개 통 `cs-case-attachments` — **556**. 🔴 접근은 **읽기만** `has_permission('menu.messages','read')`(메시지 표의 `is_admin()` 보다 좁다) — 쓰기는 정의자 권한 함수만(표 권한도 SELECT 만). 🔴 응모·대화·메시지·회원·캠페인 외래 키는 전부 **비우기** — 원본이 지워져도 건은 통계로 남는다(앱 건 원본 칸 둘이 다 비면 「원본 대화 삭제됨」). ⚠️ 그래서 **원본을 지우는 경로(캠페인 보관 삭제·탈퇴 파기 등)가 CS 건의 개인정보 사본을 따로 비워야 한다** — 아직 연결 안 됨(4-1)
+
 ### 자동응답(FAQ 가이드형, 마이그레이션 146)
 > 🔄 **2026-10-07 회원 화면 진입로가 바뀌었다**: 대화 맨 위 봇 카드는 없앴고, 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 어느 문의에 보일지는 **노출 위치 칸 둘**(마이그레이션 510 — 개발서버만)을 `faqNodeVisibleIn`(shared.js)이 본다 — 자기 칸 + 위 분류 칸이 모두 켜져야 보인다. 🔴 칸이 없는 서버(510 전)는 옛 규칙(`FAQ_GENERAL_CATEGORY_IDS` 카테고리 셋)으로 폴백하지만 **관리자 편집 저장은 새 칸을 보내 실패한다** — 운영은 510 먼저. 질문 문안은 데이터라 패치로 고친다(2026-10-07 운영 대조 정정 `supabase/patches/2026-10-07-faq-accuracy-fix.sql` + 되돌리기, 사양서 `docs/specs/2026-10-07-faq-accuracy-review-2.md`)
 > 응모건 메시지의 「문의 게이트」형 FAQ. 사양서 `docs/specs/2026-05-21-message-faq.md`. 빈 구멍 분석 `docs/specs/2026-05-29-message-faq-improvement.md`.
