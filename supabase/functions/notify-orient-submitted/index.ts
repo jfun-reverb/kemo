@@ -48,7 +48,7 @@
 // 환경변수 (Edge Functions Secrets):
 //   BREVO_API_KEY        Brevo Transactional API 키
 //   NOTIFY_ADMIN_EMAILS  추가 수신자 (콤마 구분, DB 구독자와 합산). 없어도 됨
-//   PUBLIC_ADMIN_URL     관리자 페이지 절대 URL (딥링크용)
+//   PUBLIC_ADMIN_URL     사이트 첫 주소(예 https://globalreverb.com, 기본값) — 「…/admin/」이어도 끝 /admin 을 떼어 맞춘다(siteRootFromAdminUrl)
 //   BREVO_SENDER_EMAIL   발신자 이메일 (기본 noreply@globalreverb.com)
 //   BREVO_SENDER_NAME    발신자 이름 (기본 REVERB JP)
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  (런타임 자동 주입)
@@ -95,6 +95,15 @@ interface WebhookPayload {
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
+}
+
+// PUBLIC_ADMIN_URL 을 사이트 첫 주소로 맞춘다 — 끝 「/」와 「/admin」을 뗀다.
+//   🔴 같은 값을 함수마다 다른 뜻으로 읽었다(관리자 초대·비밀번호 찾기 = 사이트 첫 주소 + /admin-setpw.html,
+//   관리자 알림 메일 = 「…/admin/」 + /#화면). 값을 …/admin/ 으로 바꾸자 초대 링크가 404 가 됐다(2026-10-20).
+//   여섯 함수가 같은 본문을 갖는다 — 고치면 함께(notify-admin-invite·admin-password-reset-request·
+//   notify-brand-application·notify-orient-submitted·notify-admin-daily-digest·notify-brand-daily-digest).
+function siteRootFromAdminUrl(raw: string): string {
+  return String(raw || "").trim().replace(/\/+$/, "").replace(/\/admin$/i, "");
 }
 
 // 호출자 확인(F-10) — **증명된 구멍만 막는다.**
@@ -378,8 +387,7 @@ Deno.serve(async (req: Request) => {
     const submittedAt = fmtKst(submittedIso);
 
     // 관리자 딥링크
-    const adminUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/");
-    const deepLink = `${adminUrl.replace(/\/$/, "")}/#orient-sheets`;
+    const deepLink = `${siteRootFromAdminUrl(env("PUBLIC_ADMIN_URL", "https://globalreverb.com"))}/admin/#orient-sheets`;
 
     // 수신자 결정
     const adminEmails = await resolveAdminEmails();

@@ -12,7 +12,7 @@
 |----|------|--------|------|
 | `BREVO_API_KEY` | ✅ | — | Brevo Transactional API Key |
 | `NOTIFY_ADMIN_EMAILS` | — | `jfun@jfun.co.kr` | 관리자 수신자 (콤마 구분) |
-| `PUBLIC_ADMIN_URL` | — | `https://globalreverb.com/admin/` | 관리자 페이지 절대 URL |
+| `PUBLIC_ADMIN_URL` | — | `https://globalreverb.com` | 사이트 첫 주소. 「…/admin/」이어도 코드가 끝 `/admin` 을 떼어 맞춘다 — 관리자 초대·비밀번호 찾기 함수와 같은 값을 공유하므로 사이트 첫 주소로 둔다 |
 | `BREVO_SENDER_EMAIL` | — | `noreply@globalreverb.com` | 발신 이메일 |
 | `BREVO_SENDER_NAME` | — | `REVERB JP` | 발신자명 (개발은 `REVERB JP [DEV]` 권장) |
 
@@ -28,7 +28,7 @@ supabase functions deploy notify-brand-application --project-ref qysmxtipobomefu
 supabase secrets set \
   BREVO_API_KEY=<개발용 Brevo API Key> \
   NOTIFY_ADMIN_EMAILS=jfun@jfun.co.kr \
-  PUBLIC_ADMIN_URL=https://dev.globalreverb.com/admin/ \
+  PUBLIC_ADMIN_URL=https://dev.globalreverb.com \
   BREVO_SENDER_NAME="REVERB JP [DEV]" \
   --project-ref qysmxtipobomefudyixw
 ```
@@ -41,7 +41,7 @@ supabase functions deploy notify-brand-application --project-ref twofagomeizrtkw
 supabase secrets set \
   BREVO_API_KEY=<운영용 Brevo API Key> \
   NOTIFY_ADMIN_EMAILS=jfun@jfun.co.kr \
-  PUBLIC_ADMIN_URL=https://globalreverb.com/admin/ \
+  PUBLIC_ADMIN_URL=https://globalreverb.com \
   BREVO_SENDER_NAME="REVERB JP" \
   --project-ref twofagomeizrtkwlhsuv
 ```
