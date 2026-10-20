@@ -229,3 +229,15 @@
 - 넷 다 jsonb 한 값으로 준다(1,000행 상한 회피) · 메시지 메뉴 권한이 없으면 `forbidden`(42501) · 공용 줄 계산은 내부 `_cs_case_rows` 한 곳(첫 답장 계산·감사용 제외)
 - 첫 답장 = 접수 뒤 첫 보이는 운영팀 글(일괄 발송 제외) — 「시간 미상」은 비움 · 표·요약은 감사용 회원 건을 빼고, **대화별 패널은 감사용 회원 대화도 보인다**
 - 개발서버 시험(2026-10-20): 관리자 — 표 9건 · 요약(응답 중앙값 약 2시간 40분 / 해결 중앙값 약 14시간 50분, 백필 기준) · 패널 응모건·서비스 문의 각 1건 · 메모 요약 {} · 잘못된 인자 거부 / 회원 — 표·요약 모두 42501
+
+### 1-5 쓰기 함수 — 마이그레이션 **562**(561 은 배송 메일 점검이 먼저 씀) (2026-10-20, 개발서버 적용 · 시험 통과)
+- 열 개: `cs_complete_case` · `cs_reopen_case` · `cs_set_case_status` · `cs_split_case`(CS 추가) · `cs_update_case_summary` · `cs_create_manual_case` · `cs_update_manual_case` · `cs_add_comment` · `cs_delete_comment` · `cs_mark_case_comments_read` (+ 내부 `_cs_actor`·`_cs_check_category`)
+- 거부는 `RAISE EXCEPTION '<코드>'`(P0001) — 화면은 코드로 문구를 고른다: forbidden · case_not_found · version_conflict · case_purged · already_done · not_done · category_required · invalid_category · response_required · response_too_long · completed_at_required · completed_at_future · completed_before_received · invalid_status · messages_required · invalid_messages · contains_case_start · summary_required · summary_too_long · invalid_source · received_at_required · received_at_future · reply_before_received · member_required · member_not_found · invalid_manual_category · inquiry_required · text_too_long · comment_too_long · campaign_not_found · not_manual_case · invalid_attachments · comment_empty · invalid_parent · comment_not_found · sheet_comment_locked · not_own_comment
+- **정한 것(사양서에 없던 것)**
+  - 다시 열기는 항목이 「미분류(과거)」면 비운다(그 항목은 고르는 자리에서 숨으므로)
+  - 완료 양식의 대응 안내는 수기 건도 자동 번역 대상(사람이 그 자리에서 쓴 글). 등록 때의 수기 대응 내용(일·한)은 원기록으로 그대로 둔다
+  - 수기 등록·편집은 한국어·일본어 두 칸이 다 있으면 한국어를 본문, 일본어를 번역으로 쓴다(자동 번역 안 함 — 4-4 ⑧). 편집 때 대응 내용 칸을 고치면 완료 건의 대응 안내도 따라간다
+  - 메모 지우기는 본문·번역만 비우고 첨부 목록은 남긴다 — 파일은 파기 함수(1-6·4-1)가 지운 메모까지 보고 지운다
+  - 첨부 경로 = `cs-case-attachments` 통 안 `{건 id}/…`(다른 건 경로·`..` 거부), 최대 5개
+  - 건 행 잠금은 `FOR NO KEY UPDATE`(회원 글 연결과 부딪히지 않게) · CS 추가는 대화 잠금을 먼저(5초 제한)
+- 개발서버 시험(2026-10-20, 만든 것은 모두 되돌림): 수기 등록(요약·번역 두 칸) · 답글의 답글 거부 · 남의 건 첨부 거부 · 읽음 · 요약 수정 · 낡은 version 거부 · 확인필요 · 미분류 거부 · 수기 완료 일시 없음 거부 · 빈 안내 거부 · 완료 · 편집(대응 안내 따라감) · 다시 열기 · 메모 지우기 · CS 추가(새 건에 글 1) · 시작 글 거부 / 회원 → forbidden
