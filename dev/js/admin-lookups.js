@@ -18,7 +18,7 @@
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값', brand_publish_default:'브랜드 공개 기본 열'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항', quote_settings:'견적 기준값', brand_publish_default:'브랜드 공개 기본 열', shipping_carrier:'택배사'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -29,6 +29,8 @@ async function loadLookupsPane() {
   applyLookupMenuVisibility();
   // 「브랜드 공개 기본 열」 탭(조각 11)은 브랜드 묶음이 있는 개발서버에서만 — 운영엔 544 가 없다
   { const t = document.querySelector('.lookup-tab[data-kind="brand_publish_default"]'); if (t) t.style.display = (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) ? '' : 'none'; }
+  // 「택배사」 탭(배송 리스트 조각 S4)도 같은 판정 — 운영엔 554 의 shipping_carrier 종류가 없다. 출시 때 함께 걷는다
+  { const t = document.querySelector('.lookup-tab[data-kind="shipping_carrier"]'); if (t) t.style.display = (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) ? '' : 'none'; }
   if (!isCampaignAdminOrAbove()) {
     const tbody = $('lookupsTableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">권한이 없습니다 (campaign_admin 이상)</td></tr>';
@@ -71,6 +73,13 @@ async function renderLookupsTable() {
   const title = $('lookupTableTitle');
   if (!tbody) return;
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  // 종류별 안내 한 줄 — 지금은 택배사만(Figma a05-14)
+  { const note = $('lookupTableNote');
+    if (note) {
+      const isCarrier = _currentLookupKind === 'shipping_carrier';
+      note.textContent = isCarrier ? '배송 리스트의 택배사 고르기 목록입니다. 끄면 새로 고를 때만 안 보이고, 이미 저장된 송장의 택배사 이름은 그대로입니다. 목록에 없는 곳은 「기타」로 이름을 직접 적습니다.' : '';
+      note.style.display = isCarrier ? '' : 'none';
+    } }
   { const rb = $('btnLookupReorderMode'); if (rb) rb.style.display = ''; }   // 기본은 보임 — 견적 기준값 탭만 자기 함수 안에서 감춘다(조기 반환보다 앞에 둬야 참여방법·주의사항·NG 탭으로 돌아갈 때도 되살아난다)
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
@@ -136,7 +145,7 @@ async function renderLookupsTable() {
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
+        ${r.kind === 'shipping_carrier' ? '' : `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>`}
       </td>`}
     </tr>`;
   }).join('');
@@ -623,6 +632,9 @@ async function handleLookupDelete(row) {
     }
     return;
   }
+  // 택배사는 지우지 않는다 — 저장된 송장 줄이 코드로 이름을 찾아(557 carrier_name), 지우면 이름이 빈다.
+  //   그 표(campaign_shipments)는 화면이 직접 못 읽어 「사용 중인가」를 셀 수도 없다. 끄기만 쓴다(단추도 안 그린다)
+  if (row.kind === 'shipping_carrier') { toast('택배사는 삭제하지 않고 꺼 둡니다. 꺼도 이미 저장된 송장의 이름은 그대로입니다.','error'); return; }
   let inUse = false;
   try { inUse = await isLookupInUse(row); } catch(e) {}
   if (inUse) {
