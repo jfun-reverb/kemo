@@ -1175,7 +1175,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
         : '<span class="msg-read unread">안읽음</span>';
     }
     // 말풍선 옆 메타: 읽음 / 시간 / 액션(숨김·회수·복구) — mine 은 풍선 왼쪽, 상대는 오른쪽
-    return lastViewedChip + `<div class="msg-row ${sideCls}">
+    // data-cs-member — CS 추가(admin-cs-panel.js 3-3)가 고를 수 있는 글(보이는 회원 글)에 체크 칸을 붙인다
+    return lastViewedChip + `<div class="msg-row ${sideCls}" data-msg-id="${esc(msg.id)}"${(!fromAdmin && msg.mask_state === 'visible') ? ' data-cs-member="1"' : ''}>
       <div class="msg-meta-side">${readMark}<span class="msg-time">${esc(timeStr)}</span>${actions}</div>
       <div class="msg-bubble">
         <div class="msg-sender">${senderLabel}</div>
@@ -1186,6 +1187,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
     </div>`;
   }).join('');
   thread.scrollTop = thread.scrollHeight;
+  // CS 추가 중이면 다시 그린 대화(검색·30초 갱신 포함)에 체크 칸을 다시 붙인다(admin-cs-panel.js 3-3)
+  if (typeof csSplitDecorateThread === 'function') csSplitDecorateThread(thread);
 }
 
 function msgCardMasked(senderLabel, timeStr, sideCls, text) {
@@ -1268,6 +1271,7 @@ function renderAdmMsgAttachPreview() {
 
 async function sendAdminMessage() {
   if (_admMsgSending || !_admHasThread()) return;
+  if (typeof csSplitActive === 'function' && csSplitActive()) return;   // CS 추가 중에는 답장 금지(3-3 · 단축키 포함)
   const inputEl = document.getElementById(curComposerId() + 'Input');
   const body = (inputEl?.value || '').trim();
   if (!body && !_admMsgPendingFiles.length) { toast('메시지를 입력하세요.'); return; }
@@ -1382,6 +1386,7 @@ function _setResolveBtnDone(ctx) {
 
 // ── 수동 응대 완료 ──
 async function markCurrentResolved() {
+  if (typeof csSplitActive === 'function' && csSplitActive()) return;   // CS 추가 중에는 잠금(3-3)
   if (!_admHasThread()) return;
   if (_admMsgGeneralThreadId) { await closeCurrentGeneralThread(); return; }
   try {

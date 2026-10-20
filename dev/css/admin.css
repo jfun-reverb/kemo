@@ -2832,3 +2832,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-pn-complete-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:100%}
 .cs-pn-complete{padding:10px 12px}
 .cs-pn-done{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+
+/* ── CS 추가 두 단계(admin-cs-panel.js — 작업표 3-3 · 피그마 a10-04·04a) ── */
+.cs-split-guide{margin:0 12px 6px;padding:7px 12px;border-radius:8px;background:var(--accent-tint);color:var(--accent-ink);font-size:12.5px;font-weight:700}
+.cs-split-check{display:inline-flex;align-items:center;gap:4px;align-self:center;margin-right:6px;cursor:pointer}
+.cs-split-check input{width:16px;height:16px;accent-color:#5E35B1;cursor:pointer}
+.cs-split-check.disabled{opacity:.55;cursor:not-allowed}
+.cs-split-check.disabled input{cursor:not-allowed}
+.cs-split-start{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.cs-splitting .msg-row[data-cs-member="1"]{cursor:default}
+.cs-split-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:#f6f3fd}
+.cs-split-count{font-size:13px;font-weight:700;color:var(--accent-ink)}
+.cs-split-locked{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.cs-split-card{gap:6px}
+.cs-pn-locked{opacity:.5;pointer-events:none}
