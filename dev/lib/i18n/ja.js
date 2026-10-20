@@ -762,9 +762,8 @@ window.I18N_JA = {
   activity: {
     rejectedTitle: '差し戻しされました',
     rejectedHint: '修正後、再度ご提出ください。',
-    submissionEndLabel: '提出期限',
-    submissionEndPast: '提出期限が過ぎました',
-    submissionEndPastButRejected: '提出期限（{date}）が過ぎていますが、差し戻し項目があるため再提出が必要です。',
+    submissionEndPast: '{label}が過ぎました',
+    submissionEndPastButRejected: '{label}（{date}）が過ぎていますが、差し戻し項目があるため再提出が必要です。',
     receiptSection: '購入レシート',
     receiptImageLabel: 'レシート画像',
     receiptImageBtn: '画像を選択',
