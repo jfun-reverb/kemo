@@ -2090,6 +2090,12 @@ const ADMIN_PERMISSION_CATALOG = [
   //    ⚠️ 한계: 관리자 누구나 applications 표를 직접 수정하는 경로(기존 승인·미승인과 같은 경로)는 그대로라,
   //       이 설정이 막는 것은 **이 함수와 화면 버튼**뿐이다(사양서 ⑧).
   { key: 'application.restore_cancelled', label_ko: '신청 취소 되돌리기(회원 본인 취소를 원래 상태로)', category: '캠페인',       server_enforced: true },
+  // ── 시딩형 배송 리스트 1개 — 마이그레이션 554 role_permissions 시드와 1:1(세 등급 쓰기) ──
+  //    admin_get_campaign_shipping·admin_deliver_shipping_list·admin_save_shipping_rows(557)와 서버 함수
+  //    notify-brand-shipping-list 가 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 554 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 557) — 철자가 하나만 달라도 조용히 거부된다.
+  //    🔴 staging_only — 운영엔 554 가 없어 권한 관리 화면에서 숨긴다(renderPermGrid). 출시 날 이 표시를 걷는다
+  { key: 'shipping.manage',               label_ko: '배송 리스트 보기·전달·송장 수정(시딩형)',     category: '캠페인',       server_enforced: true, staging_only: true },
 ];
 
 // ══════════════════════════════════════
@@ -2117,7 +2123,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
   'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request',
-  'ad_tracking.manage', 'application.restore_cancelled'
+  'ad_tracking.manage', 'application.restore_cancelled', 'shipping.manage'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';

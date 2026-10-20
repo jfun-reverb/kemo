@@ -153,6 +153,10 @@ async function loadCampApplicants() {
   //   캠페인의 값(또는 초기값 false)이 구워져 **행사인데 안전 확인창이 안 뜬다**
   //   — 가장 흔한 경로(다른 캠페인 → 행사 캠페인)에서 정확히 안 뜬다(2026-08-04 리뷰 지적).
   _campDetailIsEvent = (typeof isEventCampaign === 'function') && isEventCampaign(camp);
+  // 시딩형 「배송 리스트」 탭(조각 S3) — 판정은 campShippingTabOn(admin-shipping.js) 한 곳. 조회는 기다리지 않는다
+  _campDetailShipOn = (typeof campShippingTabOn === 'function') && campShippingTabOn(camp);
+  if (_campDetailShipOn) loadCampShipping(camp.id);
+  else if (_campDetailTab === 'shipping') _campDetailTab = 'applicants';   // 시딩형이 아닌 캠페인에 배송 탭이 남으면 빈 화면이 된다
 
   const slots = camp?.slots || 0;
   const remaining = Math.max(slots - allApproved, 0);
@@ -546,8 +550,9 @@ async function submitRestoreCancelled() {
 // ── 캠페인 진행현황: 신청자 목록 / 결과물 목록 탭 ─────────────────────
 //   결과물 표는 결과물 관리 페인과 같은 행 빌더(renderDelivAppRow)를 compact 로 재사용한다.
 //   두 화면이 따로 놀지 않게 판정·렌더를 단일 소스로 유지하는 게 목적.
-var _campDetailTab = 'applicants';   // 'applicants' | 'deliverables' | 'tickets'
+var _campDetailTab = 'applicants';   // 'applicants' | 'shipping' | 'deliverables' | 'tickets'
 var _campDetailIsEvent = false;      // 지금 보고 있는 캠페인이 오프라인 행사인가
+var _campDetailShipOn = false;       // 「배송 리스트」 탭을 보이는가(시딩형 + 개발서버 + 권한 — campShippingTabOn)
 var _campAppStatusTab = '';          // 신청자 탭 안의 신청 상태 필터('' = 전체)
 var _campDelivCertTab = '';          // 결과물 탭 안의 인증 상태 필터('' = 전체)
 // 인증 성공일 기간 필터 (결과물 탭 전용). 결과물 관리 페인과 같은 규칙 —
@@ -588,12 +593,14 @@ function renderCampDetailTabs(appCount, delivCount, ticketCount) {
       ]
     : [
         { code: 'applicants',   label: '신청자 목록', n: appCount || 0 },
+        // 배송 리스트(시딩형만 — 조각 S3). 숫자는 조회가 끝나야 안다(null 이면 숫자를 안 그린다 — admin-shipping.js 가 나중에 채운다)
+        ...(_campDetailShipOn ? [{ code: 'shipping', label: '배송 리스트', n: (typeof campShippingTabCount === 'function') ? campShippingTabCount() : null }] : []),
         { code: 'deliverables', label: '결과물 목록', n: delivCount || 0 },
       ];
   bar.innerHTML = tabs.map(t => {
     const cls = 'status-tab-btn' + (t.code === _campDetailTab ? ' on' : '') + (t.n === 0 ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-tab="${t.code}" onclick="setCampDetailTab(this)">`
-      + `${t.label}<span class="tab-count">(${t.n})</span></button>`;
+      + `${t.label}<span class="tab-count">${t.n == null ? '' : '(' + t.n + ')'}</span></button>`;
   }).join('');
   applyCampDetailTabVisibility();
 }
@@ -613,17 +620,20 @@ function setCampDetailTabByCode(code) {
 function applyCampDetailTabVisibility() {
   const isDeliv = _campDetailTab === 'deliverables';
   const isTicket = _campDetailTab === 'tickets';
+  const isShip = _campDetailTab === 'shipping';
   const appCard = $('campApplicantsCard');
   const delivCard = $('campDelivCard');
   const ticketCard = $('campTicketsCard');
   const filterBar = $('campAppFilterBar');
-  if (appCard) appCard.style.display = (isDeliv || isTicket) ? 'none' : '';
+  if (appCard) appCard.style.display = (isDeliv || isTicket || isShip) ? 'none' : '';
+  const shipCard = $('campShippingCard');   // 배송 리스트(조각 S3) — admin-shipping.js 가 채운다
+  if (shipCard) shipCard.style.display = isShip ? '' : 'none';
   if (delivCard) delivCard.style.display = isDeliv ? '' : 'none';
   const extBox = $('campExtBox');   // 외부 결과 파일(조각 12) — 내용을 그린 뒤에만(data-ready)
   if (extBox) extBox.style.display = (isDeliv && extBox.dataset.ready === '1') ? '' : 'none';
   if (ticketCard) ticketCard.style.display = isTicket ? '' : 'none';
-  // 검색은 신청자·결과물 탭 전용 — 예약 표는 자체 필터(타임·상태)를 쓴다.
-  if (filterBar) filterBar.style.display = isTicket ? 'none' : 'flex';
+  // 검색은 신청자·결과물 탭 전용 — 예약 표는 자체 필터(타임·상태)를, 배송 리스트는 자체 상태 탭을 쓴다.
+  if (filterBar) filterBar.style.display = (isTicket || isShip) ? 'none' : 'flex';
   // 검수 상태 드롭다운은 결과물 탭 전용
   const reviewGroup = $('campDelivReviewFilterGroup');
   if (reviewGroup) reviewGroup.style.display = isDeliv ? '' : 'none';
@@ -845,6 +855,7 @@ function renderCampOpsSummary(camp, allApps, allDelivs, stats) {
   box.innerHTML = campOpsOverviewCard(camp) + campOpsStatusCard(camp, allApps, allDelivs, stats);
   appendCampOpsCostCard(camp);
   if (typeof campExtFillCount === 'function') campExtFillCount();   // 외부 N명(조각 12) — 응답이 카드보다 먼저 왔을 때
+  if (typeof campShipFillSummaryBar === 'function') campShipFillSummaryBar();   // 배송(발송함) 막대(조각 S3) — 같은 이유
 }
 
 // 개요 카드 — 썸네일·제품·캠페인번호·타입/채널/판매가 + 기간 3종
@@ -938,6 +949,7 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
     ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
     <div id="campOpsExtCount" style="display:none;margin:-4px 0 6px;font-size:11px;color:var(--muted);text-align:right" title="캠페인에 붙인 외부 결과 파일의 참가자 수 — 브랜드 페이지 응모·참여 숫자에 더해진다"></div>
+    ${_campDetailShipOn ? '<div id="campOpsShipBar"></div>' : ''}
     ${delivKnown ? brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
     ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certSuccess, slots) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">

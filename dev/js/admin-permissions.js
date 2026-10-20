@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
 // admin-permissions.js — 동적 권한 관리 설정 화면 (super_admin 전용). PR2 조각 C.
-//   등급(super_admin/campaign_admin/campaign_manager) × 기능(ADMIN_PERMISSION_CATALOG 48 = 화면 23 + 기능 25)
+//   등급(super_admin/campaign_admin/campaign_manager) × 기능(ADMIN_PERMISSION_CATALOG 49 = 화면 23 + 기능 26 — 개발서버 전용 1 포함)
 //   그리드에서 super_admin 이 접근수준(쓰기/읽기/숨김)을 설정.
 //   저장 = update_role_permissions RPC(일괄·원자·이력·권한상승/충돌 가드, storage.js saveRolePermissions).
 //   ⚠️ 이 설정은 "화면 표시 제어"다. 실제 데이터 접근 차단이 아니다(서버 RLS/has_permission 이 방어선, PR3).
@@ -82,6 +82,8 @@ function renderPermGrid() {
   const groups = [];
   const idx = {};
   ADMIN_PERMISSION_CATALOG.forEach(f => {
+    // 개발서버 전용 항목(staging_only — 운영 데이터베이스에 시드가 없다)은 운영 화면에 그리지 않는다
+    if (f.staging_only && !((typeof _brandAccountEnabled === 'function') && _brandAccountEnabled())) return;
     if (!(f.category in idx)) { idx[f.category] = groups.length; groups.push({category: f.category, items: []}); }
     groups[idx[f.category]].items.push(f);
   });
