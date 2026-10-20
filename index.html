@@ -10372,6 +10372,31 @@ async function fetchDataAccessLogs(filters) {
   } catch (e) { console.error('[fetchDataAccessLogs]', e); return null; }
 }
 
+// 관리자 개인정보 접속 기록 한 줄(552 record_admin_data_access) — 조각 R2. 성공 true / 실패 false.
+//   🔴 개발서버(IS_STAGING)에서만 부른다 — 운영에는 552 가 없다(출시 L1 때 이 조건을 걷는다).
+//   운영 주소에서는 부르지 않고 true(= 막지 않음)를 돌려준다.
+async function recordAdminDataAccess(source, columns, personCount, meta) {
+  if (!IS_STAGING) return true;
+  if (!db) return false;
+  try {
+    const { error } = await db.rpc('record_admin_data_access', {
+      p_source: String(source || '').slice(0, 100),
+      p_columns: Array.isArray(columns) ? columns : [],
+      p_person_count: Math.max(0, Number(personCount) || 0),
+      p_meta: meta && typeof meta === 'object' ? meta : {}
+    });
+    if (error) throw error;
+    return true;
+  } catch (e) { console.error('[recordAdminDataAccess]', source, e); return false; }
+}
+
+// 관리자 엑셀 내려받기 관문(결정 5) — 기록이 성공해야 파일을 만든다. 실패면 안내 후 false.
+async function recordAdminExportOrBlock(source, columns, personCount, meta) {
+  const ok = await recordAdminDataAccess(source, columns, personCount, meta);
+  if (!ok) toast('기록을 남기지 못해 내려받을 수 없습니다. 잠시 후 다시 시도해 주십시오.', 'error');
+  return ok;
+}
+
 async function fetchDeliverablesForReport(campaignIds) {
   if (!db) return null;
   const ids = [...new Set((campaignIds || []).filter(Boolean))];

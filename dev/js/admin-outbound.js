@@ -645,6 +645,7 @@ async function exportOutboundExcel() {
       });
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 아웃바운드 명단', rows.length))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);

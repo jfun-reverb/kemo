@@ -2039,6 +2039,7 @@ async function exportSettlementsExcel() {
       });
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 정산 목록', _excelDistinctCount(rows, s => s.influencer_id)))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -3017,7 +3018,9 @@ function _payoutBrandOf(r, brandMap) {
   return brandMap[r.campaignId] || '';
 }
 
-function _payoutExcelSaveWorkbook(wb, fileName) {
+// gate = {source, personCount} — 관리자 엑셀 기록 관문(조각 R2). 막히면 false(파일 없음), 받으면 true.
+async function _payoutExcelSaveWorkbook(wb, fileName, gate) {
+  if (gate && !(await _excelInternalGate(wb, gate.source, gate.personCount))) return false;
   return wb.xlsx.writeBuffer().then(function(buf) {
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -3026,6 +3029,7 @@ function _payoutExcelSaveWorkbook(wb, fileName) {
     aEl.download = fileName;
     document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
     URL.revokeObjectURL(url);
+    return true;
   });
 }
 
@@ -3148,7 +3152,9 @@ async function exportPayoutRoundExcel(dueArg, opts) {
     _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows), { groupBy: groupBy, personKeys: personKeys, campSort: campSort });
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
-    await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
+    const saved = await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx',
+      { source: '엑셀 · 회차 송금 명단', personCount: _excelDistinctCount(rows, r => r.influencerId || r.influencer_id || r.name) });
+    if (!saved) return;
     toast('엑셀 다운로드 완료 (' + rows.length + '건)');
   } catch (e) {
     toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
@@ -4838,7 +4844,8 @@ async function exportTransferHistoryExcel() {
     ws1.addRow(['합계', '', '', '', sent, fee, '', '', '', '', sent + fee, '', '']).font = { bold: true };
     [5, 6, 11].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
     ws2.getColumn(6).numFmt = '#,##0';
-    await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx');
+    await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx',
+      { source: '엑셀 · 송금 내역', personCount: _excelDistinctCount(rows, t => t.influencer_id) });
   } catch (e) {
     toast('엑셀을 만들지 못했습니다 — ' + friendlyError(e.message || e), 'error');
   }

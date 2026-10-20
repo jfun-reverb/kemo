@@ -472,6 +472,7 @@ async function exportReportExcel(reportId) {
       ws.addRow(o);
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 리포트', rows.length, { title: String(title || '').slice(0, 100) }))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url = URL.createObjectURL(blob);

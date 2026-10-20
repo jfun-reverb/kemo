@@ -150,6 +150,93 @@ function _checkExportAllowed() {
 function _markExportStart() { _exportInProgress = true; }
 function _markExportEnd() { _exportInProgress = false; _lastExportAt = Date.now(); }
 
+// ─── 관리자 엑셀 내려받기 기록 + 첫 줄 「사내용」 (조각 R2 — 개발서버만) ─────────
+// 🔴 IS_STAGING 일 때만 돈다 — 운영에는 기록 표(552)가 없다. 운영 파일은 지금 모양 그대로
+//    (기록이 없는데 「기록이 남습니다」가 찍히거나 머리글 줄이 밀리지 않게). 출시(L1) 때 이 조건을 걷는다.
+// 대상 = 인플루언서 정보가 든 관리자 엑셀 13개(선결 Q5 — 브랜드 서베이 엑셀만 뺌). 파일을 쓰기 직전
+//   `if (!(await _excelInternalGate(wb, 출처, 인원))) return;` 한 줄 — 기록이 실패하면 파일을 안 만든다(결정 5).
+// ⚠️ 「사내용」 줄이 들어가면 모든 시트의 머리글이 한 줄 아래로 내려간다(병합 칸·사진 위치도 함께 옮긴다).
+//    관리자 엑셀을 다시 읽는 코드는 없다 — 새로 만들면 이 줄을 감안할 것.
+
+// 「A3:B3」 같은 범위의 행 번호를 n 만큼 민다.
+function _excelShiftRangeRows(range, n) {
+  return String(range).replace(/([A-Z]+)(\d+)/g, function(m, c, r) { return c + (Number(r) + n); });
+}
+
+function _excelInternalBannerText() {
+  var who = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? (currentAdminInfo.name || currentAdminInfo.email || '') : '';
+  return '사내용 — 회사 밖으로 보내지 마십시오 · 내려받은 기록이 남습니다(' + formatDateTime(new Date()) + (who ? ' · ' + who : '') + ')';
+}
+
+// 시트 맨 위에 「사내용」 줄을 끼운다. ExcelJS 의 spliceRows 는 칸 값·줄 높이만 옮기고
+//   병합 목록·사진 위치는 그대로 둬서(4.4.0 실측) 둘은 직접 한 줄씩 민다.
+// ⚠️ ExcelJS 내부 속성(`ws._merges[…].range`·사진 `range.tl/br.nativeRow`)에 기댄다 — `loadExcelJS` 의 판(4.4.0)을
+//    올리면 이 함수를 다시 시험할 것(병합 칸·사진이 사람 줄에 맞는지).
+function _excelInternalBanner(ws, colCount) {
+  if (!ws) return;
+  var n = Math.max(1, Number(colCount) || ws.columnCount || 1);
+  var merges = Object.keys(ws._merges || {}).map(function(k) { return ws._merges[k].range; });
+  merges.forEach(function(r) { ws.unMergeCells(r); });
+  ws.spliceRows(1, 0, []);
+  merges.forEach(function(r) { ws.mergeCells(_excelShiftRangeRows(r, 1)); });
+  (typeof ws.getImages === 'function' ? ws.getImages() : []).forEach(function(img) {
+    var rg = img && img.range;
+    if (!rg) return;
+    if (rg.tl) rg.tl.nativeRow += 1;
+    if (rg.br) rg.br.nativeRow += 1;
+  });
+  var row = ws.getRow(1);
+  var cell = row.getCell(1);
+  cell.value = _excelInternalBannerText();
+  if (n > 1) ws.mergeCells(1, 1, 1, n);
+  row.height = 22;
+  cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8590C' } };
+  cell.alignment = { vertical: 'middle', horizontal: 'left' };
+}
+
+// 기록용 열 이름 — 시트마다 위 6줄 중 굵은 글씨 줄에서 글자 칸이 가장 많은 줄을 머리글로 본다
+//   (제목 줄은 병합 칸 하나, 데이터 줄은 굵지 않다). 서버 크기 한도(8KB) 안으로 자른다.
+function _excelWorkbookHeaderLabels(wb) {
+  var seen = {}, out = [], bytes = 2;
+  var enc = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+  wb.eachSheet(function(ws) {
+    var best = null, bestCount = 0;
+    for (var r = 1; r <= Math.min(6, ws.rowCount); r++) {
+      var row = ws.getRow(r);
+      var labels = [];
+      row.eachCell(function(c) { if (typeof c.value === 'string' && c.value.trim()) labels.push(c.value.trim()); });
+      var bold = row.font && row.font.bold || (row.getCell(1).font && row.getCell(1).font.bold);
+      var score = labels.length + (bold ? 1000 : 0);
+      if (labels.length >= 2 && score > bestCount) { best = labels; bestCount = score; }
+    }
+    (best || []).forEach(function(l) {
+      if (seen[l]) return;
+      var b = (enc ? enc.encode(l).length : l.length * 3) + 4;
+      if (bytes + b > 6000) return;
+      seen[l] = true; out.push(l); bytes += b;
+    });
+  });
+  return out;
+}
+
+// 파일을 쓰기 직전 관문 — 기록 성공이면 모든 시트에 「사내용」 줄을 붙이고 true, 실패면 안내 후 false.
+//   운영 주소(IS_STAGING 아님)는 아무것도 안 하고 true.
+async function _excelInternalGate(wb, source, personCount, meta) {
+  if (!IS_STAGING) return true;
+  var ok = await recordAdminExportOrBlock(source, _excelWorkbookHeaderLabels(wb), personCount, meta);
+  if (!ok) return false;
+  wb.eachSheet(function(ws) { _excelInternalBanner(ws); });
+  return true;
+}
+
+// 한 사람이 여러 줄(여러 캠페인·결과물)에 나와도 한 명으로 센다.
+function _excelDistinctCount(list, keyFn) {
+  var s = new Set();
+  (list || []).forEach(function(x) { var k = keyFn(x); if (k) s.add(k); });
+  return s.size;
+}
+
 function toggleCampSelect(campId, checked) {
   if (checked) _selectedCampIds.add(campId);
   else _selectedCampIds.delete(campId);
@@ -537,6 +624,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
     ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 신청자(선택)', _excelDistinctCount(allCampApps, function(a){ return a.user_id || a.user_email; }), { campaigns: camps.length }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -855,6 +943,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     });
     }  // end if (hasOtherCamps)
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물(선택)', _excelDistinctCount((groupList || []).concat(allDelivs || []), function(g){ return g.user_id; }), { campaigns: camps.length }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -1024,6 +1113,7 @@ async function exportCampaignApplicationsExcel(campId) {
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('cancelReason').alignment = { wrapText: true, vertical: 'top' };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 신청자', _excelDistinctCount(apps, function(a){ return a.user_id || a.user_email; })))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -1323,6 +1413,7 @@ async function exportCampaignDeliverables(campId) {
     // 6-b) 외부 결과 파일(조각 12) — 붙인 파일이 있으면 「외부 참가자」 시트
     if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
     // 7) 파일 저장
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물', _excelDistinctCount(groupList, function(g){ return g.user_id; }), { campaign_no: camp.campaign_no || '' }))) return;
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
@@ -1588,6 +1679,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   if (skipDownload) return ws;
   // 외부 결과 파일(조각 12) — 단일 캠페인 엑셀에만 「외부 참가자」 시트
   if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
+  if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물', _excelDistinctCount(groupList, function(g){ return g.user_id; }), { campaign_no: camp.campaign_no || '' }))) return;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
@@ -1907,6 +1999,7 @@ async function exportInfluencersExcel() {
       ws.addRow(row);
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 인플루언서 목록', rows.length, { sensitive: !!includeSensitive }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -2046,6 +2139,7 @@ async function exportEventTicketsExcel(campaignId) {
     });
     ws2.getRow(1).font = { bold: true };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 행사 예약 명단', _excelDistinctCount(tickets, function(t){ return t.influencer_id || t.id; }), { campaign_no: (_evtCamp && _evtCamp.campaign_no) || '' }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
