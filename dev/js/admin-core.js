@@ -254,6 +254,7 @@ function switchAdminPane(pane, el, pushHistory) {
     //    PANE_REFRESHERS 만 등록하는 실수가 흔하다 — 두 곳 다 필요하다.
     'reports': loadReportsPane,
     'ad-tracking': loadAdTrackingPane,
+    'privacy-logs': loadPrivacyLogsPane,
     dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,

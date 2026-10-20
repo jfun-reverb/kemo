@@ -2154,6 +2154,15 @@ async function fetchBrandProvisionPersons(logId) {
     return Array.isArray(data) ? data : null;
   } catch (e) { console.error('[fetchBrandProvisionPersons]', e); return null; }
 }
+// 관리자 접속 기록(552 — 최고 관리자만, 개인정보 기록 화면 「접속」 탭) — {rows, has_more} · 실패 null
+async function fetchDataAccessLogs(filters) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_data_access_logs', { p_filters: filters || {} });
+    if (error) throw error;
+    return (data && Array.isArray(data.rows)) ? data : null;
+  } catch (e) { console.error('[fetchDataAccessLogs]', e); return null; }
+}
 
 async function fetchDeliverablesForReport(campaignIds) {
   if (!db) return null;

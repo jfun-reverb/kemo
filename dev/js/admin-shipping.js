@@ -512,7 +512,11 @@ async function openShipLogModal() {
   body.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">브랜드에 인플루언서 정보(이름·주소·전화번호)를 준 기록입니다. 일본 개인정보보호법의 제3자 제공 기록으로 3년 보관합니다.</div>'
     + '<div class="admin-table-wrap"><table class="data-table"><thead><tr><th>일시</th><th>누가</th><th>무엇을</th><th></th></tr></thead><tbody>'
     + (tr || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">아직 기록이 없습니다</td></tr>')
-    + '</tbody></table></div>';
+    + '</tbody></table></div>'
+    // D5 — 최근 50줄 너머는 개인정보 기록 화면에서(이 캠페인의 브랜드로 걸러 연다 · 조각 R3)
+    + ((typeof openPrivacyLogs === 'function' && camp && camp.brand_id)
+        ? '<div style="margin-top:10px;text-align:right"><button type="button" class="btn btn-ghost btn-xs" onclick="closeModal(\'shipLogModal\');openPrivacyLogs({brandId:' + jsStr(camp.brand_id) + ',brandName:' + jsStr(camp.brand || '') + '})">개인정보 기록 화면에서 더 보기 →</button></div>'
+        : '');
 }
 
 async function toggleShipLogPersons(btn, logId) {
