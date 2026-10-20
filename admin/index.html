@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792482473';
+  var CURRENT_BUILD = 'v1792483120';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3513,7 +3513,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-20 16:47 · 2c9b07c</span>
+          <span class="admin-build-text">2026-10-20 16:58 · 0186a63</span>
         </div>
       </div>
     </aside>
@@ -18757,6 +18757,9 @@ const csCompleteCase = (caseId, version, categoryCode, responseBody, completedAt
   _csRpc('cs_complete_case', { p_case_id: caseId, p_version: version, p_category_code: categoryCode,
     p_response_body: responseBody, p_completed_at: completedAtIso || null });
 const csReopenCase = (caseId, version) => _csRpc('cs_reopen_case', { p_case_id: caseId, p_version: version });
+// 열린 건의 항목·대응 안내만 저장(571 — 완료와 별개). 비운 값은 비운 채로 저장된다
+const csSaveCaseDraft = (caseId, version, categoryCode, responseBody) =>
+  _csRpc('cs_save_case_draft', { p_case_id: caseId, p_version: version, p_category_code: categoryCode || null, p_response_body: responseBody || null });
 const csSetCaseStatus = (caseId, version, status) =>
   _csRpc('cs_set_case_status', { p_case_id: caseId, p_version: version, p_status: status });
 const csSplitCase = (messageIds, categoryCode, firstComment) =>
@@ -22656,7 +22659,8 @@ function _csCdFootHtml(r) {
   const purged = !!r.personal_purged_at;
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
-    : `<button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
+    : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdSaveDraft()" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
+       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
   return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
@@ -22738,6 +22742,15 @@ async function csCdComplete() {
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   const ok = await _csCdWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다');
   if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = '완료 저장'; }
+}
+
+// 완료와 별개로 항목·대응 안내만 저장(571) — 빈 칸 검사 없이 지금 값 그대로
+async function csCdSaveDraft() {
+  const r = _csCd && _csCd.row;
+  if (!r) return;
+  const cat = ($('csCdCategory') || {}).value || '';
+  const resp = (($('csCdResponse') || {}).value || '').trim();
+  await _csCdWrite(() => csSaveCaseDraft(r.id, r.version, cat, resp), '저장했습니다(아직 완료 전)');
 }
 
 async function csCdReopen() {
@@ -22990,6 +23003,7 @@ function _csPnCompleteHtml(r) {
     ${csCompleteFormHtml(r, csResponsePrefill(r, lr), 'csPn')}${hint}
     <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnCancelComplete()">취소</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="csPnSaveDraft(${jsStr(r.id)})" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
       <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">완료 저장</button></div></div>`;
 }
 
@@ -23100,6 +23114,15 @@ async function csPnDelete(id) {
   if (!(await showConfirm(csDeleteConfirmText(r)))) return;
   await _csPnWrite(() => csDeleteCase(r.id, r.version), 'CS 건을 삭제했습니다',
     () => { delete _csPn.drafts[id]; if (_csPn.completing === id) _csPn.completing = null; _csPn.expanded = null; });
+}
+
+// 완료와 별개로 항목·대응 안내만 저장(571) — 양식은 연 채로 둔다(쓰던 값은 drafts 로 남는다)
+async function csPnSaveDraft(id) {
+  const r = _csPnRow(id);
+  if (!r) return;
+  const cat = ($('csPnCategory') || {}).value || '';
+  const resp = (($('csPnResponse') || {}).value || '').trim();
+  await _csPnWrite(() => csSaveCaseDraft(r.id, r.version, cat, resp), '저장했습니다(아직 완료 전)');
 }
 
 async function csPnReopen(id) {
