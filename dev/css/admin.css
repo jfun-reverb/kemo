@@ -2766,3 +2766,31 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-memo-cell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:0;background:transparent;padding:0;cursor:pointer}
 .cs-memo-cell-dot{position:absolute;top:-2px;right:-4px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:var(--pink);color:#fff;font-size:9.5px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;box-shadow:0 0 0 1.5px #fff}
 .cs-memo-cell-err{background:var(--red)}
+
+/* ── CS 건 상세 모달(admin-cs-history.js — 작업표 2-2 · 피그마 a10-08a) ── */
+.cs-cd-modal{max-width:1080px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column}
+.cs-cd-modal .modal-header h2{display:flex;align-items:center;gap:8px}
+.cs-cd-body{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);flex:1;min-height:0}
+.cs-cd-left{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+#csCdLeft{flex:1;overflow-y:auto;padding:18px 22px}
+.cs-cd-foot{display:flex;justify-content:space-between;align-items:center;padding:12px 22px;border-top:1px solid var(--line)}
+.cs-cd-right{display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:18px 20px;background:#fcfcfd}
+.cs-cd-memo-title{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:var(--ink);margin-bottom:6px}
+.cs-cd-memo-sub,.cs-cd-sec-sub{font-size:11.5px;font-weight:600;color:var(--muted)}
+.cs-cd-unread{font-size:12px;color:var(--pink);margin-bottom:8px}
+.cs-cd-unread::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--pink);margin-right:6px;vertical-align:middle}
+.cs-cd-label{font-size:11px;color:var(--muted);margin-bottom:2px}
+.cs-cd-camp,.cs-cd-member{font-size:13.5px;color:var(--ink);margin-bottom:10px}
+.cs-cd-info{display:grid;gap:10px;background:#f6f6f8;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.cs-cd-val{font-size:13px;color:var(--ink)}
+.cs-cd-sec-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:var(--ink);margin:4px 0 6px}
+.cs-cd-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px;background:#fff}
+.cs-cd-complete{border:1.5px solid var(--accent);border-radius:12px;padding:12px 14px;background:#fff}
+.cs-cd-done{border-color:var(--line)}
+.cs-cd-complete-head{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:var(--accent-ink);margin-bottom:10px;flex-wrap:wrap}
+.cs-cd-purged{border:1px dashed var(--line);border-radius:10px;padding:12px;font-size:12.5px;color:var(--muted)}
+.cs-seg-wrap{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cs-seg{border:0;background:#fff;padding:5px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.cs-seg.on{background:var(--blue-l);color:var(--blue);font-weight:800}
+.cs-tag{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:11px;font-weight:600;color:var(--muted)}
+.cs-btn-complete{background:#5E35B1;border-color:#5E35B1}
