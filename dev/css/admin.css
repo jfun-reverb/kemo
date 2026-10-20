@@ -2710,3 +2710,34 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .brand-account-devlink-title .material-icons-round{font-size:15px}
 .brand-account-devlink-field{display:flex;gap:6px;align-items:center}
 .brand-account-devlink-field input{flex:1;min-width:0;font-size:12px}
+
+/* ── CS 이력 관리 공용 부품(admin-cs-common.js — 작업표 2-0) ──
+   표 화면(2-1)·패널(3-1)의 자리 스타일은 각 조각이 따로 덧붙인다. 메모 모양은 오리엔시트 메모(os-memo-*)와 맞춘다 */
+.cs-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;line-height:1.5}
+.cs-badge-progress{background:#f1f1f4;color:var(--ink)}
+.cs-badge-check{background:#fff4e5;color:#b45309}
+.cs-badge-done{background:var(--accent-tint);color:var(--accent-ink)}
+.cs-complete-form{display:flex;flex-direction:column;gap:6px}
+.cs-field-label{font-size:12px;font-weight:700;color:var(--muted)}
+.cs-field-error{border-color:var(--red)!important;box-shadow:0 0 0 2px var(--red-l)}
+.cs-memo-list{display:flex;flex-direction:column;gap:8px}
+.cs-memo-item{border:1px solid #ececf0;border-radius:10px;padding:8px 10px;background:#fcfcfd}
+.cs-memo-reply{margin-left:20px;background:#fff}
+.cs-memo-meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.cs-memo-author{font-weight:700;color:var(--ink)}
+.cs-memo-new{background:var(--pink);color:#fff;border-radius:999px;padding:0 6px;font-size:10.5px;font-weight:700}
+.cs-memo-acts{margin-left:auto;display:flex;gap:2px}
+.cs-memo-text{margin-top:4px;font-size:13px;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.cs-memo-trans{margin-top:4px;font-size:12.5px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.cs-memo-trans-tag{display:inline-block;margin-right:6px;font-size:10.5px;font-weight:700}
+.cs-memo-deleted{margin-top:4px;font-size:12.5px;color:var(--muted);font-style:italic}
+.cs-memo-atts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cs-memo-att{width:64px;height:64px;padding:0;border:1px solid var(--line);border-radius:8px;background:#f6f6f8;overflow:hidden;cursor:pointer;font-size:10px;color:var(--muted)}
+.cs-memo-att img{width:100%;height:100%;object-fit:cover;display:block}
+.cs-memo-empty,.cs-memo-loading{font-size:12.5px;color:var(--muted);padding:6px 0}
+.cs-memo-error{font-size:12.5px;color:var(--red);padding:6px 0}
+.cs-memo-form{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.cs-memo-replyline{font-size:12px;color:var(--muted)}
+.cs-memo-input{font-size:13px;resize:vertical}
+.cs-memo-form-acts{display:flex;justify-content:space-between;align-items:center}
+.cs-memo-file{display:inline-flex;align-items:center;gap:4px;cursor:pointer}

@@ -7535,3 +7535,189 @@ async function upsertEventInvite(campaignId, code) {
   return saved;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// CS 이력 관리 — 마이그레이션 556·560·562·563 · 작업표 조각 2-0
+//   🔴 개발서버(IS_STAGING)에서만 부른다 — 운영엔 555~563 이 없다. CS 1단계 운영 적용 때 csHistoryEnabled 를 걷는다
+//   조회는 실패 null / 0건 [](또는 {}) — 부르는 쪽이 갈라 그린다
+//   쓰기는 오류를 throw — 거부 코드(P0001 메시지 문자열)는 csErrorText(admin-cs-common.js)가 문구로 바꾼다
+// ════════════════════════════════════════════════════════════════════
+const CS_ATTACH_BUCKET = 'cs-case-attachments';
+function csHistoryEnabled() {
+  return typeof IS_STAGING !== 'undefined' && IS_STAGING === true;
+}
+
+// 표 — 기간(접수 시각, 비우면 전체). 반환 줄 배열(version 없음 — 고치는 화면은 fetchCsCase 로 그 건을 다시 읽는다)
+async function fetchCsCases(fromIso, toIso) {
+  if (!db || !csHistoryEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('get_cs_cases', { p_from: fromIso || null, p_to: toIso || null });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('[fetchCsCases]', e); return null; }
+}
+
+// 요약 줄 — {total, by_status, by_source, by_category, response, resolve, by_category_time}
+async function fetchCsSummary(fromIso, toIso) {
+  if (!db || !csHistoryEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('get_cs_summary', { p_from: fromIso || null, p_to: toIso || null });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchCsSummary]', e); return null; }
+}
+
+// CS 패널 — 응모건이면 applicationId, 서비스 문의면 threadId(정확히 하나). version·수기 칸 포함(566)
+async function fetchCsCasesForConversation(applicationId, threadId) {
+  if (!db || !csHistoryEnabled()) return null;
+  if (!applicationId === !threadId) return null;
+  try {
+    const { data, error } = await db.rpc('get_cs_cases_for_conversation', {
+      p_application_id: applicationId || null, p_thread_id: threadId || null
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('[fetchCsCasesForConversation]', e); return null; }
+}
+
+// 건 하나 — 패널 줄과 같은 꼴(version·수기 칸 포함, 566). 실패 null / 없는 건 false
+async function fetchCsCase(caseId) {
+  if (!db || !caseId || !csHistoryEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('get_cs_case', { p_case_id: caseId });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : false;
+  } catch (e) { console.error('[fetchCsCase]', e); return null; }
+}
+
+// 메모 요약 — {건 id: {total, unread}} · caseIds 비우면 전부
+async function fetchCsCommentSummaries(caseIds) {
+  if (!db || !csHistoryEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('get_cs_comment_summaries', { p_case_ids: (caseIds && caseIds.length) ? caseIds : null });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : {};
+  } catch (e) { console.error('[fetchCsCommentSummaries]', e); return null; }
+}
+
+// 메모 목록 — 오래된 것부터. 지운 메모도 온다(답글이 달린 메모는 「지운 메모」 자리를 남긴다)
+async function fetchCsComments(caseId) {
+  if (!db || !caseId || !csHistoryEnabled()) return null;
+  try {
+    const { data, error } = await db.from('cs_case_comments')
+      .select('id, case_id, parent_id, author_id, author_name, origin, body, attachments, translated, translated_lang, translate_status, deleted_at, created_at')
+      .eq('case_id', caseId)
+      .order('created_at', { ascending: true }).order('id', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  } catch (e) { console.error('[fetchCsComments]', e); return null; }
+}
+
+// 내가 읽은 메모 번호 — 「새」 표시용(읽음 표는 내 줄만 보인다, 556). 실패 null(「새」를 안 그린다)
+async function fetchCsMyCommentReads(commentIds) {
+  if (!db || !commentIds || !commentIds.length) return new Set();
+  try {
+    const out = new Set();
+    for (let i = 0; i < commentIds.length; i += 200) {
+      const { data, error } = await db.from('cs_case_comment_reads').select('comment_id').in('comment_id', commentIds.slice(i, i + 200));
+      if (error) throw error;
+      (data || []).forEach(x => out.add(x.comment_id));
+    }
+    return out;
+  } catch (e) { console.error('[fetchCsMyCommentReads]', e); return null; }
+}
+
+// 완료 양식 미리 채움 ③(D-17) — 접수 뒤 그 대화의 마지막 운영팀 글. 없으면 null · 실패도 null(빈칸에서 시작 — 담당자가 적는다)
+//   ⚠️ 거르는 조건(운영팀 글·일괄 발송·숨김·회수 제외·접수 뒤)은 첫 답장 계산(563 _cs_case_rows)의 사본 — 그쪽을 고치면 함께
+//   「시간 미상」 건은 접수 시각을 기준으로 쓰지 않는다(D-17) — 부르는 쪽(csResponsePrefill)이 거른다
+async function fetchCsLastStaffReply(row) {
+  if (!db || !row || !row.received_at) return null;
+  if (!row.application_id && !row.general_thread_id) return null;
+  try {
+    let q = db.from('application_messages')
+      .select('id, body, body_translated, translated_lang, translate_status, created_at')
+      .eq('sender_kind', 'admin')
+      .is('broadcast_id', null).is('hidden_by_admin_at', null).is('self_withdrawn_at', null)
+      .gt('created_at', row.received_at);
+    q = row.application_id ? q.eq('application_id', row.application_id) : q.eq('general_thread_id', row.general_thread_id);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch (e) { console.error('[fetchCsLastStaffReply]', e); return null; }
+}
+
+// 메모 첨부 — 압축 뒤 {건 id}/… 에 올린다(562 가 경로 앞자리를 검사). 반환 {path, name, size, mime}
+async function uploadCsCommentAttachment(file, caseId) {
+  if (!db) throw new Error('DB 미연결');
+  const compressed = await compressImageFile(file);
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${caseId}/${uuid}.jpg`;
+  const { error } = await db.storage.from(CS_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 메모 첨부 서명 주소 — {경로: 주소} · 실패는 {}(그림 자리만 빈다)
+async function signCsCommentAttachments(paths, expiresIn = 300) {
+  const out = {};
+  if (!db || !paths || !paths.length) return out;
+  try {
+    const { data, error } = await db.storage.from(CS_ATTACH_BUCKET).createSignedUrls(paths, expiresIn);
+    if (error) throw error;
+    (data || []).forEach(x => { if (x && x.path && x.signedUrl) out[x.path] = x.signedUrl; });
+  } catch (e) { console.error('[signCsCommentAttachments]', e); }
+  return out;
+}
+
+// 쓰기 공용 — 이름 하나로 rpc 를 부르고 결과를 돌려준다(오류 throw)
+async function _csRpc(fn, args) {
+  if (!db) throw new Error('DB 미연결');
+  if (!csHistoryEnabled()) throw new Error('CS 이력 관리는 아직 개발서버에서만 쓸 수 있습니다');
+  let out = null;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc(fn, args);
+    if (error) throw error;
+    out = data;
+  });
+  return out;
+}
+// 아래 쓰기 함수는 새 version(정수)을 돌려준다 — 만들기·CS 추가·메모 쓰기는 새 id
+const csCompleteCase = (caseId, version, categoryCode, responseBody, completedAtIso) =>
+  _csRpc('cs_complete_case', { p_case_id: caseId, p_version: version, p_category_code: categoryCode,
+    p_response_body: responseBody, p_completed_at: completedAtIso || null });
+const csReopenCase = (caseId, version) => _csRpc('cs_reopen_case', { p_case_id: caseId, p_version: version });
+const csSetCaseStatus = (caseId, version, status) =>
+  _csRpc('cs_set_case_status', { p_case_id: caseId, p_version: version, p_status: status });
+const csSplitCase = (messageIds, categoryCode, firstComment) =>
+  _csRpc('cs_split_case', { p_message_ids: messageIds, p_category_code: categoryCode || null, p_first_comment: firstComment || null });
+const csUpdateCaseSummary = (caseId, version, summary) =>
+  _csRpc('cs_update_case_summary', { p_case_id: caseId, p_version: version, p_summary: summary });
+// f = {source, received_at, influencer_id, manual_name, manual_email, campaign_id, campaign_name, manual_category,
+//      category_code, inquiry_ja, inquiry_ko, response_ja, response_ko, first_reply_at, status, completed_at, first_comment}
+const csCreateManualCase = (f) => _csRpc('cs_create_manual_case', {
+  p_source: f.source, p_received_at: f.received_at, p_influencer_id: f.influencer_id || null,
+  p_manual_name: f.manual_name || null, p_manual_email: f.manual_email || null,
+  p_campaign_id: f.campaign_id || null, p_campaign_name: f.campaign_name || null,
+  p_manual_category: f.manual_category || null, p_category_code: f.category_code || null,
+  p_inquiry_ja: f.inquiry_ja || null, p_inquiry_ko: f.inquiry_ko || null,
+  p_response_ja: f.response_ja || null, p_response_ko: f.response_ko || null,
+  p_first_reply_at: f.first_reply_at || null, p_status: f.status || 'in_progress',
+  p_completed_at: f.completed_at || null, p_first_comment: f.first_comment || null });
+// 편집 — 진행현황·완료 일시·메모는 받지 않는다(D-2·작업표 2-3)
+const csUpdateManualCase = (caseId, version, f) => _csRpc('cs_update_manual_case', {
+  p_case_id: caseId, p_version: version, p_source: f.source, p_received_at: f.received_at,
+  p_influencer_id: f.influencer_id || null, p_manual_name: f.manual_name || null, p_manual_email: f.manual_email || null,
+  p_campaign_id: f.campaign_id || null, p_campaign_name: f.campaign_name || null,
+  p_manual_category: f.manual_category || null, p_category_code: f.category_code || null,
+  p_inquiry_ja: f.inquiry_ja || null, p_inquiry_ko: f.inquiry_ko || null,
+  p_response_ja: f.response_ja || null, p_response_ko: f.response_ko || null,
+  p_first_reply_at: f.first_reply_at || null });
+const csAddComment = (caseId, body, parentId, attachments) =>
+  _csRpc('cs_add_comment', { p_case_id: caseId, p_body: body || '', p_parent_id: parentId || null, p_attachments: attachments || [] });
+const csDeleteComment = (commentId) => _csRpc('cs_delete_comment', { p_comment_id: commentId });
+// 읽음 — 실패해도 화면은 그대로(다음에 열 때 다시 읽음 처리된다)
+async function csMarkCaseCommentsRead(caseId) {
+  try { return await _csRpc('cs_mark_case_comments_read', { p_case_id: caseId }); }
+  catch (e) { console.warn('[csMarkCaseCommentsRead]', e); return null; }
+}
