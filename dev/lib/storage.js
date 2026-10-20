@@ -2085,6 +2085,77 @@ async function saveCampaignBrandPublish(campaignId, enabled, columns, expectedVe
   return out;
 }
 
+// ── 시딩형 배송 리스트(관리자) — 마이그레이션 554·557 · 작업표 조각 S3 ──
+//   🔴 개발서버(_brandAccountEnabled)에서만 부른다 — 운영엔 554·557 이 없다
+// 조회 — {success:true, …rows} | {success:false, reason} · 실패(오류) null
+async function fetchCampaignShipping(campaignId) {
+  if (!db || !campaignId || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_campaign_shipping', { p_campaign_id: campaignId });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchCampaignShipping]', e); return null; }
+}
+// 전달(되돌리지 않음) — {ok:true, delivered_now, delivered_at, row_count, account_count} | {ok:false, reason} · 오류는 throw
+async function deliverShippingList(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('배송 리스트는 아직 개발서버에서만 쓸 수 있습니다');
+  let out = null;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('admin_deliver_shipping_list', { p_campaign_id: campaignId });
+    if (error) throw error;
+    out = data;
+  });
+  return out || { ok: false, reason: 'empty_response' };
+}
+// 송장 저장 — rows [{application_id, expected_version, carrier_code, carrier_other, tracking_no(null = 지우기), shipped_on}]
+//   반환 {ok:true, saved:[…], skipped:[{application_id, reason}]} | {ok:false, reason} · 오류는 throw
+async function saveShippingRows(campaignId, rows) {
+  if (!db) throw new Error('DB 미연결');
+  if (!_brandAccountEnabled()) throw new Error('배송 리스트는 아직 개발서버에서만 쓸 수 있습니다');
+  let out = null;
+  await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('admin_save_shipping_rows', { p_campaign_id: campaignId, p_rows: rows });
+    if (error) throw error;
+    out = data;
+  });
+  return out || { ok: false, reason: 'empty_response' };
+}
+// 전달 알림 메일(서버 함수 notify-brand-shipping-list) — 받는 사람은 서버가 정한다. 반환은 함수 응답 그대로({sent, reason?})
+async function sendShippingDeliveredMail(campaignId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-shipping-list', { body: { campaign_id: campaignId } });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+// 브랜드 제공 기록(552 — 최고 관리자만) — {rows, has_more} · 실패 null
+async function fetchBrandProvisionLogs(filters) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_provision_logs', { p_filters: filters || {} });
+    if (error) throw error;
+    return (data && Array.isArray(data.rows)) ? data : null;
+  } catch (e) { console.error('[fetchBrandProvisionLogs]', e); return null; }
+}
+// 기록 한 줄의 사람 목록 [{influencer_id, name}] · 실패 null
+async function fetchBrandProvisionPersons(logId) {
+  if (!db || !logId || !_brandAccountEnabled()) return null;
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_provision_persons', { p_log_id: logId });
+    if (error) throw error;
+    return Array.isArray(data) ? data : null;
+  } catch (e) { console.error('[fetchBrandProvisionPersons]', e); return null; }
+}
+
 async function fetchDeliverablesForReport(campaignIds) {
   if (!db) return null;
   const ids = [...new Set((campaignIds || []).filter(Boolean))];
