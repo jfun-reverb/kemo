@@ -1,7 +1,7 @@
 # 정산(Settlement) 개선 로드맵
 
 **작성일:** 2026-07-08
-**상태:** 기획 초안 (기존 정산 PR1~3 dev 구축 완료 후 후속 개선)
+**상태:** 🟡 일부는 다른 사양서로 운영 반영 — 신청 반려 시 정산 자동 보류(마이그레이션 246) · 송금완료 건 반려 차단(247) · 일괄 송금완료(340 `mark_settlements_paid_bulk`) · 송금 묶음·수수료(484~488, `2026-09-30-settlement-transfer-fee-record.md`). **남은 것**: 보류·취소 알림(`settlement_held`·`settlement_cancelled`)·명세서(PR2) · PR4 (2026-10-20 사양서 점검 — 아래 본문은 작성 당시 기준)
 **관련:** `docs/specs/2026-06-22-influencer-settlement.md`(기존), 메모리 `project_influencer_settlement.md`
 
 > 기존 정산은 **"정산 원장"** — 실제 송금은 관리자가 외부 PayPal에서 하고 시스템은 상태만 기록.

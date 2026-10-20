@@ -2,7 +2,7 @@
 
 > **작성일**: 2026-05-12
 > **작성 세션**: 기획/설계
-> **상태**: ✅ **운영 배포 완료 (마이그레이션 111, 2026-05-12)** — `recalc_brand_application_totals()` 함수 재정의. `recruit_fee_krw`·`transfer_fee_krw` 합산 공식 추가 (이전 1인당 2,500원 고정값 교체). BEFORE UPDATE 트리거 확장. 코드(admin.js·admin-brand.js)는 dev 잠재, main merge 보류 중
+> **상태**: ✅ **운영 배포 완료 (마이그레이션 111, 2026-05-12)** — `recalc_brand_application_totals()` 함수 재정의. `recruit_fee_krw`·`transfer_fee_krw` 합산 공식 추가 (이전 1인당 2,500원 고정값 교체). BEFORE UPDATE 트리거 확장. 코드(admin.js·admin-brand.js)도 운영에 있음(2026-10-20 사양서 점검 — `origin/main` 확인)
 > **연관 일감:** 신규 등록 모달은 별도 진행 (본 사양과 분리)
 > **실제 PR 분할**: 1개 (DB + 클라이언트 통합) — 사양서와 대체로 동일
 
