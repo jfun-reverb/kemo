@@ -408,7 +408,8 @@ function _csCdFootHtml(r) {
   const purged = !!r.personal_purged_at;
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
-    : `<button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
+    : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdSaveDraft()" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
+       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
   return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
@@ -490,6 +491,15 @@ async function csCdComplete() {
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   const ok = await _csCdWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다');
   if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = '완료 저장'; }
+}
+
+// 완료와 별개로 항목·대응 안내만 저장(571) — 빈 칸 검사 없이 지금 값 그대로
+async function csCdSaveDraft() {
+  const r = _csCd && _csCd.row;
+  if (!r) return;
+  const cat = ($('csCdCategory') || {}).value || '';
+  const resp = (($('csCdResponse') || {}).value || '').trim();
+  await _csCdWrite(() => csSaveCaseDraft(r.id, r.version, cat, resp), '저장했습니다(아직 완료 전)');
 }
 
 async function csCdReopen() {

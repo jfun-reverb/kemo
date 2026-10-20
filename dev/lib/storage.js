@@ -7687,6 +7687,9 @@ const csCompleteCase = (caseId, version, categoryCode, responseBody, completedAt
   _csRpc('cs_complete_case', { p_case_id: caseId, p_version: version, p_category_code: categoryCode,
     p_response_body: responseBody, p_completed_at: completedAtIso || null });
 const csReopenCase = (caseId, version) => _csRpc('cs_reopen_case', { p_case_id: caseId, p_version: version });
+// 열린 건의 항목·대응 안내만 저장(571 — 완료와 별개). 비운 값은 비운 채로 저장된다
+const csSaveCaseDraft = (caseId, version, categoryCode, responseBody) =>
+  _csRpc('cs_save_case_draft', { p_case_id: caseId, p_version: version, p_category_code: categoryCode || null, p_response_body: responseBody || null });
 const csSetCaseStatus = (caseId, version, status) =>
   _csRpc('cs_set_case_status', { p_case_id: caseId, p_version: version, p_status: status });
 const csSplitCase = (messageIds, categoryCode, firstComment) =>

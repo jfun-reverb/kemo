@@ -201,6 +201,7 @@ function _csPnCompleteHtml(r) {
     ${csCompleteFormHtml(r, csResponsePrefill(r, lr), 'csPn')}${hint}
     <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnCancelComplete()">취소</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="csPnSaveDraft(${jsStr(r.id)})" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
       <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">완료 저장</button></div></div>`;
 }
 
@@ -311,6 +312,15 @@ async function csPnDelete(id) {
   if (!(await showConfirm(csDeleteConfirmText(r)))) return;
   await _csPnWrite(() => csDeleteCase(r.id, r.version), 'CS 건을 삭제했습니다',
     () => { delete _csPn.drafts[id]; if (_csPn.completing === id) _csPn.completing = null; _csPn.expanded = null; });
+}
+
+// 완료와 별개로 항목·대응 안내만 저장(571) — 양식은 연 채로 둔다(쓰던 값은 drafts 로 남는다)
+async function csPnSaveDraft(id) {
+  const r = _csPnRow(id);
+  if (!r) return;
+  const cat = ($('csPnCategory') || {}).value || '';
+  const resp = (($('csPnResponse') || {}).value || '').trim();
+  await _csPnWrite(() => csSaveCaseDraft(r.id, r.version, cat, resp), '저장했습니다(아직 완료 전)');
 }
 
 async function csPnReopen(id) {
