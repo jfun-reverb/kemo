@@ -13,6 +13,8 @@ paths:
   - "dev/lib/i18n/ko.js"
   - "supabase/migrations/*signup*"
   - "supabase/migrations/*strip_signup*"
+  - "supabase/functions/signup-code-*/**"
+  - "supabase/migrations/*unverified*"
   - "supabase/migrations/*invite_admin*"
   - "supabase/migrations/526_*"
 ---
@@ -36,3 +38,6 @@ paths:
 - **GNB**: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 우측 햄버거 메뉴 (계정 카드[우측 알림 벨] + 홈/캠페인/마이페이지 아코디언/로그아웃/회원탈퇴), 관리자는 Admin 버튼
 - **회원가입 이메일 확인**: 운영서버 한정 Supabase Confirm sign-up 활성, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단. 개발서버는 Confirm email OFF. auth.js 는 `data.session` 유무로 자동 분기
   - 🔴 **확인 링크는 `?code=` 로 착지하고, 그것은 재설정 신호가 아니다**. `detectRecoveryUrlEarly` 가 재설정으로 읽으면 새 회원이 **「새 비밀번호 설정」 화면**에 떨어지고, 다른 브라우저면(검증값 없음 — supabase-js 는 교환을 시도조차 안 한다) 「Auth session missing」. 착지는 **세션 있으면 홈 + 「メール認証が完了しました」 토스트 / 없으면 로그인 화면 + `#loginNotice` 안내**. ⚠️ `?code=` 는 **스크립트 로드 때** `_signupConfirmCodeSeen` 에 봐 둔다(교환 성공 시 주소에서 지워져 `init()` 에서는 놓친다). ⚠️ `?error=…expired` 착지는 **로그인 화면**(`auth.confirm.linkExpired`). ⚠️ 재설정 신호는 `#reset-pw?`·`PASSWORD_RECOVERY`·옛 implicit 해시(`type=recovery`·`access_token=`)뿐 — `?code=` 조건을 되살리지 말 것. `handleLogin` 의 「프로필 없으면 만든다」는 **조회 실패(error)와 0건을 가른다**(실패면 `handleLogin.profileFetch` 기록만). 🔴 **0건이어도 접근 토큰(`getSession()`)이 없으면 삽입하지 않는다** — 비로그인 조회는 오류가 아니라 0건으로 와서 「프로필 없음」으로 읽힌다(운영 9/10·9/13). 그때는 `handleLogin.sessionNotAttached` 기록 + 로컬 로그아웃 + 「다시 로그인」 안내. 사양서 `docs/specs/2026-09-10-signup-confirm-link-routing-fix.md`
+
+## 가입 인증번호 관문 (CLAUDE.md 에서 옮겨 옴 — 2026-10-20 · ⚠️ 상태 서술은 옮길 때 그대로라 낡았을 수 있다 — 10/13 운영 시행 뒤 확인 필요)
+- 🔴 **`auth.users` 가입 인증번호 관문 둘**(마이그레이션 493~499 — **개발·운영 적용(스위치 대기 — 2026-10-01 운영 반영, 함수 2개 포함)**. 가입 화면 운영은 **10/13 시행일**(가입 화면 운영 묶음 #1892, 초안 — 🔴 병합하는 순간 스위치가 대기여도 화면이 인증번호를 필수로 만든다). 🔴 **미인증 계정 정기 삭제 예약은 503**(UTC 20:45) — 방침이 「7일 경과 파기」를 약속하므로 10/13 운영 전환(스위치 강제) 때 함께, 순서는 503 머리말. 사양서 `docs/specs/2026-10-01-signup-email-code-verification.md`): BEFORE INSERT `trg_signup_ticket_gate` · BEFORE UPDATE `trg_signup_resend_gate`(미인증 행의 확인 메일 재발송·재설정 메일 요청). 스위치 `signup_code_settings.mode`(기본 `standby` = 둘 다 통과). 🔴 **고쳐 쓰기 관문은 로그인·토큰 갱신마다 돈다** — 첫 줄 `OLD.email_confirmed_at IS NOT NULL → 통과` 를 옮기지 말 것. 코드가 틀려 로그인이 막히면 스위치로 안 풀린다 → `supabase/patches/2026-10-01-signup-{resend,ticket}-gate-off.sql`(삽입 관문 끄기는 스위치를 대기로 먼저). 🔴 **끄기 = 트리거 지우기 · 켜기 = 다시 만들기** — `ALTER TABLE auth.users DISABLE TRIGGER` 는 「must be owner」로 **안 된다**(2026-10-01 개발서버 실측). 트리거 함수 둘은 **반드시 `SECURITY INVOKER`**(정의자 권한이면 `current_user` 판정이 조용히 무력화). `_strip_signup_meta` 현재 원본 **497**(열쇠 10개). 발송·확인 서버 함수 `signup-code-send`·`signup-code-verify`(비공개 키 없이 브라우저가 부른다 — 공개 키 거부 걸지 말 것) — 🔴 비밀값 `SIGNUP_CODE_PEPPER` 를 **개발·운영 각각** 넣어야 하고 없으면 두 함수가 항상 오류. 바꾸면 이미 보낸 번호가 전부 무효. 🔴 **개발서버 전용 「메일 대신 화면」** — 개발서버엔 메일 키가 없어 `SIGNUP_CODE_DEV_ECHO=1`(개발서버에만) + 함수 주소가 개발 프로젝트일 때만 발송 대신 응답에 메일 본문을 싣고, 가입 화면이 `IS_STAGING` 일 때만 새 창에 띄운다. **두 겹 잠금을 하나라도 지우면 운영에서 번호가 응답에 실려 인증이 무력해진다**
