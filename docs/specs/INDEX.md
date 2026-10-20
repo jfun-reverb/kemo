@@ -319,5 +319,6 @@
 | 2026-10-19 | [브랜드 페이지 — 시딩형 배송 리스트 · 형식별 캠페인 상세](2026-10-19-brand-seeding-shipping-list.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) §15 |
 | 2026-10-19 | [개인정보 접속·제공 기록 — 관리자·브랜드의 열람·내려받기와 브랜드 제공](2026-10-19-personal-data-access-records.md) | 사양서 | [브랜드 페이지 포털](2026-07-15-brand-portal.md) 16-8 |
 | 2026-10-20 | [가구매 철거 — 갈래 걷기 (칸은 남김)](2026-10-20-proxy-purchase-removal.md) | 사양서 |  |
+| 2026-10-20 | [마이그레이션 적용 기록 표 + 병합 요청 자동 검사](2026-10-20-migration-ledger.md) | 사양서 | [요청서](2026-10-20-migration-ledger-handoff.md) |
 
 그 밖: `2026-07-30-cosme-channel-notice.html` — @cosme 채널 코드 사고 공지문(HTML)
