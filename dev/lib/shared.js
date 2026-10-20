@@ -1437,6 +1437,10 @@ const PANE_REFRESHERS = {
   'lookups': async () => {
     if (typeof renderLookupsTable === 'function') await renderLookupsTable();
   },
+  // CS 이력 관리(작업표 2-0) — 표·요약을 다시 그린다. 함수는 2-1(admin-cs-history.js)
+  'cs-history': async () => {
+    if (typeof loadCsHistoryPane === 'function') await loadCsHistoryPane();
+  },
   'faq': async () => {
     if (typeof loadFaqPane === 'function') await loadFaqPane();
   },

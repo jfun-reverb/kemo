@@ -247,7 +247,8 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops','brand-detail':'brands'}[pane] || pane;
+      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops','brand-detail':'brands',
+      'cs-history':'messages'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -283,6 +284,8 @@ function switchAdminPane(pane, el, pushHistory) {
     },
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
+    // CS 이력 관리(작업표 2-0 등록 · 화면은 2-1) — 사이드바 항목 없이 메시지 제목 줄 단추로 들어온다
+    'cs-history': () => { if (typeof loadCsHistoryPane === 'function') loadCsHistoryPane(); },
     'errors': loadClientErrors,
     'upcoming': renderUpcomingFeatures,
     'orient-sheets': loadOrientSheets,
