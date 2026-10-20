@@ -999,6 +999,7 @@ async function exportDeliverablesViewExcel() {
     ].map(([h, w]) => ({ header: h, width: w }));
     ws.getRow(1).font = { bold: true };
     rows.forEach(g => ws.addRow(_delivViewExcelRow(g)));
+    if (!(await _excelInternalGate(wb, '엑셀 · 결과물 현재 목록', _excelDistinctCount(rows, g => (g.influencer && g.influencer.id) || g.application_id)))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);

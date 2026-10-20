@@ -1225,7 +1225,12 @@ async function openAdmMsgLightbox(path) {
   openModal('admMsgLightbox');
   try {
     const url = await getMessageAttachmentSignedUrl(path);
-    if (url) img.src = url; else { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
+    if (url) {
+      img.src = url;
+      // 문의 첨부 열람 접속 기록(조각 R2 · 결정 6 — 개발서버만). 누를 때만 남긴다 — 대화를 열면 저절로 뜨는
+      //   썸네일은 「문의 글 읽기」라 남기지 않는다. 기록 실패가 열람을 막지는 않는다(엑셀만 막는다 — 결정 5).
+      recordAdminDataAccess('문의 첨부 열기', ['첨부 이미지'], 1, { path: String(path).slice(0, 300) });
+    } else { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
   } catch (e) { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
 }
 function closeAdmMsgLightbox() {

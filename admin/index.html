@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792469996';
+  var CURRENT_BUILD = 'v1792472952';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3373,7 +3373,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-20 13:19 · b1638c7</span>
+          <span class="admin-build-text">2026-10-20 14:09 · c471c25</span>
         </div>
       </div>
     </aside>
@@ -12983,6 +12983,31 @@ async function fetchDataAccessLogs(filters) {
     if (error) throw error;
     return (data && Array.isArray(data.rows)) ? data : null;
   } catch (e) { console.error('[fetchDataAccessLogs]', e); return null; }
+}
+
+// 관리자 개인정보 접속 기록 한 줄(552 record_admin_data_access) — 조각 R2. 성공 true / 실패 false.
+//   🔴 개발서버(IS_STAGING)에서만 부른다 — 운영에는 552 가 없다(출시 L1 때 이 조건을 걷는다).
+//   운영 주소에서는 부르지 않고 true(= 막지 않음)를 돌려준다.
+async function recordAdminDataAccess(source, columns, personCount, meta) {
+  if (!IS_STAGING) return true;
+  if (!db) return false;
+  try {
+    const { error } = await db.rpc('record_admin_data_access', {
+      p_source: String(source || '').slice(0, 100),
+      p_columns: Array.isArray(columns) ? columns : [],
+      p_person_count: Math.max(0, Number(personCount) || 0),
+      p_meta: meta && typeof meta === 'object' ? meta : {}
+    });
+    if (error) throw error;
+    return true;
+  } catch (e) { console.error('[recordAdminDataAccess]', source, e); return false; }
+}
+
+// 관리자 엑셀 내려받기 관문(결정 5) — 기록이 성공해야 파일을 만든다. 실패면 안내 후 false.
+async function recordAdminExportOrBlock(source, columns, personCount, meta) {
+  const ok = await recordAdminDataAccess(source, columns, personCount, meta);
+  if (!ok) toast('기록을 남기지 못해 내려받을 수 없습니다. 잠시 후 다시 시도해 주십시오.', 'error');
+  return ok;
 }
 
 async function fetchDeliverablesForReport(campaignIds) {
@@ -32572,7 +32597,12 @@ async function openAdmMsgLightbox(path) {
   openModal('admMsgLightbox');
   try {
     const url = await getMessageAttachmentSignedUrl(path);
-    if (url) img.src = url; else { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
+    if (url) {
+      img.src = url;
+      // 문의 첨부 열람 접속 기록(조각 R2 · 결정 6 — 개발서버만). 누를 때만 남긴다 — 대화를 열면 저절로 뜨는
+      //   썸네일은 「문의 글 읽기」라 남기지 않는다. 기록 실패가 열람을 막지는 않는다(엑셀만 막는다 — 결정 5).
+      recordAdminDataAccess('문의 첨부 열기', ['첨부 이미지'], 1, { path: String(path).slice(0, 300) });
+    } else { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
   } catch (e) { closeAdmMsgLightbox(); toast('이미지를 불러오지 못했습니다.'); }
 }
 function closeAdmMsgLightbox() {
@@ -35318,6 +35348,14 @@ async function openInfluencerDetail(userId) {
   }
 
   openModal('influencerFullDetailModal');
+
+  // 민감정보 열람 접속 기록(조각 R2 · 선결 Q4 — 개발서버만). 화면에 「보기」 단추가 없어 상세 창을 연 순간 남긴다.
+  //   민감정보 열람 권한 등급만(가려진 등급은 볼 것이 없다) · 실제로 보인 칸만 · 기록 실패가 창을 막지는 않는다.
+  if (typeof canRead === 'function' && canRead('influencer.sensitive_pii')) {
+    const shown = [['전화번호', u.phone], ['LINE ID', u.line_id], ['PayPal 이메일', u.paypal_email],
+      ['우편번호', u.zip], ['건물명', u.building], ['주소', u.address]].filter(p => p[1]).map(p => p[0]);
+    if (shown.length) recordAdminDataAccess('인플루언서 상세 · 민감정보', shown, 1, { influencer_id: u.id });
+  }
 }
 
 // 전체 감사용 흔적 청소 — super_admin 전용.
@@ -37206,6 +37244,7 @@ async function exportDeliverablesViewExcel() {
     ].map(([h, w]) => ({ header: h, width: w }));
     ws.getRow(1).font = { bold: true };
     rows.forEach(g => ws.addRow(_delivViewExcelRow(g)));
+    if (!(await _excelInternalGate(wb, '엑셀 · 결과물 현재 목록', _excelDistinctCount(rows, g => (g.influencer && g.influencer.id) || g.application_id)))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -39354,6 +39393,93 @@ function _checkExportAllowed() {
 function _markExportStart() { _exportInProgress = true; }
 function _markExportEnd() { _exportInProgress = false; _lastExportAt = Date.now(); }
 
+// ─── 관리자 엑셀 내려받기 기록 + 첫 줄 「사내용」 (조각 R2 — 개발서버만) ─────────
+// 🔴 IS_STAGING 일 때만 돈다 — 운영에는 기록 표(552)가 없다. 운영 파일은 지금 모양 그대로
+//    (기록이 없는데 「기록이 남습니다」가 찍히거나 머리글 줄이 밀리지 않게). 출시(L1) 때 이 조건을 걷는다.
+// 대상 = 인플루언서 정보가 든 관리자 엑셀 13개(선결 Q5 — 브랜드 서베이 엑셀만 뺌). 파일을 쓰기 직전
+//   `if (!(await _excelInternalGate(wb, 출처, 인원))) return;` 한 줄 — 기록이 실패하면 파일을 안 만든다(결정 5).
+// ⚠️ 「사내용」 줄이 들어가면 모든 시트의 머리글이 한 줄 아래로 내려간다(병합 칸·사진 위치도 함께 옮긴다).
+//    관리자 엑셀을 다시 읽는 코드는 없다 — 새로 만들면 이 줄을 감안할 것.
+
+// 「A3:B3」 같은 범위의 행 번호를 n 만큼 민다.
+function _excelShiftRangeRows(range, n) {
+  return String(range).replace(/([A-Z]+)(\d+)/g, function(m, c, r) { return c + (Number(r) + n); });
+}
+
+function _excelInternalBannerText() {
+  var who = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? (currentAdminInfo.name || currentAdminInfo.email || '') : '';
+  return '사내용 — 회사 밖으로 보내지 마십시오 · 내려받은 기록이 남습니다(' + formatDateTime(new Date()) + (who ? ' · ' + who : '') + ')';
+}
+
+// 시트 맨 위에 「사내용」 줄을 끼운다. ExcelJS 의 spliceRows 는 칸 값·줄 높이만 옮기고
+//   병합 목록·사진 위치는 그대로 둬서(4.4.0 실측) 둘은 직접 한 줄씩 민다.
+// ⚠️ ExcelJS 내부 속성(`ws._merges[…].range`·사진 `range.tl/br.nativeRow`)에 기댄다 — `loadExcelJS` 의 판(4.4.0)을
+//    올리면 이 함수를 다시 시험할 것(병합 칸·사진이 사람 줄에 맞는지).
+function _excelInternalBanner(ws, colCount) {
+  if (!ws) return;
+  var n = Math.max(1, Number(colCount) || ws.columnCount || 1);
+  var merges = Object.keys(ws._merges || {}).map(function(k) { return ws._merges[k].range; });
+  merges.forEach(function(r) { ws.unMergeCells(r); });
+  ws.spliceRows(1, 0, []);
+  merges.forEach(function(r) { ws.mergeCells(_excelShiftRangeRows(r, 1)); });
+  (typeof ws.getImages === 'function' ? ws.getImages() : []).forEach(function(img) {
+    var rg = img && img.range;
+    if (!rg) return;
+    if (rg.tl) rg.tl.nativeRow += 1;
+    if (rg.br) rg.br.nativeRow += 1;
+  });
+  var row = ws.getRow(1);
+  var cell = row.getCell(1);
+  cell.value = _excelInternalBannerText();
+  if (n > 1) ws.mergeCells(1, 1, 1, n);
+  row.height = 22;
+  cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8590C' } };
+  cell.alignment = { vertical: 'middle', horizontal: 'left' };
+}
+
+// 기록용 열 이름 — 시트마다 위 6줄 중 굵은 글씨 줄에서 글자 칸이 가장 많은 줄을 머리글로 본다
+//   (제목 줄은 병합 칸 하나, 데이터 줄은 굵지 않다). 서버 크기 한도(8KB) 안으로 자른다.
+function _excelWorkbookHeaderLabels(wb) {
+  var seen = {}, out = [], bytes = 2;
+  var enc = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+  wb.eachSheet(function(ws) {
+    var best = null, bestCount = 0;
+    for (var r = 1; r <= Math.min(6, ws.rowCount); r++) {
+      var row = ws.getRow(r);
+      var labels = [];
+      row.eachCell(function(c) { if (typeof c.value === 'string' && c.value.trim()) labels.push(c.value.trim()); });
+      var bold = row.font && row.font.bold || (row.getCell(1).font && row.getCell(1).font.bold);
+      var score = labels.length + (bold ? 1000 : 0);
+      if (labels.length >= 2 && score > bestCount) { best = labels; bestCount = score; }
+    }
+    (best || []).forEach(function(l) {
+      if (seen[l]) return;
+      var b = (enc ? enc.encode(l).length : l.length * 3) + 4;
+      if (bytes + b > 6000) return;
+      seen[l] = true; out.push(l); bytes += b;
+    });
+  });
+  return out;
+}
+
+// 파일을 쓰기 직전 관문 — 기록 성공이면 모든 시트에 「사내용」 줄을 붙이고 true, 실패면 안내 후 false.
+//   운영 주소(IS_STAGING 아님)는 아무것도 안 하고 true.
+async function _excelInternalGate(wb, source, personCount, meta) {
+  if (!IS_STAGING) return true;
+  var ok = await recordAdminExportOrBlock(source, _excelWorkbookHeaderLabels(wb), personCount, meta);
+  if (!ok) return false;
+  wb.eachSheet(function(ws) { _excelInternalBanner(ws); });
+  return true;
+}
+
+// 한 사람이 여러 줄(여러 캠페인·결과물)에 나와도 한 명으로 센다.
+function _excelDistinctCount(list, keyFn) {
+  var s = new Set();
+  (list || []).forEach(function(x) { var k = keyFn(x); if (k) s.add(k); });
+  return s.size;
+}
+
 function toggleCampSelect(campId, checked) {
   if (checked) _selectedCampIds.add(campId);
   else _selectedCampIds.delete(campId);
@@ -39741,6 +39867,7 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
     ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 신청자(선택)', _excelDistinctCount(allCampApps, function(a){ return a.user_id || a.user_email; }), { campaigns: camps.length }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -40059,6 +40186,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     });
     }  // end if (hasOtherCamps)
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물(선택)', _excelDistinctCount((groupList || []).concat(allDelivs || []), function(g){ return g.user_id; }), { campaigns: camps.length }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -40228,6 +40356,7 @@ async function exportCampaignApplicationsExcel(campId) {
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('cancelReason').alignment = { wrapText: true, vertical: 'top' };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 신청자', _excelDistinctCount(apps, function(a){ return a.user_id || a.user_email; })))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -40527,6 +40656,7 @@ async function exportCampaignDeliverables(campId) {
     // 6-b) 외부 결과 파일(조각 12) — 붙인 파일이 있으면 「외부 참가자」 시트
     if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
     // 7) 파일 저장
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물', _excelDistinctCount(groupList, function(g){ return g.user_id; }), { campaign_no: camp.campaign_no || '' }))) return;
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
@@ -40792,6 +40922,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   if (skipDownload) return ws;
   // 외부 결과 파일(조각 12) — 단일 캠페인 엑셀에만 「외부 참가자」 시트
   if (typeof excelAppendCampaignExtSheet === 'function') { try { await excelAppendCampaignExtSheet(wb, camp); } catch (e) { console.warn('[excel] ext sheet', e); } }
+  if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 결과물', _excelDistinctCount(groupList, function(g){ return g.user_id; }), { campaign_no: camp.campaign_no || '' }))) return;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
@@ -41111,6 +41242,7 @@ async function exportInfluencersExcel() {
       ws.addRow(row);
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 인플루언서 목록', rows.length, { sensitive: !!includeSensitive }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -41250,6 +41382,7 @@ async function exportEventTicketsExcel(campaignId) {
     });
     ws2.getRow(1).font = { bold: true };
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 행사 예약 명단', _excelDistinctCount(tickets, function(t){ return t.influencer_id || t.id; }), { campaign_no: (_evtCamp && _evtCamp.campaign_no) || '' }))) return;
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url = URL.createObjectURL(blob);
@@ -48635,6 +48768,7 @@ async function exportSettlementsExcel() {
       });
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 정산 목록', _excelDistinctCount(rows, s => s.influencer_id)))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -49613,7 +49747,9 @@ function _payoutBrandOf(r, brandMap) {
   return brandMap[r.campaignId] || '';
 }
 
-function _payoutExcelSaveWorkbook(wb, fileName) {
+// gate = {source, personCount} — 관리자 엑셀 기록 관문(조각 R2). 막히면 false(파일 없음), 받으면 true.
+async function _payoutExcelSaveWorkbook(wb, fileName, gate) {
+  if (gate && !(await _excelInternalGate(wb, gate.source, gate.personCount))) return false;
   return wb.xlsx.writeBuffer().then(function(buf) {
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -49622,6 +49758,7 @@ function _payoutExcelSaveWorkbook(wb, fileName) {
     aEl.download = fileName;
     document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
     URL.revokeObjectURL(url);
+    return true;
   });
 }
 
@@ -49744,7 +49881,9 @@ async function exportPayoutRoundExcel(dueArg, opts) {
     _payoutExcelItemSheet(wb, rows, await _payoutBrandMap(rows), { groupBy: groupBy, personKeys: personKeys, campSort: campSort });
     const ts = new Date();
     const ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
-    await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx');
+    const saved = await _payoutExcelSaveWorkbook(wb, 'payout-' + (dues.length > 1 ? dues[0] + '_to_' + due + '-' + dues.length + 'rounds' : due) + '-' + (includePaid ? 'all' : 'unpaid') + (carry.length ? '-prev' + carry.length : '') + '-' + rows.length + '-' + ymd + '.xlsx',
+      { source: '엑셀 · 회차 송금 명단', personCount: _excelDistinctCount(rows, r => r.influencerId || r.influencer_id || r.name) });
+    if (!saved) return;
     toast('엑셀 다운로드 완료 (' + rows.length + '건)');
   } catch (e) {
     toast('엑셀 생성 실패: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || e)), 'error');
@@ -51434,7 +51573,8 @@ async function exportTransferHistoryExcel() {
     ws1.addRow(['합계', '', '', '', sent, fee, '', '', '', '', sent + fee, '', '']).font = { bold: true };
     [5, 6, 11].forEach(function (c) { ws1.getColumn(c).numFmt = '#,##0'; });
     ws2.getColumn(6).numFmt = '#,##0';
-    await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx');
+    await _payoutExcelSaveWorkbook(wb, 'transfers-' + (_transferFrom || 'all') + '-' + (_transferTo || 'now') + '-' + rows.length + '.xlsx',
+      { source: '엑셀 · 송금 내역', personCount: _excelDistinctCount(rows, t => t.influencer_id) });
   } catch (e) {
     toast('엑셀을 만들지 못했습니다 — ' + friendlyError(e.message || e), 'error');
   }
@@ -52268,6 +52408,7 @@ async function exportOutboundExcel() {
       });
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 아웃바운드 명단', rows.length))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
@@ -56047,6 +56188,7 @@ async function exportReportExcel(reportId) {
       ws.addRow(o);
     });
 
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 리포트', rows.length, { title: String(title || '').slice(0, 100) }))) return;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url = URL.createObjectURL(blob);

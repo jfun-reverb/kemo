@@ -496,6 +496,14 @@ async function openInfluencerDetail(userId) {
   }
 
   openModal('influencerFullDetailModal');
+
+  // 민감정보 열람 접속 기록(조각 R2 · 선결 Q4 — 개발서버만). 화면에 「보기」 단추가 없어 상세 창을 연 순간 남긴다.
+  //   민감정보 열람 권한 등급만(가려진 등급은 볼 것이 없다) · 실제로 보인 칸만 · 기록 실패가 창을 막지는 않는다.
+  if (typeof canRead === 'function' && canRead('influencer.sensitive_pii')) {
+    const shown = [['전화번호', u.phone], ['LINE ID', u.line_id], ['PayPal 이메일', u.paypal_email],
+      ['우편번호', u.zip], ['건물명', u.building], ['주소', u.address]].filter(p => p[1]).map(p => p[0]);
+    if (shown.length) recordAdminDataAccess('인플루언서 상세 · 민감정보', shown, 1, { influencer_id: u.id });
+  }
 }
 
 // 전체 감사용 흔적 청소 — super_admin 전용.
