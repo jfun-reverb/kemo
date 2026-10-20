@@ -870,7 +870,7 @@ function stalledChip(g, st) {
 //   판정·셀 렌더는 그대로라 결과물 관리 페인과 표시가 어긋나지 않는다.
 // 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
 //   = **인증 성공 조건을 처음 만족한 순간.**
-//   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **455**) — 형식·채널 갈래가 같다:
+//   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **564**) — 형식·채널 갈래가 같다:
 //     리뷰어형 그리고·1개 : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
 //     리뷰어형 또는       : 영수증 시각과 「가장 먼저 승인된 채널」 시각 중 늦은 것
 //     시딩·방문형 그리고·1개 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
@@ -895,7 +895,7 @@ function certSuccessAt(g) {
   };
   const channels = String(camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
   // 「또는」 캠페인은 채널 하나만 승인돼도 인증 성공이다 → 날짜는 **가장 먼저 승인된 채널** 시각.
-  //   서버 _settlement_cert_candidates(현재 원본 455)의 or 갈래와 글자 그대로 같게 둔다:
+  //   서버 _settlement_cert_candidates(현재 원본 564)의 or 갈래와 글자 그대로 같게 둔다:
   //   ⚠️ 승인됐지만 승인 시각이 빈 채널은 **건너뛴다**(서버 MIN(...) FILTER 가 NULL 을 무시한다).
   //   ⚠️ 리뷰어형은 영수증 시각과 그중 늦은 쪽(서버 GREATEST 도 NULL 을 무시 — 채널 시각이
   //      전부 비면 영수증 시각이 된다). 영수증 시각이 없으면 빈 값.
