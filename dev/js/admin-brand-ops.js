@@ -92,7 +92,7 @@ async function loadBrandOps() {
   var results = await Promise.all([
     fetchCompanies({ status: 'all' }),            // 회사 드롭다운(전체/회사별/미분류)
     getBrandOpsOverview(null),                    // 브랜드 집계 — 회사/미분류 필터는 화면에서
-    fetchCampaigns(),                             // 🔴 fetchCampaignsForAdminList 금지 — proxy_purchase·first_active_at·brand_id 가 없어 조용히 틀린다
+    fetchCampaigns(),                             // 🔴 fetchCampaignsForAdminList 금지 — first_active_at·brand_id 가 없어 조용히 틀린다
     fetchCampaignApplicationCountsOrNull(),       // 승인 수(감사용 제외). 실패면 null → 「—」
     // 감사용 계정 id — 제출·인증 두 값에서 화면이 뺀다(승인 수는 서버가 이미 뺐다).
     //   ⚠️ 브랜드 상세(loadBrandOpsDetail)도 같은 조회로 같은 전역을 채운다 — 같은 집합이라 어느 쪽이 먼저 돌아도 같다.
@@ -423,8 +423,8 @@ async function hydrateCampCertBars() {
     var campId = el.getAttribute('data-camp-cert');
     var slotsN = parseInt(el.getAttribute('data-slots') || '0', 10);
     // 화면 속성으로 흉내 낸 캠페인 — 조회가 실제 캠페인 행을 물어오면 그걸로 갈아탄다(아래).
-    //   흉내 객체에는 가구매(proxy_purchase) 여부가 없어, 그대로 두면 가구매 캠페인의
-    //   인증 성공 막대가 0에서 굳는다(결과물 관리·정산은 성공으로 세는데 이 화면만 다름).
+    //   흉내 객체에는 묶음 방식(channel_match)이 없어, 그대로 두면 「또는」 캠페인의
+    //   인증 성공 막대가 화면마다 다르게 셀 수 있다(결과물 관리·정산과 같은 판정을 쓰기 위해).
     var camp = { id: campId, recruit_type: el.getAttribute('data-rt') || '', channel: el.getAttribute('data-ch') || '' };
     var delivs = await fetchDeliverablesByCampaign(campId);
     if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
@@ -1449,7 +1449,7 @@ function _scheduleStatsFor(list) {
       if (d.user_id) { infs[d.user_id] = 1; if (d.kind === 'receipt') rcpt[d.user_id] = 1; }
     });
     // countCertSuccess 는 검수 화면·미니카드와 같은 판정(buildDeliverableGroups → computeCertStatus).
-    //   camp 는 fetchCampaigns() 가 준 실제 행이다(가구매·채널 판정 포함). 결과물 행에 임베드된
+    //   camp 는 fetchCampaigns() 가 준 실제 행이다(채널 판정 포함). 결과물 행에 임베드된
     //   campaigns 가 있으면 그쪽이 우선 쓰이는데, 판정에 필요한 값이 전부 있어 결과가 같다.
     // receiptInf = 영수증(방문형은 현장 사진, 같은 kind='receipt')을 낸 인플 — 구매·방문 기간 행의 진척률
     stats[c.id] = { submittedInf: Object.keys(infs).length, receiptInf: Object.keys(rcpt).length, cert: (typeof countCertSuccess === 'function') ? countCertSuccess(ds, c) : null };

@@ -1267,8 +1267,6 @@ async function openEditCampaign(campId) {
     recruit_start: camp.recruit_start || '',
     purchase_start: camp.purchase_start || '',
     purchase_end: camp.purchase_end || '',
-    // 제출 마감 라벨이 「영수증만」인지 가른다. 폼에 입력칸이 없어 저장된 값이 유일한 출처.
-    proxy_purchase: !!camp.proxy_purchase,
     // 행사 여부 — 「예약이 있는데 행사 모드를 끄는」 것을 막는 게이트의 기준.
     //   이 키가 없으면 그 게이트가 통째로 죽은 코드가 된다(아래 채널 주석의 선례와 같은 실수).
     event_mode: !!camp.event_mode,
@@ -3230,9 +3228,6 @@ async function duplicateCampaign(campId) {
       // 판 표시 — 원본이 새 판이면 그대로 잇고, 옛 판(NULL)이면 자율구매로 올린다. 복제도 「새로 만드는 캠페인」이라
       //   옛 이름(캠페인 설명·촬영 가이드)을 새 캠페인에 남기지 않는다(2026-09-22 사용자 결정). 본문은 그대로 복사되니 필요하면 고친다
       purchase_guide_mode: src.purchase_guide_mode || 'free',   // 복제도 새 캠페인 — 옛 방식 원본이면 자율구매로(2026-09-22 사용자 결정)
-      // 🔴 가구매 표시(마이그레이션 197)도 이어받는다 — 안 넣으면 기본값 false 로 떨어져 복제본이
-      //   영수증만이 아니라 리뷰·게시 인증샷까지 요구하게 되고, 인증 성공·정산·엑셀이 원본과 갈린다.
-      proxy_purchase: !!src.proxy_purchase,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
@@ -3678,7 +3673,7 @@ const CP_I18N = {
     //   ⚠️ dev/lib/i18n/ja.js 의 detail.periodTag* 와 **반드시 같은 말**이어야 한다.
     kPeriodTagRecruit:'（募集）', kPeriodTagPurchase:'（購入）',
     kSelectionPeriod:'選定期間',
-    kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切', kSubmitDeadlineProxy:'レシートの提出締切',
+    kSubmitDeadlineMonitor:'レシート・投稿スクショの提出締切',
     paybackNotice1:'募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNotice1Split:'購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNotice2:'期間が過ぎてからご購入された場合は、対象外となります。',
@@ -3703,7 +3698,7 @@ const CP_I18N = {
     kRecruitVisitPeriod:'모집 및 방문 기간',
     kPeriodTagRecruit:'(모집)', kPeriodTagPurchase:'(구매)',
     kSelectionPeriod:'선정 기간',
-    kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일', kSubmitDeadlineProxy:'영수증 제출 마감일',
+    kSubmitDeadlineMonitor:'영수증·게시물 인증샷 제출 마감일',
     paybackNotice1:'모집 및 구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice1Split:'구매 기간에 구매하신 경우에만 페이백 대상입니다.',
     paybackNotice2:'기간이 지난 뒤 결제하신 경우에는 페이백이 적용되지 않습니다.',
@@ -3948,8 +3943,7 @@ function renderCampPreview(mode) {
             if (camp.recruit_type === 'visit' && !isEventPreview && !cpVisitMerged && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(L.kVisitPeriod)}</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end && !isEventPreview) {
               const cpSubCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
-              const cpSubLabel = cpSubCode === 'receiptOnly' ? L.kSubmitDeadlineProxy
-                               : cpSubCode === 'receiptAndPost' ? L.kSubmitDeadlineMonitor
+              const cpSubLabel = cpSubCode === 'receiptAndPost' ? L.kSubmitDeadlineMonitor
                                : L.kSubmitDeadline;
               rows.push(`<div class="cp-info-row"><div class="cp-info-key">${esc(cpSubLabel)}</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             }
@@ -4706,8 +4700,7 @@ async function addCampaign() {
     })(),
     // 생성자 기록 — campaigns.created_by(감사용). 캠페인 RLS(001)는 is_admin()만 보고 created_by 미참조라 권한 영향 없음.
     created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
-    // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
-    proxy_purchase: _opc ? !!_opc.isProxy : false,
+    // 오리엔시트 발행 보조(마이그레이션 197): 일본어 긴급 발행 기록
     emergency_publish_reason: _emergencyReason || null,
     emergency_published_by: _emergencyReason ? (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null) : null,
     emergency_published_at: _emergencyReason ? new Date().toISOString() : null,
@@ -5382,14 +5375,7 @@ function applyCampPeriodLabels(formMode, recruitType, savedCamp) {
   }
   const subLabel = $(prefix + 'SubmissionEndLabel');
   if (subLabel) {
-    // 가구매는 영수증만 낸다 — 인증샷을 이름에 넣으면 낼 수 없는 것을 내라는 말이 된다.
-    //   ⚠️ 가구매 여부는 **폼에 입력칸이 없다.** 신규는 오리엔시트 발행 맥락이 정하고,
-    //      편집은 저장된 값을 그대로 유지한다(저장 payload 에 이 칸이 없다).
-    const isProxy = savedCamp ? !!savedCamp.proxy_purchase
-      : (formMode === 'edit' ? !!_editCampOriginal?.proxy_purchase
-         : !!(window._orientPublishCtx && window._orientPublishCtx.isProxy));
     subLabel.textContent = !isMonitor ? '결과물 제출 마감일'
-      : isProxy ? '영수증 제출 마감일'
       : '영수증·게시물 인증샷 제출 마감일';
   }
 }

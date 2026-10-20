@@ -119,7 +119,7 @@ function settlementAmountYen(v) {
 
 // 금액 출처(마이그레이션 261 amount_source) — 같은 목록에 두 기준(제품 가격/현금 리워드)이
 // 섞이므로 관리자가 「이 금액이 어디서 나왔는지」 한눈에 보게 한다.
-//   receipt_amount = 리뷰어형(가구매 포함) 영수증 실결제액 — 상시가를 상한으로 자름(300~)
+//   receipt_amount = 리뷰어형 영수증 실결제액 — 상시가를 상한으로 자름(300~)
 //   product_price  = 리뷰어형 캠페인 제품 가격을 페이백 (300 이전에 만들어진 행)
 //   reward         = 시딩·방문형 캠페인 현금 리워드
 //   NULL           = 261 이전 행(백필로 대부분 'reward') 또는 미상 → 배지 생략
@@ -373,7 +373,7 @@ async function refreshPastUnregEntryInfo() {
   const issueCount = rows.filter(r => pastUnregHasIssue(r)).length;
   if (banner && text) {
     if (issueCount > 0) {
-      // [B-8] 이 목록에 오는 「금액 미확정」은 **리뷰어형(가구매 포함)에 제품 가격이 없는 경우뿐**이다 —
+      // [B-8] 이 목록에 오는 「금액 미확정」은 **리뷰어형에 제품 가격이 없는 경우뿐**이다 —
       //   기프팅·방문형 무보수 캠페인은 후보에서 아예 빠져(마이그레이션 264) 여기 나오지 않는다.
       //   예전 문구는 일어날 수 없는 「리워드 금액(기프팅·방문형)」 안내를 함께 적고 있었다.
       text.textContent = `인증은 끝났지만 캠페인에 제품 가격이 없어 정산 금액을 정할 수 없는 리뷰어형 건이 ${issueCount}건 있습니다. 캠페인 편집에서 제품 가격을 입력하면 자동으로 등록됩니다.`;

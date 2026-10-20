@@ -362,7 +362,6 @@ input[type="date"] { min-height: 44px; }
   background: var(--paper); color: var(--ink-mute);
   border: 1px solid var(--border-strong); letter-spacing: 0.02em;
 }
-.ocard-chip.proxy_purchase { background: #FEF3E2; color: #B45309; border-color: #F4D7A8; }
 .ocard-chip.reviewer { background: var(--brand-soft); color: var(--brand-dark); border-color: #F4C4CC; }
 .ocard-chip.seeding { background: #E7F1FE; color: #1D4ED8; border-color: #BFD6F5; }
 .ocard-title {
@@ -399,6 +398,9 @@ input[type="date"] { min-height: 44px; }
 .seg-btn.active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
 
 .needtype-hint { font-size: 13px; color: var(--ink-mute); text-align: center; padding: 8px 0 4px; }
+/* 2026-10-20 가구매 철거 — 옛 카드에 가구매가 골라져 있으면 형식을 다시 고르라고 알린다(그 전에는 제출이 막힌다) */
+.retired-type-hint { display: none; font-size: 13px; color: #B45309; background: #FEF3E2; border: 1px solid #F4D7A8; border-radius: 8px; padding: 10px 12px; margin: 4px 0 12px; }
+.ocard[data-ctype="proxy_purchase"] .retired-type-hint { display: block; }
 
 /* 모집 인원 구간 버튼 (사양서 2026-09-16 §4-1) — 형식 선택(.seg)과 같은 모양을 쓰되 네 칸이다.
    ⚠️ 단가를 코드에 박지 않는다(관리자가 바꾸는 값이라 두 번째 정의처가 된다) — 서버에서 받아 와 .tier-price 에 그린다(448). */
@@ -468,7 +470,6 @@ input[type="date"] { min-height: 44px; }
 .cg-chip-x:hover { background: rgba(0,0,0,.08); }
 .cg-chip-x .material-icons-outlined { font-size: 15px; }
 .cg-ch-select { cursor: pointer; }
-.ocard[data-ctype="proxy_purchase"] .only-rp { display: block; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
 .ocard[data-ctype="seeding"] .only-rp,
@@ -476,7 +477,6 @@ input[type="date"] { min-height: 44px; }
 .ocard:not([data-ctype="reviewer"]) .row-price { grid-template-columns: 1fr; }   /* 배송비 칸이 없는 형식은 판매가 한 칸이 가로를 다 쓴다 */
 /* 래퍼 블록(판매처·가격 / 시딩 상세)은 마지막 내부 필드가 .field:last-child(margin 0)라
    다음 필드와 간격이 붙는다. 다른 필드 간격(14px)과 맞추도록 래퍼에 아래 여백 부여 */
-.ocard[data-ctype="proxy_purchase"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="seeding"] .only-rp,
 .ocard[data-ctype="seeding"] .only-seeding { margin-bottom: 14px; }
@@ -672,7 +672,7 @@ body.embed-frame .quote-print-btn { display: none; }
 
   <div class="intro">
     <h1>캠페인 오리엔시트</h1>
-    <p id="introText">모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
+    <p id="introText">모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
   </div>
 
   <div id="resubmitNote" class="resubmit-note hidden">
@@ -852,13 +852,14 @@ const sb = window.supabase
 // ══════════════════════════════════════
 // 상수
 // ══════════════════════════════════════
-// 모집 형식 3종 (게시처 기준 — 사양서 §15-2)
+// 모집 형식 2종 (게시처 기준 — 사양서 §15-2). 가구매는 2026-10-20 철거 — 새로 고를 수 없다
 const FORM_TYPES = [
-  { value: 'proxy_purchase', label: '가구매', icon: 'shopping_cart', desc: '구매(영수증)만, 게시 없음' },
   { value: 'reviewer',       label: '리뷰어', icon: 'rate_review',   desc: '구매 후 리뷰 플랫폼에 후기' },
   { value: 'seeding',        label: '시딩',   icon: 'card_giftcard', desc: '제품 제공 후 SNS 게시' },
 ];
-const FORM_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
+// 2026-10-20 가구매 철거 — 옛 카드 표시용 이름표(가구매를 골라 둔 옛 카드의 칩·미리보기)
+const FORM_TYPE_LABEL = { proxy_purchase: '가구매(종료)', reviewer: '리뷰어', seeding: '시딩' };
+const RETIRED_FORM_TYPES = ['proxy_purchase'];
 
 // 판매처는 Qoo10 고정(드롭다운·마켓별 행사 제거, 2026-06-25). 가격은 판매가만 받음.
 
@@ -1745,13 +1746,14 @@ function cardHtml(id, card) {
     <div class="ocard-body">
       <div class="seg">${segBtns}</div>
       <p class="needtype-hint">위에서 모집 형식을 먼저 선택해 주세요.</p>
+      <p class="retired-type-hint">가구매는 더 이상 받지 않습니다. 위에서 리뷰어 또는 시딩을 골라 주세요.</p>
 
       <div class="card-gated">
         <!-- 제품 -->
         <div class="field"><label>제품명</label>
           <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
 
-        <!-- 판매처·가격 (가구매·리뷰어) — 판매처 Qoo10 고정, 가격은 판매가만 -->
+        <!-- 판매처·가격 (리뷰어·시딩) — 판매처 Qoo10 고정, 가격은 판매가만 -->
         <div class="only-rp">
           <div class="field"><label>판매처</label>
             <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
@@ -2028,7 +2030,8 @@ function selectCardType(id, ft) {
   if (!el) return;
   const prev = el.getAttribute('data-ctype');
   if (prev === ft) return;
-  if (prev) {
+  // 종료된 형식(옛 가구매)에서 옮길 때는 묻지도 비우지도 않는다 — 판매처·판매가 칸은 리뷰어·시딩도 같이 쓴다
+  if (prev && RETIRED_FORM_TYPES.indexOf(prev) === -1) {
     const ok = window.confirm('형식을 바꾸면 이전 형식에서만 쓰는 입력(판매가·판매처 또는 시딩 항목)은 지워집니다. 계속할까요?');
     if (!ok) return;
     clearCardTypeFields(el);
@@ -2911,11 +2914,13 @@ function findInvalidField(mode) {
     const c = collectCard(el);
     if (!c.form_type)
       return { message: `${n}번째 카드의 모집 형식을 선택해 주세요.`, card: el, target: el.querySelector('.seg') };
+    if (RETIRED_FORM_TYPES.indexOf(c.form_type) !== -1)
+      return { message: `${n}번째 카드는 가구매로 되어 있습니다. 가구매는 더 이상 받지 않으니 리뷰어 또는 시딩을 골라 주세요.`, card: el, target: el.querySelector('.seg') };
     if (!c.product.name)
       return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
-    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.url)
+    if ((c.form_type === 'reviewer' || c.form_type === 'seeding') && !c.sale.url)
       return { message: `${n}번째 카드의 Qoo10 상품 주소를 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
-    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.price_regular)
+    if ((c.form_type === 'reviewer' || c.form_type === 'seeding') && !c.sale.price_regular)
       return { message: `${n}번째 카드의 판매가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
     // URL을 입력하고 「확인」을 누르지 않아 값이 저장되지 않은 행 방지
     const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
@@ -3139,6 +3144,7 @@ function renderPreviewCard(c, idx) {
   const ft = c.form_type;
   let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
   rows += pvRow('제품명', c.product.name);
+  // 2026-10-20 가구매 철거 — 옛 가구매 카드도 판매처·판매가를 그대로 보인다(옛 카드 표시용)
   if (ft === 'reviewer' || ft === 'proxy_purchase' || ft === 'seeding') {
     rows += pvRow('판매처', c.sale.market || 'Qoo10');
     rows += pvRow('Qoo10 상품 주소', c.sale.url);
