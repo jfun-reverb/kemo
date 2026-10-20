@@ -2846,3 +2846,5 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-split-locked{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .cs-split-card{gap:6px}
 .cs-pn-locked{opacity:.5;pointer-events:none}
+/* CS 추가 중 잠긴 행동 줄 단추(_csSplitApplyLock 이 data-cs-was-disabled 를 붙인 동안만) — 원래 모양 그대로면 잠긴 줄 모른다 */
+.adm-msg-actionbar button[data-cs-was-disabled]{opacity:.4;cursor:not-allowed}
