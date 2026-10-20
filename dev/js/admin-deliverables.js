@@ -792,11 +792,6 @@ function computeCertStatus(g) {
   const rt = camp ? camp.recruit_type : null;
   if (rt === 'monitor') {
     const hasReceipt = !!g.receipt;
-    // 가구매(proxy_purchase, 마이그레이션 197): 영수증만 제출 — 리뷰 인증샷(review_image) 미요구.
-    if (camp && camp.proxy_purchase) {
-      if (!hasReceipt) return 'none';
-      return (g.receipt.status === 'approved') ? 'success' : 'submitting';
-    }
     const hasReview = !!(g.result_status_repr && g.result_status_repr !== 'none');
     if (!hasReceipt && !hasReview) return 'none';
     if (g.receipt && g.receipt.status === 'approved' && g.result_status_repr === 'approved') return 'success';
@@ -876,7 +871,6 @@ function stalledChip(g, st) {
 // 인증 성공 시각 — 정산 화면의 「인증성공일」(`settlements.cert_at`)과 **같은 정의**다.
 //   = **인증 성공 조건을 처음 만족한 순간.**
 //   서버 쪽 원본은 `_settlement_cert_candidates()`(현재 원본 **455**) — 형식·채널 갈래가 같다:
-//     가구매              : 영수증 승인 시각
 //     리뷰어형 그리고·1개 : 영수증과 채널별 인증샷 승인 시각 중 가장 늦은 것
 //     리뷰어형 또는       : 영수증 시각과 「가장 먼저 승인된 채널」 시각 중 늦은 것
 //     시딩·방문형 그리고·1개 : 캠페인이 요구한 채널별 게시물 승인 시각 중 가장 늦은 것
@@ -913,7 +907,6 @@ function certSuccessAt(g) {
   };
   if (rt === 'monitor') {
     const r = okAt(g.receipt);
-    if (camp.proxy_purchase) return r;
     if (orKind) {
       if (!r) return null;
       const e = earliest(g.reviewByChannel);
@@ -1051,11 +1044,8 @@ function renderDelivAppRow(g, opts) {
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
   const useReceipt = rt === 'monitor';
   // monitor 완료 = 영수증 승인 + 채널별 review_image 모두 승인 (대표 상태 = approved)
-  //   가구매(proxy_purchase)는 영수증 승인만으로 완료 (review_image 미요구)
   const completed = useReceipt
-    ? (camp.proxy_purchase
-        ? (g.receipt?.status === 'approved')
-        : (g.receipt?.status === 'approved' && g.result_status_repr === 'approved'))
+    ? (g.receipt?.status === 'approved' && g.result_status_repr === 'approved')
     : (g.result?.status === 'approved');
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
@@ -1100,10 +1090,6 @@ function renderDelivAppRow(g, opts) {
 //   채널 없는 레거시 monitor 캠페인은 「—」 단일 표시.
 function renderDelivResultCellMonitor(g) {
   const camp = g.campaign || {};
-  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
-  if (camp.proxy_purchase) {
-    return '<span style="font-size:10px;color:var(--muted)">리뷰 불필요 (가구매)</span>';
-  }
   const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
   if (channels.length === 0) {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
@@ -1453,7 +1439,7 @@ async function renderDelivCombinedBody(applicationId) {
       submitted_at, reviewed_at, updated_at, reviewed_by,
       submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       applications:application_id (status),
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, proxy_purchase, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS})
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, product_price, purchase_start, purchase_end, ${PROXY_WINDOW_CAMPAIGN_COLS})
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];

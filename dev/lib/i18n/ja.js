@@ -630,7 +630,6 @@ window.I18N_JA = {
     periodTagRecruit: '（募集）',
     periodTagPurchase: '（購入）',
     submissionEndMonitor: 'レシート・投稿スクショの提出締切',
-    submissionEndProxy: 'レシートの提出締切',
     // 페이백 안내 — 첫 줄만 화면 표기에 맞춰 갈리고 둘째 줄은 공용이다.
     paybackNoticeLine1: '募集・購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',
     paybackNoticeLine1Split: '購入期間内にご購入いただいた場合のみ、ペイバックの対象となります。',

@@ -318,7 +318,6 @@ interface CampRow {
   product_price: number | null;   // レビュアー型の上限表示（購入金額をペイバック 最大 ¥N）
   purchase_end: string | null;
   submission_end: string | null;
-  proxy_purchase: boolean | null;
   channel: string | null;
   // 「또는」(or) / 「그리고」(and) — 여러 채널을 모집할 때 전부 내야 하는지, 하나만 내면 되는지.
   // 🔴 이 칸이 조회에서 빠지면 항상 undefined 가 되어 **전부 or 로 잡힌다** — 이번 증상은
@@ -795,7 +794,7 @@ Deno.serve(async (req: Request) => {
             // 抜けると上限が消えたまま案内が届く（2026-08-05）。
             // event_mode — 행사 캠페인은 당선 섹션에서 뺀다(2026-08-24 결정 3, 아래 8번 분류 참조).
             //   빠뜨리면 제외 조건이 늘 거짓이 되어 방문객에게 「報酬 -」「提出期限」이 그대로 나간다.
-            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, proxy_purchase, channel, channel_match, event_mode")
+            .select("id, campaign_no, title, recruit_type, reward, product_price, purchase_end, submission_end, channel, channel_match, event_mode")
             .in("id", chunk)
             .order("id", { ascending: true })
         );
@@ -931,8 +930,7 @@ Deno.serve(async (req: Request) => {
     // 마감 임박 — appsApproved 전체에서 D-5/D-1 + 미제출 + 이력 없는 것만 추출
     //
     // ⚠️ 모집 형식별 제출물 대응 (2026-08-04 사양서 docs/specs/2026-08-04-deadline-reminder-recruit-type-fix.md):
-    //   - 리뷰어(monitor), 일반         : 영수증(receipt) + 채널별 리뷰 인증샷(review_image) 전부
-    //   - 리뷰어(monitor), 가구매(proxy_purchase) : 영수증(receipt)만 (인증샷 미요구)
+    //   - 리뷰어(monitor)               : 영수증(receipt) + 채널별 리뷰 인증샷(review_image) 전부
     //   - 시딩(gifting)·방문형(visit)   : 게시물(post)만
     //   리뷰어형은 게시물을 제출하는 경로가 없다 — 게시물 마감 안내를 리뷰어형에 보내면
     //   낼 수 없는 것을 독촉하는 오발송이 된다(실제 발생, 운영 1,022건).
@@ -946,7 +944,7 @@ Deno.serve(async (req: Request) => {
       const delivInfo = delivByApp.get(a.id) || { kinds: new Set<string>(), reviewChannels: new Set<string>(), postChannels: new Set<string>() };
       const delivKinds = delivInfo.kinds;
 
-      // 영수증 (monitor 한정 — 리뷰어형은 가구매 여부와 무관하게 항상 영수증 제출)
+      // 영수증 (monitor 한정 — 리뷰어형은 항상 영수증 제출)
       // ⚠️ 마감일은 **결과물 제출 마감일**이다(2026-08-11). 구매 종료일이 아니다 —
       //   08-06 부터 신규 리뷰어형은 구매 기간을 모집 기간과 같게 저장하므로, 구매 종료일을
       //   쓰면 **실제보다 2주 이른 날짜로 독촉**하게 된다(캠페인 상세 화면과 어긋남).
@@ -1011,11 +1009,10 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // 리뷰 인증샷(review_image) — 리뷰어형(monitor) 전용, 가구매(proxy_purchase) 캠페인은 제외
-      // (가구매는 영수증만 요구 — computeCertStatus 의 proxy_purchase 분기와 동일 기준).
+      // 리뷰 인증샷(review_image) — 리뷰어형(monitor) 전용
       // 대상 판정 — 캠페인 요구 채널 중 pending·approved 인증샷 행이 없는 채널이 하나라도 있으면 대상
       // (채널 단위 판정. 반려만 있는 채널은 「없음」으로 보아 재제출을 유도한다).
-      if (camp.recruit_type === "monitor" && !camp.proxy_purchase && camp.submission_end) {
+      if (camp.recruit_type === "monitor" && camp.submission_end) {
         const requiredChannels = (camp.channel || "")
           .split(",").map((c) => c.trim()).filter(Boolean);
         // 캠페인에 요구 채널이 하나도 없으면(데이터 미비) 어느 채널이 미완료인지 판정 불가 —
@@ -1184,9 +1181,7 @@ Deno.serve(async (req: Request) => {
               if (dl) {
                 // 영수증과 리뷰 인증샷이 같은 날짜이므로 **한 줄로 합친다**(사양서 결정 3).
                 //   캠페인 상세 화면도 「영수증·게시물 인증샷 제출 마감일」로 한 번만 말한다.
-                //   가구매(proxy_purchase)는 인증샷을 안 내므로 영수증만.
-                const what = c.proxy_purchase ? "レシート" : "レシート・レビュー認証写真";
-                deadlineParts.push(`${what} ${formatJpDateShort(dl)} まで`);
+                deadlineParts.push(`レシート・レビュー認証写真 ${formatJpDateShort(dl)} まで`);
               }
             } else if ((c?.recruit_type === "gifting" || c?.recruit_type === "visit") && c?.submission_end) {
               deadlineParts.push(`投稿物 ${formatJpDateShort(c.submission_end)} まで`);

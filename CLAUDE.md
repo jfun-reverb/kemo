@@ -175,7 +175,7 @@
   - `reward_note` 는 지급 조건·정산 시점 등 자유 텍스트
   - 홍보 메일: `first_active_at timestamptz NULL` — 처음 active 가 된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`) 자동 기록·불변 (마이그레이션 140)
   - 동시 저장 방어(마이그레이션 275): `version integer NOT NULL DEFAULT 1` — 나중 저장이 앞 저장을 조용히 덮는 것을 막는다. `campaigns_bump_version()` 트리거가 **제외 6개**(`version`·`updated_at`·`view_count`·`applied_count`·`order_index`·`first_active_at`) 외 변경 시에만 +1(새 컬럼은 자동 보호). 편집 저장은 `updateCampaign(id, updates, expectedVersion)` 의 `.eq('version', …)` → 0행이면 충돌 안내. ⚠️ **코드보다 마이그레이션을 먼저**(반대면 자동 마감 실패). ⚠️ 자동 전이(`autoOpen/Close/EndCampaigns`)도 version 을 올리므로 캐시를 `.select('version')` 으로 갱신 — 안 하면 **가짜 충돌**
-  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 영수증만. 인증성공 판정·활동관리·엑셀이 분기) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
+  - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 2026-10-20 철거: 화면·메일은 이 칸을 안 본다(단계 A). 서버 판정 다섯 함수 455·456·276·464·545 는 단계 B 전까지 아직 「영수증만」으로 가른다. 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
 - `numbering_legacy_map` — 신구 채번 양방향 매핑
 - `applications` — `user_id`, `campaign_id`, `message`, `address`, `status`(pending/approved/rejected/cancelled), `reviewed_by`, `reviewed_at`, `oriented_at`, `reviewed_version`(낙관적 락), `caution_agreed_at`, `caution_snapshot jsonb`, `guide_acknowledged_at`(537 — 응모 직후 「응모 완료 모달」에서 「확인」을 누른 시각. 기록은 `acknowledge_application_guide(uuid)` 로만·덮지 않음, 응모 삽입 때 보낸 값은 314→537 가드가 지운다. 관리자 신청자 표 「안내 확인」 배지). 취소 보조 5종: `cancelled_at`, `cancel_reason`, `cancel_reason_code`, `cancel_phase CHECK(recruit|purchase|visit|post|other)`, `previous_status`. `(user_id, campaign_id)` partial unique index(cancelled 제외) → 재응모 가능
@@ -249,7 +249,7 @@
 > - ⚠️ **개발서버 시딩 단가 25행은 아직 가짜 값(`99001~99025`)** — 그 환경에서는 작성 폼을 브랜드에게 내보내지 않는다(구간 단추에 단가가 뜬다). 새 환경도 「견적 기준값」에 실제 금액을 넣고 `99,0` 으로 시작하는 행이 없는지 본다
 
 - 🔴 오리엔시트 표·카드 메모·구간 요금(계산은 서버가 인원으로 재판정 · 구간 인원은 형식별 · 이름 기본값 사본 세 곳)·모집비 직접 지정(캠페인 관리자 이상)·고정 안내 확인(445 가 446 보다 앞 · 🔴 446 적용 뒤 새 폼이 나가기 전에는 시트를 발급하지 않는다 · 운영 순서는 사양서 §7) — 상세 `.claude/rules/orient-sheet.md`
-- 🔴 캠페인 발행(판매가는 캠페인 어느 칸에도 자동으로 안 들어간다 · 리뷰어형 제품 금액 0 확인창은 세 경로 모두)·기존 캠페인 연결(모집 형식은 `proxy_purchase` 로만 가른다)·구매 가이드 모드(NULL = 옛 판) — 상세 `.claude/rules/orient-publish.md`
+- 🔴 캠페인 발행(판매가는 캠페인 어느 칸에도 자동으로 안 들어간다 · 리뷰어형 제품 금액 0 확인창은 세 경로 모두)·기존 캠페인 연결(가구매 카드는 화면이 발행·연결을 막는다 — 2026-10-20 철거)·구매 가이드 모드(NULL = 옛 판) — 상세 `.claude/rules/orient-publish.md`
 
 ### 오프라인 팝업 방문 예약(티켓팅)
 > 상세는 **`.claude/rules/event-ticketing.md`** — 행사 화면(`admin-event.js`·`event-ticket.js`·`event-scan.html`)이나 행사 마이그레이션을 열면 자동으로 읽힌다.

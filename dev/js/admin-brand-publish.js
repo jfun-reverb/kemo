@@ -82,7 +82,7 @@ async function _bpColumnsFor(camp) {
   const users = uids.length ? await fetchInfluencersForReport(uids) : {};
   if (users === null) return null;
   const rows = buildReportRows(delivs, [{ id: camp.id, campaign_no: camp.campaign_no, title: camp.title, _exists: true,
-    channel: camp.channel, channel_match: camp.channel_match, recruit_type: camp.recruit_type, proxy_purchase: camp.proxy_purchase }], users);
+    channel: camp.channel, channel_match: camp.channel_match, recruit_type: camp.recruit_type }], users);
   return reportColumnsFor(rows.concat([{ _channels: _reportCampChannels(camp) }]));
 }
 

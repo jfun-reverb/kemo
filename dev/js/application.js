@@ -8,14 +8,11 @@
 let _pixelViewContentShownId = null;
 
 // 결과물 제출 마감 줄의 이름(회원 화면 번역문) — 캠페인 상세와 활동관리 마감 상자가 같이 쓴다.
-//   낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
-//   ⚠️ 가구매를 안 가리고 「인증샷」을 넣으면 낼 수 없는 것을 내라는 말이 된다
-//      (마감 안내 메일이 같은 실수를 해 리뷰어형에게 게시물 독촉이 나갔던 선례).
+//   낼 것을 이름에 적는다 — 리뷰어형은 영수증 + 게시물 인증샷.
 //   갈래 판정은 shared.js `campaignSubmissionLabelCode` 한 곳(관리자 미리보기도 그것을 쓴다).
 function campaignSubmissionLabelText(camp) {
   const labelCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
-  const key = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
-            : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
+  const key = labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
             : 'detail.submissionEnd';
   return t(key);
 }
@@ -216,7 +213,7 @@ async function openCampaign(id) {
           ${(camp.reward>0 && camp.recruit_type !== 'monitor')?`<div class="cd-cash">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
         ${(()=>{
-          // 페이백 안내 — 리뷰어형이면 항상(가구매 포함) 정보표 바로 위에 한 상자.
+          // 페이백 안내 — 리뷰어형이면 항상 정보표 바로 위에 한 상자.
           //   ⚠️ 색은 「注意事項(必読)」(빨강)과 구분되는 정보 안내 톤으로 한다.
           //      같은 빨강을 쓰면 인플루언서 눈에 경고가 두 벌이 되어 둘 다 안 읽힌다.
           //   ⚠️ 첫 줄은 그 캠페인이 화면에 어떻게 그려지는지에 맞춰 갈린다(결정 11) —
@@ -1151,11 +1148,10 @@ const APPLY_RESULT_MALL_CODES = ['qoo10', 'lips', 'cosme'];
 let _applyResultCtx = null;   // { kind, appId }
 
 // 판정 순서는 사양서 결정 10 그대로(세 자리 — 사양서 7-4 ② · 작업표 조각 2 ⑤ · 여기):
-//   재조회 실패 null → 중립 / 가구매 표시 → 중립(상태 무관 — 결정 12) / approved + 리뷰어형 → monitor /
+//   재조회 실패 null → 중립 / approved + 리뷰어형 → monitor /
 //   pending → review / 그 밖(리뷰어형이 아닌데 approved · 다른 상태) → 중립
 function applyResultKind(camp, myApp) {
   if (!myApp || !camp) return 'neutral';
-  if (camp.proxy_purchase === true) return 'neutral';
   if (myApp.status === 'approved' && camp.recruit_type === 'monitor') return 'monitor';
   if (myApp.status === 'pending') return 'review';
   return 'neutral';
@@ -1567,15 +1563,13 @@ async function openActivityPage(applicationId, campaignId, from) {
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
-  // 가구매(proxy_purchase, 마이그레이션 197): monitor지만 영수증만 — 리뷰 캡쳐(STEP 2) 미요구
-  const isProxy = isMonitor && !!camp.proxy_purchase;
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
-  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출. 가구매는 STEP 2 없음.
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출(채널 없는 옛 리뷰어형은 아래 목록 조회 뒤 숨긴다).
   const stepLabel = $('receiptStepLabel');
-  if (stepLabel) stepLabel.style.display = (isMonitor && !isProxy) ? '' : 'none';
+  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
   const reviewSec = $('reviewImageSection');
-  if (reviewSec) reviewSec.style.display = (isMonitor && !isProxy) ? '' : 'none';
+  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
   // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
   const monitorFields = $('monitorReceiptFields');
   if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
@@ -1870,10 +1864,10 @@ async function loadDeliverablesForActivity() {
   // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
   // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
   if (isMonitor) {
-    // 가구매(proxy_purchase)·채널 없는 레거시 monitor는 STEP 2(리뷰 캡쳐) 영역 자체를 숨김 — 영수증만 받음
+    // 채널 없는 레거시 monitor는 STEP 2(리뷰 캡쳐) 영역 자체를 숨김 — 영수증만 받음
     const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     const section = $('reviewImageSection');
-    if (camp.proxy_purchase || channels.length === 0) {
+    if (channels.length === 0) {
       if (section) section.style.display = 'none';
     } else {
       if (section) section.style.display = '';
