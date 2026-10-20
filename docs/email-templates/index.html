@@ -229,6 +229,27 @@
     </div>
   </div>
 
+  <!-- ⑤-2c 배송 리스트 전달 알림 — 브랜드 계정 (배송 리스트 조각 S7, 개발서버만) -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">배송 리스트 전달 알림 (브랜드 계정)</div>
+    <div class="card-desc">시딩형 캠페인의 배송 리스트를 운영팀이 전달하면, 그 브랜드의 브랜드 페이지 계정 전원에게 1명당 1통 — 링크는 브랜드 페이지의 그 캠페인 배송 리스트. 회원 정보는 넣지 않는다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자 진행현황 배송 탭에서 「배송 리스트 전달」이 성공한 직후 한 번. 뒤에 승인된 분이 자동으로 추가될 때는 보내지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 전달 직후 (캠페인마다 한 번 · 받을 계정이 없으면 보내지 않음) · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-shipping-list invoke (SHIPPING_MAIL_TO_BRAND_ACCOUNTS=1 + 개발 프로젝트)</div>
+      <div><b>수신자:</b> 캠페인 브랜드의 활성 연결 + 비밀번호를 정한 계정 전원</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-shipping-delivered.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-shipping-delivered.html">원본</a>
+    </div>
+  </div>
+
   <!-- ⑥ 결과물 — 영수증 승인 -->
   <div class="card">
     <div class="card-tag tag-infl">Influencer</div>
