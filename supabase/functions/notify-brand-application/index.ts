@@ -26,7 +26,8 @@
 //   _templates/brand-ack-seeding.html         브랜드 접수 확인 (seeding)
 //
 //   원본은 docs/email-templates/ 에 있고, scripts/sync-email-templates.sh 가
-//   _templates/ 로 복사한다. Edge Function 배포 직전 반드시 sync 실행.
+//   _templates/ 로 복사한 뒤 templates.ts 로 묶는다(함수는 templates.ts 를 import — 2026-10-20 전환).
+//   🔴 배포 직전 반드시 sync 실행 + 업로드 목록에 templates.ts 가 있는지 확인(없으면 기동 실패).
 //
 // 배포 명령 (개발 → 운영 순서로 양 환경 모두 배포 필수):
 //   bash scripts/sync-email-templates.sh
@@ -47,6 +48,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TEMPLATES } from "./templates.ts";
 
 interface BrandApplication {
   id: string;
@@ -205,7 +207,8 @@ function escapeHtml(s: string): string {
 
 // ──────────────────────────────────────────────────────────────────
 // HTML 템플릿 로딩 + placeholder 치환
-//   - 템플릿은 _templates/*.html (docs/email-templates/와 sync 스크립트로 동기화)
+//   - 템플릿은 templates.ts (sync 스크립트가 _templates/*.html 을 묶어 자동 생성 — 2026-10-20 전환.
+//     예전처럼 _templates/*.html 을 실행 중에 읽으면 `--use-api` 배포가 그 파일을 안 올려 양식을 못 찾는다)
 //   - placeholder 문법: {{key}} (이중 중괄호, 공백 없음)
 //   - 조건부/반복 섹션은 호출 측에서 미리 빌드된 HTML 문자열로 치환
 //   - 인스턴스 메모리 캐시로 매 요청 시 디스크 읽기 회피
@@ -215,8 +218,8 @@ const TEMPLATE_CACHE = new Map<string, string>();
 async function loadTemplate(name: string): Promise<string> {
   const cached = TEMPLATE_CACHE.get(name);
   if (cached) return cached;
-  const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const raw = await Deno.readTextFile(url);
+  const raw = TEMPLATES[name];
+  if (typeof raw !== "string") throw new Error(`template not found: ${name}`);
   // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
   // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
   const html = raw.replace(/<!--[\s\S]*?-->/g, "");
