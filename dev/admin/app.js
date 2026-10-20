@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initHash = subToParent[initHash];
     history.replaceState({pane: initHash}, '', '#' + initHash);
   }
-  var sidePane = {'add-campaign':'campaigns'}[initHash] || initHash;
+  var sidePane = {'add-campaign':'campaigns','cs-history':'messages'}[initHash] || initHash;
   document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
   document.querySelectorAll('.admin-si').forEach(function(s) { s.classList.remove('on'); });
   var initPane = document.getElementById('adminPane-' + initHash) || document.getElementById('adminPane-dashboard');

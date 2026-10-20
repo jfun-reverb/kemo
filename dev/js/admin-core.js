@@ -202,7 +202,7 @@ function switchAdminPane(pane, el, pushHistory) {
   //    'write' 로 돌려줘 아무도 안 막힌다. 이 줄이 없으면 「브랜드 관리」가 숨김인 등급도
   //    주소창에 `#brand-detail` 을 쳐서 들어온다(사양서 2026-09-23-brand-detail-pane 2-3).
   } else if (pane !== 'dashboard' && typeof isHidden === 'function'
-             && isHidden('menu.' + ({'brand-detail':'brands'}[pane] || pane))) {
+             && isHidden('menu.' + ({'brand-detail':'brands','cs-history':'messages'}[pane] || pane))) {
     if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
     return switchAdminPane('dashboard', null, pushHistory);
   }
