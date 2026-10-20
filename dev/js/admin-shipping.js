@@ -233,7 +233,7 @@ function renderCampShipping() {
     }
   } else {
     const ps = d.provision_summary || {};
-    const parts = [esc(formatDateTime(d.delivered_at)) + ' ' + esc(d.delivered_by_name || '운영팀') + '이(가) 브랜드에 전달했습니다'];
+    const parts = ['브랜드에 전달 완료(' + esc(formatDateTime(d.delivered_at)) + ', 전달한 사람: ' + esc(d.delivered_by_name || '운영팀') + ')'];
     parts.push('브랜드 열람 ' + (ps.view_count || 0) + '회' + (ps.last_viewed_at ? '(마지막 ' + esc(formatDateTime(ps.last_viewed_at)) + ')' : ''));
     parts.push('엑셀 내려받기 ' + (ps.excel_count || 0) + '회' + (ps.last_excel_at ? '(' + esc(formatDateTime(ps.last_excel_at)) + (ps.last_excel_by ? ' ' + esc(ps.last_excel_by) : '') + ')' : ''));
     // D26 — 기록 모달(사람 목록)은 최고 관리자만
@@ -413,16 +413,23 @@ function openShipDeliverModal() {
   if (!d || d.success === false || d.delivered_at || !d.can_write) return;
   if ((d.account_count || 0) === 0) { toast('이 브랜드에 비밀번호를 정한 계정이 없어 전달할 수 없습니다.', 'error'); return; }
   const camp = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(function (c) { return c.id === _shipCtx.campaignId; }) : null;
-  const brand = (camp && (camp.brand_ko || camp.brand)) || '이';
+  const brand = (camp && (camp.brand_ko || camp.brand)) || '';
   const n = ((d.counts && d.counts.total) || 0) - ((d.counts && d.counts.cancelled) || 0);
+  // 선정 0명이면 전달하지 않는다(전달은 되돌릴 수 없고 「0명」 알림 메일이 나간다 — 화면에서만 막음)
+  if (n <= 0) { toast('선정된 분이 없어 전달할 수 없습니다. 선정을 마친 뒤 전달해 주세요.', 'error'); return; }
+  // 메일 제품명은 서버(561)가 product_ko → product → title 순으로 고른다 — 한국어 제품명이 비면 일본어가 나간다
+  const mailProduct = camp ? (String(camp.product_ko || '').trim() || String(camp.product || '').trim() || String(camp.title || '').trim()) : '';
+  const productNote = (camp && !String(camp.product_ko || '').trim() && mailProduct)
+    ? `<br>· 한국어 제품명이 비어 있어 알림 메일에 「${esc(mailProduct)}」(일본어)가 들어갑니다. 바꾸려면 캠페인 편집에서 한국어 제품명을 먼저 넣어 주세요.`
+    : '';
   const m = _shipEnsureModal('shipDeliverModal', '배송 리스트를 브랜드에 전달하시겠습니까?', 520);
   m.querySelector('.ship-modal-body').innerHTML = `
-    <div style="font-size:13px;line-height:1.7;color:var(--ink)">「${esc(brand)}」 브랜드 페이지 계정 <b>${d.account_count}명</b>에게 선정된 <b>${n}명</b>의 이름·우편번호·주소·전화번호가 보이고, 엑셀로 내려받을 수 있게 됩니다.</div>
+    <div style="font-size:13px;line-height:1.7;color:var(--ink)">${brand ? '「' + esc(brand) + '」 브랜드' : '이 브랜드'} 페이지 계정 <b>${d.account_count}명</b>에게 선정된 <b>${n}명</b>의 이름·우편번호·주소·전화번호가 보이고, 엑셀로 내려받을 수 있게 됩니다.</div>
     <div style="margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--surface-container-low, #F7F7F8);font-size:12px;line-height:1.8;color:var(--muted)">
       · 전달한 뒤 승인하는 분은 자동으로 추가됩니다.<br>
       · 선정이 취소된 분은 「취소됨」으로 남고 주소·전화번호는 가려집니다.<br>
       · 누가 언제 전달했는지, 브랜드가 언제 열고 내려받았는지 기록이 남습니다.<br>
-      · 계정 ${d.account_count}명에게 알림 메일이 갑니다. <b style="color:var(--ink)">전달은 되돌릴 수 없습니다.</b>
+      · 계정 ${d.account_count}명에게 알림 메일이 갑니다. <b style="color:var(--ink)">전달은 되돌릴 수 없습니다.</b>${productNote}
     </div>`;
   m.querySelector('.ship-modal-foot').innerHTML =
     '<button type="button" class="btn btn-ghost" onclick="closeModal(\'shipDeliverModal\')">취소</button>'
@@ -433,7 +440,7 @@ function openShipDeliverModal() {
 // 전달 알림 메일 결과 → 안내(전달 성공은 무르지 않는다 — 작업표 S3)
 function _shipMailToast(res) {
   if (!res) return;
-  if (res.sent) { toast('브랜드 계정 ' + ((res.recipients || []).length || '') + '명에게 알림 메일을 보냈습니다.'); return; }
+  if (res.sent) { const cnt = (res.recipients || []).length; toast(cnt ? '브랜드 계정 ' + cnt + '명에게 알림 메일을 보냈습니다.' : '브랜드 계정에 알림 메일을 보냈습니다.'); return; }
   if (res.reason === 'not_claimed') return;   // 이미 보냈거나 다른 실행이 보내는 중
   if (res.reason === 'disabled' || res.reason === 'brand_account_disabled') { toast('알림 메일은 이 서버에서 꺼져 있어 보내지 않았습니다. 전달은 완료되었습니다.'); return; }
   if (res.reason === 'no_account') { toast('알림 메일을 받을 계정이 없어 메일은 보내지 않았습니다. 전달은 완료되었습니다.', 'error'); return; }

@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
         `발송 기한: ${deadline} (받은 날부터 3일)\n` +
         `배송 리스트 열기: ${link}\n\n` +
         `이 메일은 「${brandName}」 브랜드에 연결된 계정 모두에게 보냈습니다.\n` +
-        `문의는 REVERB 브랜드 페이지에서 남겨 주십시오.\n`;
+        `이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주십시오.\n`;
       try {
         await sendBrevoEmail({ to: [{ email: r.email, name: name || brandName }], subject, htmlContent: html, textContent: text });
         sent.push(r.email);
