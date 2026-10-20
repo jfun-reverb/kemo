@@ -6384,9 +6384,8 @@ window.I18N_JA = {
   activity: {
     rejectedTitle: '差し戻しされました',
     rejectedHint: '修正後、再度ご提出ください。',
-    submissionEndLabel: '提出期限',
-    submissionEndPast: '提出期限が過ぎました',
-    submissionEndPastButRejected: '提出期限（{date}）が過ぎていますが、差し戻し項目があるため再提出が必要です。',
+    submissionEndPast: '{label}が過ぎました',
+    submissionEndPastButRejected: '{label}（{date}）が過ぎていますが、差し戻し項目があるため再提出が必要です。',
     receiptSection: '購入レシート',
     receiptImageLabel: 'レシート画像',
     receiptImageBtn: '画像を選択',
@@ -7455,9 +7454,8 @@ window.I18N_KO = {
   activity: {
     rejectedTitle: '반려되었습니다',
     rejectedHint: '수정 후 다시 제출해주세요.',
-    submissionEndLabel: '제출 기한',
-    submissionEndPast: '제출 기한이 지났습니다',
-    submissionEndPastButRejected: '제출 기한({date})이 지났지만 반려된 항목이 있어 재제출이 필요합니다.',
+    submissionEndPast: '{label}이 지났습니다',
+    submissionEndPastButRejected: '{label}({date})이 지났지만 반려된 항목이 있어 재제출이 필요합니다.',
     receiptSection: '구매 영수증',
     receiptImageLabel: '영수증 이미지',
     receiptImageBtn: '이미지 선택',
@@ -19246,6 +19244,19 @@ function showSignupFailure(errEl) {
 //      내용이 처음 보이는 호출이 「다시 그리기」로 잘못 걸려 영영 안 나간다(2026-09-15 리뷰 지적).
 let _pixelViewContentShownId = null;
 
+// 결과물 제출 마감 줄의 이름(회원 화면 번역문) — 캠페인 상세와 활동관리 마감 상자가 같이 쓴다.
+//   낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
+//   ⚠️ 가구매를 안 가리고 「인증샷」을 넣으면 낼 수 없는 것을 내라는 말이 된다
+//      (마감 안내 메일이 같은 실수를 해 리뷰어형에게 게시물 독촉이 나갔던 선례).
+//   갈래 판정은 shared.js `campaignSubmissionLabelCode` 한 곳(관리자 미리보기도 그것을 쓴다).
+function campaignSubmissionLabelText(camp) {
+  const labelCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
+  const key = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
+            : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
+            : 'detail.submissionEnd';
+  return t(key);
+}
+
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
   if (!camp) return;
@@ -19559,14 +19570,8 @@ async function openCampaign(id) {
             rows.push(row(t('detail.visitPeriod'), `${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}`));
           }
           if (camp.submission_end && !isEvent) {
-            // 낼 것을 이름에 적는다 — 리뷰어형은 영수증(+게시물 인증샷), 가구매는 영수증만.
-            //   ⚠️ 가구매를 안 가리고 「인증샷」을 넣으면 낼 수 없는 것을 내라는 말이 된다
-            //      (마감 안내 메일이 같은 실수를 해 리뷰어형에게 게시물 독촉이 나갔던 선례).
-            const labelCode = (typeof campaignSubmissionLabelCode === 'function') ? campaignSubmissionLabelCode(camp) : 'default';
-            const subKey = labelCode === 'receiptOnly' ? 'detail.submissionEndProxy'
-                         : labelCode === 'receiptAndPost' ? 'detail.submissionEndMonitor'
-                         : 'detail.submissionEnd';
-            rows.push(row(t(subKey), formatDate(camp.submission_end), 'strong'));
+            // 이름은 활동관리 마감 상자와 같은 함수(campaignSubmissionLabelText)
+            rows.push(row(campaignSubmissionLabelText(camp), formatDate(camp.submission_end), 'strong'));
           }
           rows.push(row(t('detail.recruitSlots'), `${camp.slots}${t('detail.peopleUnit')}`));
           // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
@@ -20821,7 +20826,7 @@ async function openActivityPage(applicationId, campaignId, from) {
   if (deadlineBox) {
     if (submissionEnd) {
       deadlineBox.style.display = '';
-      deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
+      deadlineBox.textContent = `${campaignSubmissionLabelText(camp)}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
     } else {
       deadlineBox.style.display = 'none';
@@ -21188,14 +21193,16 @@ function applyFormGating(allDelivs) {
   const deadlineBox = $('activitySubmissionDeadline');
   if (deadlineBox && submissionEnd) {
     deadlineBox.style.display = '';
+    // 이름은 캠페인 상세와 같은 형식별 이름 — 마감이 지나도 같은 이름을 쓴다(2026-10-20 사용자 결정)
+    const subLabel = campaignSubmissionLabelText(camp);
     if (!isAfterDeadline) {
-      deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
+      deadlineBox.textContent = `${subLabel}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
     } else if (stillSubmittable) {
-      deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
+      deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{label}', subLabel).replace('{date}', formatDate(submissionEnd));
       deadlineBox.style.color = '#B8741A';
     } else {
-      deadlineBox.textContent = `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`;
+      deadlineBox.textContent = `${t('activity.submissionEndPast').replace('{label}', subLabel)} (${formatDate(submissionEnd)})`;
       deadlineBox.style.color = '#C33';
     }
   }
