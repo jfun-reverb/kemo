@@ -2794,3 +2794,22 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-seg.on{background:var(--blue-l);color:var(--blue);font-weight:800}
 .cs-tag{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:11px;font-weight:600;color:var(--muted)}
 .cs-btn-complete{background:#5E35B1;border-color:#5E35B1}
+
+/* ── 메시지 화면 CS 패널(admin-cs-panel.js — 작업표 3-1 · 피그마 a10-01·02·03) ──
+   네 번째 너비 단계 .stage-cs — 캠페인 단은 펼치기 띠만 남고, 대화 목록·대화·패널이 나눠 쓴다(1280 폭 기준) */
+.inbox-cs-toggle{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--accent);border-radius:8px;background:#fff;color:var(--accent-ink);font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer}
+.inbox-cs-toggle:hover,.inbox-cs-toggle.on{background:var(--accent-tint)}
+.inbox-cs-close{border:0;background:none;padding:2px;color:var(--muted);cursor:pointer;display:inline-flex}
+.inbox-col-cs{border-left:1px solid var(--line);background:#fcfcfd;flex:0 0 340px;min-width:300px}
+.inbox-camps-fold{display:none;border:0;background:none;color:var(--muted);cursor:pointer;padding:10px 0;justify-content:center}
+.inbox-camps-fold:hover{color:var(--ink);background:var(--surface-dim)}
+.inbox-3pane.stage-cs .inbox-col-camps{flex:0 0 40px;min-width:40px}
+.inbox-3pane.stage-cs .inbox-col-camps > .inbox-col-header,
+.inbox-3pane.stage-cs .inbox-col-camps > .inbox-col-body{display:none}
+.inbox-3pane.stage-cs .inbox-camps-fold{display:flex}
+.inbox-3pane.stage-cs .inbox-col-threads{flex:1}
+.inbox-3pane.stage-cs .inbox-col-view{flex:2}
+.cs-panel-line{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer;font-size:12.5px;color:var(--ink)}
+.cs-panel-line:hover{background:var(--surface-dim)}
+.cs-panel-line-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-panel-line-no{color:var(--muted);font-size:11.5px}

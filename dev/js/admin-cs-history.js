@@ -436,6 +436,8 @@ async function _csCdReload(keepSummaryEdit) {
   }
   if (keepSummaryEdit && kept.sum != null && $('csCdSummaryInput')) $('csCdSummaryInput').value = kept.sum;
   await refreshPane('cs-history');
+  // 메시지 화면 CS 패널이 열려 있으면(대화 열기 뒤 상세를 연 경우) 그쪽도 새로(admin-cs-panel.js)
+  if (typeof loadInboxCsPanel === 'function' && typeof _csPanelKey !== 'undefined' && _csPanelKey) loadInboxCsPanel();
 }
 
 // 쓰기 공용 — 연타 잠금 · 실패하면 문구 토스트 · 동시 저장 충돌이면 최신으로 다시 읽고 입력값은 남긴다
