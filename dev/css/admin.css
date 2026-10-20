@@ -2809,7 +2809,26 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .inbox-3pane.stage-cs .inbox-camps-fold{display:flex}
 .inbox-3pane.stage-cs .inbox-col-threads{flex:1}
 .inbox-3pane.stage-cs .inbox-col-view{flex:2}
-.cs-panel-line{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer;font-size:12.5px;color:var(--ink)}
-.cs-panel-line:hover{background:var(--surface-dim)}
-.cs-panel-line-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cs-panel-line-no{color:var(--muted);font-size:11.5px}
+
+/* ── CS 패널 건 카드(admin-cs-panel.js — 작업표 3-2 · 피그마 a10-03·06·07) ── */
+.cs-pn-list{display:flex;flex-direction:column;gap:8px;padding:10px}
+.cs-pn-line{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px 10px;font-size:12px;color:var(--ink)}
+.cs-pn-line-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.cs-pn-dot{position:static;display:inline-block;box-shadow:none}
+.cs-pn-card{border:1.5px solid var(--accent);border-radius:12px;background:#fff;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.cs-pn-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cs-pn-times{font-size:11.5px;color:var(--muted)}
+.cs-pn-summary{background:#f6f6f8;border-radius:8px;padding:8px 10px}
+.cs-pn-sum-row{display:flex;gap:6px;align-items:flex-start}
+.cs-pn-sum-text{font-size:12.5px;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.cs-pn-sum-tr{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:pre-wrap;word-break:break-word}
+.cs-pn-sum-text.clamp,.cs-pn-sum-tr.clamp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-pn-icon-btn{border:0;background:none;padding:0;color:var(--accent-ink);cursor:pointer;display:inline-flex}
+.cs-pn-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cs-pn-memo-title{font-size:12.5px;font-weight:800;color:var(--ink);margin-top:4px}
+.cs-pn-memo-fold{font-size:11.5px;color:var(--muted)}
+.cs-pn-memo-note{font-size:11px;color:var(--accent-ink)}
+#csPnMemo .cs-memo-input{background:#f6f3fd}
+.cs-pn-complete-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;width:100%}
+.cs-pn-complete{padding:10px 12px}
+.cs-pn-done{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
