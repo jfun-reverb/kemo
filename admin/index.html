@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792468925';
+  var CURRENT_BUILD = 'v1792470941';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3336,7 +3336,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-20 13:02 · 2e57b86</span>
+          <span class="admin-build-text">2026-10-20 13:35 · 819205b</span>
         </div>
       </div>
     </aside>
@@ -23247,6 +23247,7 @@ async function osRefreshAfterSheetChange() {
 function osLinkFailMsg(reason) {
   switch (reason) {
     case 'brand_mismatch':           return '브랜드가 일치하지 않습니다.';
+    case 'form_type_retired':        return '가구매는 더 이상 발행하지 않습니다.';
     case 'recruit_type_mismatch':    return '이 캠페인의 모집 형식이 이 카드와 다릅니다. 캠페인을 편집해 형식을 맞추거나, 다른 캠페인을 골라 주세요.';
     case 'campaign_already_linked':  return '이미 다른 카드/시트에 연결된 캠페인입니다.';
     case 'already_published':        return '이미 발행된 카드입니다.';
