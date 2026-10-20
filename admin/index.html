@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792481185';
+  var CURRENT_BUILD = 'v1792482473';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3409,6 +3409,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-pn-locked{opacity:.5;pointer-events:none}
 /* CS 추가 중 잠긴 행동 줄 단추(_csSplitApplyLock 이 data-cs-was-disabled 를 붙인 동안만) — 원래 모양 그대로면 잠긴 줄 모른다 */
 .adm-msg-actionbar button[data-cs-was-disabled]{opacity:.4;cursor:not-allowed}
+.cs-btn-danger{color:var(--red-d)}
+.cs-link-danger{color:var(--red-d)}
 
 </style>
 </head>
@@ -3511,7 +3513,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-20 16:26 · 3786538</span>
+          <span class="admin-build-text">2026-10-20 16:47 · 2c9b07c</span>
         </div>
       </div>
     </aside>
@@ -18784,6 +18786,8 @@ const csUpdateManualCase = (caseId, version, f) => _csRpc('cs_update_manual_case
 const csAddComment = (caseId, body, parentId, attachments) =>
   _csRpc('cs_add_comment', { p_case_id: caseId, p_body: body || '', p_parent_id: parentId || null, p_attachments: attachments || [] });
 const csDeleteComment = (commentId) => _csRpc('cs_delete_comment', { p_comment_id: commentId });
+// 열린 건 삭제(570 — D-22) — 반환 {moved_to, moved_count, queued_files}. 회원 글은 같은 대화의 다른 건으로 옮겨진다
+const csDeleteCase = (caseId, version) => _csRpc('cs_delete_case', { p_case_id: caseId, p_version: version });
 // 읽음 — 실패해도 화면은 그대로(다음에 열 때 다시 읽음 처리된다)
 async function csMarkCaseCommentsRead(caseId) {
   try { return await _csRpc('cs_mark_case_comments_read', { p_case_id: caseId }); }
@@ -21927,6 +21931,7 @@ const CS_ERROR_TEXT_KO = {
   case_purged: '개인정보가 정리된 건이라 고칠 수 없습니다.',
   already_done: '이미 완료된 건입니다.',
   not_done: '완료된 건이 아닙니다.',
+  not_open: '열린 건만 삭제할 수 있습니다. 완료된 건은 「다시 열기」 뒤에 삭제하세요.',
   category_required: '항목을 골라 주세요.',
   invalid_category: '고를 수 없는 항목입니다. 다른 항목을 골라 주세요.',
   response_required: '대응 안내 내용을 적어 주세요.',
@@ -22070,6 +22075,14 @@ function csReadCompleteForm(row, prefix) {
   [cat, resp, at].forEach(el => { if (el) el.classList.toggle('cs-field-error', missing.includes(el)); });
   out.ok = missing.length === 0;
   return out;
+}
+
+// 건 삭제 확인 문구 — 표 화면·패널 공용(D-22). 되돌릴 수 없으니 무엇이 사라지고 어디로 가는지 적는다
+function csDeleteConfirmText(row) {
+  const conv = row && (row.application_id || row.general_thread_id);
+  return `CS 건 #${row ? row.case_no : ''} 을(를) 삭제할까요? 되돌릴 수 없습니다.\n`
+    + '· 이 건의 메모·답글·첨부 사진이 함께 지워집니다.\n'
+    + (conv ? '· 이 건에 묶인 회원 글은 같은 대화의 다른 건(열린 건이 있으면 그 건)으로 옮겨집니다. 다른 건이 없으면 어느 건에도 묶이지 않습니다.' : '· 수기 등록 건이라 옮길 회원 글이 없습니다.');
 }
 
 // 상태 배지 — 완료(보라 강조)·확인필요(주황)·진행중(회색)
@@ -22638,11 +22651,13 @@ function _csCdFootHtml(r) {
   const left = r.personal_purged_at ? '' : csIsManual(r)
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdEdit()">편집</button>`
     : (r.source_deleted ? '' : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdOpenConversation()">대화 열기 →</button>`);
+  // 잘못 열린 건 삭제(D-22) — 열린 건만(완료 건은 「다시 열기」 뒤)
+  const del = (r.status !== 'done' && !r.personal_purged_at) ? `<button type="button" class="btn btn-ghost btn-sm cs-btn-danger" onclick="csCdDelete()">삭제</button>` : '';
   const purged = !!r.personal_purged_at;
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
     : `<button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
-  return `<div>${left}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
+  return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
 // 저장 뒤 — 그 건을 다시 읽어 그리고 표를 다시 그린다.
@@ -22731,6 +22746,31 @@ async function csCdReopen() {
   const ok = await showConfirm('이 CS 건을 다시 열까요? 진행현황이 「진행중」으로 돌아가고, 다시 완료할 때 해결 시간이 새로 계산됩니다.');
   if (!ok) return;
   await _csCdWrite(() => csReopenCase(r.id, r.version), 'CS 건을 다시 열었습니다');
+}
+
+// 건 삭제(D-22) — 확인 뒤 지우고 모달을 닫는다. 표·열린 패널을 다시 그린다
+async function csCdDelete() {
+  const r = _csCd && _csCd.row;
+  if (!r || _csCd.busy) return;
+  if (!(await showConfirm(csDeleteConfirmText(r)))) return;
+  _csCd.busy = true;
+  let res;
+  try {
+    res = await csDeleteCase(r.id, r.version);
+  } catch (e) {
+    if (_csCd) _csCd.busy = false;
+    toast(csErrorText(e), 'error');
+    if (csErrorCode(e) === 'version_conflict') await _csCdReload(false);
+    return;
+  }
+  // 지운 뒤 — 다시 그리기가 실패해도 「삭제 실패」로 보이지 않게 따로 둔다
+  toast(res && res.moved_count ? `CS 건을 삭제했습니다(회원 글 ${res.moved_count}개를 다른 건으로 옮김)` : 'CS 건을 삭제했습니다', 'success');
+  closeModal('csCaseDetailModal');
+  _csCd = null;
+  try {
+    await refreshPane('cs-history');
+    if (typeof loadInboxCsPanel === 'function' && typeof _csPanelKey !== 'undefined' && _csPanelKey) loadInboxCsPanel();
+  } catch (e) { console.warn('[csCdDelete] refresh after delete failed', e); }
 }
 
 function csCdOpenConversation() {
@@ -22903,7 +22943,8 @@ function _csPnCardHtml(r) {
   const head = `<div class="cs-pn-head">${csStatusBadgeHtml(r.status)}${r.previous_case_id ? '<span class="cs-tag">재문의</span>' : ''}
     <span class="cs-pn-times">접수 ${esc(r.time_unknown ? formatDate(r.received_at) : formatDateTime(r.received_at))}
     · 첫 답장 ${esc(r.first_reply_at ? csDurationBetween(r.received_at, r.first_reply_at, r.time_unknown) : '—')}</span>
-    <button type="button" class="cs-link" style="margin-left:auto" onclick="csPnExpand(null)">접기</button></div>`;
+    <span style="margin-left:auto;display:flex;gap:8px">${(!done && !purged) ? `<button type="button" class="cs-link cs-link-danger" onclick="csPnDelete(${jsStr(r.id)})">삭제</button>` : ''}
+    <button type="button" class="cs-link" onclick="csPnExpand(null)">접기</button></span></div>`;
   if (purged) return `<div class="cs-pn-card">${head}<div class="cs-cd-purged">개인정보가 정리된 건입니다. 항목·시각만 남아 있습니다.</div></div>`;
   const statusSeg = done ? '' : `<div class="cs-pn-row"><span class="cs-field-label">진행현황</span><span class="cs-seg-wrap">${['in_progress', 'needs_check'].map(st =>
     `<button type="button" class="cs-seg${r.status === st ? ' on' : ''}" onclick="csPnSetStatus(${jsStr(r.id)},'${st}')">${CS_STATUS_LABEL_KO[st]}</button>`).join('')}</span></div>`;
@@ -23050,6 +23091,15 @@ async function csPnSaveComplete(id) {
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   await _csPnWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다',
     () => { delete _csPn.drafts[id]; _csPn.completing = null; _csPn.expanded = null; });
+}
+
+// 잘못 열린 건 삭제(D-22) — 회원 글은 같은 대화의 다른 건으로 옮겨진다(서버). 끝나면 패널을 다시 읽는다
+async function csPnDelete(id) {
+  const r = _csPnRow(id);
+  if (!r) return;
+  if (!(await showConfirm(csDeleteConfirmText(r)))) return;
+  await _csPnWrite(() => csDeleteCase(r.id, r.version), 'CS 건을 삭제했습니다',
+    () => { delete _csPn.drafts[id]; if (_csPn.completing === id) _csPn.completing = null; _csPn.expanded = null; });
 }
 
 async function csPnReopen(id) {

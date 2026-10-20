@@ -154,7 +154,8 @@ function _csPnCardHtml(r) {
   const head = `<div class="cs-pn-head">${csStatusBadgeHtml(r.status)}${r.previous_case_id ? '<span class="cs-tag">재문의</span>' : ''}
     <span class="cs-pn-times">접수 ${esc(r.time_unknown ? formatDate(r.received_at) : formatDateTime(r.received_at))}
     · 첫 답장 ${esc(r.first_reply_at ? csDurationBetween(r.received_at, r.first_reply_at, r.time_unknown) : '—')}</span>
-    <button type="button" class="cs-link" style="margin-left:auto" onclick="csPnExpand(null)">접기</button></div>`;
+    <span style="margin-left:auto;display:flex;gap:8px">${(!done && !purged) ? `<button type="button" class="cs-link cs-link-danger" onclick="csPnDelete(${jsStr(r.id)})">삭제</button>` : ''}
+    <button type="button" class="cs-link" onclick="csPnExpand(null)">접기</button></span></div>`;
   if (purged) return `<div class="cs-pn-card">${head}<div class="cs-cd-purged">개인정보가 정리된 건입니다. 항목·시각만 남아 있습니다.</div></div>`;
   const statusSeg = done ? '' : `<div class="cs-pn-row"><span class="cs-field-label">진행현황</span><span class="cs-seg-wrap">${['in_progress', 'needs_check'].map(st =>
     `<button type="button" class="cs-seg${r.status === st ? ' on' : ''}" onclick="csPnSetStatus(${jsStr(r.id)},'${st}')">${CS_STATUS_LABEL_KO[st]}</button>`).join('')}</span></div>`;
@@ -301,6 +302,15 @@ async function csPnSaveComplete(id) {
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   await _csPnWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다',
     () => { delete _csPn.drafts[id]; _csPn.completing = null; _csPn.expanded = null; });
+}
+
+// 잘못 열린 건 삭제(D-22) — 회원 글은 같은 대화의 다른 건으로 옮겨진다(서버). 끝나면 패널을 다시 읽는다
+async function csPnDelete(id) {
+  const r = _csPnRow(id);
+  if (!r) return;
+  if (!(await showConfirm(csDeleteConfirmText(r)))) return;
+  await _csPnWrite(() => csDeleteCase(r.id, r.version), 'CS 건을 삭제했습니다',
+    () => { delete _csPn.drafts[id]; if (_csPn.completing === id) _csPn.completing = null; _csPn.expanded = null; });
 }
 
 async function csPnReopen(id) {
