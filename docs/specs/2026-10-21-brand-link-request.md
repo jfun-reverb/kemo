@@ -244,3 +244,21 @@
 ---
 
 ## 구현 결과 (개발 세션이 채울 것)
+
+### 연결 5~9 — 메일·공개 함수·브랜드 화면 (세션 C, 2026-10-21 개발서버)
+
+| 조각 | 병합 요청 | 개발서버 반영 |
+|---|---|---|
+| 연결 5 메일 갈래 + 양식 `brand-link-request` · 연결 6 「연결 안내」 걷기 | #2257 | 두 함수 배포(577 적용 확인 뒤) |
+| 연결 7 공개 함수 `brand-link-request-accept` · 연결 8 수락 약관 동의·연결 요청 문구 | #2258 | 8 은 579 적용 직후 병합 · 7 은 580 적용 뒤 배포 |
+| 연결 9 비밀번호 정하며 수락 화면 | #2261 | 580 적용 + 7 배포 뒤 병합 |
+
+- **메일(4-3)**: `notify-brand-invite` 가 줄을 읽자마자 `invite_kind` 로 가른 뒤 호출자 판정 — 멤버 초대 = 현재 대표 / 연결 요청 = 호출자 토큰 `has_permission('brand.account_manage','write')`, 선점 전·뒤 두 번. 제목 「[REVERB JP] 「{브랜드}」 브랜드 대표 담당자 연결 요청 — 24시간 안에 수락해 주십시오 (MM/DD HH:MM)」, 단추 「연결 요청 확인하기」. 본문은 비밀번호 유무를 드러내지 않고 두 길(로그인 뒤 「받은 초대」 · 링크 화면에서 비밀번호 정하며 수락)을 함께 적었다.
+  - 개발서버 확인(페이지 콘솔에서 호출 — 관리자 화면은 조각 13 전): 대표의 멤버 초대 메일 `dev_mail` 그대로(회귀 없음) · 관리자 연결 요청 → `dev_mail`(「REVERB 운영팀」·`kind=invite` 링크·24시간, 응답 키 `sent`·`dev_mail` 뿐) · 같은 링크 두 번째 `already_sent` · 대표 토큰 → 연결 요청 403 · 관리자 토큰 → 멤버 초대 403. 시험 줄 둘은 취소했다.
+  - ⚠️ 피그마 bw01-98 과 글자 대조는 아직 — 저장소에 피그마 파일 주소가 없어 기존 초대 메일 양식·이 사양서 문구를 기준으로 썼다(기획 확인 대상 — 10절 ③).
+- **걷기(4-3)**: `notify-brand-account-setup` 은 `mail_kind` 없음/`'setup'` 만 — `'link'` 는 400 `invalid_request`(작업표 기본값 6, 개발서버 확인). 양식 `brand-link-notice`(원본·미리보기·미러·카탈로그 카드)·동기화 대응표 줄 삭제. 533:930 주석은 마이그레이션이라 그대로(작업표 stale 8).
+- **공개 함수(4-5 · 기본값 2)**: 새 함수 `brand-link-request-accept` — 계정 지우기 경로 없음. 응답 `{ok:true, email, brand_id}` \| `{ok:false, reason: invalid_link|owner_exists|already_member|password_already_set|terms_version_required|password_rejected|failed}` \| 400 `invalid_request`(형식 틀린 링크 포함) \| 500. 마무리가 `ok` 인데 이메일이 비면 `failed`(방어). 개발서버: 사전 요청 200 · 형식 틀린 링크 400 · 없는 링크 `invalid_link`.
+- **브랜드 화면 ①(4-4 · 연결 8)**: 초대 수락 화면(`#inviteTitle` 새 아이디 · 동의 칸 `#inviteAgree`·`#inviteAgreeBox`·`#inviteAgreeError`)과 마이페이지 받은 초대 줄(줄마다 동의 칸 — `data-agree-invite`/`data-agree-error`)에 「[필수] 이용약관과 개인정보처리방침에 동의합니다」 + 「이용약관 보기」·「개인정보처리방침 보기」. 마이페이지 「보기」는 `data-my-act="legal"` 로 `openLegalModal` 직접(작업표 의심 5). 거절 확인 문구는 두 화면이 `brandInviteDeclineText` 하나를 쓴다(멤버 초대 문구는 글자 그대로 유지). 메일 링크 착지 제목은 연결 요청이면 「연결 요청을 확인하시겠습니까?」.
+- **브랜드 화면 ②(L8 · B7 · 연결 9)**: `recipient:'existing_setpw'` → 「계속하기」 → `showOwnerLinkSetpw`(이름·연락처 숨김, 이메일 읽기 전용) → 성공이면 다른 세션 정리 → 그 이메일로 로그인 → `set_my_brand_last_viewed` → 그 브랜드로. 결과별: `invalid_link`·400 = 쓸 수 없는 링크 화면 · `password_rejected` = 칸 오류 · `password_already_set`·`owner_exists`·`already_member` = 이메일을 채운 로그인 화면 + 안내 · 그 밖 = 같은 화면 「처리하지 못했습니다. 메일의 링크를 다시 열어 주십시오.」 · 비밀번호 원문은 늘 지운다.
+  - ✅ 개발서버 처음부터 끝까지(2026-10-21): 시험 브랜드 「zz-C 연결시험 가」에서 「계정 만들기」로 만든 비밀번호 없는 계정(zz-c-setpw@example.com) → 「zz-C 연결시험 나」에 연결 요청 → 메일 링크 착지 「비밀번호를 설정하시겠습니까?」 → 「계속하기」 → 이름·연락처 없는 설정 화면(이메일 읽기 전용) → 비밀번호·전체 동의(입력은 사용자) → **로그인된 채 「zz-C 연결시험 나」**, 그 계정은 가·나 둘 다 대표 · 계정 `password_set_at`·`password_changed_at`·약관 셋 방금 · `setup_link_id` 빔 · 관리자 상태 가·나 `active`, `owner_link_request` null · 나의 담당자 대표 줄 이동 · 같은 연결 요청 링크 다시 → 쓸 수 없는 링크 화면 · 가의 옛 설정 링크 → 서버 판정 `setup`·`reset` 둘 다 `invalid`(작업표 stale 6·의심 7). 정리: 두 브랜드에서 해제(시험 브랜드 두 줄·계정은 해제 이력이 있어 그대로 남김).
+- **후속 후보**: 다른 브랜드 계정으로 로그인한 채 링크를 열면 원인을 말하지 않고 「쓸 수 없는」 안내만 뜬다(작업표 의심 4 — 지금 멤버 초대와 같음).
