@@ -1,0 +1,32 @@
+# 마이그레이션·패치 병합 요청 자동 검사 (사양서 docs/specs/2026-10-20-migration-ledger.md 「설계 3」)
+# - 받는 브랜치(dev·main) 판의 scripts/check-migrations.js 로 돈다 — 요청이 스크립트를 고쳐 검사를 피하지 못하게
+# - 받는 브랜치에 스크립트가 아직 없으면(이 검사를 처음 싣고 가는 요청) 통과한다
+# - 경로 조건을 두지 않는다: 필수 검사로 지정하면 결과가 없는 요청은 병합이 막힌다
+name: Migration check
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check migrations and patches
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          if ! git cat-file -e "origin/$BASE_REF:scripts/check-migrations.js" 2>/dev/null; then
+            echo "받는 브랜치에 검사 스크립트가 아직 없다 — 통과"
+            exit 0
+          fi
+          git show "origin/$BASE_REF:scripts/check-migrations.js" > "$RUNNER_TEMP/check-migrations.js"
+          node "$RUNNER_TEMP/check-migrations.js" --base "$BASE_REF" --head "$HEAD_SHA"
