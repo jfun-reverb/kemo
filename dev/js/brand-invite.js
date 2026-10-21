@@ -7,19 +7,50 @@ const BRAND_INVITE_MSG = {
   invalid: '이 초대는 더 이상 쓸 수 없습니다.',                               // bw01-90 토스트 2
   declined: '초대를 거절했습니다.',                                          // bw01-90 토스트 1
   failed: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // bw01-92 ⑥
-  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.'                // bw01-03 「나중에」(대기 초대만 있는 계정)
+  later: '초대는 기한까지 메일 링크로 다시 수락할 수 있습니다.',               // bw01-03 「나중에」(대기 초대만 있는 계정)
+  agreeRequired: '수락하려면 이용약관과 개인정보처리방침에 동의해 주십시오.',
+  // 연결 요청(invite_kind='owner_link' — 관리자가 기존 계정을 대표로 잇는 요청, 사양서 docs/specs/2026-10-21-brand-link-request.md 4-4)
+  linkInvalid: '이 연결 요청은 더 이상 쓸 수 없습니다.',
+  linkDeclined: '연결 요청을 거절했습니다.',
+  ownerExists: '이미 다른 대표 담당자가 정해졌습니다. 운영팀에 문의해 주십시오.'
 };
 
-// 지금 보고 있는 초대 — { source:'login'|'link', invite:{invite_id, brand_id, brand_name, inviter_name, expires_at}, linkId? }
+// 연결 요청 줄인가 — 서버가 invite_kind 를 안 주면(연결 3 전) 멤버 초대로 본다
+function isOwnerLinkInvite(inv) { return !!inv && inv.invite_kind === 'owner_link'; }
+// 연결 요청 줄의 설명 한 줄 — 초대 수락 화면(bw01-03 문구 바꿔 쓰기 — 사양서 B9)
+function ownerLinkInviteDesc(brandName) {
+  return 'REVERB 운영팀이 회원님을 「' + (brandName || '') + '」의 대표 담당자로 연결하려 합니다.';
+}
+// 거절 확인 문구 — 마이페이지 받은 초대 줄(bw07-02)과 초대 수락 화면(bw01-10)이 같은 문장을 쓴다
+function brandInviteDeclineText(inv) {
+  const brand = inv.brand_name || '';
+  const until = _brandInviteMd(inv.expires_at);
+  if (isOwnerLinkInvite(inv)) {
+    return {
+      title: brand + ' 브랜드 연결 요청을 거절하시겠습니까?',
+      sub: '보낸 곳 REVERB 운영팀 · 대표 담당자로 연결' + (until ? ' · ' + until + '까지 수락할 수 있는 요청입니다.' : ''),
+      body: '거절하면 이 요청으로는 ' + brand + ' 브랜드에 연결되지 않습니다.\n다시 연결하려면 운영팀에 문의해 주십시오.'
+    };
+  }
+  return {
+    title: brand + ' 브랜드 초대를 거절하시겠습니까?',
+    sub: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : ''),
+    body: '거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다.\n다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.'
+  };
+}
+
+// 지금 보고 있는 초대 — { source:'login'|'link', invite:{invite_id, invite_kind, brand_id, brand_name, inviter_name, expires_at}, linkId? }
 let _brandInviteCtx = null;
 
 // 수락·거절 — respond_brand_invite 감싸기. 반환 {result, brand_id} 또는 null(호출 실패).
-//   result: ok · already_member · invalid · not_brand · setup_incomplete. 마이페이지 받은 초대(조각 7)도 이 함수를 쓴다.
+//   result: ok · already_member · invalid · not_brand · setup_incomplete · owner_exists · terms_version_required.
+//   마이페이지 받은 초대(조각 7)도 이 함수를 쓴다.
+//   🔴 수락이면 약관 버전을 보낸다(termsVersion — 수락 = 그때 시행 중인 약관 동의, 사양서 L3). 거절은 보내지 않는다
 async function respondBrandInvite(opts) {
   const o = opts || {};
-  const { data, error } = await brandRpc('respond_brand_invite', {
-    p_invite_id: o.inviteId || null, p_link_id: o.linkId || null, p_action: o.action
-  });
+  const args = { p_invite_id: o.inviteId || null, p_link_id: o.linkId || null, p_action: o.action };
+  if (o.action === 'accept') args.p_terms_version = o.termsVersion || null;
+  const { data, error } = await brandRpc('respond_brand_invite', args);
   if (error || !data || typeof data !== 'object' || !data.result) return null;
   return data;
 }
@@ -40,9 +71,14 @@ function _brandInviteMd(iso) {
 function showInviteScreen(ctx, loginEmail) {
   _brandInviteCtx = ctx;
   const inv = ctx.invite || {};
-  document.getElementById('inviteDesc').textContent =
-    '「' + (inv.brand_name || '') + '」 브랜드의 대표 담당자 ' + (inv.inviter_name || '') + '님이 회원님을 멤버로 초대했습니다.';
+  const ownerLink = isOwnerLinkInvite(inv);
+  document.getElementById('inviteTitle').textContent = ownerLink ? '브랜드 연결 요청' : '브랜드 초대';
+  document.getElementById('inviteDesc').textContent = ownerLink
+    ? ownerLinkInviteDesc(inv.brand_name)
+    : '「' + (inv.brand_name || '') + '」 브랜드의 대표 담당자 ' + (inv.inviter_name || '') + '님이 회원님을 멤버로 초대했습니다.';
   document.getElementById('inviteEmail').value = loginEmail || '';
+  _setInviteAgreeError('');
+  document.getElementById('inviteAgree').checked = false;
   setNotice('inviteResult', '');
   _setInviteBusy(false);
   history.replaceState(null, '', location.pathname + location.search + '#invite');
@@ -52,8 +88,14 @@ function showInviteScreen(ctx, loginEmail) {
 function _setInviteBusy(busy, label) {
   const btn = document.getElementById('inviteSubmit');
   btn.disabled = busy;
-  btn.textContent = busy ? (label || '수락하는 중…') : '초대 수락';
-  document.querySelectorAll('#inviteLater, #inviteDecline').forEach(el => { el.disabled = busy; });
+  const idle = _brandInviteCtx && isOwnerLinkInvite(_brandInviteCtx.invite) ? '수락' : '초대 수락';
+  btn.textContent = busy ? (label || '수락하는 중…') : idle;
+  document.querySelectorAll('#inviteLater, #inviteDecline, #inviteAgree, #inviteAgreeBox [data-legal]').forEach(el => { el.disabled = busy; });
+}
+
+function _setInviteAgreeError(msg) {
+  setNotice('inviteAgreeError', msg);
+  document.getElementById('inviteAgreeBox').classList.toggle('is-error', !!msg);
 }
 
 // 로그인 판정이 「연결 브랜드 없음 + 수락할 초대 있음」일 때 — 로그아웃하지 않고 첫 초대를 보인다.
@@ -83,17 +125,29 @@ async function _brandAfterInvite(preferBrandId) {
 async function acceptCurrentInvite() {
   const ctx = _brandInviteCtx;
   if (!ctx) return;
+  // 동의 없이 누르면 서버를 부르지 않는다
+  if (!document.getElementById('inviteAgree').checked) {
+    _setInviteAgreeError(BRAND_INVITE_MSG.agreeRequired);
+    document.getElementById('inviteAgree').focus();
+    return;
+  }
+  _setInviteAgreeError('');
+  const ownerLink = isOwnerLinkInvite(ctx.invite);
   _setInviteBusy(true, '수락하는 중…');
   setNotice('inviteResult', '');
-  const r = await respondBrandInvite({ inviteId: ctx.linkId ? null : ctx.invite.invite_id, linkId: ctx.linkId || null, action: 'accept' });
-  if (!r) { _setInviteBusy(false); setNotice('inviteResult', BRAND_INVITE_MSG.failed); return; }
+  const r = await respondBrandInvite({
+    inviteId: ctx.linkId ? null : ctx.invite.invite_id, linkId: ctx.linkId || null, action: 'accept', termsVersion: BRAND_TERMS_VERSION
+  });
+  // terms_version_required 는 화면이 늘 보내므로 일반 실패로(사양서 4-4)
+  if (!r || r.result === 'terms_version_required') { _setInviteBusy(false); setNotice('inviteResult', BRAND_INVITE_MSG.failed); return; }
   if (r.result === 'ok' || r.result === 'already_member') {
     // 초대 수락 화면에서 수락하면 그 브랜드로 연다(사양서 예외 — 마지막으로 본 브랜드도 그 브랜드)
     if (r.brand_id) await brandRpc('set_my_brand_last_viewed', { p_brand_id: r.brand_id });
     await _brandAfterInvite(r.brand_id);
     return;
   }
-  if (r.result === 'invalid') { brandToast(BRAND_INVITE_MSG.invalid); await _brandAfterInvite(null); return; }
+  if (r.result === 'invalid') { brandToast(ownerLink ? BRAND_INVITE_MSG.linkInvalid : BRAND_INVITE_MSG.invalid); await _brandAfterInvite(null); return; }
+  if (r.result === 'owner_exists') { brandToast(BRAND_INVITE_MSG.ownerExists); await _brandAfterInvite(null); return; }
   // not_brand · setup_incomplete — 계정 상태가 바뀜. 판정 갈래를 그대로 따른다
   await _brandAfterInvite(null);
 }
@@ -102,12 +156,11 @@ async function declineCurrentInvite() {
   const ctx = _brandInviteCtx;
   if (!ctx) return;
   const inv = ctx.invite || {};
-  const brand = inv.brand_name || '';
-  const until = _brandInviteMd(inv.expires_at);
+  const ownerLink = isOwnerLinkInvite(inv);
+  const t = brandInviteDeclineText(inv);
   const ok = await brandConfirm({
-    title: brand + ' 브랜드 초대를 거절하시겠습니까?',
-    body: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : '') +
-      '\n거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다. 다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.',
+    title: t.title,
+    body: t.sub + '\n' + t.body.replace('\n', ' '),
     okLabel: '거절', cancelLabel: '취소', danger: true, okFirst: true   // 피그마 bw01-10 「거절 · 취소」
   });
   if (!ok || _brandInviteCtx !== ctx) return;
@@ -115,8 +168,8 @@ async function declineCurrentInvite() {
   setNotice('inviteResult', '');
   const r = await respondBrandInvite({ inviteId: ctx.linkId ? null : inv.invite_id, linkId: ctx.linkId || null, action: 'decline' });
   if (!r) { _setInviteBusy(false); setNotice('inviteResult', BRAND_INVITE_MSG.failed); return; }
-  if (r.result === 'ok') brandToast(BRAND_INVITE_MSG.declined);
-  else if (r.result === 'invalid') brandToast(BRAND_INVITE_MSG.invalid);
+  if (r.result === 'ok') brandToast(ownerLink ? BRAND_INVITE_MSG.linkDeclined : BRAND_INVITE_MSG.declined);
+  else if (r.result === 'invalid') brandToast(ownerLink ? BRAND_INVITE_MSG.linkInvalid : BRAND_INVITE_MSG.invalid);
   await _brandAfterInvite(null);
 }
 
@@ -145,6 +198,7 @@ function initInvite() {
     }
     await acceptCurrentInvite();
   });
+  document.getElementById('inviteAgree').addEventListener('change', () => _setInviteAgreeError(''));
   document.getElementById('inviteDecline').addEventListener('click', async (e) => {
     if (e.currentTarget.disabled) return;
     if (!_brandInviteCtx) return;
@@ -170,7 +224,7 @@ function _saveInviteLink(linkId) { try { sessionStorage.setItem(BRAND_INVITE_LIN
 function _readInviteLink() { try { return sessionStorage.getItem(BRAND_INVITE_LINK_KEY) || ''; } catch (e) { return ''; } }
 function clearBrandInviteLink() { try { sessionStorage.removeItem(BRAND_INVITE_LINK_KEY); } catch (e) { /* 무시 */ } }
 
-// 링크 판정 — {state, recipient, brand_name, inviter_name, issued_at, expires_at, email?} 또는 null(호출 실패)
+// 링크 판정 — {state, recipient, invite_kind, brand_name, inviter_name, issued_at, expires_at, email?} 또는 null(호출 실패)
 async function fetchBrandInviteLinkState(linkId) {
   const client = brandDb;
   if (!client) return null;
@@ -192,9 +246,12 @@ async function handleBrandInviteLanding(params) {
   _saveInviteLink(linkId);
   _brandInviteLanding = { linkId, state: st };
   const existing = st && st.recipient === 'existing';
-  document.getElementById('confirmTitle').textContent = existing ? '초대를 확인하시겠습니까?' : '비밀번호를 설정하시겠습니까?';
+  const what = isOwnerLinkInvite(st) ? '연결 요청' : '초대';
+  document.getElementById('confirmTitle').textContent = existing
+    ? (isOwnerLinkInvite(st) ? '연결 요청을' : '초대를') + ' 확인하시겠습니까?'
+    : '비밀번호를 설정하시겠습니까?';
   document.getElementById('confirmDesc').textContent = existing
-    ? '아래 「계속하기」를 누르면 초대 확인 화면으로 넘어갑니다.'
+    ? '아래 「계속하기」를 누르면 ' + what + ' 확인 화면으로 넘어갑니다.'
     : '아래 「계속하기」를 누르면 비밀번호 설정 화면으로 넘어갑니다.';
   const btn = document.getElementById('confirmBtn');
   btn.disabled = false; btn.textContent = '계속하기';
@@ -231,12 +288,12 @@ async function resumeBrandInviteLink() {
   if (!session) return false;
   const st = await fetchBrandInviteLinkState(linkId);
   clearBrandInviteLink();   // 쓰면 지운다
-  if (!st || st.state !== 'valid') { brandToast(BRAND_INVITE_MSG.invalid); return false; }
+  if (!st || st.state !== 'valid') { brandToast(isOwnerLinkInvite(st) ? BRAND_INVITE_MSG.linkInvalid : BRAND_INVITE_MSG.invalid); return false; }
   if (st.recipient !== 'existing') return false;
   // 로그인 판정이 ok 로 세워 둔 상태를 내린다 — 초대 화면에서 주소가 바뀌면 routeBrand 의 초대 정리 분기가 돌게
   setBrandAuthed(null);
   showInviteScreen({ source: 'link', linkId, invite: {
-    brand_name: st.brand_name, inviter_name: st.inviter_name, issued_at: st.issued_at, expires_at: st.expires_at
+    invite_kind: st.invite_kind, brand_name: st.brand_name, inviter_name: st.inviter_name, issued_at: st.issued_at, expires_at: st.expires_at
   } }, (session.user && session.user.email) || '');
   return true;
 }

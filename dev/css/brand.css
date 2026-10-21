@@ -232,6 +232,12 @@ button, input { font-family: inherit; }
   cursor: pointer;
 }
 .brand-agree-view:hover { text-decoration: underline; }
+/* 수락 때 약관 동의 한 줄(bw01-03 초대 수락 화면 · bw07-00b 받은 초대 줄) — 누르는 자리 44px 이상(사양 §16-8) */
+.brand-accept-agree { gap: 4px; padding: 6px 14px; }
+.brand-accept-agree .brand-check { min-height: 44px; }
+.brand-accept-agree-views { display: flex; flex-wrap: wrap; gap: 0 16px; padding-left: 24px; }
+.brand-accept-agree-views .brand-agree-view { min-height: 44px; }
+.brand-my-invite-agree { background: var(--b-surface); border-radius: 6px; }
 
 /* 약관 「보기」 창 */
 .brand-modal {
@@ -670,6 +676,8 @@ body.is-shell .brand-topbar { display: none !important; }
 .brand-my-invite-name { margin: 0; font-size: 14px; font-weight: 600; color: var(--b-ink); overflow-wrap: anywhere; }
 .brand-my-invite-meta { margin: 0; font-size: 12px; color: var(--b-muted); line-height: 1.4; }
 .brand-my-invite-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.brand-my-invite-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.brand-my-invite-top { display: flex; align-items: center; gap: 12px; }
 /* 받은 초대 단추 — 라운드 6 · 여백 16(피그마 bw07-00b, 페이지의 다른 단추와 조금 다르다) */
 .brand-my-invite .brand-my-btn { border-radius: 6px; padding: 0 16px; }
 .brand-my-invite .brand-my-btn:not(.is-fill) { border-color: var(--b-disabled-btn); }
@@ -696,6 +704,7 @@ body.is-shell .brand-topbar { display: none !important; }
   .brand-my-fields, .brand-my-fields.is-two { grid-template-columns: minmax(0, 1fr); }
   .brand-my-input { font-size: 16px; }   /* iOS 확대 방지 */
   .brand-my-invite { flex-direction: column; align-items: stretch; }
+  .brand-my-invite-top { flex-direction: column; align-items: stretch; }
   .brand-my-invite-btns { justify-content: flex-end; }
   .brand-my-btn { height: 40px; }
 }
