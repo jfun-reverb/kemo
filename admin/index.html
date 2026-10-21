@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792553860';
+  var CURRENT_BUILD = 'v1792554228';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3491,6 +3491,20 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-acct-field-error{display:flex;align-items:center;gap:4px;font-size:12px;color:#B42318;margin-bottom:8px}
 .bd-acct-field-error .material-icons-round{font-size:15px}
 .bd-devlink{margin-top:4px}
+/* 브랜드 상세 — 담당자 추가·수정 창(조각 12 · 피그마 a03-08~08e) */
+.bd-ct-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.bd-ct-x{background:none;border:0;padding:4px;cursor:pointer;color:var(--muted);border-radius:6px;display:inline-flex}
+.bd-ct-x:hover{background:#F4F4F5}
+.bd-ct-field{margin-bottom:12px}
+.bd-ct-field input[type=text],.bd-ct-field input[type=tel],.bd-ct-field input[type=email]{width:100%;font-size:16px}
+.bd-ct-field input[readonly]{background:#F4F4F5;color:var(--muted)}
+.bd-ct-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:4px}
+.bd-ct-note.is-warn{color:#B45309}
+.bd-ct-check{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.bd-req{color:#c0392b}
+.bd-ct-btns .bd-ct-del{margin-right:auto}
+.bd-ct-confirm{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:18px;font-size:13px;color:var(--ink)}
+.bd-ct-confirm span{margin-right:auto;font-weight:600}
 
 </style>
 </head>
@@ -3593,7 +3607,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-21 12:37 · 838f583</span>
+          <span class="admin-build-text">2026-10-21 12:43 · 7549c29</span>
         </div>
       </div>
     </aside>
@@ -14742,6 +14756,20 @@ function setBrandMemberLimit(brandId, limit) {
 function changeBrandOwner(brandId, newAuthId, expectedAuthId) {
   return _brandAccountRpc('changeBrandOwner', 'admin_change_brand_owner',
     { p_brand_id: brandId, p_new_owner_auth_id: newAuthId, p_expected_owner_auth_id: expectedAuthId || null });
+}
+
+// 담당자 한 줄 저장·삭제(조각 12, 마이그레이션 574 — 관리자 전원). contactId null = 새 줄.
+//   row = {name, phone, email, is_primary} — 🔴 is_primary 는 항상 참/거짓으로 보낸다(NULL 이면 서버가 지금 값을 유지).
+//   반환 {ok:true, data:{result, contact_id?, contacts?}} | {ok:false, error}. contacts 는 ok 일 때 저장 뒤 배열 전체.
+function saveBrandContact(brandId, contactId, row) {
+  row = row || {};
+  return _brandAccountRpc('saveBrandContact', 'admin_save_brand_contact', {
+    p_brand_id: brandId, p_contact_id: contactId || null,
+    p_name: row.name || '', p_phone: row.phone || '', p_email: row.email || '', p_is_primary: !!row.is_primary
+  });
+}
+function deleteBrandContact(brandId, contactId) {
+  return _brandAccountRpc('deleteBrandContact', 'admin_delete_brand_contact', { p_brand_id: brandId, p_contact_id: contactId });
 }
 
 // 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
@@ -31844,6 +31872,7 @@ async function bdReloadPeopleTab() {
   _brandDetailAccountStatus = res[1];
   renderBrandDetailSummaryLine();
   renderBrandPeopleTab();
+  _bdContactRerenderIfOpen();   // 담당자 창이 열려 있으면 잠금·대표 표시를 새 상태로(쳐 둔 값은 그대로)
 }
 
 function renderBrandPeopleTab() {
@@ -32181,19 +32210,20 @@ function _bdAcctModalEl() {
     ov.setAttribute('role', 'dialog');
     ov.setAttribute('aria-modal', 'true');
     ov.setAttribute('aria-labelledby', 'bdAccountModalTitle');
-    ov.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && !_bdAcctBusy) { bdAccountModalClose(); return; }
+    ov.addEventListener('keydown', function(e) { _bdModalKeydown(ov, e, function(){ if (!_bdAcctBusy) bdAccountModalClose(); }); });
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+// 창 공용 키 처리 — Esc 닫기 · 초점을 창 안에 가둔다(키보드로 창 뒤 화면에 빠지지 않게)
+function _bdModalKeydown(ov, e, onEscape) {
+      if (e.key === 'Escape') { onEscape(); return; }
       if (e.key !== 'Tab') return;
-      // 초점을 창 안에 가둔다 — 키보드로 창 뒤 화면에 빠지지 않게
       var f = Array.prototype.filter.call(ov.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'), function(el){ return el.offsetParent !== null; });
       if (!f.length) return;
       var first = f[0], last = f[f.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    });
-    document.body.appendChild(ov);
-  }
-  return ov;
 }
 // parts = {title, body(HTML), error(문구), buttons:[{label, onclick, kind:'ghost'|'primary'|'danger', disabled, id}]}
 var _bdAcctReturnFocus = null;   // 창을 연 단추 — 닫으면 초점을 돌려준다
@@ -32552,6 +32582,295 @@ async function bdMemberLimitSubmit() {
   if (r === 'invalid_limit') { _bdRenderMemberLimitModal('1명부터 50명까지 정할 수 있습니다.'); return; }
   bdAccountModalClose();
   _bdAfterAction(r === 'forbidden' ? '브랜드 페이지 계정 관리 권한이 없습니다.' : BD_TOAST_FAIL + ' [' + String(r || 'empty') + ']', r === 'forbidden' ? 'warn' : 'error');
+}
+
+// ══ 담당자 추가·수정 창 (조각 12 — 피그마 a03-08 · 08a~08e, 서버 574) ══════════════════════════
+//   그 줄만 서버에 바로 저장한다(브랜드 정보 탭 「저장」과 무관). 성공·실패 뒤 bdReloadPeopleTab().
+//   🔴 대표 표시: 계정이 없으면 「다른 줄을 대표로 체크」로만 옮긴다 — 대표 줄의 체크는 끌 수 없다(서버 primary_required).
+//      계정이 있는 동안(bdOwnerLocked)은 대표 줄 이메일·체크·삭제 잠금(08e), 다른 줄은 멤버 계정이 있을 때만
+//      체크 → 「대표 담당자 바꾸기」(a03-02)로 넘긴다(08d). 계정 관리 권한이 없으면 잠긴 동안 체크칸을 숨긴다.
+//   🔴 is_primary 는 항상 참/거짓으로 보낸다(574 — 비면 서버가 지금 값을 유지).
+//   ⚠️ 연결 요청 중(조각 13)도 잠금에 든다 — 그 칸이 생기면 bdOwnerLocked 에 더한다.
+var _bdCt = null;        // {contactId, isNew, wasPrimary, name, phone, email, primary, error, fieldErr, confirmDelete}
+var _bdCtBusy = false;
+var _bdCtReturnFocus = null;
+var BD_CT_FAIL = '저장하지 못했습니다 — 연결·서버 오류입니다. 입력한 값은 그대로 있습니다. 잠시 후 다시 「저장」을 눌러 주십시오.';
+var BD_CT_EMAIL_NOTE = '여기서 이메일을 바꿔도 브랜드 페이지 로그인 이메일은 바뀌지 않습니다(1차에는 로그인 이메일을 바꾸는 기능이 없습니다).';
+var BD_CT_PRIMARY_NOTE = '대표 표시는 브랜드 페이지 대표 담당자와 같습니다. 대표 담당자 계정이 있는 브랜드에서 다른 줄로 옮기면 대표 담당자도 그 사람으로 바뀌고, 지금 대표 담당자는 멤버가 됩니다. 브랜드 페이지 멤버인 사람에게만 옮길 수 있습니다.';
+
+// 「계정이 있는 동안」 — 대표 계정 ⓑ~ⓔ. 상태를 모르면(null·아직) 잠긴 것으로 본다(서버가 다시 판정한다)
+function bdOwnerLocked() {
+  var s = bdOwnerState(_brandDetailAccountStatus);
+  return s !== 'none';
+}
+function _bdEmailOk(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim()); }
+function _bdNormEmail(v) { return (typeof _brandAccountNormEmail === 'function') ? _brandAccountNormEmail(v) : String(v || '').trim().toLowerCase(); }
+// 서버에 실제로 있는 줄인가 — 담당자 목록이 비어 옛 대표 칸으로 화면이 만든 줄은 새 줄로 저장한다
+function _bdContactOnServer(id) {
+  var list = (_brandDetailBrand && Array.isArray(_brandDetailBrand.contacts)) ? _brandDetailBrand.contacts : [];
+  return !!id && list.some(function(c){ return c && c.id === id; });
+}
+
+function openBrandContactModal(contactId) {
+  if (!_brandsCurrentId) return;
+  var c = contactId ? (_brandFormContacts || []).find(function(x){ return x && x.id === contactId; }) : null;
+  if (contactId && !c) { toast('담당자를 찾지 못했습니다 — 목록을 다시 불러왔습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  _bdCt = {
+    contactId: c ? c.id : null,
+    isNew: !c,
+    wasPrimary: !!(c && c.is_primary),
+    name: c ? (c.name || '') : '', phone: c ? (c.phone || '') : '', email: c ? (c.email || '') : '',
+    primary: !!(c && c.is_primary),
+    error: null, fieldErr: {}, confirmDelete: false,
+    everOnServer: !!(c && _bdContactOnServer(c.id))
+  };
+  _bdCtRender();
+}
+
+// 지금 상태에서 이 줄의 대표 표시 칸을 어떻게 그릴지
+function _bdCtPrimaryMode() {
+  var a = _bdCt;
+  var st = _brandDetailAccountStatus;
+  var canManage = !!(st && typeof st === 'object' && st.can_manage === true);
+  var locked = bdOwnerLocked();
+  var contacts = _brandFormContacts || [];
+  if (!locked) {
+    if (a.isNew && !contacts.some(function(c){ return c && c.is_primary; })) return { kind: 'auto' };       // 첫 줄·대표 없음 → 자동 대표
+    if (a.wasPrimary) return { kind: 'fixed' };                                                            // 끌 수 없다 — 다른 줄을 체크
+    return { kind: 'free' };
+  }
+  // 계정 관리 권한이 없으면 잠긴 동안 체크칸을 숨긴다(사양서 4-5 · D15). 대표 줄이면 이메일·삭제 잠금은 그대로(primaryLocked)
+  if (!canManage) return { kind: 'hidden', primaryLocked: a.wasPrimary };
+  if (a.wasPrimary) return { kind: 'locked' };                                                             // 08e
+  if (a.isNew) return { kind: 'blocked', text: '대표 담당자 계정이 있는 동안 새 담당자는 대표로 표시할 수 없습니다. 먼저 대표 담당자가 이 사람을 멤버로 초대해야 합니다.' };
+  var m = ((st && st.members) || []).find(function(x){ return x && x.role === 'member' && x.password_set_at && _bdNormEmail(x.email) && _bdNormEmail(x.email) === _bdNormEmail(a.email); });
+  if (m) return { kind: 'member', authId: m.auth_id };
+  var ownerSet = bdOwnerState(st) === 'active';
+  return { kind: 'blocked', text: ownerSet
+    ? '먼저 대표 담당자가 이 사람을 멤버로 초대해야 합니다. 대표 표시는 이 브랜드의 브랜드 페이지 멤버인 사람에게만 옮길 수 있습니다.'
+    : '먼저 지금 대표 담당자를 해제한 뒤 새 사람으로 계정을 만들어 주십시오.' };
+}
+// 대표 줄 잠금(08e) — 이메일·삭제 잠김. 권한이 없어 체크칸을 숨긴 대표 줄도 같다
+function emailLockedNow(mode) { return mode.kind === 'locked' || !!mode.primaryLocked; }
+// 이 줄이 저장 뒤 대표인가(이메일 필수 판정)
+function _bdCtWillBePrimary(mode) {
+  return mode.kind === 'auto' || mode.kind === 'fixed' || emailLockedNow(mode) || (mode.kind === 'free' && _bdCt.primary);
+}
+
+function _bdCtModalEl() {
+  var ov = $('brandContactModal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'brandContactModal';
+    ov.className = 'modal-overlay';
+    ov.style.zIndex = '790';   // 계정 창(800 — 대표 바꾸기)이 이 위에 뜬다
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    ov.setAttribute('aria-labelledby', 'brandContactModalTitle');
+    ov.addEventListener('keydown', function(e) {
+      if ($('bdAccountModal') && $('bdAccountModal').classList.contains('open')) return;   // 위 창이 받는다
+      _bdModalKeydown(ov, e, function(){ if (!_bdCtBusy) brandContactModalClose(); });
+    });
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+function _bdCtCollect() {
+  var a = _bdCt; if (!a) return;
+  var n = $('bdCtName'), p = $('bdCtPhone'), e = $('bdCtEmail'), k = $('bdCtPrimary');
+  if (n) a.name = n.value;
+  if (p) a.phone = p.value;
+  if (e && !e.readOnly) a.email = e.value;
+  if (k && !k.disabled) a.primary = k.checked;
+}
+function _bdContactRerenderIfOpen() {
+  var ov = $('brandContactModal');
+  if (!_bdCt || !ov || !ov.classList.contains('open')) return;
+  _bdCtCollect();
+  // 다른 창에서 이 줄이 지워졌으면 닫는다
+  var c = _bdCt.isNew ? null : (_brandFormContacts || []).find(function(x){ return x && x.id === _bdCt.contactId; });
+  if (!_bdCt.isNew && !c) {
+    // 옛 대표 칸으로 화면이 만든 줄은 다시 받을 때마다 아이디가 바뀐다 — 서버에 없던 줄이면 닫지 않는다(저장은 새 줄로)
+    if (!_bdCt.everOnServer) { _bdCtRender(true); return; }
+    _bdCtBusy = false; brandContactModalClose(); toast('이 담당자는 이미 삭제됐습니다 — 목록을 다시 불러왔습니다.', 'warn'); return;
+  }
+  if (c) {
+    var was = _bdCt.wasPrimary;
+    _bdCt.wasPrimary = !!c.is_primary;
+    if (_bdCt.wasPrimary) _bdCt.primary = true;
+    else if (was) _bdCt.primary = false;   // 대표가 다른 줄로 옮겨졌다 — 체크를 그대로 두면 저장 때 대표를 되찾는다
+  }
+  _bdCtRender(true);
+}
+
+function _bdCtRender(keepFocus) {
+  var a = _bdCt; if (!a) return;
+  var ov = _bdCtModalEl();
+  if (!ov.classList.contains('open')) _bdCtReturnFocus = document.activeElement;
+  var mode = _bdCtPrimaryMode();
+  var emailLocked = emailLockedNow(mode);
+  var emailReq = _bdCtWillBePrimary(mode);
+  var fe = a.fieldErr || {};
+  var field = function(id, label, value, opts) {
+    opts = opts || {};
+    var err = fe[opts.key];
+    return '<div class="bd-ct-field"><label class="bd-acct-label" for="' + id + '">' + esc(label) + (opts.req ? ' <span class="bd-req">*</span>' : '') + '</label>'
+      + '<input id="' + id + '" type="' + (opts.type || 'text') + '" class="admin-filter' + (err ? ' is-invalid' : '') + '" value="' + esc(value) + '"'
+        + (opts.ph ? ' placeholder="' + esc(opts.ph) + '"' : '') + (opts.readonly ? ' readonly aria-readonly="true"' : '')
+        + ' aria-invalid="' + (err ? 'true' : 'false') + '"' + (opts.auto ? ' autocomplete="' + opts.auto + '"' : '') + '>'
+      + (err ? '<div class="bd-acct-field-error" role="alert"><span class="material-icons-round notranslate" translate="no">error</span>' + esc(err) + '</div>' : '')
+      + (opts.note ? '<div class="bd-ct-note' + (opts.noteWarn ? ' is-warn' : '') + '">' + esc(opts.note) + '</div>' : '')
+    + '</div>';
+  };
+  // 대표 표시 칸
+  var prim = '';
+  if (mode.kind !== 'hidden') {
+    var checked = mode.kind === 'auto' || mode.kind === 'fixed' || mode.kind === 'locked' || (mode.kind === 'free' && a.primary);
+    var disabled = mode.kind !== 'free' && mode.kind !== 'member';
+    var note = {
+      auto: '첫 담당자(또는 대표가 없는 브랜드의 새 담당자)는 대표 담당자가 됩니다 — 이메일이 필요합니다.',
+      fixed: '대표 표시는 끌 수 없습니다. 대표를 옮기려면 다른 담당자의 「수정」에서 「대표 담당자로 표시」를 켜십시오.',
+      locked: '대표 표시는 끌 수 없습니다. 대표 담당자를 바꾸려면 다른 멤버 줄에서 「대표 담당자로 표시」를 켜거나 「해제」하십시오. 이름·연락처는 고칠 수 있습니다.',
+      free: BD_CT_PRIMARY_NOTE,
+      member: BD_CT_PRIMARY_NOTE,
+      blocked: mode.text
+    }[mode.kind];
+    prim = '<div class="bd-ct-field"><label class="bd-ct-check"><input id="bdCtPrimary" type="checkbox"' + (checked ? ' checked' : '') + (disabled ? ' disabled' : '')
+      + (mode.kind === 'member' ? ' onchange="bdContactPrimaryToMember(this)"' : ' onchange="_bdCt && (_bdCt.primary=this.checked); _bdCtRefreshEmailReq()"') + '>'
+      + '<span>대표 담당자로 표시</span></label>'
+      + '<div class="bd-ct-note' + (mode.kind === 'blocked' ? ' is-warn' : '') + '">' + esc(note) + '</div></div>';
+  }
+  var canDelete = !a.isNew && !emailLocked;
+  var foot;
+  if (a.confirmDelete) {
+    foot = '<div class="bd-ct-confirm"><span>이 담당자를 삭제하시겠습니까?</span>'
+      + '<button type="button" class="btn btn-ghost" onclick="_bdCt && (_bdCt.confirmDelete=false); _bdCtCollect(); _bdCtRender()">취소</button>'
+      + '<button type="button" class="btn btn-primary" id="bdCtDeleteGo" style="background:#c0392b;border-color:#c0392b" onclick="bdContactDeleteSubmit()" data-autofocus>삭제</button></div>';
+  } else {
+    foot = '<div class="bd-acct-btns bd-ct-btns">'
+      + (canDelete ? '<button type="button" class="btn btn-ghost bd-danger bd-ct-del" onclick="_bdCtCollect(); _bdCt.confirmDelete=true; _bdCtRender()">담당자 삭제</button>' : '')
+      + '<button type="button" class="btn btn-ghost" onclick="brandContactModalClose()">닫기</button>'
+      + '<button type="button" class="btn btn-primary" id="bdCtSave" onclick="bdContactSaveSubmit()">저장</button></div>';
+  }
+  ov.innerHTML = '<div class="modal" style="max-width:480px;border-radius:16px;margin:auto">'
+    + '<div class="modal-body" style="padding:22px 24px 20px">'
+      + '<div class="bd-ct-head"><div id="brandContactModalTitle" class="bd-acct-title" style="margin:0">'
+        + esc(a.isNew ? '담당자 추가' : '담당자 수정 — ' + (a.name || '이름 없음')) + '</div>'
+        + '<button type="button" class="bd-ct-x" aria-label="닫기" onclick="brandContactModalClose()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+      + (a.error ? '<div class="bd-acct-error" role="alert"><span class="material-icons-round notranslate" translate="no">error</span><span>' + esc(a.error) + '</span></div>' : '')
+      + field('bdCtName', '이름', a.name, { key: 'name', req: true, ph: '담당자명', auto: 'off' })
+      + field('bdCtPhone', '연락처', a.phone, { key: 'phone', ph: '010-0000-0000', type: 'tel', auto: 'off' })
+      + '<div id="bdCtEmailWrap">' + field('bdCtEmail', '이메일', a.email, { key: 'email', req: emailReq, ph: 'example@brand.com', type: 'email', auto: 'off',
+          readonly: emailLocked,
+          note: emailLocked ? '대표 담당자 계정이 있는 동안 대표 줄의 이메일은 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.' : BD_CT_EMAIL_NOTE,
+          noteWarn: emailLocked }) + '</div>'
+      + prim
+      + foot
+    + '</div></div>';
+  ov.classList.add('open');
+  // 탭을 다시 받아 그리는 경우(keepFocus)는 초점을 옮기지 않는다 — 위의 계정 창·입력 중인 칸에서 초점을 뺏지 않게
+  if (keepFocus) return;
+  var focus = ov.querySelector('[data-autofocus]') || (fe.name ? $('bdCtName') : fe.email ? $('bdCtEmail') : (a.isNew ? $('bdCtName') : $('bdCtSave')));
+  if (focus) setTimeout(function(){ focus.focus(); }, 30);
+}
+// 「대표 담당자로 표시」를 켜고 끌 때 이메일 칸의 필수 표시만 바꾼다(창 전체를 다시 그리지 않는다)
+function _bdCtRefreshEmailReq() {
+  var lab = document.querySelector('label[for="bdCtEmail"]');
+  if (!lab || !_bdCt) return;
+  var req = _bdCtWillBePrimary(_bdCtPrimaryMode());
+  lab.innerHTML = '이메일' + (req ? ' <span class="bd-req">*</span>' : '');
+}
+// 잠긴 동안 멤버 줄의 체크 → 대표 바꾸기 창(그 멤버를 고른 채). 체크칸은 되돌린다 — 대표 이동은 창에서만, 다른 칸은 「저장」으로 따로
+function bdContactPrimaryToMember(box) {
+  var mode = _bdCtPrimaryMode();
+  box.checked = false;
+  if (mode.kind !== 'member') return;
+  openBrandOwnerChangeModal(mode.authId);
+}
+function brandContactModalClose() {
+  if (_bdCtBusy) return;
+  _bdCt = null;
+  var ov = $('brandContactModal'); if (ov) ov.classList.remove('open');
+  var back = _bdCtReturnFocus; _bdCtReturnFocus = null;
+  if (back && document.contains(back) && typeof back.focus === 'function') back.focus();
+}
+
+async function bdContactSaveSubmit() {
+  var a = _bdCt;
+  if (!a || _bdCtBusy) return;
+  _bdCtCollect();
+  var mode = _bdCtPrimaryMode();
+  var willPrimary = _bdCtWillBePrimary(mode);
+  var fe = {};
+  if (!String(a.name).trim()) fe.name = '이름을 입력해 주십시오.';
+  var em = String(a.email || '').trim();
+  if (em && !_bdEmailOk(em)) fe.email = '이메일 형식이 올바르지 않습니다.';
+  else if (!em && willPrimary && !emailLockedNow(mode)) fe.email = '대표 담당자는 이메일이 필요합니다.';
+  a.fieldErr = fe; a.error = null;
+  if (fe.name || fe.email) { _bdCtRender(); return; }
+  _bdCtBusy = true;
+  var b = $('bdCtSave'); if (b) { b.disabled = true; b.textContent = '저장하는 중…'; }
+  var brandId = _brandsCurrentId;
+  var onServer = !a.isNew && _bdContactOnServer(a.contactId);
+  var res = await saveBrandContact(brandId, onServer ? a.contactId : null, {
+    name: String(a.name).trim(), phone: String(a.phone || '').trim(), email: em,
+    is_primary: (mode.kind === 'member' || mode.kind === 'blocked' || (mode.kind === 'hidden' && !mode.primaryLocked)) ? false : willPrimary
+  });
+  _bdCtBusy = false;
+  if (!_bdCt || _brandsCurrentId !== brandId) return;
+  if (!res.ok) {
+    if (/forbidden|42501/.test(String(res.error || ''))) { a.error = '담당자를 저장할 권한이 없습니다.'; _bdCtRender(); return; }
+    a.error = BD_CT_FAIL; _bdCtRender(); return;
+  }
+  var d = res.data || {};
+  var r = d.result;
+  if (r === 'ok') {
+    if (_brandDetailBrand && Array.isArray(d.contacts)) { _brandDetailBrand.contacts = d.contacts; _initBrandFormContacts(_brandDetailBrand); }
+    var wasNew = a.isNew || !onServer;
+    _bdCtBusy = false; brandContactModalClose();
+    _bdAfterAction(wasNew ? '담당자를 추가했습니다.' : '담당자를 저장했습니다.');
+    return;
+  }
+  var map = {
+    name_required: function(){ a.fieldErr = { name: '이름을 입력해 주십시오.' }; },
+    invalid_email: function(){ a.fieldErr = { email: '이메일 형식이 올바르지 않습니다.' }; },
+    primary_email_required: function(){ a.fieldErr = { email: '대표 담당자는 이메일이 필요합니다.' }; },
+    primary_required: function(){ a.error = '대표 표시는 끌 수 없습니다. 대표를 옮기려면 다른 담당자의 「수정」에서 「대표 담당자로 표시」를 켜십시오.'; },
+    primary_locked: function(){ a.error = '대표 담당자 계정이 있는 동안 대표 줄의 이메일과 대표 표시는 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.'; },
+    primary_move_needs_owner_change: function(){ a.error = '대표 담당자 계정이 있는 동안에는 「대표 담당자 바꾸기」로만 대표를 옮길 수 있습니다.'; },
+    forbidden: function(){ a.error = '담당자를 저장할 권한이 없습니다.'; }
+  }[r];
+  if (r === 'contact_not_found' || r === 'brand_not_found') {
+    brandContactModalClose(); _bdAfterAction('담당자를 찾지 못했습니다 — 목록을 다시 불러왔습니다.', 'warn'); return;
+  }
+  if (map) map(); else a.error = BD_CT_FAIL + ' [' + String(r || 'empty') + ']';
+  if (r === 'primary_locked' || r === 'primary_move_needs_owner_change' || r === 'primary_required') { await bdReloadPeopleTab(); if (!_bdCt) return; }
+  _bdCtRender();
+}
+
+async function bdContactDeleteSubmit() {
+  var a = _bdCt;
+  if (!a || _bdCtBusy || a.isNew) return;
+  var brandId = _brandsCurrentId;
+  // 서버에 없는 줄(옛 대표 칸으로 화면이 만든 줄)은 지울 것이 없다
+  if (!_bdContactOnServer(a.contactId)) { brandContactModalClose(); _bdAfterAction('저장되지 않은 담당자라 지울 것이 없습니다.', 'warn'); return; }
+  _bdCtBusy = true;
+  var b = $('bdCtDeleteGo'); if (b) { b.disabled = true; b.textContent = '삭제하는 중…'; }
+  var res = await deleteBrandContact(brandId, a.contactId);
+  _bdCtBusy = false;
+  if (!_bdCt || _brandsCurrentId !== brandId) return;
+  var r = res.ok ? (res.data || {}).result : null;
+  if (r === 'ok') {
+    if (_brandDetailBrand && Array.isArray(res.data.contacts)) { _brandDetailBrand.contacts = res.data.contacts; _initBrandFormContacts(_brandDetailBrand); }
+    brandContactModalClose(); _bdAfterAction('담당자를 삭제했습니다.'); return;
+  }
+  if (r === 'contact_not_found' || r === 'brand_not_found') { brandContactModalClose(); _bdAfterAction('이미 삭제된 담당자입니다 — 목록을 다시 불러왔습니다.', 'warn'); return; }
+  a.confirmDelete = false;
+  a.error = r === 'primary_locked'
+    ? '대표 담당자 계정이 있는 동안 대표 줄은 삭제할 수 없습니다. 먼저 담당자·계정 탭에서 「해제」하십시오.'
+    : (r === 'forbidden' || /forbidden|42501/.test(String(res.error || '')) ? '담당자를 삭제할 권한이 없습니다.' : '삭제하지 못했습니다 — 연결·서버 오류입니다. 잠시 후 다시 시도해 주십시오.');
+  if (r === 'primary_locked') { await bdReloadPeopleTab(); if (!_bdCt) return; }
+  _bdCtRender();
 }
 
 // ════════════════════════════════════════════════════════════════════
