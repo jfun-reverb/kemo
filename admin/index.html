@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792559365';
+  var CURRENT_BUILD = 'v1792559441';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2116,7 +2116,6 @@ input.admin-filter{padding-right:8px}
 /* 자동 번역 병기 (마이그레이션 235) — 번역문이 본문, 일본어 원문은 아래 작은 글씨 */
 .msg-trans-orig{margin-top:8px;padding-top:6px;border-top:1px dashed var(--outline,var(--outline));font-size:11px;line-height:1.5;color:var(--muted)}
 .msg-trans-label{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--outline,var(--outline));border-radius:6px;font-size:10px;color:var(--muted)}
-.msg-trans-caption{margin-top:4px;font-size:10px;color:var(--muted);text-align:right}
 .msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
 .msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
 .msg-time{font-size:10px;color:var(--muted);white-space:nowrap}
@@ -3618,7 +3617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-21 14:09 · 02e51ac</span>
+          <span class="admin-build-text">2026-10-21 14:10 · 84ee3cf</span>
         </div>
       </div>
     </aside>
@@ -22273,7 +22272,7 @@ function csFromLocalInput(v) {
 }
 
 // 완료 양식 — 항목 + 대응 안내(+ 수기 건 완료 일시). prefix 로 같은 화면에 둘이 있어도 칸 id 가 겹치지 않게
-//   「완료 저장」은 늘 누를 수 있다 — 빈 칸은 csReadCompleteForm 이 빨갛게 표시하고 막는다(D-17·a10-07a)
+//   「CS 완료」는 늘 누를 수 있다 — 빈 칸은 csReadCompleteForm 이 빨갛게 표시하고 막는다(D-17·a10-07a)
 function csCompleteFormHtml(row, prefillText, prefix) {
   const manual = csIsManual(row);
   return `<div class="cs-complete-form" data-cs-form="${esc(prefix)}">
@@ -22890,7 +22889,7 @@ function _csCdFootHtml(r) {
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
     : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdSaveDraft()" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
-       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
+       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">CS 완료</button>`);
   return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
@@ -22962,7 +22961,7 @@ async function csCdSetStatus(status) {
   await _csCdWrite(() => csSetCaseStatus(r.id, r.version, status), `진행현황을 「${CS_STATUS_LABEL_KO[status]}」(으)로 바꿨습니다`);
 }
 
-// 완료 저장 — 빈 칸은 빨갛게 표시하고 저장 안 함(D-17 · a10-07a). 저장 중엔 단추 잠금
+// 「CS 완료」 — 빈 칸은 빨갛게 표시하고 저장 안 함(D-17 · a10-07a). 저장 중엔 단추 잠금
 async function csCdComplete() {
   const r = _csCd && _csCd.row;
   if (!r) return;
@@ -22971,7 +22970,7 @@ async function csCdComplete() {
   const btn = $('csCdSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   const ok = await _csCdWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다');
-  if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = '완료 저장'; }
+  if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = 'CS 완료'; }
 }
 
 // 완료와 별개로 항목·대응 안내만 저장(571) — 빈 칸 검사 없이 지금 값 그대로
@@ -23234,7 +23233,7 @@ function _csPnCompleteHtml(r) {
     <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnCancelComplete()">취소</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnSaveDraft(${jsStr(r.id)})" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
-      <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">완료 저장</button></div></div>`;
+      <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">CS 완료</button></div></div>`;
 }
 
 // 펼친 완료 건 — 저장 값·해결 시간·완료한 사람 + 다시 열기
@@ -23325,7 +23324,7 @@ function csPnCancelComplete() {
   renderInboxCsPanel();
 }
 
-// 완료 저장 — 빈 칸은 빨갛게 표시하고 저장 안 함(a10-07a) · 저장 중 「처리 중…」 잠금 · 실패하면 양식을 닫지 않는다
+// 「CS 완료」 — 빈 칸은 빨갛게 표시하고 저장 안 함(a10-07a) · 저장 중 「처리 중…」 잠금 · 실패하면 양식을 닫지 않는다
 async function csPnSaveComplete(id) {
   const r = _csPnRow(id);
   if (!r) return;
@@ -36361,10 +36360,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
       const transLabel = msg.translated_lang === 'ja' ? '일본어 번역(자동)' : '번역';
-      const caption = (fromAdmin && msg.translated_lang === 'ja')
-        ? '<div class="msg-trans-caption">인플루언서 화면에는 이 일본어 번역이 본문으로 표시됩니다</div>' : '';
       bodyHtml = `${origHtml}
-        <div class="msg-trans-orig"><span class="msg-trans-label">${transLabel}</span>${transHtml}</div>${caption}`;
+        <div class="msg-trans-orig"><span class="msg-trans-label">${transLabel}</span>${transHtml}</div>`;
     } else {
       bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
     }
