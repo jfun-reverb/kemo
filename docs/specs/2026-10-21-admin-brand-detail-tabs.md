@@ -292,3 +292,13 @@
 - **조각 6**: `brandDetailDirty`(브랜드 정보 탭 칸 스냅샷 — 공개 기본 열 칸 제외, 중간 상태 동안 담당자 줄 포함) · `brandDetailLeaveGuard` · 동적 창 `#brandDetailLeaveModal`. 거는 자리: `navAdminPaneReload`(`campLeaveGuard` 다음 고리) · `popstate`(주소를 `#brand-detail` 로 되돌려 묻고, 나가기면 `replaceState` — 같은 화면 기록이 하나 남는 것은 수용) · `openBrandDetailTabs` 진입 · 「← 목록」 · 캠페인 줄 · `openNewBrandModal` · `osChooseNewPublish`(「이 카드로 발행」) · `beforeunload`. 「제공 기록」은 `navAdminPaneReload` 를 지난다.
 - **조각 9**: `openCompanyModal(id, {company, notice, readOnly, onSaved})` · `fetchCompanyById` · `fetchCompanyActiveBrandNames`(실패 null) · `openBrandCompanyEdit` · `#companyModalError`. 🔴 **운영 회사 관리 화면에도 실린다**: 회사명 중복이 토스트 → 모달 안 안내, 제목에 회사명, 회사 값을 못 찾으면 빈 폼 대신 열지 않음. 회사 선택지 생성을 `_brandCompanyOptionsHtml` 한 곳으로(다시 만들 때 보관 회사가 빠져 연결이 끊기던 길 차단).
 - 후속(범위 밖 그대로): 관리자 회사 이름 변경이 `brands.company_name` 사본을 안 맞춘다(기존 틈).
+
+### 조각 10 (2026-10-21 · 화면 세션 · 개발서버만)
+- 담당자·계정 탭 표(`renderBrandPeopleTab`·`bdReloadPeopleTab`·`bdMergePeopleRows`·`bdOwnerState`, `BRAND_SETUP_LINK_HOURS = 24`). 줄 = 담당자 ∪ 계정(이메일로 묶음, 대표 → 멤버 → 담당자 순). 탭을 누를 때마다 브랜드 담당자 목록·계정 상태를 새로 받아 `_brandFormContacts` 도 서버 값으로 맞춘다(브랜드 정보 입력칸은 안 건드림).
+- 대표 ⓐ「계정 없음」 · ⓑ「메일 미발송」 · ⓒ「메일 보냄 · ~까지 유효(예상)」(본인 재요청이면 「(본인 요청)」) · ⓓ「링크 만료 · 설정 안 함」(「다시 보내기」 강조) · ⓔ「사용 중 · 날짜 설정」+「마지막 접속」 / 멤버 「사용 중」+「마지막 접속」 / 계정 없는 담당자 「계정 없음 — 대표 담당자가 초대」(ⓐ 브랜드는 「…생기면 초대」) / 조회 실패 「확인 불가」+「다시 불러오기」(계정 버튼 전부 숨김).
+- 버튼 표시는 서버 `can_manage` 하나. 계정 버튼은 `bdAccountAction` 한 곳으로 모아 조각 11 이 채운다 · 「수정」·「+ 담당자 추가」는 `bdOpenContactModal` 로 모아 조각 12 가 채운다(그 전에는 「준비 중」 안내).
+- ⚠️ 「브랜드 연결 추가」·연결 요청 칩(a03-04·91a)은 그리지 않았다 — 연결 요청 서버가 없다(조각 13). 그래서 ⓐ 안내 문구도 피그마의 「브랜드 연결 추가로 연결을 요청합니다」 문장을 뺐다.
+- 권한 카탈로그에 `brand.account_manage`(「브랜드 페이지 계정 관리」, `staging_only`) + `PERM_SUPER_SERVER_ENFORCED`.
+- 저장 뒤 계정 자동 처리(`_brandAccountAfterBrandSave`) 호출을 옛 브랜드 저장·새 브랜드 등록 두 곳에서 뺐다(D10 — 함수는 조각 18 에서 삭제).
+- 요청 외: 계정이 연결된 브랜드는 「…」 의 「삭제」를 뗀다(서버 528 이 거부 — 보이는데 누르면 실패하던 개발서버 틈). 오리엔시트 0건 문구 「하단」 → 「머리의」(작업표 M6 — 조각 5 에서 빠뜨림. 새 페이지에서만 — 운영 옛 창은 「하단」 그대로).
+- 담당자 줄 직접 편집(조각 5 임시)은 없앴다 — 조각 12 전까지 개발서버에서는 담당자를 고칠 수 없다.
