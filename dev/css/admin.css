@@ -2944,3 +2944,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-ct-btns .bd-ct-del{margin-right:auto}
 .bd-ct-confirm{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:18px;font-size:13px;color:var(--ink)}
 .bd-ct-confirm span{margin-right:auto;font-weight:600}
+/* 브랜드 상세 — 브랜드 정보 탭 아래 띠·저장 충돌 표(조각 7·8 · 피그마 a03-00d·10) */
+.bd-savebar{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:8px;margin-top:16px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 -4px 14px rgba(0,0,0,.06)}
+.bd-savebar .material-icons-round{font-size:18px;color:var(--accent-deep)}
+.bd-savebar-text{flex:1;font-size:12.5px;color:var(--ink)}
+.bd-conflict-table td{vertical-align:top;font-size:12.5px;word-break:break-all}

@@ -3601,6 +3601,30 @@ function deleteBrandContact(brandId, contactId) {
   return _brandAccountRpc('deleteBrandContact', 'admin_delete_brand_contact', { p_brand_id: brandId, p_contact_id: contactId });
 }
 
+// 관리자 브랜드 정보 저장(조각 7, 마이그레이션 575 admin_update_brand_info) — 바뀐 칸만, 연 순간 값(prev)과 대조.
+//   fields·prev 열쇠 = name·name_ja·name_en·company_id·status·official_instagram_url·official_x_url·publish_default 중 바뀐 것.
+//   🔴 contacts·소개·Qoo10 은 보내지 않는다(서버가 invalid_input 으로 거부). 반환 {ok:true, result, field?} | {ok:false, error}
+async function saveBrandInfoAdmin(brandId, fields, prev) {
+  const r = await _brandAccountRpc('saveBrandInfoAdmin', 'admin_update_brand_info', { p_brand_id: brandId, p_fields: fields || {}, p_prev: prev || {} });
+  if (!r.ok) return r;
+  const d = r.data || {};
+  return { ok: true, result: d.result || null, field: d.field || null };
+}
+// 브랜드 정보 변경 이력(536·575 brand_profile_history — 관리자 읽기 정책) — 칸 이름 목록의 최근 줄(새것 먼저) | null(실패)
+async function fetchBrandProfileHistory(brandId, fieldNames) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    let q = db.from('brand_profile_history')
+      .select('field_name, old_value, new_value, changed_by_name, change_source, changed_at')
+      .eq('target_kind', 'brand').eq('target_id', brandId)
+      .order('changed_at', { ascending: false }).limit(100);
+    if (Array.isArray(fieldNames) && fieldNames.length) q = q.in('field_name', fieldNames);
+    const { data, error } = await q;
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.error('[fetchBrandProfileHistory]', e); return null; }
+}
+
 // 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
 // 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
 // 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.

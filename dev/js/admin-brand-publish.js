@@ -178,7 +178,8 @@ async function saveBrandPublishModal() {
 // 브랜드 공개 기본 열(조각 11) — 기준 데이터 「브랜드 공개 기본 열」 탭(전체) · 관리자 브랜드 상세 칸(이 브랜드만)
 //   값 형식은 report-rows.js 「브랜드 공개 기본 열」 주석 — 늘 있는 열은 열쇠 그대로, 생기고 빠지는 채널 열은 종류 열쇠(REPORT_KIND_KEYS)
 //   🔴 권한 report.share 쓰기가 아니면 **읽기 전용**(숨김 등급도 읽기 전용 — 사양서 §4 ③ · 16-4 의 의도된 예외, 조각 9 의 단추 숨김과 다르다)
-//   🔴 브랜드 칸은 자기 저장 단추·자기 함수로만 저장한다 — saveBrandDetail(폼 통째 저장)에 넣지 않는다
+//   🔴 옛 페이지(운영)는 자기 저장 단추·자기 함수로만 저장한다 — saveBrandDetail(폼 통째 저장)에 넣지 않는다.
+//      새 상세 페이지(개발서버 — 조각 7)는 embedded 로 그려 단추 없이 「브랜드 정보」 탭 「저장」(575 admin_update_brand_info)이 함께 저장한다
 //   ⚠️ 바꿔도 이미 공개를 켠 캠페인은 안 바뀐다(캠페인마다 저장한 열을 쓴다)
 // ════════════════════════════════════════════════════════════════════
 const BP_KIND_LABEL = { 'ch_*_acct': '계정 (인스타그램·틱톡·X·유튜브)', 'ch_*_url': '결과물 (URL)', 'ch_*_at': '업로드 날짜' };
@@ -245,11 +246,15 @@ async function saveBrandPublishDefaultGlobalFromTab() {
 }
 
 // ── 관리자 브랜드 상세 칸(이 브랜드만) — 본문을 그린 뒤 따로 받는다 ──
-async function renderBrandPublishDefaultBox(brandId) {
+// opts.embedded — 새 상세 페이지: 자기 「기본 열 저장」 단추를 안 그리고, 받은 값을 opts.onLoaded(d|null) 로 돌려준다.
+//   opts.data — 이미 받은 값으로 그린다(되돌리기·다시 불러오기 — 서버를 다시 부르지 않음)
+async function renderBrandPublishDefaultBox(brandId, opts) {
+  opts = opts || {};
   const box = document.getElementById('brandPublishDefaultBox');
   if (!box || !brandId) return;
-  const d = await fetchBrandPublishDefaults(brandId);
+  const d = opts.data !== undefined ? opts.data : await fetchBrandPublishDefaults(brandId);
   if (document.getElementById('brandPublishDefaultBox') !== box || _brandsCurrentId !== brandId) return;   // 그사이 다른 브랜드
+  if (typeof opts.onLoaded === 'function') opts.onLoaded(d || null);
   if (!d) { box.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>'; return; }
   const editable = _bpCanEditDefaults();
   const own = Array.isArray(d.brand_spec);
@@ -260,14 +265,22 @@ async function renderBrandPublishDefaultBox(brandId) {
     + '<div id="bpBrandPicker" style="' + (own ? '' : 'opacity:.55;pointer-events:none') + '">'
       + brandPublishDefaultPickerHtml('bpBrand', own ? d.brand_spec : d.global_spec, editable)
     + '</div>'
-    + '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크됩니다. 바꿔도 이미 공개를 켠 캠페인은 바뀌지 않습니다. 이 칸은 아래 「저장」으로만 저장됩니다(브랜드 정보 저장과 따로).</div>'
+    + (opts.embedded
+      ? '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">전체 기본값은 「기준 데이터」 → 「브랜드 공개 기본 열」에서 바꿉니다. 이 칸도 아래 「저장」으로 함께 저장됩니다.</div>'
+        + (editable ? '' : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>')
+      : '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크됩니다. 바꿔도 이미 공개를 켠 캠페인은 바뀌지 않습니다. 이 칸은 아래 「저장」으로만 저장됩니다(브랜드 정보 저장과 따로).</div>'
     + (editable ? '<div style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="bpBrandSaveBtn" onclick="saveBrandPublishDefaultFromDetail(\'' + esc(brandId) + '\')">기본 열 저장</button></div>'
-                : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>');
+                : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>'));
 }
 function toggleBrandPublishDefaultMode() {
   const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
   const p = document.getElementById('bpBrandPicker');
   if (p) p.style.cssText = own ? '' : 'opacity:.55;pointer-events:none';
+}
+// 이 칸의 지금 값 — 따로 정하기면 고른 열 배열, 전체 기본값 따르기면 null(575·544 형식)
+function brandPublishDefaultBoxValue() {
+  const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';
+  return own ? brandPublishDefaultPickerValue('bpBrand') : null;
 }
 async function saveBrandPublishDefaultFromDetail(brandId) {
   const own = (document.querySelector('input[name="bpBrandMode"]:checked') || {}).value === 'own';

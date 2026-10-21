@@ -1863,8 +1863,15 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
     + section('담당자', '<button type="button" class="btn btn-ghost btn-xs" onclick="addBrandContact()" style="display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 담당자 추가</button>',
         renderBrandContactsBlockHtml(b)
       )
-    // § 브랜드 콘텐츠
-    + section('브랜드 콘텐츠 (오리엔시트용)', '',
+    // § 브랜드 콘텐츠 — 🔴 개발서버(새 상세 페이지가 열리는 곳)는 소개·어필·Qoo10 을 뺀다(사양서 D14 · 조각 7).
+    //   운영 옛 편집 창은 그대로 — 출시 날 이 판정을 걷는다. 칸이 없으면 _collectBrandFormPatch 가 그 열쇠를 안 보낸다
+    + (_bdNoContentFields()
+      ? section('SNS 정보', '',
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+            + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
+            + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
+          + '</div>')
+      : section('브랜드 콘텐츠 (오리엔시트용)', '',
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">'
           + ta('brandFormDescription', '브랜드 소개', b.description, '브랜드 한줄 소개·수상 이력 등', 3)
           + ta('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점', 3)
@@ -1874,7 +1881,7 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
           + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
           + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
         + '</div>'
-      )
+      ))
     // § 브랜드 공개 기본 열(조각 11, Figma 1차 a03-00d) — 자기 저장 단추. 개발서버·기존 브랜드만(새 브랜드는 아직 없다)
     + ((b && b.id && typeof _brandAccountEnabled === 'function' && _brandAccountEnabled())
         ? section('브랜드 공개 기본 열', '', '<div id="brandPublishDefaultBox"><div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div></div>')
@@ -2286,6 +2293,9 @@ function updateBrandContactField(cid, field, value) {
   c[field] = value;
 }
 
+// 소개·어필·Qoo10 칸을 빼는 화면인가 — 새 상세 페이지가 열리는 개발서버(D14). 출시 날 걷는다
+function _bdNoContentFields() { return (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled(); }
+
 function _collectBrandFormPatch() {
   // contacts 정리 — 빈 행(이름/연락처/이메일 모두 빈 값) 제외
   var contacts = (_brandFormContacts || [])
@@ -2307,7 +2317,7 @@ function _collectBrandFormPatch() {
   //   company_name 은 기존 표시처(목록·신청) 호환을 위해 선택 회사명으로 동기화(미지정이면 null).
   var _selCompanyId = ($('brandFormCompanyId')?.value || '').trim() || null;
   var _selCompany = _selCompanyId ? (_brandFormCompanies || []).find(function(c){ return c.id === _selCompanyId; }) : null;
-  return {
+  var patch = {
     name: ($('brandFormName')?.value || '').trim(),
     name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
     name_en: ($('brandFormNameEn')?.value || '').trim() || null,
@@ -2319,14 +2329,16 @@ function _collectBrandFormPatch() {
     primary_contact_name: primary.name || null,
     primary_phone: primary.phone || null,
     primary_email: primary.email || null,
-    description: ($('brandFormDescription')?.value || '').trim() || null,
-    appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
-    official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
     official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
     official_x_url: ($('brandFormXUrl')?.value || '').trim() || null
     // 🔴 `memo:` 를 뺐다 — 영업 메모는 이제 `brand_memos` 표에 따로 쌓는다(마이그레이션 466).
     //    옛 칸(`brands.memo`)은 남아 있지만 화면은 더 이상 쓰지 않는다. 둘 다 쓰면 같은 메모가 두 벌이 된다(마이그레이션 124 사고).
   };
+  // 소개·어필·Qoo10 은 칸이 화면에 있을 때만 보낸다 — 개발서버 「새 브랜드」 창은 칸이 없다(D14). 없는 칸을 빈 값으로 덮지 않는다
+  if ($('brandFormDescription')) patch.description = ($('brandFormDescription').value || '').trim() || null;
+  if ($('brandFormAppealPoints')) patch.appeal_points = ($('brandFormAppealPoints').value || '').trim() || null;
+  if ($('brandFormQoo10Url')) patch.official_qoo10_url = ($('brandFormQoo10Url').value || '').trim() || null;
+  return patch;
 }
 
 async function saveBrandDetail() {
