@@ -478,6 +478,10 @@ function _bdPeopleRowHtml(r, st, known, canManage, ownerState) {
         acct = _bdChip('is-active', '사용 중' + (st.password_set_at ? ' · ' + formatDate(st.password_set_at) + ' 설정' : ''))
           + ((m && m.last_active_at) ? sub('마지막 접속 ' + formatDateTime(m.last_active_at)) : '');
       }
+      // 개발서버 「메일 대신 링크」(조각 11 — 설정 메일 함수의 두 겹 잠금이 개발서버에서만 돌려준다). 설정이 끝나면 지운다
+      var devLink = (typeof _brandAccountDevLinks !== 'undefined') ? _brandAccountDevLinks[_brandsCurrentId] : null;
+      if (ownerState === 'active') { if (devLink) delete _brandAccountDevLinks[_brandsCurrentId]; }
+      else if (devLink) acct += '<div class="bd-devlink"><button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandAccountDevLink(' + jsStr(_brandsCurrentId) + ')">개발서버 링크 복사</button></div>';
       if (canManage) {
         if (ownerState === 'active') acts.push(btn('대표 담당자 바꾸기', 'owner_change'));
         else acts.push(btn('다시 보내기', 'resend', null, ownerState === 'link_expired' ? 'btn-primary' : 'btn-ghost'));
@@ -681,3 +685,407 @@ function brandDetailGoList() {
 window.addEventListener('beforeunload', function(e) {
   if (typeof brandDetailDirty === 'function' && brandDetailDirty()) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ══ 계정 동작 다섯 (조각 11 — 피그마 a03-01·01a·01b·02·02a·02b·03·03a·05·05a·05b, 토스트 a03-90) ══════
+//   입구는 bdAccountAction → bdRunAccountAction 한 곳. 창은 #bdAccountModal 하나를 동작마다 다시 그린다(동적 생성).
+//   🔴 모든 동작 뒤 bdReloadPeopleTab() — 이 탭·탭 숫자·요약 줄만 다시 그린다(브랜드 정보 영역 안 건드림).
+//   🔴 개발서버 실제 메일 발송 시험은 하지 않는다 — 개발서버는 설정 메일 함수가 메일 대신 링크(dev_link)를 돌려준다(두 겹 잠금).
+//   ⚠️ 이미 다른 브랜드 계정이 있는 이메일(a03-01c 연결 요청)은 조각 13 — 그 전에는 임시 안내 토스트.
+var _bdAcct = null;     // {action, brandId, ...} — 창이 열린 동안의 대상
+var _bdAcctBusy = false;
+var BD_TOAST_FAIL = '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.';
+
+function bdRunAccountAction(action, arg) {
+  if (!_brandsCurrentId) return;
+  var st = _brandDetailAccountStatus;
+  if (!(st && typeof st === 'object') || st.can_manage !== true) { toast('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+  if (action === 'create') return openBrandAccountCreateModal();
+  if (action === 'resend') return brandAccountResend();
+  if (action === 'owner_change') return openBrandOwnerChangeModal(arg || null);
+  if (action === 'release') return openBrandAccountReleaseModal(arg);
+  if (action === 'member_limit') return openBrandMemberLimitModal();
+}
+
+// ── 창 틀 ──
+function _bdAcctModalEl() {
+  var ov = $('bdAccountModal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'bdAccountModal';
+    ov.className = 'modal-overlay';
+    ov.style.zIndex = '800';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    ov.setAttribute('aria-labelledby', 'bdAccountModalTitle');
+    ov.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && !_bdAcctBusy) { bdAccountModalClose(); return; }
+      if (e.key !== 'Tab') return;
+      // 초점을 창 안에 가둔다 — 키보드로 창 뒤 화면에 빠지지 않게
+      var f = Array.prototype.filter.call(ov.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'), function(el){ return el.offsetParent !== null; });
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+// parts = {title, body(HTML), error(문구), buttons:[{label, onclick, kind:'ghost'|'primary'|'danger', disabled, id}]}
+var _bdAcctReturnFocus = null;   // 창을 연 단추 — 닫으면 초점을 돌려준다
+function _bdAcctModalRender(parts) {
+  var ov = _bdAcctModalEl();
+  if (!ov.classList.contains('open')) _bdAcctReturnFocus = document.activeElement;
+  var btns = (parts.buttons || []).map(function(b) {
+    var style = b.kind === 'danger' ? ' style="background:#c0392b;border-color:#c0392b"' : '';
+    return '<button type="button" class="btn ' + (b.kind === 'ghost' ? 'btn-ghost' : 'btn-primary') + '"' + style
+      + (b.id ? ' id="' + b.id + '"' : '') + (b.disabled ? ' disabled' : '') + ' onclick="' + b.onclick + '">' + esc(b.label) + '</button>';
+  }).join('');
+  ov.innerHTML = '<div class="modal" style="max-width:480px;border-radius:16px;margin:auto">'
+    + '<div class="modal-body" style="padding:24px 24px 20px">'
+      + '<div id="bdAccountModalTitle" class="bd-acct-title">' + esc(parts.title || '') + '</div>'
+      + (parts.error ? '<div class="bd-acct-error" role="alert"><span class="material-icons-round notranslate" translate="no">error</span><span>' + esc(parts.error) + '</span></div>' : '')
+      + (parts.body || '')
+      + '<div class="bd-acct-btns">' + btns + '</div>'
+    + '</div></div>';
+  ov.classList.add('open');
+  var focus = ov.querySelector('[data-autofocus]') || ov.querySelector('.bd-acct-btns .btn:not([disabled])');
+  if (focus) setTimeout(function(){ focus.focus(); }, 30);
+}
+function bdAccountModalClose() {
+  if (_bdAcctBusy) return;
+  _bdAcct = null;
+  var ov = $('bdAccountModal'); if (ov) ov.classList.remove('open');
+  var back = _bdAcctReturnFocus; _bdAcctReturnFocus = null;
+  if (back && document.contains(back) && typeof back.focus === 'function') back.focus();
+}
+function _bdAcctSetBusy(on, btnId, busyLabel) {
+  _bdAcctBusy = !!on;
+  var b = btnId ? $(btnId) : null;
+  if (b) { b.disabled = !!on; if (on && busyLabel) b.textContent = busyLabel; }
+}
+function _bdBullets(items) {
+  return '<ul class="bd-acct-list">' + items.filter(Boolean).map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
+}
+// 계정 줄 이름 — 계정 이름 → 같은 이메일 담당자 이름 → 이메일
+function _bdMemberName(m) {
+  if (!m) return '';
+  if (m.name) return m.name;
+  var norm = (typeof _brandAccountNormEmail === 'function') ? _brandAccountNormEmail : function(v){ return String(v || '').trim().toLowerCase(); };
+  var c = (_brandFormContacts || []).find(function(x){ return x && x.email && norm(x.email) === norm(m.email); });
+  return (c && c.name) || m.email || '';
+}
+function _bdAfterAction(msg, level) {
+  if (msg) toast(msg, level);
+  bdReloadPeopleTab();
+}
+
+// ── ① 계정 만들기 (a03-01 · 01a · 01b) ──
+function openBrandAccountCreateModal() {
+  var st = _brandDetailAccountStatus;
+  if (bdOwnerState(st) !== 'none') { toast('이미 대표 담당자 계정이 있습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  // 🔴 받을 이메일은 담당자 목록의 대표 줄로만(D15) — 손으로 넣는 칸을 두지 않는다
+  var owner = bdMergePeopleRows(_brandFormContacts, st).find(function(r){ return r.kind === 'owner' && r.contact; });
+  var c = owner && owner.contact;
+  if (!c || !String(c.email || '').trim()) { toast('먼저 「+ 담당자 추가」로 대표 담당자를 등록하십시오.', 'warn'); return; }
+  _bdAcct = { action: 'create', brandId: _brandsCurrentId, contactId: c.id || null, email: String(c.email).trim(), accountMade: false };
+  _bdRenderCreateModal(null);
+}
+function _bdRenderCreateModal(error) {
+  var a = _bdAcct; if (!a) return;
+  _bdAcctModalRender({
+    title: '대표 담당자 계정을 만드시겠습니까?',
+    error: error,
+    body: '<div class="bd-acct-mailbox"><div class="bd-acct-mailbox-label">비밀번호 설정 메일을 받을 이메일</div>'
+        + '<div class="bd-acct-mailbox-email">' + esc(a.email) + '</div></div>'
+      + _bdBullets([
+          '이 주소가 틀리면 다른 사람이 계정을 받게 됩니다. 받은 문의의 주소와 한 글자씩 맞춰 보십시오.',
+          '메일에는 누가(레버브 운영팀) 왜 보냈는지와 개인정보 이용 안내가 함께 들어갑니다.'
+        ]),
+    buttons: error
+      ? [{label:'닫기', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'다시 보내기', kind:'primary', id:'bdAcctSubmit', onclick:'bdAccountCreateSubmit()'}]
+      : [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'메일 보내기', kind:'primary', id:'bdAcctSubmit', onclick:'bdAccountCreateSubmit()'}]
+  });
+}
+var BD_CREATE_FAIL = '메일을 보내지 못했습니다 — 연결·서버 오류입니다. 잠시 후 「다시 보내기」를 눌러 주십시오. 계정이 이미 만들어졌으면 이 모달을 닫아도 대표 담당자 계정 줄이 「미발송」으로 남아 거기서 다시 보낼 수 있습니다.';
+function _bdRenderCreateRefused(email) {
+  _bdAcctModalRender({
+    title: '이 이메일로는 계정을 만들 수 없습니다',
+    // 🔴 어느 계정(인플루언서·관리자)인지 말하지 않는다(D6)
+    body: '<div class="bd-acct-text">이미 다른 용도로 쓰는 이메일입니다 — 다른 이메일을 받아 주십시오. (' + esc(email) + ')</div>'
+      + '<div class="bd-acct-text is-muted">대표 담당자에게 다른 이메일을 받아 담당자 정보를 고친 뒤 다시 「계정 만들기」를 눌러 주십시오.</div>',
+    buttons: [{label:'확인', kind:'primary', onclick:'bdAccountModalClose()'}]
+  });
+}
+async function bdAccountCreateSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'create' || _bdAcctBusy) return;
+  _bdAcctSetBusy(true, 'bdAcctSubmit', '보내는 중…');
+  try {
+    // 계정은 이미 만들어졌고 메일만 실패한 뒤의 「다시 보내기」 — 메일만 다시
+    if (!a.accountMade) {
+      var chk = await checkBrandAccountEmail(a.brandId, a.email);
+      if (!chk.ok) {
+        _bdAcctBusy = false;
+        // 겹침 확인은 권한이 없으면 서버가 'forbidden'(42501)을 던진다 — 연결 오류 문구로 덮지 않는다
+        if (/forbidden|42501/.test(String(chk.error || ''))) { bdAccountModalClose(); toast('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+        _bdRenderCreateModal(BD_CREATE_FAIL); return;
+      }
+      var cd = chk.data || {};
+      if (cd.result === 'invalid_email') { _bdAcctBusy = false; _bdRenderCreateModal('이메일 형식이 올바르지 않습니다 — 「수정」으로 대표 담당자 이메일을 고친 뒤 다시 눌러 주십시오.'); return; }
+      if (cd.email_kind === 'influencer' || cd.email_kind === 'admin') { _bdAcctBusy = false; _bdRenderCreateRefused(a.email); return; }
+      if (cd.email_kind === 'brand') {
+        _bdAcctBusy = false; bdAccountModalClose();
+        toast('이미 브랜드 계정이 있는 이메일입니다 — 「연결 요청」 기능은 준비 중입니다.', 'warn');
+        return;
+      }
+      var up = await upsertBrandOwnerAccount(a.brandId, a.contactId, a.email);
+      if (!up.ok) { _bdAcctBusy = false; _bdRenderCreateModal(BD_CREATE_FAIL); return; }
+      var d = up.data || {};
+      var r = d.result;
+      if (r === 'conflict_influencer' || r === 'conflict_admin') { _bdAcctBusy = false; _bdRenderCreateRefused(d.email || a.email); return; }
+      if (r === 'invalid_email') { _bdAcctBusy = false; _bdRenderCreateModal('이메일 형식이 올바르지 않습니다 — 「수정」으로 대표 담당자 이메일을 고친 뒤 다시 눌러 주십시오.'); return; }
+      if (r === 'noop') {
+        // 앞선 「메일 보내기」의 계정 만들기가 서버에서는 됐는데 응답만 잃었을 수 있다 — 설정 전 계정이면 메일만 보낸다
+        await bdReloadPeopleTab();
+        var ns = bdOwnerState(_brandDetailAccountStatus);
+        if (ns === 'mail_pending' || ns === 'mail_sent' || ns === 'link_expired') { a.accountMade = true; r = 'created'; d.needs_mail = true; }
+      }
+      if (r !== 'created') {
+        var msg = {
+          conflict_brand: ['이미 브랜드 계정이 있는 이메일입니다 — 「연결 요청」 기능은 준비 중입니다.', 'warn'],
+          noop: ['이미 대표 담당자 계정이 있습니다.', 'warn'],
+          primary_moved: ['이미 대표 담당자 계정이 있습니다 — 목록을 다시 불러왔습니다.', 'warn'],
+          password_already_set: ['이미 대표 담당자 계정이 있습니다 — 목록을 다시 불러왔습니다.', 'warn'],
+          email_change_locked: ['계정이 있는 동안 대표 담당자 이메일은 바꿀 수 없습니다. 바꾸려면 「해제」한 뒤 다시 만드십시오.', 'warn'],
+          no_primary_email: ['먼저 「+ 담당자 추가」로 대표 담당자를 등록하십시오.', 'warn'],
+          brand_archived: ['비활성 브랜드라 계정을 만들 수 없습니다.', 'warn'],
+          brand_not_found: ['브랜드를 찾지 못했습니다.', 'error'],
+          forbidden: ['브랜드 페이지 계정 관리 권한이 없습니다.', 'warn']
+        }[r] || [BD_TOAST_FAIL + ' [' + String(r || 'empty') + ']', 'error'];
+        _bdAcctBusy = false; bdAccountModalClose(); _bdAfterAction(msg[0], msg[1]);
+        return;
+      }
+      a.accountMade = true;
+      if (d.needs_mail !== true) {   // 메일이 필요 없는 계정(비밀번호를 이미 정한 계정 다시 연결)
+        _bdAcctBusy = false; bdAccountModalClose(); _bdAfterAction('대표 담당자 계정을 연결했습니다 — 이미 비밀번호를 정한 계정이라 메일은 보내지 않았습니다.');
+        return;
+      }
+    }
+    var mail = await sendBrandAccountSetupMail(a.brandId, 'setup');
+    _bdAcctBusy = false;
+    if (mail && mail.sent) {
+      if (mail.dev_link) _brandAccountDevLinks[a.brandId] = mail.dev_link; else delete _brandAccountDevLinks[a.brandId];
+      bdAccountModalClose();
+      _bdAfterAction(mail.dev_link ? '계정 생성 메일을 보냈습니다. (개발서버 — 메일 대신 링크를 만들었습니다)' : '계정 생성 메일을 보냈습니다.');
+      return;
+    }
+    // 계정은 생겼는데 메일 실패 — 창에 남겨 다시 보내게 하고, 뒤의 표는 「메일 미발송」으로
+    _bdRenderCreateModal(BD_CREATE_FAIL + ' [' + String((mail && (mail.reason || mail.error)) || 'unknown') + ']');
+    bdReloadPeopleTab();
+  } catch (e) {
+    console.error('[bdAccountCreateSubmit]', e);
+    _bdAcctBusy = false; _bdRenderCreateModal(BD_CREATE_FAIL);
+  }
+}
+
+// ── ② 다시 보내기 (확인 창 없음) ──
+async function brandAccountResend() {
+  var brandId = _brandsCurrentId;
+  if (_bdAcctBusy || !brandId) return;
+  _bdAcctBusy = true;
+  var mail;
+  try { mail = await sendBrandAccountSetupMail(brandId, 'resend'); } finally { _bdAcctBusy = false; }
+  if (mail && mail.sent) {
+    if (mail.dev_link) _brandAccountDevLinks[brandId] = mail.dev_link; else delete _brandAccountDevLinks[brandId];
+    _bdAfterAction(mail.dev_link ? '계정 생성 메일을 다시 보냈습니다. (개발서버 — 메일 대신 링크를 만들었습니다)' : '계정 생성 메일을 다시 보냈습니다.');
+    return;
+  }
+  var reason = String((mail && (mail.reason || mail.error)) || 'unknown');
+  var text = {
+    password_already_set: ['이미 비밀번호를 정한 계정이라 메일을 보내지 않았습니다.', 'warn'],
+    no_account: ['대표 담당자 계정이 없어 메일을 보내지 못했습니다 — 목록을 다시 불러왔습니다.', 'error'],
+    forbidden: ['브랜드 페이지 계정 관리 권한이 없습니다.', 'warn']
+  }[reason] || ['메일을 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + reason + ']', 'error'];
+  _bdAfterAction(text[0], text[1]);
+}
+
+// ── ③ 대표 담당자 바꾸기 (a03-02 · 02a · 02b) ──
+//   후보 = 계정 멤버 중 비밀번호를 정한 사람(담당자 목록과 무관)
+function _bdOwnerCandidates() {
+  var st = _brandDetailAccountStatus;
+  return ((st && Array.isArray(st.members)) ? st.members : []).filter(function(m){ return m && m.role === 'member' && m.password_set_at && m.auth_id; });
+}
+function openBrandOwnerChangeModal(preselectAuthId) {
+  _bdAcct = { action: 'owner_change', brandId: _brandsCurrentId, selected: preselectAuthId || null };
+  _bdRenderOwnerChangeModal(null);
+}
+function _bdRenderOwnerChangeModal(error) {
+  var a = _bdAcct; if (!a) return;
+  var st = _brandDetailAccountStatus || {};
+  var owner = (st.members || []).find(function(m){ return m && m.role === 'owner'; });
+  var cands = _bdOwnerCandidates();
+  if (!cands.some(function(m){ return m.auth_id === a.selected; })) a.selected = cands.length ? cands[0].auth_id : null;
+  var note = '<div class="bd-acct-text is-muted">멤버가 한 명도 없으면: 대표 담당자를 「해제」해 「대표 담당자 없음」으로 만든 뒤 「계정 만들기」로 새 대표 담당자를 세웁니다.</div>';
+  if (!cands.length) {
+    _bdAcctModalRender({
+      title: '대표 담당자를 누구로 바꾸시겠습니까?',
+      error: error,
+      body: '<div class="bd-acct-text">대표 담당자를 넘길 멤버가 없습니다. 대표 담당자는 기존 멤버 중에서만 고를 수 있습니다.</div>'
+        + '<div class="bd-acct-empty"><span class="material-icons-round notranslate" translate="no">group_off</span>고를 수 있는 멤버가 없습니다 (멤버 0명)</div>' + note,
+      buttons: [{label:'닫기', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'대표 담당자로 지정', kind:'primary', disabled:true, onclick:''}]
+    });
+    return;
+  }
+  _bdAcctModalRender({
+    title: '대표 담당자를 누구로 바꾸시겠습니까?',
+    error: error,
+    body: '<div class="bd-acct-text">멤버 중에서 고릅니다. 지금 대표 담당자' + (owner ? '(' + esc(_bdMemberName(owner)) + ')' : '') + '는 멤버로 내려갑니다.</div>'
+      + '<div class="bd-acct-radios" role="radiogroup">' + cands.map(function(m) {
+          return '<label class="bd-acct-radio"><input type="radio" name="bdOwnerPick" value="' + esc(m.auth_id) + '"'
+            + (m.auth_id === a.selected ? ' checked data-autofocus' : '') + ' onchange="_bdAcct && (_bdAcct.selected=this.value)">'
+            + '<span>' + esc(_bdMemberName(m)) + ' · ' + esc(m.email || '') + '</span></label>';
+        }).join('') + '</div>' + note,
+    buttons: [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'대표 담당자로 지정', kind:'primary', id:'bdAcctSubmit', onclick:'bdOwnerChangeSubmit()'}]
+  });
+}
+async function bdOwnerChangeSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'owner_change' || _bdAcctBusy || !a.selected) return;
+  var st = _brandDetailAccountStatus || {};
+  _bdAcctSetBusy(true, 'bdAcctSubmit', '바꾸는 중…');
+  var res = await changeBrandOwner(a.brandId, a.selected, st.owner_auth_id || null);
+  _bdAcctBusy = false;
+  if (!res.ok) { _bdRenderOwnerChangeModal(BD_TOAST_FAIL); return; }
+  if (res.data === 'ok') { bdAccountModalClose(); _bdAfterAction('대표 담당자를 바꿨습니다.'); return; }
+  if (res.data === 'forbidden') { bdAccountModalClose(); _bdAfterAction('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+  // owner_changed · not_member — 목록을 다시 받고 창에 남는다
+  await bdReloadPeopleTab();
+  if (!_bdAcct) return;
+  _bdRenderOwnerChangeModal(res.data === 'owner_changed'
+    ? '다른 관리자가 먼저 대표 담당자를 바꿨습니다. 목록을 다시 불러왔습니다 — 확인한 뒤 다시 골라 주십시오.'
+    : '고른 사람이 더 이상 이 브랜드의 멤버가 아닙니다. 목록을 다시 불러왔습니다 — 확인한 뒤 다시 골라 주십시오.');
+}
+
+// ── ④ 해제 (a03-05 대표 · 05a 멤버 · 05b 멤버 있는 대표) ──
+function openBrandAccountReleaseModal(authId) {
+  var st = _brandDetailAccountStatus || {};
+  var members = Array.isArray(st.members) ? st.members : [];
+  var m = members.find(function(x){ return x && x.auth_id === authId; });
+  if (!authId) { toast('해제할 계정을 찾지 못했습니다 — 목록을 다시 불러왔습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  var isOwner = (m && m.role === 'owner') || authId === st.owner_auth_id;
+  _bdAcct = { action: 'release', brandId: _brandsCurrentId, authId: authId, isOwner: isOwner, name: _bdMemberName(m) || (isOwner ? (st.email || '대표 담당자') : '') };
+  _bdRenderReleaseModal(null);
+}
+function _bdRenderReleaseModal(error) {
+  var a = _bdAcct; if (!a) return;
+  var st = _brandDetailAccountStatus || {};
+  var members = (Array.isArray(st.members) ? st.members : []).filter(function(x){ return x && x.role === 'member'; });
+  var who = a.name || '이 계정';
+  if (a.isOwner && members.length) {   // A7 — 멤버가 있으면 대표를 바로 해제하지 않는다
+    _bdAcctModalRender({
+      title: who + '님은 지금 해제할 수 없습니다',
+      error: error,
+      body: '<div class="bd-acct-text">이 브랜드에는 멤버가 있어요(' + esc(members.map(_bdMemberName).join(', ')) + '). 대표 담당자를 바로 해제하면 초대·멤버 관리를 할 사람이 없어집니다. '
+        + '먼저 「대표 담당자 바꾸기」로 멤버 중 한 명을 대표 담당자로 지정하십시오 — ' + esc(who) + '님은 멤버로 내려가고, 그다음 해제할 수 있습니다.</div>',
+      buttons: [{label:'닫기', kind:'primary', onclick:'bdAccountModalClose()'}]
+    });
+    return;
+  }
+  var items;
+  if (a.isOwner) {
+    var cancel = Number(st.release_cancel_count) || 0;
+    items = [
+      '대표 담당자를 해제하면 「대표 담당자 없음」이 됩니다.',
+      cancel > 0 ? '이 브랜드의 대기 중인 초대 ' + cancel + '건도 함께 취소됩니다. 받은 사람의 초대 링크는 쓸 수 없게 됩니다.' : null,
+      '그 사람이 다른 브랜드에 연결돼 있으면 그 브랜드는 그대로입니다.',
+      '만든 오리엔시트는 브랜드에 남습니다.',
+      '대표 담당자 이메일을 바꾸려면 해제한 뒤 담당자 이메일을 고치고 다시 「계정 만들기」를 누르십시오.'
+    ];
+  } else {
+    var brandName = (_brandDetailBrand && _brandDetailBrand.name) || '';
+    var used = (st.seat_used === null || st.seat_used === undefined) ? NaN : Number(st.seat_used), lim = st.member_limit;
+    items = [
+      who + '님은 바로 이 브랜드' + (brandName ? '(' + brandName + ')' : '') + '의 오리엔시트·캠페인을 볼 수 없게 됩니다.',
+      (!isNaN(used) && used > 0 && lim !== null && lim !== undefined)
+        ? '멤버 자리에서 바로 빠져요(멤버 ' + used + ' / ' + lim + '명 → ' + (used - 1) + ' / ' + lim + '명).' : null,
+      '다른 브랜드에 연결돼 있으면 그 브랜드는 그대로입니다.',
+      who + '님이 만든 오리엔시트는 브랜드에 남습니다.'
+    ];
+  }
+  _bdAcctModalRender({
+    title: who + '님을 이 브랜드에서 해제하시겠습니까?',
+    error: error,
+    body: _bdBullets(items),
+    buttons: [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'해제', kind:'danger', id:'bdAcctSubmit', onclick:'bdReleaseSubmit()'}]
+  });
+}
+async function bdReleaseSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'release' || _bdAcctBusy) return;
+  _bdAcctSetBusy(true, 'bdAcctSubmit', '해제하는 중…');
+  var res = await releaseBrandAccount(a.brandId, a.authId);
+  _bdAcctBusy = false;
+  if (!res.ok) { _bdRenderReleaseModal(BD_TOAST_FAIL); return; }
+  var r = (res.data || {}).result;
+  if (r === 'ok') {
+    if (a.isOwner) delete _brandAccountDevLinks[a.brandId];
+    bdAccountModalClose(); _bdAfterAction('해제했습니다.'); return;
+  }
+  if (r === 'owner_has_members') {   // 그사이 멤버가 생겼다 — 목록을 다시 받아 05b 로
+    await bdReloadPeopleTab();
+    if (_bdAcct) _bdRenderReleaseModal(null);
+    return;
+  }
+  bdAccountModalClose();
+  if (r === 'not_linked') _bdAfterAction('이미 해제된 계정입니다 — 목록을 다시 불러왔습니다.', 'warn');
+  else if (r === 'forbidden') _bdAfterAction('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn');
+  else _bdAfterAction(BD_TOAST_FAIL + ' [' + String(r || 'empty') + ']', 'error');
+}
+
+// ── ⑤ 멤버 상한 바꾸기 (a03-03 · 03a) ──
+function openBrandMemberLimitModal() {
+  var st = _brandDetailAccountStatus || {};
+  _bdAcct = { action: 'member_limit', brandId: _brandsCurrentId, value: (st.member_limit !== null && st.member_limit !== undefined) ? String(st.member_limit) : '' };
+  _bdRenderMemberLimitModal(null);
+}
+function _bdRenderMemberLimitModal(error) {
+  var a = _bdAcct; if (!a) return;
+  var st = _brandDetailAccountStatus || {};
+  var used = (st.seat_used === null || st.seat_used === undefined) ? NaN : Number(st.seat_used);   // 모르면 문구를 뺀다(0명으로 그리지 않는다)
+  _bdAcctModalRender({
+    title: '멤버 상한 바꾸기',
+    body: '<label class="bd-acct-label" for="bdMemberLimitInput">이 브랜드의 멤버 상한 (대표 담당자·초대 대기 포함)</label>'
+      + '<div class="bd-acct-num"><input id="bdMemberLimitInput" type="number" inputmode="numeric" min="1" max="50" step="1" class="admin-filter' + (error ? ' is-invalid' : '') + '"'
+        + ' value="' + esc(a.value) + '" data-autofocus aria-invalid="' + (error ? 'true' : 'false') + '"'
+        + ' oninput="_bdAcct && (_bdAcct.value=this.value)" onkeydown="if(event.key===\'Enter\')bdMemberLimitSubmit()"><span>명</span></div>'
+      + (error ? '<div class="bd-acct-field-error" role="alert"><span class="material-icons-round notranslate" translate="no">error</span>' + esc(error) + '</div>' : '')
+      + '<div class="bd-acct-text is-muted">' + (!isNaN(used) ? '지금 ' + used + '명이 쓰고 있습니다. ' : '')
+        + '상한을 줄여도 이미 있는 멤버와 보낸 초대는 그대로 두고, 새 초대만 막습니다.</div>',
+    buttons: [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'저장', kind:'primary', id:'bdAcctSubmit', onclick:'bdMemberLimitSubmit()'}]
+  });
+}
+function _bdMemberLimitIssue(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (!/^-?\d+$/.test(s)) return '숫자(정수)로 넣어 주십시오.';
+  var n = Number(s);
+  if (n < 1) return '1명 이상으로 정해 주십시오 — 대표 담당자도 1자리로 셉니다.';
+  if (n > 50) return '50명까지 정할 수 있습니다.';
+  return null;
+}
+async function bdMemberLimitSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'member_limit' || _bdAcctBusy) return;
+  var inp = $('bdMemberLimitInput'); if (inp) a.value = inp.value;
+  var issue = _bdMemberLimitIssue(a.value);
+  if (issue) { _bdRenderMemberLimitModal(issue); return; }
+  _bdAcctSetBusy(true, 'bdAcctSubmit', '저장하는 중…');
+  var res = await setBrandMemberLimit(a.brandId, Number(String(a.value).trim()));
+  _bdAcctBusy = false;
+  if (!res.ok) { bdAccountModalClose(); toast(BD_TOAST_FAIL, 'error'); return; }
+  var r = (res.data || {}).result;
+  if (r === 'ok') { bdAccountModalClose(); _bdAfterAction('멤버 상한을 저장했습니다.'); return; }
+  if (r === 'invalid_limit') { _bdRenderMemberLimitModal('1명부터 50명까지 정할 수 있습니다.'); return; }
+  bdAccountModalClose();
+  _bdAfterAction(r === 'forbidden' ? '브랜드 페이지 계정 관리 권한이 없습니다.' : BD_TOAST_FAIL + ' [' + String(r || 'empty') + ']', r === 'forbidden' ? 'warn' : 'error');
+}
