@@ -268,12 +268,12 @@
 - `application_messages` — **475 부터 `application_id` 가 비어 있을 수 있다**(일반 문의 행 — 아래 「일반 문의 창구」). 🔴 일괄 발송 `send_application_message_bulk` 현재 원본 **417**(베이스 390)
 - ⚠️ **감싸지 않은 `is_admin()` 정책이 운영에 84개 더 있다** — 행마다 평가돼 조회가 느려지면 415 처럼 `(SELECT public.is_admin())` 로 감싼다. 회원 역할 실행 계획은 SQL 편집기에서 `set local role authenticated` 를 넣어야 정책이 평가된다
 
-### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 — ★운영 반영 · 서비스 문의 여러 대화 504~508 은 **개발서버만**)
+### 일반 문의 창구 (응모와 무관한 회원 ↔ 운영팀, 마이그레이션 475~483 · 서비스 문의 여러 대화 504~508 — ★운영 반영(504~508 은 2026-10-21 운영 카탈로그로 확인))
 > 상세는 **`.claude/rules/general-inquiry.md`** — 문의 화면(`messaging.js`·`admin-messaging.js`)·일반 문의 마이그레이션을 열면 실린다.
 
 **현재 원본 번호**
 - `send_general_inquiry_message`(6인자) · `reopen_general_inquiry_thread` · 뷰 `general_inquiry_thread_summary` — **508**(베이스 505·505·506. 🔴 발신은 `DROP` 후 `CREATE` 라 실행 권한 회수를 다시 건다) · `update_general_inquiry_thread_title` · `_general_inquiry_open_limit`(상한 5 — 숫자는 여기 한 곳) — **508** 신설
-- `get_general_inquiry_messages` · `mark_general_inquiry_messages_read` · `general_inquiry_admin_unread_counts` · `purge_audit_data_all` — **505**(베이스 478·478·478·480. 🔴 앞 셋은 `DROP` 후 `CREATE`) · `close_general_inquiry_thread` · `_general_inquiry_resolve_caller` — **505** 신설. ⚠️ 504~508 은 **개발서버에만** 있다 — 운영은 아직 478~480 이 원본이다
+- `get_general_inquiry_messages` · `mark_general_inquiry_messages_read` · `general_inquiry_admin_unread_counts` · `purge_audit_data_all` — **505**(베이스 478·478·478·480. 🔴 앞 셋은 `DROP` 후 `CREATE`) · `close_general_inquiry_thread` · `_general_inquiry_resolve_caller` — **505** 신설.
 
 - **같은 표에 산다** — 일반 문의는 새 표가 아니라 `application_messages` 에 `application_id` NULL + `influencer_id` 로 들어간다. 🔴 **그래서 응모건을 세는 자리가 일반 문의 행을 딸려 올 수 있다** — 479(관리자 안 읽은 수)·480(감사용 청소)·482(탈퇴 파기 셋, `INNER` → `LEFT JOIN`)가 그 자리들을 고쳤다. 새로 메시지를 세는 조회를 만들면 **`application_id IS NOT NULL` 이 필요한지** 먼저 본다
 - 사이드바 메시지 미응대 수는 **두 종류 합산이고 세는 자리가 둘**(`updateInboxSidebarBadge` · 30초 `refreshMsgBadgesLight`) — 한쪽만 고치면 30초 뒤 숫자가 되돌아간다
@@ -290,7 +290,7 @@
 - 완료 전 저장 `cs_save_case_draft`(항목·대응 안내만, 열린 건만 — 진행현황·완료 시각 그대로) — **571**(개발서버만)
 
 ### 자동응답(FAQ 가이드형, 마이그레이션 146)
-> **회원 화면 진입로**: 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 어느 문의에 보일지는 **노출 위치 칸 둘**(마이그레이션 510 — 개발서버만)을 `faqNodeVisibleIn`(shared.js)이 본다 — 자기 칸 + 위 분류 칸이 모두 켜져야 보인다. 🔴 칸이 없는 서버(510 전)는 옛 규칙(`FAQ_GENERAL_CATEGORY_IDS` 카테고리 셋)으로 폴백하지만 **관리자 편집 저장은 새 칸을 보내 실패한다** — 운영은 510 먼저. 질문 문안은 데이터라 패치로 고친다(`supabase/patches/`)
+> **회원 화면 진입로**: 입력란 왼쪽 「＋」 → 「よくある質問」이 아래 서랍(`#msgFaqSheet`)에 같은 카드를 띄운다. 문의 목록 「対応中」 옆 단추는 따로 떨어진 질문 페이지 `#faq-campaign` / `#faq-service`(`#page-faq`) — 그리는 함수는 오버레이와 같고 **그릴 자리(`_faqHostId`)만 바꾼다**(떠날 때 `cleanupFaqPage` 가 되돌림). 어느 문의에 보일지는 **노출 위치 칸 둘**(마이그레이션 510 — 운영 반영)을 `faqNodeVisibleIn`(shared.js)이 본다 — 자기 칸 + 위 분류 칸이 모두 켜져야 보인다. 🔴 칸이 없는 서버(510 전)는 옛 규칙(`FAQ_GENERAL_CATEGORY_IDS` 카테고리 셋)으로 폴백하지만 **관리자 편집 저장은 새 칸을 보내 실패한다**(새 서버를 만들 때 510 먼저). 질문 문안은 데이터라 패치로 고친다(`supabase/patches/`)
 > 응모건 메시지의 「문의 게이트」형 FAQ.
 - `faq_nodes` — 자기참조 트리. `parent_id`/`kind`(category|item), `label_ko/ja`, `body_ko/ja`, `action_type`/`action_target`(앱 해시 경로 8종), `is_human_handoff`, `relevant_stages text[]`, `sort_order`, `active`, `show_in_campaign`(기본 true)·`show_in_service`(기본 false — 510). RLS SELECT authenticated / CUD `is_campaign_admin()`
 - `faq_interactions` — `action`(viewed|resolved|handoff), `view_count`. `viewed` 부분 유니크. RLS INSERT 본인행 / SELECT `is_admin()`
