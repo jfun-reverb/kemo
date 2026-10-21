@@ -2885,3 +2885,62 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .company-modal-notice .material-icons-round,.company-modal-error .material-icons-round{font-size:16px;line-height:1.5}
 #companyModalBody .form-input.is-invalid{border-color:#D92D20}
 .company-field-error{font-size:11.5px;color:#B42318;margin-top:4px}
+/* 브랜드 상세 — 담당자·계정 탭(조각 10 · 피그마 a03-00·00a·00f·91·92·93) */
+.bd-card{border:1px solid var(--line);border-radius:12px;padding:18px 20px;background:var(--surface)}
+.bd-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.bd-card-title{font-size:14px;font-weight:700;color:var(--ink)}
+.bd-card-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bd-seat{font-size:12px;font-weight:600;color:var(--ink);margin-right:4px}
+.bd-card-lead{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.bd-card-note{font-size:12px;color:#B45309;margin:-4px 0 12px}
+.bd-empty{padding:16px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:8px}
+.bd-people-wrap{border:1px solid var(--line);border-radius:8px}
+.bd-people-table td{vertical-align:middle}
+.bd-people-name{font-weight:700;color:var(--ink)}
+.bd-row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.bd-chip{display:inline-block;font-size:11px;font-weight:600;line-height:1.5;padding:2px 9px;border-radius:999px;background:#F0F0F0;color:#555;white-space:nowrap}
+.bd-chip.is-owner{background:var(--ink);color:#fff}
+.bd-chip.is-owner-pending{background:var(--accent-tint);color:var(--accent-deep)}
+.bd-chip.is-member{background:#F4F4F5;color:#555;border:1px solid var(--line)}
+.bd-chip.is-active{background:#E8F5E9;color:var(--green)}
+.bd-chip.is-sent{background:var(--accent-tint);color:var(--accent-deep)}
+.bd-chip.is-warn{background:#FFF4E5;color:#B45309}
+.bd-chip.is-error{background:#FDECEC;color:#B42318}
+.bd-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.bd-muted{font-size:12px;color:var(--muted)}
+.btn.bd-danger{color:#c0392b}
+/* 브랜드 상세 — 계정 동작 창(조각 11 · 피그마 a03-01~05b) */
+.bd-acct-title{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px;line-height:1.4}
+.bd-acct-text{font-size:13px;color:var(--ink);line-height:1.7;margin-bottom:10px}
+.bd-acct-text.is-muted{font-size:12px;color:var(--muted)}
+.bd-acct-list{margin:0 0 4px;padding-left:16px;font-size:12.5px;color:var(--ink);line-height:1.7}
+.bd-acct-btns{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.bd-acct-error{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;line-height:1.6;color:#B42318;background:#FDECEC;border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.bd-acct-error .material-icons-round{font-size:16px;margin-top:2px}
+.bd-acct-mailbox{background:#F4F4F5;border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.bd-acct-mailbox-label{font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.bd-acct-mailbox-email{font-size:20px;font-weight:800;color:var(--ink);word-break:break-all}
+.bd-acct-radios{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.bd-acct-radio{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#FAFAFA;font-size:13px;font-weight:600;cursor:pointer}
+.bd-acct-empty{display:flex;align-items:center;gap:6px;justify-content:center;padding:14px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12.5px;margin-bottom:10px}
+.bd-acct-empty .material-icons-round{font-size:18px}
+.bd-acct-label{display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.bd-acct-num{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.bd-acct-num input{flex:1;font-size:16px}
+.bd-acct-field-error{display:flex;align-items:center;gap:4px;font-size:12px;color:#B42318;margin-bottom:8px}
+.bd-acct-field-error .material-icons-round{font-size:15px}
+.bd-devlink{margin-top:4px}
+/* 브랜드 상세 — 담당자 추가·수정 창(조각 12 · 피그마 a03-08~08e) */
+.bd-ct-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.bd-ct-x{background:none;border:0;padding:4px;cursor:pointer;color:var(--muted);border-radius:6px;display:inline-flex}
+.bd-ct-x:hover{background:#F4F4F5}
+.bd-ct-field{margin-bottom:12px}
+.bd-ct-field input[type=text],.bd-ct-field input[type=tel],.bd-ct-field input[type=email]{width:100%;font-size:16px}
+.bd-ct-field input[readonly]{background:#F4F4F5;color:var(--muted)}
+.bd-ct-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:4px}
+.bd-ct-note.is-warn{color:#B45309}
+.bd-ct-check{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.bd-req{color:#c0392b}
+.bd-ct-btns .bd-ct-del{margin-right:auto}
+.bd-ct-confirm{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:18px;font-size:13px;color:var(--ink)}
+.bd-ct-confirm span{margin-right:auto;font-weight:600}

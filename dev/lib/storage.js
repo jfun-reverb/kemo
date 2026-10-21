@@ -3553,6 +3553,54 @@ async function fetchBrandAccountStatus(brandId) {
   } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
 }
 
+// ── 브랜드 계정 관리자 동작(관리자 브랜드 상세 담당자·계정 탭 — 조각 11, 마이그레이션 533·573) ──
+//   반환 {ok:true, data} | {ok:false, error}. 계정 기능이 꺼진 주소(운영)는 {ok:false, error:'brand_account_disabled'}.
+//   서버 결과 코드(forbidden·owner_changed 등)는 data 안에 그대로 — 화면이 갈래를 가른다.
+async function _brandAccountRpc(tag, fn, args) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!_brandAccountEnabled()) return {ok:false, error:'brand_account_disabled'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc(fn, args);
+      if (error) throw error;
+      return data;
+    });
+    return {ok:true, data: data};
+  } catch(e) { console.error('[' + tag + ']', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+// 이메일 겹침 확인 → data {result:'ok'|'invalid_email', email_kind:null|'brand'|'influencer'|'admin', name, linked_brand_count, released_from_this_brand}
+//   (573 — 인플루언서·관리자면 name 은 비어 온다)
+function checkBrandAccountEmail(brandId, email) {
+  return _brandAccountRpc('checkBrandAccountEmail', 'admin_check_brand_account_email', { p_brand_id: brandId, p_email: email });
+}
+// 연결 해제 → data {result:'ok'|'forbidden'|'not_linked'|'owner_has_members', cancelled_invites}
+function releaseBrandAccount(brandId, authId) {
+  return _brandAccountRpc('releaseBrandAccount', 'admin_release_brand_account', { p_brand_id: brandId, p_auth_id: authId });
+}
+// 멤버 상한(1~50) → data {result:'ok'|'forbidden'|'invalid_limit'|'brand_not_found', member_limit, seat_used}
+function setBrandMemberLimit(brandId, limit) {
+  return _brandAccountRpc('setBrandMemberLimit', 'admin_set_brand_member_limit', { p_brand_id: brandId, p_limit: limit });
+}
+// 대표 바꾸기 → data 'ok'|'forbidden'|'owner_changed'|'not_member'(글자 하나)
+function changeBrandOwner(brandId, newAuthId, expectedAuthId) {
+  return _brandAccountRpc('changeBrandOwner', 'admin_change_brand_owner',
+    { p_brand_id: brandId, p_new_owner_auth_id: newAuthId, p_expected_owner_auth_id: expectedAuthId || null });
+}
+
+// 담당자 한 줄 저장·삭제(조각 12, 마이그레이션 574 — 관리자 전원). contactId null = 새 줄.
+//   row = {name, phone, email, is_primary} — 🔴 is_primary 는 항상 참/거짓으로 보낸다(NULL 이면 서버가 지금 값을 유지).
+//   반환 {ok:true, data:{result, contact_id?, contacts?}} | {ok:false, error}. contacts 는 ok 일 때 저장 뒤 배열 전체.
+function saveBrandContact(brandId, contactId, row) {
+  row = row || {};
+  return _brandAccountRpc('saveBrandContact', 'admin_save_brand_contact', {
+    p_brand_id: brandId, p_contact_id: contactId || null,
+    p_name: row.name || '', p_phone: row.phone || '', p_email: row.email || '', p_is_primary: !!row.is_primary
+  });
+}
+function deleteBrandContact(brandId, contactId) {
+  return _brandAccountRpc('deleteBrandContact', 'admin_delete_brand_contact', { p_brand_id: brandId, p_contact_id: contactId });
+}
+
 // 로그인한 본인이 브랜드 계정인지(인플루언서 앱 차단용). 'brand' | 'other' | null(실패).
 // 🔴 부르는 쪽은 null 을 「차단」으로 처리하지 않는다(함수가 없는 서버에서 전원 로그인 불가가 된다).
 // 운영(보류)에서는 부르지 않고 'other' — 운영 데이터베이스에는 브랜드 계정이 없다.
