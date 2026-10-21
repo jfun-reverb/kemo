@@ -307,7 +307,7 @@ async function _csCdMountMemo(markRead, my) {
   const unread = (sum && sum[r.id] && sum[r.id].unread) || 0;
   const note = $('csCdUnreadNote');
   if (note) { note.style.display = unread ? '' : 'none'; note.textContent = `아직 안 읽은 메모 ${unread}개 — 이 창을 열면 읽음이 됩니다`; }
-  await csMountComments(r.id, $('csCdMemo'), { purged: !!r.personal_purged_at, markRead, onChanged: () => csHistPatchMemo(r.id) });
+  await csMountComments(r.id, $('csCdMemo'), { purged: !!r.personal_purged_at, markRead, note: '회원에게 보이지 않음', onChanged: () => csHistPatchMemo(r.id) });
   if (markRead && my === _csCdSeq) csHistPatchMemo(r.id);
 }
 

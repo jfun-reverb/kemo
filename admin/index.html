@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792554954';
+  var CURRENT_BUILD = 'v1792556926';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3300,9 +3300,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-memo-error{font-size:12.5px;color:var(--red);padding:6px 0}
 .cs-memo-form{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .cs-memo-replyline{font-size:12px;color:var(--muted)}
-.cs-memo-input{font-size:13px;resize:vertical}
-.cs-memo-form-acts{display:flex;justify-content:space-between;align-items:center}
-.cs-memo-file{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.cs-memo-row{display:flex;align-items:flex-end;gap:6px}
+.cs-memo-input{flex:1;min-width:0;font-size:13px;resize:none;max-height:160px;overflow-y:auto}
+#page-admin textarea.form-input.cs-memo-input{min-height:36px;padding:7px 10px}
+.cs-memo-file{position:relative;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:36px;color:var(--muted);cursor:pointer}
+.cs-memo-file:hover{color:var(--ink)}
+.cs-memo-file-n{position:absolute;top:2px;right:-4px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--accent-ink);color:#fff;font-size:10px;line-height:14px;text-align:center}
+.cs-memo-row .btn{flex-shrink:0}
+.cs-memo-note{font-size:11px;color:var(--accent-ink)}
 
 /* ── CS 이력 표 화면(admin-cs-history.js — 작업표 2-1 · 피그마 a10-08) ── */
 .cs-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px}
@@ -3612,7 +3617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-21 12:55 · 513844a</span>
+          <span class="admin-build-text">2026-10-21 13:28 · 43f84a8</span>
         </div>
       </div>
     </aside>
@@ -22271,11 +22276,11 @@ function csFromLocalInput(v) {
 function csCompleteFormHtml(row, prefillText, prefix) {
   const manual = csIsManual(row);
   return `<div class="cs-complete-form" data-cs-form="${esc(prefix)}">
-    <label class="cs-field-label" for="${esc(prefix)}Category">항목</label>
+    <label class="cs-field-label" for="${esc(prefix)}Category">항목 (필수)</label>
     <select id="${esc(prefix)}Category" class="form-input cs-field">${csCategoryOptionsHtml(row && row.category_code)}</select>
-    <label class="cs-field-label" for="${esc(prefix)}Response">대응 안내 내용</label>
+    <label class="cs-field-label" for="${esc(prefix)}Response">대응 안내 내용 (필수)</label>
     <textarea id="${esc(prefix)}Response" class="form-input cs-field" rows="4" placeholder="회원에게 안내한 내용">${esc(prefillText || '')}</textarea>
-    ${manual ? `<label class="cs-field-label" for="${esc(prefix)}CompletedAt">완료 일시</label>
+    ${manual ? `<label class="cs-field-label" for="${esc(prefix)}CompletedAt">완료 일시 (필수)</label>
     <input type="datetime-local" id="${esc(prefix)}CompletedAt" class="form-input cs-field" value="${esc(csToLocalInput(null))}">` : ''}
   </div>`;
 }
@@ -22344,6 +22349,7 @@ function _csRenderComments(caseId) {
         (st.comments || []).filter(r => r.parent_id === c.id).map(r => _csCommentItemHtml(caseId, r, true)).join('')).join('')
     : '<div class="cs-memo-empty">아직 메모가 없습니다.</div>';
   st.el.innerHTML = `<div class="cs-memo-list">${items}</div>${st.opts.purged ? '' : _csCommentFormHtml(caseId)}`;
+  if (st.draft) csMemoAutoGrow(st.el.querySelector('.cs-memo-input'));
 }
 
 function _csCommentItemHtml(caseId, c, isReply) {
@@ -22395,14 +22401,21 @@ function _csCommentFormHtml(caseId) {
   const files = st.files || [];
   return `<div class="cs-memo-form">
     ${replying ? `<div class="cs-memo-replyline">${esc(st.replyName || '')}님 메모에 댓글 · <button type="button" class="btn btn-ghost btn-xs" onclick="csCommentCancelReply(${jsStr(caseId)})">취소</button></div>` : ''}
-    <textarea class="form-input cs-memo-input" rows="2" placeholder="${replying ? '댓글 입력…' : '메모 입력…'}"
-      oninput="_csCs(${jsStr(caseId)}).draft=this.value">${esc(st.draft || '')}</textarea>
-    <div class="cs-memo-form-acts">
-      <label class="btn btn-ghost btn-xs cs-memo-file"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">image</span>
-        이미지${files.length ? ` ${files.length}` : ''}
+    <div class="cs-memo-row">
+      <label class="cs-memo-file" title="이미지 첨부" aria-label="이미지 첨부"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">image</span>${files.length ? `<span class="cs-memo-file-n">${files.length}</span>` : ''}
         <input type="file" accept="image/*" multiple hidden onchange="csCommentPickFiles(${jsStr(caseId)},this)"></label>
-      <button type="button" class="btn btn-primary btn-sm" onclick="csCommentSubmit(${jsStr(caseId)})"${st.busy ? ' disabled' : ''}>남기기</button>
-    </div></div>`;
+      <textarea class="form-input cs-memo-input" rows="1" placeholder="${replying ? '댓글 입력…' : '메모 입력…'}"
+        oninput="_csCs(${jsStr(caseId)}).draft=this.value;csMemoAutoGrow(this)">${esc(st.draft || '')}</textarea>
+      <button type="button" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCommentSubmit(${jsStr(caseId)})"${st.busy ? ' disabled' : ''}>게시</button>
+    </div>
+    ${st.opts.note ? `<div class="cs-memo-note">${esc(st.opts.note)}</div>` : ''}</div>`;
+}
+
+// 메모 입력칸은 한 줄로 시작해 글이 길면 아래로 늘어난다(피그마 a10-03 — 최대 높이는 CSS)
+function csMemoAutoGrow(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
 }
 
 function csCommentReply(caseId, parentId) {
@@ -22774,7 +22787,7 @@ async function _csCdMountMemo(markRead, my) {
   const unread = (sum && sum[r.id] && sum[r.id].unread) || 0;
   const note = $('csCdUnreadNote');
   if (note) { note.style.display = unread ? '' : 'none'; note.textContent = `아직 안 읽은 메모 ${unread}개 — 이 창을 열면 읽음이 됩니다`; }
-  await csMountComments(r.id, $('csCdMemo'), { purged: !!r.personal_purged_at, markRead, onChanged: () => csHistPatchMemo(r.id) });
+  await csMountComments(r.id, $('csCdMemo'), { purged: !!r.personal_purged_at, markRead, note: '회원에게 보이지 않음', onChanged: () => csHistPatchMemo(r.id) });
   if (markRead && my === _csCdSeq) csHistPatchMemo(r.id);
 }
 

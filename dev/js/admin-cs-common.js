@@ -142,11 +142,11 @@ function csFromLocalInput(v) {
 function csCompleteFormHtml(row, prefillText, prefix) {
   const manual = csIsManual(row);
   return `<div class="cs-complete-form" data-cs-form="${esc(prefix)}">
-    <label class="cs-field-label" for="${esc(prefix)}Category">항목</label>
+    <label class="cs-field-label" for="${esc(prefix)}Category">항목 (필수)</label>
     <select id="${esc(prefix)}Category" class="form-input cs-field">${csCategoryOptionsHtml(row && row.category_code)}</select>
-    <label class="cs-field-label" for="${esc(prefix)}Response">대응 안내 내용</label>
+    <label class="cs-field-label" for="${esc(prefix)}Response">대응 안내 내용 (필수)</label>
     <textarea id="${esc(prefix)}Response" class="form-input cs-field" rows="4" placeholder="회원에게 안내한 내용">${esc(prefillText || '')}</textarea>
-    ${manual ? `<label class="cs-field-label" for="${esc(prefix)}CompletedAt">완료 일시</label>
+    ${manual ? `<label class="cs-field-label" for="${esc(prefix)}CompletedAt">완료 일시 (필수)</label>
     <input type="datetime-local" id="${esc(prefix)}CompletedAt" class="form-input cs-field" value="${esc(csToLocalInput(null))}">` : ''}
   </div>`;
 }
@@ -215,6 +215,7 @@ function _csRenderComments(caseId) {
         (st.comments || []).filter(r => r.parent_id === c.id).map(r => _csCommentItemHtml(caseId, r, true)).join('')).join('')
     : '<div class="cs-memo-empty">아직 메모가 없습니다.</div>';
   st.el.innerHTML = `<div class="cs-memo-list">${items}</div>${st.opts.purged ? '' : _csCommentFormHtml(caseId)}`;
+  if (st.draft) csMemoAutoGrow(st.el.querySelector('.cs-memo-input'));
 }
 
 function _csCommentItemHtml(caseId, c, isReply) {
@@ -266,14 +267,21 @@ function _csCommentFormHtml(caseId) {
   const files = st.files || [];
   return `<div class="cs-memo-form">
     ${replying ? `<div class="cs-memo-replyline">${esc(st.replyName || '')}님 메모에 댓글 · <button type="button" class="btn btn-ghost btn-xs" onclick="csCommentCancelReply(${jsStr(caseId)})">취소</button></div>` : ''}
-    <textarea class="form-input cs-memo-input" rows="2" placeholder="${replying ? '댓글 입력…' : '메모 입력…'}"
-      oninput="_csCs(${jsStr(caseId)}).draft=this.value">${esc(st.draft || '')}</textarea>
-    <div class="cs-memo-form-acts">
-      <label class="btn btn-ghost btn-xs cs-memo-file"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">image</span>
-        이미지${files.length ? ` ${files.length}` : ''}
+    <div class="cs-memo-row">
+      <label class="cs-memo-file" title="이미지 첨부" aria-label="이미지 첨부"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">image</span>${files.length ? `<span class="cs-memo-file-n">${files.length}</span>` : ''}
         <input type="file" accept="image/*" multiple hidden onchange="csCommentPickFiles(${jsStr(caseId)},this)"></label>
-      <button type="button" class="btn btn-primary btn-sm" onclick="csCommentSubmit(${jsStr(caseId)})"${st.busy ? ' disabled' : ''}>남기기</button>
-    </div></div>`;
+      <textarea class="form-input cs-memo-input" rows="1" placeholder="${replying ? '댓글 입력…' : '메모 입력…'}"
+        oninput="_csCs(${jsStr(caseId)}).draft=this.value;csMemoAutoGrow(this)">${esc(st.draft || '')}</textarea>
+      <button type="button" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCommentSubmit(${jsStr(caseId)})"${st.busy ? ' disabled' : ''}>게시</button>
+    </div>
+    ${st.opts.note ? `<div class="cs-memo-note">${esc(st.opts.note)}</div>` : ''}</div>`;
+}
+
+// 메모 입력칸은 한 줄로 시작해 글이 길면 아래로 늘어난다(피그마 a10-03 — 최대 높이는 CSS)
+function csMemoAutoGrow(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
 }
 
 function csCommentReply(caseId, parentId) {
