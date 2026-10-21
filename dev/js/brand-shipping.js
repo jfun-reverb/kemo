@@ -129,15 +129,27 @@ function _bsSumRerender() {
 
 // ── 배송 리스트 페이지(bw05-02 · bm05-02)
 function _bsHeadHtml(id, d) {
-  const sub = d ? [d.product, d.campaign_no, '시딩'].filter(Boolean).join(' · ') : '';
+  const mobile = _bcMobileMq.matches;
+  let sub = '';
+  if (d && mobile) {
+    // bm05-02 — 모바일은 캠페인 번호 대신 「발송 전 N · 기한 지남 M」(기한 지남은 있을 때만)
+    const k = d.counts || {};
+    const overdue = Number(k.overdue) || 0;
+    sub = [d.product, '발송 전 ' + _bsPendingAll(k), overdue ? '기한 지남 ' + overdue : ''].filter(Boolean).join(' · ');
+  } else if (d) sub = [d.product, d.campaign_no, '시딩'].filter(Boolean).join(' · ');
   return '<div class="bc-detail-head">' +
     '<a class="bc-back" href="#campaigns/' + brandEsc(id) + '"><span aria-hidden="true">‹</span> 캠페인 상세</a>' +
-    '<div class="bc-detail-title"><h1>배송 리스트</h1></div>' +
+    '<div class="bc-detail-title"><h1>배송 리스트</h1>' +
+      // bw05-02 머리 오른쪽 「결과물 보기」 — 캠페인 상세의 결과물 칸으로(PC 만 — bm05-02 에는 없다)
+      (mobile ? '' : '<button type="button" class="brand-btn brand-btn-line bs-head-link" data-bs-act="to-results">결과물 보기</button>') +
+    '</div>' +
     (sub ? '<p class="bc-detail-sub">' + brandEsc(sub) + '</p>' : '') + '</div>';
 }
 function _bsInfoHtml(d) {
-  const lines = ['운영팀이 ' + (brandFormatDateTime(d.delivered_at) || '') + '에 전달했습니다', '선정된 분만 보입니다',
-    '이 정보는 제품 배송에만 쓰고, 다 쓰면 내려받은 파일까지 지워 주십시오(이용약관 제8조).'];
+  // bm05-02 — 모바일은 엑셀 단추가 없으므로 「PC에서」 안내를 앞세운 짧은 한 줄
+  const lines = _bcMobileMq.matches ? ['엑셀 내려받기·올리기는 PC에서 할 수 있습니다. 배송에만 쓰고 다 쓰면 지워 주십시오.']
+    : ['운영팀이 ' + (brandFormatDateTime(d.delivered_at) || '') + '에 전달했습니다', '선정된 분만 보입니다',
+      '이 정보는 제품 배송에만 쓰고, 다 쓰면 내려받은 파일까지 지워 주십시오(이용약관 제8조).'];
   return '<div class="bs-info" role="note"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span>' +
     '<span>' + brandEsc(lines.join(' · ')) + '</span></div>' +
     (d.editable === false ? '<div class="bs-info is-warn" role="note"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">lock</span>' +
@@ -437,6 +449,13 @@ document.addEventListener('click', (e) => {
   if (act === 'cancel-edit') { _bsEdit = null; _bsRerenderIfShown(); return; }
   if (act === 'save') { _bsSave(Number(el.dataset.row), false); return; }
   if (act === 'clear') { _bsSave(Number(el.dataset.row), true); return; }
+  if (act === 'to-results') {
+    const id = _bsCurrentId();
+    if (!id) return;
+    brandScrollToResultsOnce(id);   // 상세를 그린 뒤 결과물 칸으로(brand-campaign-results.js)
+    location.hash = '#campaigns/' + id;
+    return;
+  }
 });
 // 택배사를 바꾸면 「기타」 이름 칸을 열고 닫는다 · 입력하면 그 칸 오류를 지운다
 document.addEventListener('change', (e) => {

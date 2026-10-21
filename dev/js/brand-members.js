@@ -10,7 +10,8 @@ const BRAND_MEMBERS_MSG = {
   resent: '초대 메일을 다시 보냈습니다.',                                   // bw06-90
   mailFail: '초대는 만들었지만 메일을 보내지 못했습니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   full: '멤버가 가득 찼습니다.',
-  notOwner: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',
+  notOwner: '대표 담당자가 바뀌었습니다.',                                  // bw06-91 ③(피그마 초안) — 서버가 not_owner 로 거부. 뒤이어 목록을 새로 받아 멤버 화면으로
+  ownerOnly: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',       // 메일 발송 stale(대표가 바뀌었거나 초대가 끝남)·브랜드 비활성 — 사유가 섞여 중립 문구
   failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // bw06-90
   alreadyPending: '이미 초대한 이메일입니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   alreadyMember: '이미 이 브랜드의 멤버입니다.',
@@ -104,6 +105,11 @@ function renderBrandMembers(host) {
     '<div class="brand-table-wrap"><table class="brand-table">' +
       '<thead><tr><th class="w-name">이름</th><th class="w-email">이메일</th><th class="w-role">역할</th><th class="w-status">상태</th><th class="w-last">마지막 접속</th><th class="c-act">관리</th></tr></thead>' +
       '<tbody>' + body + '</tbody></table></div>' +
+    // bw06-91 ② — 대표 담당자 한 줄뿐(멤버·초대 줄 없음)이면 표 아래 빈 상태 안내
+    (rows.length === 1 && rows[0].kind === 'account' && rows[0].role === 'owner' ?
+      '<div class="brand-empty"><p class="brand-empty-title">아직 멤버가 없습니다</p>' +
+        '<p class="brand-empty-desc">' + (owner ? '「멤버 초대」로 같은 브랜드를 함께 볼 담당자를 초대할 수 있습니다(브랜드당 ' + d.member_limit + '명).'
+          : '대표 담당자가 같은 브랜드를 함께 볼 담당자를 초대할 수 있습니다.') + '</p></div>' : '') +
     '<ul class="brand-note">' +
       '<li>' + d.member_limit + '명에는 대표 담당자와 초대 대기도 들어갑니다. 초대가 만료되거나 거절되면 ' + d.member_limit + '명에 들어가지 않습니다.</li>' +
       '<li>초대·다시 보내기·취소·해제·대표 담당자 넘기기는 대표 담당자만 할 수 있습니다. 멤버가 더 필요하면 운영팀에 요청해 주십시오.</li>' +
@@ -180,10 +186,13 @@ async function resendBrandInviteRow(inviteId, btn) {
   if (error || !data || !data.result) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.failed, { error: true }); return; }
   // 만료 줄 다시 보내기가 가득 참 — 피그마 bw06-90 은 토스트(새 초대만 bw06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
   if (data.result === 'seat_full') { brandToast(BRAND_MEMBERS_MSG.full, { error: true }); await loadBrandMembers(); return; }
-  if (data.result !== 'ok') { await _brandMembersAfterAction(false); return; }   // not_resendable·not_found·not_owner — 목록 새로 받기
+  if (data.result !== 'ok') {   // not_resendable·not_found — 목록 새로 받기 · not_owner — 안내(bw06-91 ③) + 새로 받기
+    if (data.result === 'not_owner') brandToast(BRAND_MEMBERS_MSG.notOwner, { error: true });
+    await _brandMembersAfterAction(false); return;
+  }
   const mail = await sendBrandInviteMail(data.invite_id || inviteId);
   if (mail === 'failed') brandToast(BRAND_MEMBERS_MSG.mailFail, { error: true });
-  else if (mail === 'stale') brandToast(BRAND_MEMBERS_MSG.notOwner, { error: true });   // 그사이 대표가 바뀌었거나 초대가 끝남
+  else if (mail === 'stale') brandToast(BRAND_MEMBERS_MSG.ownerOnly, { error: true });   // 그사이 대표가 바뀌었거나 초대가 끝남
   else brandToast(BRAND_MEMBERS_MSG.resent);
   await _brandMembersAfterAction(true);
 }
@@ -279,7 +288,7 @@ async function createBrandInvite(email) {
       const mail = await sendBrandInviteMail(data.invite_id);
       await _brandMembersAfterAction(true);
       if (mail === 'failed') return { message: BRAND_MEMBERS_MSG.mailFail, toastError: true };
-      if (mail === 'stale') return { message: BRAND_MEMBERS_MSG.notOwner, toastError: true };
+      if (mail === 'stale') return { message: BRAND_MEMBERS_MSG.ownerOnly, toastError: true };
       return { message: BRAND_MEMBERS_MSG.sent };
     }
     case 'invalid_email': return { keepOpen: true, message: BRAND_MSG.emailFormat };
@@ -287,9 +296,9 @@ async function createBrandInvite(email) {
     case 'already_member': return { keepOpen: true, message: BRAND_MEMBERS_MSG.alreadyMember };
     case 'already_pending': return { keepOpen: true, message: BRAND_MEMBERS_MSG.alreadyPending };
     case 'seat_full': await loadBrandMembers(); return { seatFull: true };
-    default:   // not_owner · brand_inactive — 그사이 대표가 바뀜
+    default:   // not_owner(그사이 대표가 바뀜) · brand_inactive
       await loadBrandMembers();
-      return { message: BRAND_MEMBERS_MSG.notOwner, toastError: true };
+      return { message: data.result === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.ownerOnly, toastError: true };
   }
 }
 

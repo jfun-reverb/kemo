@@ -85,7 +85,16 @@ function _brResRerender() {
   if (!sec || !_bcDetail || !_brRes || _bcDetail.id !== _brRes.id) return;
   sec.outerHTML = brandResultSectionHtml(_bcDetail.camp);
   if (typeof _bcRerenderStatsIfShown === 'function') _bcRerenderStatsIfShown();
+  // 배송 리스트 「결과물 보기」로 왔으면 결과물을 받은 뒤 한 번만 그 칸으로 내린다(불러오는 중에는 칸 높이가 바뀌어 기다린다)
+  if (_brScrollTarget === _brRes.id && _brRes.state !== 'loading') {
+    _brScrollTarget = null;
+    const now = document.getElementById('bcResultSection');
+    if (now) now.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
 }
+// 배송 리스트(brand-shipping.js)의 「결과물 보기」가 상세로 가기 전에 부른다 — 그 캠페인 상세의 결과물 칸으로 내릴 표시
+let _brScrollTarget = null;
+function brandScrollToResultsOnce(id) { _brScrollTarget = id; }
 
 // ── 그리기
 function _brShortDate(v) {

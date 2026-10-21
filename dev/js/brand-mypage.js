@@ -12,6 +12,7 @@ const BRAND_MYPAGE_MSG = {
   saved: '계정 정보를 저장했습니다.',                                  // bw07-90
   saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // bw07-90
   nameEmpty: '이름을 입력해 주십시오.',                                // 비밀번호 설정 화면과 같은 문구(피그마 bw07-00a 미정)
+  phoneFormat: '연락처 형식을 확인해 주십시오(숫자와 하이픈).',          // bw07-91 ②
   declined: '초대를 거절했습니다.',                                    // bw07-90
   invalid: '이 초대는 더 이상 쓸 수 없습니다.',                        // bw07-90
   acceptFail: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',   // 초대 수락 화면(bw01-92 ⑥)과 같은 문구
@@ -116,7 +117,8 @@ function _brandMyAccountHtml() {
         '<p class="brand-field-error" id="brandMyNameError" hidden></p></div>' +
       '<div class="brand-my-field"><span class="brand-my-label">이메일 (로그인 아이디)</span><div class="brand-my-value is-locked">' + brandEsc(a.email || '') + '</div></div>' +
       '<div class="brand-my-field"><label for="brandMyPhone">연락처</label>' +
-        '<input type="tel" id="brandMyPhone" class="brand-my-input" value="' + brandEsc(a.phone || '') + '" maxlength="20" inputmode="tel" autocomplete="tel"' + (_brandMyBusy ? ' disabled' : '') + '></div>' +
+        '<input type="tel" id="brandMyPhone" class="brand-my-input" value="' + brandEsc(a.phone || '') + '" maxlength="20" inputmode="tel" autocomplete="tel"' + (_brandMyBusy ? ' disabled' : '') + '>' +
+        '<p class="brand-field-error" id="brandMyPhoneError" hidden></p></div>' +
     '</div>';
   } else {
     const val = (v) => v ? brandEsc(v) : '<span class="brand-dash">—</span>';
@@ -195,15 +197,25 @@ function _brandMySetBusy(busy) {
   document.querySelectorAll('#brandPageHost [data-my-act], #brandPageHost .brand-my-input').forEach(el => { el.disabled = busy; });
 }
 
-function _brandMyNameError(msg) {
-  const input = document.getElementById('brandMyName');
-  const err = document.getElementById('brandMyNameError');
+function _brandMyFieldError(id, msg) {
+  const input = document.getElementById(id);
+  const err = document.getElementById(id + 'Error');
   if (!input || !err) return;
   input.classList.toggle('is-error', !!msg);
   if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
   err.textContent = msg || '';
   err.hidden = !msg;
-  if (msg) { input.setAttribute('aria-describedby', 'brandMyNameError'); input.focus(); }
+  if (msg) { input.setAttribute('aria-describedby', id + 'Error'); input.focus(); }
+}
+function _brandMyNameError(msg) { _brandMyFieldError('brandMyName', msg); }
+
+// 연락처 형식(bw07-91 ②) — 숫자와 하이픈만, 숫자는 하나 이상. 빈 칸은 그대로 저장(선택 칸).
+//   화면 검사만이다(서버는 형식을 안 본다). 저장된 값을 안 고쳤으면 검사하지 않는다 — 형식 검사 전에 들어간 옛 값 때문에 이름 저장이 막히지 않게
+const BRAND_MY_PHONE_RE = /^[0-9-]*[0-9][0-9-]*$/;
+function _brandMyPhoneIssue(phone) {
+  if (!phone) return '';
+  if (_brandMyAccount && phone === String(_brandMyAccount.phone || '').trim()) return '';
+  return BRAND_MY_PHONE_RE.test(phone) ? '' : BRAND_MYPAGE_MSG.phoneFormat;
 }
 
 async function saveMyBrandProfile() {
@@ -212,8 +224,11 @@ async function saveMyBrandProfile() {
   if (!nameEl || !phoneEl) return;
   const name = nameEl.value.trim();
   const phone = phoneEl.value.trim();
-  if (!name) { _brandMyNameError(BRAND_MYPAGE_MSG.nameEmpty); return; }
+  if (!name) { _brandMyFieldError('brandMyPhone', ''); _brandMyNameError(BRAND_MYPAGE_MSG.nameEmpty); return; }
   _brandMyNameError('');
+  const phoneIssue = _brandMyPhoneIssue(phone);
+  _brandMyFieldError('brandMyPhone', phoneIssue);
+  if (phoneIssue) return;
   _brandMySetBusy(true);
   const { data, error } = await brandRpc('update_my_brand_profile', { p_name: name, p_phone: phone });
   _brandMySetBusy(false);

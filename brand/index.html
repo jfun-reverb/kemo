@@ -1341,6 +1341,8 @@ select.bs-in { padding-right: 28px; background-image: linear-gradient(45deg, tra
 .bsx-tools { display: flex; gap: 8px; flex: 0 0 auto; }
 .bsx-btn { width: auto; height: 34px; padding: 0 14px; gap: 6px; font-size: 13px; font-weight: 600; }
 .bsx-btn .material-icons-round { font-size: 17px; }
+/* bw05-02 머리 오른쪽 「결과물 보기」 */
+.bs-head-link { width: auto; height: 34px; margin-left: auto; padding: 0 14px; font-size: 13px; font-weight: 600; }
 .brand-modal-box.bsx-modal { width: 640px; max-height: calc(100vh - 32px); overflow-y: auto; }
 .bsx-modal .brand-modal-actions.is-right { justify-content: flex-end; }
 .bsx-steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--b-ink); line-height: 1.5; }
@@ -1693,7 +1695,7 @@ select.bs-in { padding-right: 28px; background-image: linear-gradient(45deg, tra
     </div>
   </section>
 
-  <!-- 새로고침 때 로그인 판정을 못 받음 — 세션은 지우지 않고 다시 시도하게 한다(판정 결과가 나왔을 때만 로그아웃) -->
+  <!-- 새로고침 때·로그인 직후·초대 수락 뒤 로그인 판정을 못 받음(bw01-14) — 세션은 지우지 않고 다시 시도하게 한다(판정 결과가 나왔을 때만 로그아웃) -->
   <section class="brand-card" data-screen="check-fail" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
@@ -2489,6 +2491,15 @@ function initLoginForm() {
         failMsg = brandSignInErrorMsg(signErr);
       } else {
         const state = await fetchBrandLoginState();
+        if (state === null) {
+          // bw01-14 — 판정 호출 실패는 일시 오류일 수 있다. 방금 생긴 세션을 두고 「다시 시도」 화면(새로고침 실패·초대 수락 뒤와 같은 처리)
+          pwInput.value = '';
+          setNotice('loginExpiredNotice', '');
+          _brandCheckPending = true;
+          history.replaceState(null, '', location.pathname + location.search + '#check-fail');
+          paintBrandScreen('check-fail');
+          return;
+        }
         const result = await applyBrandLoginState(state);
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');
@@ -3332,12 +3343,35 @@ function setBrandSessionFromState(state, opts) {
   if (prevBrand && prevBrand !== brandSession.currentBrandId) _emitBrandChanged();
 }
 
+// ── 로그인 시간 만료 뒤 「보던 화면」(bw01-91 ⑦) — 세션 저장소에 { hash, email } 한 벌.
+//   끊기는 순간(로그인 시간 만료 이벤트·새로고침 때 복원 실패) 남기고, 다시 로그인하면 같은 계정일 때만 한 번 꺼낸다.
+//   다른 계정으로 로그인하면 버린다(남의 캠페인 주소로 가지 않게). 틀 안 페이지 주소만 남긴다.
+const BRAND_RETURN_KEY = 'reverb.brandReturnTo';
+function rememberBrandReturnTo(email) {
+  const hash = location.hash.replace(/^#/, '');
+  const mail = String(email || '').trim().toLowerCase();
+  if (!mail || !isBrandShellPage(hash)) return;
+  try { sessionStorage.setItem(BRAND_RETURN_KEY, JSON.stringify({ hash, email: mail })); } catch (e) { /* 저장소 막힘 — 첫 페이지로 */ }
+}
+function takeBrandReturnTo(email) {
+  let t = null;
+  try { t = JSON.parse(sessionStorage.getItem(BRAND_RETURN_KEY) || 'null'); sessionStorage.removeItem(BRAND_RETURN_KEY); } catch (e) { t = null; }
+  if (!t || typeof t.hash !== 'string' || !isBrandShellPage(t.hash)) return null;
+  return t.email && t.email === String(email || '').trim().toLowerCase() ? t.hash : null;
+}
+// 「가려던 시트」(메일 링크·옛 링크·쓰던 오리엔시트 — brand-orient.js)가 남아 있으면 첫 페이지(오리엔시트)가 그것을 연다 — 보던 화면보다 앞선다
+function _brandHasOrientTarget() {
+  try { return typeof BRAND_ORIENT_TARGET_KEY === 'string' && !!sessionStorage.getItem(BRAND_ORIENT_TARGET_KEY); } catch (e) { return false; }
+}
+
 // 로그인 직후·초대 수락 뒤 — 첫 페이지로. 🔴 활동 기록은 남기지 않는다(로그인만 한 것은 활동이 아니다 — 사양서 16-4 ③).
 function enterBrandApp(state, opts) {
   brandSession = null;          // 로그인 직후에는 이전 브랜드를 이어받지 않는다
   setBrandAuthed(state, opts);
-  // 배송 리스트 메일 링크(?shipping=)로 들어와 로그인했으면 그 리스트로 — 아니면 첫 페이지(brand-shipping.js)
-  goBrandScreen((typeof takeBrandShippingTarget === 'function' && takeBrandShippingTarget()) || BRAND_FIRST_PAGE);
+  // 배송 리스트 메일 링크(?shipping=)로 들어와 로그인했으면 그 리스트로(brand-shipping.js) — 그다음 만료 전에 보던 화면 — 아니면 첫 페이지
+  const ship = (typeof takeBrandShippingTarget === 'function') ? takeBrandShippingTarget() : null;
+  const back = takeBrandReturnTo(state && state.email);
+  goBrandScreen(ship || (!_brandHasOrientTarget() && back) || BRAND_FIRST_PAGE);
 }
 
 // 판정을 다시 받아 세션 상태를 갱신 — 반환 state 또는 null(호출 실패).
@@ -6438,7 +6472,7 @@ function _bofRenderRegistered(st) {
   const partial = st.sheet && st.sheet.layout === 'old' && cards > 1 && n < cards ? ' (' + n + '/' + cards + ')' : '';   // 옛 구조 일부 등록(결정 4)
   host.innerHTML = '<div class="bof-band is-ok"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">check_box</span>' +
       '<span>이 오리엔시트로 캠페인이 등록되어 내용을 수정할 수 없습니다.' + brandEsc(partial) + '</span>' +
-      // 캠페인 메뉴(목록)로 보낸다 — 카드가 여러 캠페인일 수 있어 상세(#campaigns/<번호>)로 바로 보내지 않는다(작업표 stale 8)
+      // 캠페인이 하나면 그 상세(bw05-01)로, 여럿이면(옛 구조 — 카드마다 캠페인) 캠페인 목록으로(_bofGoCampaigns)
       '<button type="button" class="bof-band-link" data-bof-act="campaigns">캠페인 보기 ›</button></div>' +
     '<section class="bof-card bof-done-card"><h3 class="bof-done-title">캠페인이 등록되었습니다</h3>' +
       '<p class="bof-done-desc">담당자가 이 오리엔시트로 캠페인을 등록했습니다. 모집이 시작되면 「캠페인」 메뉴에서 현황을 볼 수 있습니다.</p>' +
@@ -6447,8 +6481,11 @@ function _bofRenderRegistered(st) {
   if (q) _bofMountQuote(st, host.querySelector('.bof-quote-slot'), q, st.data);
 }
 function _bofGoCampaigns(st) {
+  const ids = (st.sheet && Array.isArray(st.sheet.campaigns) ? st.sheet.campaigns : [])
+    .map(c => c && c.campaign_id).filter(id => id && BRAND_UUID_RE.test(id));
+  const uniq = ids.filter((id, i) => ids.indexOf(id) === i);
   _bofClose(st);
-  location.hash = '#campaigns';
+  location.hash = uniq.length === 1 ? '#campaigns/' + uniq[0] : '#campaigns';
 }
 
 // ── 작은 안내 모달(bw04-01b · 옛 구조) — 아이콘 원 + 제목 + 설명 + 「닫기」
@@ -7726,7 +7763,16 @@ function _brResRerender() {
   if (!sec || !_bcDetail || !_brRes || _bcDetail.id !== _brRes.id) return;
   sec.outerHTML = brandResultSectionHtml(_bcDetail.camp);
   if (typeof _bcRerenderStatsIfShown === 'function') _bcRerenderStatsIfShown();
+  // 배송 리스트 「결과물 보기」로 왔으면 결과물을 받은 뒤 한 번만 그 칸으로 내린다(불러오는 중에는 칸 높이가 바뀌어 기다린다)
+  if (_brScrollTarget === _brRes.id && _brRes.state !== 'loading') {
+    _brScrollTarget = null;
+    const now = document.getElementById('bcResultSection');
+    if (now) now.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
 }
+// 배송 리스트(brand-shipping.js)의 「결과물 보기」가 상세로 가기 전에 부른다 — 그 캠페인 상세의 결과물 칸으로 내릴 표시
+let _brScrollTarget = null;
+function brandScrollToResultsOnce(id) { _brScrollTarget = id; }
 
 // ── 그리기
 function _brShortDate(v) {
@@ -8143,15 +8189,27 @@ function _bsSumRerender() {
 
 // ── 배송 리스트 페이지(bw05-02 · bm05-02)
 function _bsHeadHtml(id, d) {
-  const sub = d ? [d.product, d.campaign_no, '시딩'].filter(Boolean).join(' · ') : '';
+  const mobile = _bcMobileMq.matches;
+  let sub = '';
+  if (d && mobile) {
+    // bm05-02 — 모바일은 캠페인 번호 대신 「발송 전 N · 기한 지남 M」(기한 지남은 있을 때만)
+    const k = d.counts || {};
+    const overdue = Number(k.overdue) || 0;
+    sub = [d.product, '발송 전 ' + _bsPendingAll(k), overdue ? '기한 지남 ' + overdue : ''].filter(Boolean).join(' · ');
+  } else if (d) sub = [d.product, d.campaign_no, '시딩'].filter(Boolean).join(' · ');
   return '<div class="bc-detail-head">' +
     '<a class="bc-back" href="#campaigns/' + brandEsc(id) + '"><span aria-hidden="true">‹</span> 캠페인 상세</a>' +
-    '<div class="bc-detail-title"><h1>배송 리스트</h1></div>' +
+    '<div class="bc-detail-title"><h1>배송 리스트</h1>' +
+      // bw05-02 머리 오른쪽 「결과물 보기」 — 캠페인 상세의 결과물 칸으로(PC 만 — bm05-02 에는 없다)
+      (mobile ? '' : '<button type="button" class="brand-btn brand-btn-line bs-head-link" data-bs-act="to-results">결과물 보기</button>') +
+    '</div>' +
     (sub ? '<p class="bc-detail-sub">' + brandEsc(sub) + '</p>' : '') + '</div>';
 }
 function _bsInfoHtml(d) {
-  const lines = ['운영팀이 ' + (brandFormatDateTime(d.delivered_at) || '') + '에 전달했습니다', '선정된 분만 보입니다',
-    '이 정보는 제품 배송에만 쓰고, 다 쓰면 내려받은 파일까지 지워 주십시오(이용약관 제8조).'];
+  // bm05-02 — 모바일은 엑셀 단추가 없으므로 「PC에서」 안내를 앞세운 짧은 한 줄
+  const lines = _bcMobileMq.matches ? ['엑셀 내려받기·올리기는 PC에서 할 수 있습니다. 배송에만 쓰고 다 쓰면 지워 주십시오.']
+    : ['운영팀이 ' + (brandFormatDateTime(d.delivered_at) || '') + '에 전달했습니다', '선정된 분만 보입니다',
+      '이 정보는 제품 배송에만 쓰고, 다 쓰면 내려받은 파일까지 지워 주십시오(이용약관 제8조).'];
   return '<div class="bs-info" role="note"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">info</span>' +
     '<span>' + brandEsc(lines.join(' · ')) + '</span></div>' +
     (d.editable === false ? '<div class="bs-info is-warn" role="note"><span class="material-icons-round notranslate" translate="no" aria-hidden="true">lock</span>' +
@@ -8451,6 +8509,13 @@ document.addEventListener('click', (e) => {
   if (act === 'cancel-edit') { _bsEdit = null; _bsRerenderIfShown(); return; }
   if (act === 'save') { _bsSave(Number(el.dataset.row), false); return; }
   if (act === 'clear') { _bsSave(Number(el.dataset.row), true); return; }
+  if (act === 'to-results') {
+    const id = _bsCurrentId();
+    if (!id) return;
+    brandScrollToResultsOnce(id);   // 상세를 그린 뒤 결과물 칸으로(brand-campaign-results.js)
+    location.hash = '#campaigns/' + id;
+    return;
+  }
 });
 // 택배사를 바꾸면 「기타」 이름 칸을 열고 닫는다 · 입력하면 그 칸 오류를 지운다
 document.addEventListener('change', (e) => {
@@ -8992,7 +9057,8 @@ const BRAND_MEMBERS_MSG = {
   resent: '초대 메일을 다시 보냈습니다.',                                   // bw06-90
   mailFail: '초대는 만들었지만 메일을 보내지 못했습니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   full: '멤버가 가득 찼습니다.',
-  notOwner: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',
+  notOwner: '대표 담당자가 바뀌었습니다.',                                  // bw06-91 ③(피그마 초안) — 서버가 not_owner 로 거부. 뒤이어 목록을 새로 받아 멤버 화면으로
+  ownerOnly: '대표 담당자만 할 수 있습니다. 목록을 새로 불러왔습니다.',       // 메일 발송 stale(대표가 바뀌었거나 초대가 끝남)·브랜드 비활성 — 사유가 섞여 중립 문구
   failed: '초대를 보내지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // bw06-90
   alreadyPending: '이미 초대한 이메일입니다. 목록에서 「다시 보내기」를 눌러 주십시오.',
   alreadyMember: '이미 이 브랜드의 멤버입니다.',
@@ -9086,6 +9152,11 @@ function renderBrandMembers(host) {
     '<div class="brand-table-wrap"><table class="brand-table">' +
       '<thead><tr><th class="w-name">이름</th><th class="w-email">이메일</th><th class="w-role">역할</th><th class="w-status">상태</th><th class="w-last">마지막 접속</th><th class="c-act">관리</th></tr></thead>' +
       '<tbody>' + body + '</tbody></table></div>' +
+    // bw06-91 ② — 대표 담당자 한 줄뿐(멤버·초대 줄 없음)이면 표 아래 빈 상태 안내
+    (rows.length === 1 && rows[0].kind === 'account' && rows[0].role === 'owner' ?
+      '<div class="brand-empty"><p class="brand-empty-title">아직 멤버가 없습니다</p>' +
+        '<p class="brand-empty-desc">' + (owner ? '「멤버 초대」로 같은 브랜드를 함께 볼 담당자를 초대할 수 있습니다(브랜드당 ' + d.member_limit + '명).'
+          : '대표 담당자가 같은 브랜드를 함께 볼 담당자를 초대할 수 있습니다.') + '</p></div>' : '') +
     '<ul class="brand-note">' +
       '<li>' + d.member_limit + '명에는 대표 담당자와 초대 대기도 들어갑니다. 초대가 만료되거나 거절되면 ' + d.member_limit + '명에 들어가지 않습니다.</li>' +
       '<li>초대·다시 보내기·취소·해제·대표 담당자 넘기기는 대표 담당자만 할 수 있습니다. 멤버가 더 필요하면 운영팀에 요청해 주십시오.</li>' +
@@ -9162,10 +9233,13 @@ async function resendBrandInviteRow(inviteId, btn) {
   if (error || !data || !data.result) { btn.disabled = false; brandToast(BRAND_MEMBERS_MSG.failed, { error: true }); return; }
   // 만료 줄 다시 보내기가 가득 참 — 피그마 bw06-90 은 토스트(새 초대만 bw06-01a 모달). 숫자가 바뀌었을 수 있어 목록도 다시 받는다
   if (data.result === 'seat_full') { brandToast(BRAND_MEMBERS_MSG.full, { error: true }); await loadBrandMembers(); return; }
-  if (data.result !== 'ok') { await _brandMembersAfterAction(false); return; }   // not_resendable·not_found·not_owner — 목록 새로 받기
+  if (data.result !== 'ok') {   // not_resendable·not_found — 목록 새로 받기 · not_owner — 안내(bw06-91 ③) + 새로 받기
+    if (data.result === 'not_owner') brandToast(BRAND_MEMBERS_MSG.notOwner, { error: true });
+    await _brandMembersAfterAction(false); return;
+  }
   const mail = await sendBrandInviteMail(data.invite_id || inviteId);
   if (mail === 'failed') brandToast(BRAND_MEMBERS_MSG.mailFail, { error: true });
-  else if (mail === 'stale') brandToast(BRAND_MEMBERS_MSG.notOwner, { error: true });   // 그사이 대표가 바뀌었거나 초대가 끝남
+  else if (mail === 'stale') brandToast(BRAND_MEMBERS_MSG.ownerOnly, { error: true });   // 그사이 대표가 바뀌었거나 초대가 끝남
   else brandToast(BRAND_MEMBERS_MSG.resent);
   await _brandMembersAfterAction(true);
 }
@@ -9261,7 +9335,7 @@ async function createBrandInvite(email) {
       const mail = await sendBrandInviteMail(data.invite_id);
       await _brandMembersAfterAction(true);
       if (mail === 'failed') return { message: BRAND_MEMBERS_MSG.mailFail, toastError: true };
-      if (mail === 'stale') return { message: BRAND_MEMBERS_MSG.notOwner, toastError: true };
+      if (mail === 'stale') return { message: BRAND_MEMBERS_MSG.ownerOnly, toastError: true };
       return { message: BRAND_MEMBERS_MSG.sent };
     }
     case 'invalid_email': return { keepOpen: true, message: BRAND_MSG.emailFormat };
@@ -9269,9 +9343,9 @@ async function createBrandInvite(email) {
     case 'already_member': return { keepOpen: true, message: BRAND_MEMBERS_MSG.alreadyMember };
     case 'already_pending': return { keepOpen: true, message: BRAND_MEMBERS_MSG.alreadyPending };
     case 'seat_full': await loadBrandMembers(); return { seatFull: true };
-    default:   // not_owner · brand_inactive — 그사이 대표가 바뀜
+    default:   // not_owner(그사이 대표가 바뀜) · brand_inactive
       await loadBrandMembers();
-      return { message: BRAND_MEMBERS_MSG.notOwner, toastError: true };
+      return { message: data.result === 'not_owner' ? BRAND_MEMBERS_MSG.notOwner : BRAND_MEMBERS_MSG.ownerOnly, toastError: true };
   }
 }
 
@@ -9409,6 +9483,7 @@ const BRAND_MYPAGE_MSG = {
   saved: '계정 정보를 저장했습니다.',                                  // bw07-90
   saveFail: '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.',        // bw07-90
   nameEmpty: '이름을 입력해 주십시오.',                                // 비밀번호 설정 화면과 같은 문구(피그마 bw07-00a 미정)
+  phoneFormat: '연락처 형식을 확인해 주십시오(숫자와 하이픈).',          // bw07-91 ②
   declined: '초대를 거절했습니다.',                                    // bw07-90
   invalid: '이 초대는 더 이상 쓸 수 없습니다.',                        // bw07-90
   acceptFail: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',   // 초대 수락 화면(bw01-92 ⑥)과 같은 문구
@@ -9513,7 +9588,8 @@ function _brandMyAccountHtml() {
         '<p class="brand-field-error" id="brandMyNameError" hidden></p></div>' +
       '<div class="brand-my-field"><span class="brand-my-label">이메일 (로그인 아이디)</span><div class="brand-my-value is-locked">' + brandEsc(a.email || '') + '</div></div>' +
       '<div class="brand-my-field"><label for="brandMyPhone">연락처</label>' +
-        '<input type="tel" id="brandMyPhone" class="brand-my-input" value="' + brandEsc(a.phone || '') + '" maxlength="20" inputmode="tel" autocomplete="tel"' + (_brandMyBusy ? ' disabled' : '') + '></div>' +
+        '<input type="tel" id="brandMyPhone" class="brand-my-input" value="' + brandEsc(a.phone || '') + '" maxlength="20" inputmode="tel" autocomplete="tel"' + (_brandMyBusy ? ' disabled' : '') + '>' +
+        '<p class="brand-field-error" id="brandMyPhoneError" hidden></p></div>' +
     '</div>';
   } else {
     const val = (v) => v ? brandEsc(v) : '<span class="brand-dash">—</span>';
@@ -9592,15 +9668,25 @@ function _brandMySetBusy(busy) {
   document.querySelectorAll('#brandPageHost [data-my-act], #brandPageHost .brand-my-input').forEach(el => { el.disabled = busy; });
 }
 
-function _brandMyNameError(msg) {
-  const input = document.getElementById('brandMyName');
-  const err = document.getElementById('brandMyNameError');
+function _brandMyFieldError(id, msg) {
+  const input = document.getElementById(id);
+  const err = document.getElementById(id + 'Error');
   if (!input || !err) return;
   input.classList.toggle('is-error', !!msg);
   if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
   err.textContent = msg || '';
   err.hidden = !msg;
-  if (msg) { input.setAttribute('aria-describedby', 'brandMyNameError'); input.focus(); }
+  if (msg) { input.setAttribute('aria-describedby', id + 'Error'); input.focus(); }
+}
+function _brandMyNameError(msg) { _brandMyFieldError('brandMyName', msg); }
+
+// 연락처 형식(bw07-91 ②) — 숫자와 하이픈만, 숫자는 하나 이상. 빈 칸은 그대로 저장(선택 칸).
+//   화면 검사만이다(서버는 형식을 안 본다). 저장된 값을 안 고쳤으면 검사하지 않는다 — 형식 검사 전에 들어간 옛 값 때문에 이름 저장이 막히지 않게
+const BRAND_MY_PHONE_RE = /^[0-9-]*[0-9][0-9-]*$/;
+function _brandMyPhoneIssue(phone) {
+  if (!phone) return '';
+  if (_brandMyAccount && phone === String(_brandMyAccount.phone || '').trim()) return '';
+  return BRAND_MY_PHONE_RE.test(phone) ? '' : BRAND_MYPAGE_MSG.phoneFormat;
 }
 
 async function saveMyBrandProfile() {
@@ -9609,8 +9695,11 @@ async function saveMyBrandProfile() {
   if (!nameEl || !phoneEl) return;
   const name = nameEl.value.trim();
   const phone = phoneEl.value.trim();
-  if (!name) { _brandMyNameError(BRAND_MYPAGE_MSG.nameEmpty); return; }
+  if (!name) { _brandMyFieldError('brandMyPhone', ''); _brandMyNameError(BRAND_MYPAGE_MSG.nameEmpty); return; }
   _brandMyNameError('');
+  const phoneIssue = _brandMyPhoneIssue(phone);
+  _brandMyFieldError('brandMyPhone', phoneIssue);
+  if (phoneIssue) return;
   _brandMySetBusy(true);
   const { data, error } = await brandRpc('update_my_brand_profile', { p_name: name, p_phone: phone });
   _brandMySetBusy(false);
@@ -10037,6 +10126,14 @@ async function handleBrandLinkLanding(params) {
   await showBrandLinkInvalid();
 }
 
+// 저장 칸에 남은 세션의 이메일(복원 실패 때 「보던 화면」 계정 대조용) — 못 읽으면 빈 값(그러면 남기지 않는다)
+function _brandStoredEmail() {
+  try {
+    const v = JSON.parse(localStorage.getItem(BRAND_AUTH_STORAGE_KEY) || 'null');
+    return (v && v.user && v.user.email) || '';
+  } catch (e) { return ''; }
+}
+
 // ── 새로고침 때 로그인 연결의 세션 복원
 async function restoreBrandSession() {
   let hadStored = false;
@@ -10047,8 +10144,8 @@ async function restoreBrandSession() {
     session = data && data.session;
   } catch (e) { session = null; }
   if (!session) {
-    // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료)
-    if (hadStored) setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+    // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료) — 보던 주소를 남겨 다시 로그인하면 그리로(bw01-91 ⑦)
+    if (hadStored) { rememberBrandReturnTo(_brandStoredEmail()); setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG); }
     // 옛 오리엔시트 작성 링크로 들어옴 — 로그인 화면 대신 안내 카드(bw01-09)부터. 「브랜드 페이지 로그인」(#login)을 누르면 그 뒤로는
     //   로그인 화면이 그대로 남는다(카드 해시가 아닐 때만 — 로그인 화면에서 새로고침해도 카드로 되돌리지 않는다)
     if (brandOrientHasPendingLink() && !BRAND_SCREENS.includes(currentBrandHash())) { goBrandScreen('orient-moved'); return; }
@@ -10068,7 +10165,9 @@ async function restoreBrandSession() {
   if (result === 'ok') {
     // 배송 리스트 메일 링크로 들어왔으면 그 주소로(로그인 폼을 거친 경우는 enterBrandApp 이 꺼낸다)
     const shipTarget = (typeof takeBrandShippingTarget === 'function') ? takeBrandShippingTarget() : null;
-    if (shipTarget) history.replaceState(null, '', location.pathname + location.search + '#' + shipTarget);
+    // 로그인 직후 판정 실패(bw01-14)에서 「다시 시도」로 온 경우 — 주소가 틀 밖(#check-fail)이라 보던 화면을 여기서 꺼낸다
+    const backTarget = !shipTarget && !isBrandShellPage(currentBrandHash()) && !_brandHasOrientTarget() ? takeBrandReturnTo(state.email) : null;
+    if (shipTarget || backTarget) history.replaceState(null, '', location.pathname + location.search + '#' + (shipTarget || backTarget));
     routeBrand();
   }
 }
@@ -10122,7 +10221,10 @@ function initBrandAuthEvents() {
       // 대기 초대만 있는 계정(초대 수락 화면)도 세션이 있으므로 같이 본다
       if (brandAuthed || _brandInviteCtx) {
         _brandInviteCtx = null;
-        if (brandAuthed) emitBrandSessionLost();   // 쓰던 오리엔시트를 이 기기 사본에 남기고 다시 로그인하면 그 시트로(결정 11) — 틀을 감추기 전에
+        if (brandAuthed) {
+          emitBrandSessionLost();   // 쓰던 오리엔시트를 이 기기 사본에 남기고 다시 로그인하면 그 시트로(결정 11) — 틀을 감추기 전에
+          rememberBrandReturnTo(brandAuthed.email);   // 보던 주소 — 다시 로그인하면 그리로(bw01-91 ⑦)
+        }
         setBrandAuthed(null);
         setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
         goBrandScreen('login');
@@ -10195,6 +10297,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792483120 -->
+<!-- v1792542248 -->
 </body>
 </html>
