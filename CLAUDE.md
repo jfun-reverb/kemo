@@ -395,6 +395,7 @@
 - 개발: dev/ 에서 수정 → dev/index.html 로 확인
 - 배포: `cd dev && bash build.sh` → 루트 index.html 자동 업데이트
 - 파일명이 기능과 일치 (캠페인=campaign, 로그인=auth 등)
+- 🔴 **적용 기록 표 `migration_ledger`(572)** — 서버마다 기준선 뒤 실행만 안다 · 기록 줄 없는 파일을 성공 실행하면 대상 객체 확인 뒤 손기록(`.claude/rules/supabase.md`)
 - DB API: `dev/lib/storage.js` 에 모든 DB 함수 집중 (fetchCampaigns, upsertInfluencer 등)
 - 세션: onAuthStateChange 로 SIGNED_IN/TOKEN_REFRESHED/SIGNED_OUT/SESSION_EXPIRED 처리 (양쪽)
 - URL 정제: `cleanUrl()` 로 마크다운 링크 형식 자동 변환 (product_url 등)
