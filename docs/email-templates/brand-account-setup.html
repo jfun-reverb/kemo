@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!--
   Mail: 브랜드 계정 생성 — 비밀번호 설정 링크 전달 (brand account setup)
-  Trigger: 관리자가 브랜드 상세에서 「계정 만들기」/「다시 보내기」를 누르거나, 「브랜드 연결 추가」로 이은 계정이
-           비밀번호 미설정일 때(mail_kind:'link') Edge Function notify-brand-account-setup 이 이 템플릿으로 발송.
+  Trigger: 관리자가 브랜드 상세에서 「계정 만들기」/「다시 보내기」를 누르면 Edge Function notify-brand-account-setup 이 이 템플릿으로 발송.
+           (옛 「브랜드 연결 추가」 연결 안내 갈래 mail_kind:'link' 는 2026-10-21 걷었다 — 기존 계정 연결은 notify-brand-invite 의 연결 요청 메일)
            비밀번호 찾기에서 설정 전 계정에 다시 보낼 때는 brand-password-reset-request 가 같은 템플릿을 쓴다
   To:      브랜드 대표 담당자 본인 (brand_accounts.email — 서버가 brand_id 로 다시 읽음)
   Lang:    KO (브랜드 담당자는 한국 회사 — 브랜드 페이지 UI 도 한국어)
@@ -35,7 +35,7 @@
     <div style="color:#888;font-size:12px;margin-top:10px;line-height:1.6">버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주십시오.</div>
     <div style="font-family:monospace;font-size:12px;color:#555;word-break:break-all;margin-top:4px">{{link}}</div>
   </div>
-  <!-- 16-3 9번 초안 — /약관확인 뒤 확정 (담당자 정보를 이 계정에 쓰는 용도 안내. brand-link-notice.html 과 같은 문장). 이 주석은 발송 때 제거된다 -->
+  <!-- 16-3 9번 초안 — /약관확인 뒤 확정 (담당자 정보를 이 계정에 쓰는 용도 안내). 이 주석은 발송 때 제거된다 -->
   <p style="margin:0 0 10px;font-size:12px;color:#888;line-height:1.7">
     REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주십시오.
   </p>

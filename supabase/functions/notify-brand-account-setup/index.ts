@@ -14,17 +14,14 @@
 //   · 링크 유효 시간 24시간 문구(작업표 S0-3 — 개발서버 Supabase 「Email OTP Expiration」 을 86400 으로 바꾼 뒤 배포.
 //     운영은 브랜드 페이지 출시 때 설정을 먼저 바꾸고 이 함수를 배포한다. 반대면 운영 메일이 거짓 안내를 한다)
 //
-// 요청:  POST { brand_id: uuid, mode?: 'setup' | 'resend', mail_kind?: 'setup' | 'link' }  + Authorization: Bearer <관리자 토큰>
+// 요청:  POST { brand_id: uuid, mode?: 'setup' | 'resend', mail_kind?: 'setup' }  + Authorization: Bearer <관리자 토큰>
 //        mode 는 메일 문구(처음/다시)만 가른다. 권한·검증 어디에도 쓰지 않는다.
-//        mail_kind 없음/'setup' = 기존 설정 메일. 'link' = 「브랜드 연결 추가」 뒤 연결 안내 갈래 — 양식은 서버가 정한다:
-//          · 대표 계정이 비밀번호를 정했으면(brand_accounts.password_set_at 을 서버가 다시 읽음) brand-link-notice 양식.
-//            링크 번호 교체·복구 링크 생성 없음, 단추는 /brand/ 로그인 화면 일반 주소. 발송 기록(setup_mail_sent_*)을 남기지 않는다
-//            (그 칸은 「설정 메일」 상태 줄 전용이고 service_mark_brand_setup_mail_sent 도 비밀번호 미설정 계정만 기록한다).
-//          · 비밀번호를 안 정했으면 기존 설정 메일 + 「운영팀이 이 브랜드를 계정에 연결해 보내는 메일」 문장(작업표 S0-2). 기록 p_sent_by='admin'.
-//        그 밖의 mail_kind 값은 400 invalid_request.
-// 응답:  200 { sent:true, recipient, template:'setup'|'link_notice' }   ← 어느 양식을 보냈는지(화면·시험 구분용)
+//        mail_kind 는 없음/'setup' 만 받는다. 그 밖의 값('link' 포함)은 400 invalid_request.
+//        ⚠️ 옛 'link'(「브랜드 연결 추가」 뒤 연결 안내 갈래·양식 brand-link-notice)는 2026-10-21 걷었다 — 관리자의 기존 계정 연결은
+//           이제 「연결 요청」이고 메일은 notify-brand-invite 의 owner_link 갈래(양식 brand-link-request)다
+//           (사양서 docs/specs/2026-10-21-brand-link-request.md 4-3). 조용히 설정 메일로 새지 않게 400 으로 막는다.
+// 응답:  200 { sent:true, recipient, template:'setup' }
 //        200 { sent:true, recipient, template:'setup', dev_link }       ← 개발서버 두 겹 잠금일 때만(메일 안 보냄)
-//        200 { sent:true, recipient, template:'link_notice', dev_echo:true }  ← 같은 잠금. 링크가 없는 양식이라 dev_link 는 없다
 //        200 { sent:false, reason: 'no_account' | 'password_already_set' | 'no_active_brand' | 'send_failed' | ... }
 //        400 { sent:false, reason:'invalid_request' } · 401 { reason:'unauthorized' } · 403 { reason:'forbidden' }
 //        500 { sent:false, reason:'server_error' }
@@ -50,7 +47,7 @@
 //   BREVO_SENDER_EMAIL / BREVO_SENDER_NAME   (기본 noreply@globalreverb.com / REVERB JP)
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY  (런타임 자동 주입)
 //
-// 템플릿: templates.ts (sync-email-templates.sh 자동 생성) → TEMPLATES['brand-account-setup'], TEMPLATES['brand-link-notice']
+// 템플릿: templates.ts (sync-email-templates.sh 자동 생성) → TEMPLATES['brand-account-setup']
 //
 // 배포 (개발 → 운영):
 //   bash scripts/sync-email-templates.sh
@@ -161,11 +158,10 @@ Deno.serve(async (req: Request) => {
     }
     // mode 는 메일 문구(처음/다시)만 가른다 — 클라가 바꿔도 안전.
     const isResend = body.mode === "resend";
-    // mail_kind: 없음/'setup' = 설정 메일, 'link' = 연결 안내 갈래. 그 밖의 값은 거부(조용히 설정 메일로 새지 않게).
-    if (body.mail_kind !== undefined && body.mail_kind !== null && body.mail_kind !== "setup" && body.mail_kind !== "link") {
+    // mail_kind: 없음/'setup' 만. 그 밖의 값('link' 포함 — 2026-10-21 걷음)은 거부(조용히 설정 메일로 새지 않게).
+    if (body.mail_kind !== undefined && body.mail_kind !== null && body.mail_kind !== "setup") {
       return jsonResponse({ sent: false, reason: "invalid_request" }, 400);
     }
-    const isLinkKind = body.mail_kind === "link";
 
     const supaUrl = env("SUPABASE_URL");
     const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -227,48 +223,6 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     const brandName = String(brandRow?.name || "").trim() || "브랜드";
 
-    // 2-1) 연결 안내 갈래(mail_kind:'link') + 비밀번호를 이미 정한 계정 → 링크 없는 연결 안내 양식.
-    //      password_set_at 은 위에서 서버가 다시 읽은 값이다(요청 본문의 어떤 값도 양식 선택에 안 쓴다).
-    //      비밀번호 미설정이면 아래 설정 메일 흐름으로 그대로 떨어진다(S0-2) — 거기서 연결 문장만 더해진다.
-    if (isLinkKind && acct.password_set_at) {
-      const toEmailLn = String(acct.email);
-      if (devEchoEnabled()) {
-        console.log("[notify-brand-account-setup] dev echo (no mail sent, link notice)", { brand_id: brandId });
-        return jsonResponse({ sent: true, recipient: toEmailLn, template: "link_notice", dev_echo: true }, 200);
-      }
-      const nameLn = String(acct.name || "").trim() || "담당자";
-      const loginUrl = `${brandBase}/brand/`;
-      const tplLn = TEMPLATES["brand-link-notice"].replace(/<!--[\s\S]*?-->/g, "");
-      const htmlLn = render(tplLn, {
-        brand_name: escapeHtml(brandName),
-        contact_name: escapeHtml(nameLn),
-        link: escapeHtml(loginUrl),
-      });
-      const textLn =
-        `${nameLn} 님\n\n` +
-        `REVERB 운영팀이 「${brandName}」 브랜드를 회원님의 REVERB 브랜드 페이지 계정에 연결했습니다. 「${brandName}」 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.\n` +
-        `지금 쓰시는 계정으로 로그인하시면 「${brandName}」 브랜드가 내 브랜드 목록에 함께 보입니다. 비밀번호는 그대로이며 새로 정하실 필요가 없습니다.\n\n` +
-        `로그인: ${loginUrl}\n\n` +
-        `REVERB 운영팀은 문의 또는 기존 연락으로 전달받은 담당자 정보(이름·이메일·연락처)를 브랜드 페이지 계정을 만들거나 연결하는 데에만 사용했습니다. 개인정보 이용에 관한 문의는 REVERB 운영팀으로 연락해 주십시오.\n\n` +
-        `이 메일은 REVERB 운영팀이 「${brandName}」 브랜드의 대표 담당자로 등록된 이 주소로 보냈습니다.\n` +
-        `본인과 관련 없거나 무슨 메일인지 모르시겠다면, 이 메일을 무시하셔도 됩니다.\n` +
-        `이 메일은 발신 전용입니다. 문의는 REVERB 운영팀 담당자에게 직접 연락해 주십시오.\n`;
-      try {
-        await sendBrevoEmail({
-          to: [{ email: toEmailLn, name: nameLn }],
-          subject: `[REVERB JP] 「${brandName}」 브랜드가 계정에 연결되었습니다`,
-          htmlContent: htmlLn,
-          textContent: textLn,
-        });
-      } catch (e) {
-        console.error("[notify-brand-account-setup] link notice send failed", (e as Error).message);
-        return jsonResponse({ sent: false, reason: "send_failed" }, 200);
-      }
-      console.log("[notify-brand-account-setup] link notice sent", { brand_id: brandId });
-      // 발송 기록은 남기지 않는다 — setup_mail_sent_* 는 설정 메일 상태 줄 전용(위 머리말)
-      return jsonResponse({ sent: true, recipient: toEmailLn, template: "link_notice" }, 200);
-    }
-
     // 3) 새 링크 번호 발급 — 앞서 보낸 링크는 이 순간 모두 무효. 종류는 항상 'setup'
     //    (비밀번호가 이미 설정됐으면 password_already_set 으로 거부된다).
     const { data: issued, error: issueErr } = await sb.rpc("service_issue_brand_account_link", {
@@ -313,22 +267,15 @@ Deno.serve(async (req: Request) => {
     // 6) 메일 발송
     const contactName = String(issued.name || acct.name || "").trim() || "담당자";
     // ⚠️ 같은 양식(brand-account-setup)을 brand-password-reset-request 도 쓴다 — 그쪽은 본인 요청 문구(2026-10-20). 양식 자리표시를 늘리면 두 함수가 함께 넘긴다
-    // ⚠️ 연결 갈래(mail_kind:'link')는 「다시 보냄」이 아니라 처음 안내이므로 isResend 를 무시하고 연결 문장을 쓴다.
-    const intro = isLinkKind
-      ? `REVERB 운영팀이 「${brandName}」 브랜드를 회원님의 브랜드 페이지 계정에 연결했습니다. 「${brandName}」 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다. 이 계정은 아직 비밀번호가 설정되지 않았습니다.`
-      : isResend
+    const intro = isResend
       ? `REVERB 운영팀이 「${brandName}」 브랜드 계정의 비밀번호 설정 링크를 다시 보내 드립니다. 앞서 받으신 링크는 더 이상 쓸 수 없습니다.`
       : `REVERB 운영팀이 「${brandName}」 브랜드 계정을 만들었습니다. 「${brandName}」 브랜드의 대표 담당자로 등록되어 이 메일을 받으셨습니다.`;
     const expiresNote = "이 링크는 보낸 때부터 24시간 동안 유효합니다.";
-    const heading = isLinkKind
-      ? `「${brandName}」 브랜드가 계정에 연결되었습니다`
-      : isResend
+    const heading = isResend
       ? `「${brandName}」 브랜드 계정 비밀번호 설정 링크를 다시 보내 드립니다`
       : `「${brandName}」 브랜드 계정이 만들어졌습니다`;
     // 다시 보냄은 제목 끝에 보낸 시각 — 같은 제목이면 메일 앱이 한 대화로 묶어 앞 메일 끝부분을 접는다(2026-10-20 사용자 결정)
-    const subject = isLinkKind
-      ? `[REVERB JP] 「${brandName}」 브랜드가 계정에 연결되었습니다 — 비밀번호를 설정해 주십시오`
-      : isResend
+    const subject = isResend
       ? `[REVERB JP] 「${brandName}」 브랜드 계정 — 비밀번호 설정 링크를 다시 보내 드립니다 (${kstStamp()})`
       : `[REVERB JP] 「${brandName}」 브랜드 계정이 만들어졌습니다 — 비밀번호를 설정해 주십시오`;
     const expiresAfter = "기한이 지나면 링크가 열리지 않습니다. 그때는 REVERB 운영팀에 다시 보내 달라고 요청해 주십시오.";
@@ -368,7 +315,7 @@ Deno.serve(async (req: Request) => {
       console.error("[notify-brand-account-setup] send failed", (e as Error).message);
       return jsonResponse({ sent: false, reason: "send_failed" }, 200);
     }
-    console.log("[notify-brand-account-setup] mail sent", { brand_id: brandId, resend: isResend, link_kind: isLinkKind });
+    console.log("[notify-brand-account-setup] mail sent", { brand_id: brandId, resend: isResend });
 
     // 발송 성공 기록 — 기록 실패가 발송 성공을 무효화하지 않는다.
     // 그 사이 다른 관리자가 새 링크를 발급했으면 false 가 돌아와 기록하지 않는다(정상).
