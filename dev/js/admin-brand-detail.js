@@ -7,8 +7,8 @@
 //   🔴 상태(`_brandsCurrentId`·`_brandDetailTab`·`_brandFormContacts`·`_brandFormCompanies` …)는 admin-brand.js 의 것을 그대로 쓴다 —
 //      오리엔시트 구역 다시 그리기(refreshBrandDetailSheets)·메모·계정 줄·공개 기본 열이 그 이름으로 돈다.
 //   🔴 브랜드 정보 탭(`#brandDetailPane_info`)은 편집 폼이다 — 탭 전환·요약 줄·다른 탭 다시 그리기가 **이 영역을 건드리지 않는다**.
-//   ⚠️ 조각 5 의 중간 상태(개발서버에서만 보인다): 브랜드 정보 탭은 옛 폼 절(소개·어필·Qoo10 포함)과 옛 「저장」(saveBrandDetail)을,
-//      담당자·계정 탭은 옛 담당자 줄·계정 줄을 임시로 둔다 — 조각 7(새 저장)·10(담당자·계정 표)이 바꾼다.
+//   저장은 탭마다 따로다 — 브랜드 정보 탭 「저장」 = 575 admin_update_brand_info(바뀐 칸만·연 순간 값 대조, 조각 7·8),
+//      담당자 = 줄 단위 창(574, 조각 12), 계정 = 동작마다(533·573, 조각 11). 옛 saveBrandDetail 은 이 페이지에서 부르지 않는다(운영 옛 창 전용).
 // ════════════════════════════════════════════════════════════════════
 
 var _brandDetailBrand = null;           // 연(또는 마지막으로 저장한) 브랜드 행 — 머리·요약 줄이 읽는다
@@ -16,6 +16,9 @@ var _brandDetailAccountStatus = undefined;   // 계정 상태 조회 — undefin
 var _brandDetailAccountReq = 0;
 var _bdBaseline = null;                 // 떠날 때 확인 기준값 {칸 열쇠: 값} — 브랜드 정보 탭만
 var _bdLeaveGo = null;                  // 「저장하지 않고 나가기」가 이어 갈 동작
+var _brandInfoPrev = null;              // 브랜드 정보 탭 「연(또는 저장한) 순간 값」 — 575 의 p_prev(열쇠 여덟)
+var _bdPublishData = undefined;         // 공개 기본 열 조회 — undefined 아직 / null 실패 / {global_spec, brand_spec, brand_updated_*}
+var _bdInfoBusy = false;
 
 // 새 페이지가 지금 화면에 떠 있는가
 function brandDetailIsTabsPage() {
@@ -47,6 +50,9 @@ async function openBrandDetailTabs(id, opts) {
   _brandDetailAccountStatus = undefined;
   _brandDetailAccountReq++;
   _bdBaseline = null;
+  _brandInfoPrev = null;
+  _bdPublishData = undefined;
+  _bdInfoBusy = false;
   clearBrandModalBody();
   var titleEl = $('brandDetailPaneHeader');
   var bodyEl = $('brandDetailPaneBody');
@@ -79,6 +85,7 @@ async function openBrandDetailTabs(id, opts) {
   _brandFormCompanies = companies || [];
   _brandDetailSurveyCount = surveyCount;
   _brandDetailBrand = b;
+  _brandInfoPrev = _bdInfoPrevFromBrand(b, undefined);
   _brandFormPrimaryOriginal = _brandPrimarySnapshotFromContacts(b.contacts);
   _initBrandFormContacts(b);
 
@@ -107,10 +114,10 @@ async function openBrandDetailTabs(id, opts) {
   + '</div>';
   onBrandCompanyChange();   // 회사 카드 끝 줄을 「수정 / 보기」 링크로(카드가 DOM 에 붙은 뒤라야 위치로 가를 수 있다)
   renderBrandPeopleTab();   // 계정 상태가 오기 전 — 담당자 줄만(계정 칸 「불러오는 중」)
-  // 공개 기본 열은 따로 받는다. ⚠️ 조각 5 동안은 칸 안 자기 「기본 열 저장」이 있어 떠날 때 확인 대상에서 뺀다(_bdSnapshot)
-  if (typeof renderBrandPublishDefaultBox === 'function') renderBrandPublishDefaultBox(id);
   _bdBindInfoPane();
   brandDetailMarkClean();
+  // 공개 기본 열은 따로 받는다(조각 7 — 칸 안 단추 없이 탭 「저장」이 함께 저장). 받은 뒤 그 칸만 기준값에 더한다
+  _bdLoadPublishBox(id, undefined);
   syncBrandDetailTabOffset();
   renderBrandDetailSummaryLine();
   _bdLoadAccountStatus(id);
@@ -240,9 +247,11 @@ function brandDetailSyncMoreMenu() {
   if (menu && !menu.querySelector('.camp-more-item')) { var w = $('brandDetailMoreWrap'); if (w) w.remove(); }
 }
 
-// ── 브랜드 정보 탭 (조각 5 임시 — 옛 폼 절 + 옛 「저장」. 조각 7 이 칸 정리·새 저장으로 바꾼다) ──
-//   🔴 입력칸 아이디는 옛 페이지·「새 브랜드」 모달과 같다(옛 saveBrandDetail 이 그 아이디로 읽는다) — 화면에 둘이 되지 않게
-//      clearBrandModalBody·clearBrandDetailPaneBody 한 세트가 지킨다. 접두어 바꾸기는 조각 7 에서(작업표 M3)
+// ── 브랜드 정보 탭 (조각 7 — 피그마 a03-00d · 사양서 4-1 · D3·D8·D13·D14) ──
+//   칸: 기본 정보(회사·상태·이름 셋) → SNS 정보(Instagram·X) → 브랜드 공개 기본 열. 소개·어필·Qoo10 은 뺐다(D14).
+//   「저장」 = 575 admin_update_brand_info — 바뀐 칸만, 연 순간 값(_brandInfoPrev)과 대조. 🔴 담당자 목록은 보내지 않는다(D8 — 담당자는 담당자 창이 줄 단위로).
+//   🔴 입력칸 아이디는 옛 페이지·「새 브랜드」 창과 같다(onBrandCompanyChange 등이 그 아이디로 읽는다) — 화면에 둘이 되지 않게
+//      clearBrandModalBody·clearBrandDetailPaneBody 한 세트가 지킨다.
 function _bdSection(title, rightHtml, contentHtml) {
   return '<section class="bd-section">'
     + '<div class="bd-section-head"><span>' + esc(title) + '</span>' + (rightHtml || '') + '</div>'
@@ -254,9 +263,6 @@ function _bdLabel(text, forId) {
 }
 function _bdInput(id, label, val, placeholder) {
   return '<div>' + _bdLabel(label, id) + '<input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '" style="width:100%;box-sizing:border-box"></div>';
-}
-function _bdTextarea(id, label, val, placeholder) {
-  return '<div>' + _bdLabel(label, id) + '<textarea id="' + id + '" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
 }
 
 function _bdInfoPaneHtml(b) {
@@ -283,20 +289,305 @@ function _bdInfoPaneHtml(b) {
         + _bdInput('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
         + _bdInput('brandFormNameEn', '브랜드명 (영문)', b.name_en)
       + '</div>')
-    // ⚠️ 소개·어필·Qoo10 은 조각 7 에서 뺀다(D14). 지금 옛 저장이 이 칸을 읽어 — 칸이 없으면 빈 값으로 덮는다 — 임시로 남긴다
-    + _bdSection('브랜드 콘텐츠 · SNS 정보', '',
-      '<div class="bd-grid-2" style="margin-bottom:14px">'
-        + _bdTextarea('brandFormDescription', '브랜드 소개', b.description, '브랜드 한줄 소개·수상 이력 등')
-        + _bdTextarea('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점')
-      + '</div>'
-      + '<div class="bd-grid-3">'
-        + _bdInput('brandFormQoo10Url', 'Qoo10 상품 주소', b.official_qoo10_url, 'https://www.qoo10.jp/...')
+    + _bdSection('SNS 정보', '',
+      '<div class="bd-grid-2">'
         + _bdInput('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
         + _bdInput('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
       + '</div>')
-    + _bdSection('브랜드 공개 기본 열', '', '<div id="brandPublishDefaultBox"><div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div></div>')
-    + '<div class="bd-save-row"><span class="bd-save-note">이 탭의 내용은 「저장」을 눌러야 저장됩니다.</span>'
-      + '<button type="button" class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button></div>';
+    + _bdSection('브랜드 공개 기본 열', '',
+      '<div class="bd-save-note" style="margin:-4px 0 10px">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크되는 열입니다. 이미 공개를 켠 캠페인은 바뀌지 않습니다.</div>'
+      + '<div id="brandPublishDefaultBox"><div style="padding:12px;text-align:center;color:var(--muted);font-size:12px">불러오는 중…</div></div>')
+    // 아래 띠 — 바뀐 칸이 있을 때만(_bdSyncDirtyUi)
+    + '<div id="brandInfoSaveBar" class="bd-savebar" style="display:none" role="region" aria-label="저장하지 않은 변경">'
+      + '<span class="material-icons-round notranslate" translate="no">edit_note</span>'
+      + '<span class="bd-savebar-text">저장하지 않은 변경이 있습니다 — 이 탭의 내용은 「저장」을 눌러야 저장됩니다.</span>'
+      + '<button type="button" class="btn btn-ghost btn-sm" id="brandInfoRevertBtn" onclick="revertBrandInfoTab()">되돌리기</button>'
+      + '<button type="button" class="btn btn-primary btn-sm" id="brandInfoSaveBtn" onclick="saveBrandInfoTab()">저장</button>'
+    + '</div>';
+}
+
+// 연 순간 값 — 열쇠 여덟. publish_default 는 공개 기본 열을 받았을 때만(undefined = 아직·실패 — 그때는 보내지 않는다)
+var BRAND_INFO_KEYS = ['name', 'name_ja', 'name_en', 'company_id', 'status', 'official_instagram_url', 'official_x_url'];
+function _bdNorm(v) { var t = (v === null || v === undefined) ? '' : String(v).trim(); return t === '' ? null : t; }
+function _bdInfoPrevFromBrand(b, publish) {
+  var p = {};
+  BRAND_INFO_KEYS.forEach(function(k){ p[k] = (k === 'status') ? (b.status || 'active') : _bdNorm(b[k]); });
+  if (publish && typeof publish === 'object') p.publish_default = Array.isArray(publish.brand_spec) ? publish.brand_spec.slice() : null;
+  return p;
+}
+function _bdSpecKey(v) { return Array.isArray(v) ? JSON.stringify(v.slice().sort()) : 'null'; }
+
+// 공개 기본 열 칸을 그린다(data 를 넘기면 다시 받지 않는다). 받은 뒤 그 칸만 떠날 때 확인 기준값에 더한다
+function _bdLoadPublishBox(brandId, data) {
+  if (typeof renderBrandPublishDefaultBox !== 'function') return Promise.resolve();
+  return renderBrandPublishDefaultBox(brandId, {
+    embedded: true,
+    data: data,
+    onLoaded: function(d) {
+      if (_brandsCurrentId !== brandId) return;
+      _bdPublishData = d;
+      if (_brandInfoPrev) {
+        if (d) _brandInfoPrev.publish_default = Array.isArray(d.brand_spec) ? d.brand_spec.slice() : null;
+        else delete _brandInfoPrev.publish_default;
+      }
+    }
+  }).then(function() {
+    if (_brandsCurrentId !== brandId || !_bdBaseline) return;
+    var now = _bdSnapshot();
+    Object.keys(now).forEach(function(k){ if (!Object.prototype.hasOwnProperty.call(_bdBaseline, k)) _bdBaseline[k] = now[k]; });
+    _bdSyncDirtyUi();
+  });
+}
+
+// 바뀐 칸만 → {fields, prev, keys}. 🔴 report.share 쓰기 권한이 아니면 publish_default 를 아예 넣지 않는다(575 가 forbidden 으로 전체 거부)
+function collectBrandInfoChanges() {
+  var prev = _brandInfoPrev || {};
+  var cur = {
+    name: _bdNorm($('brandFormName') && $('brandFormName').value),
+    name_ja: _bdNorm($('brandFormNameJa') && $('brandFormNameJa').value),
+    name_en: _bdNorm($('brandFormNameEn') && $('brandFormNameEn').value),
+    company_id: _bdNorm($('brandFormCompanyId') && $('brandFormCompanyId').value),
+    status: ($('brandFormStatus') && $('brandFormStatus').value) || 'active',
+    official_instagram_url: _bdNorm($('brandFormInstagramUrl') && $('brandFormInstagramUrl').value),
+    official_x_url: _bdNorm($('brandFormXUrl') && $('brandFormXUrl').value)
+  };
+  var fields = {}, pv = {}, keys = [];
+  BRAND_INFO_KEYS.forEach(function(k) {
+    if (cur[k] !== prev[k]) { fields[k] = cur[k]; pv[k] = prev[k]; keys.push(k); }
+  });
+  var canPublish = (typeof _bpCanEditDefaults === 'function') && _bpCanEditDefaults();
+  // 🔴 칸이 실제로 그려져 있을 때만 — 다시 받는 중(「불러오는 중」)이면 라디오가 없어 값이 null(전체 기본값)로 읽혀 따로 정한 열이 지워진다
+  var boxReady = !!document.querySelector('#brandPublishDefaultBox input[name="bpBrandMode"]');
+  if (canPublish && boxReady && _bdPublishData && Object.prototype.hasOwnProperty.call(prev, 'publish_default') && typeof brandPublishDefaultBoxValue === 'function') {
+    var spec = brandPublishDefaultBoxValue();
+    if (_bdSpecKey(spec) !== _bdSpecKey(prev.publish_default)) { fields.publish_default = spec; pv.publish_default = prev.publish_default; keys.push('publish_default'); }
+  }
+  return { fields: fields, prev: pv, keys: keys };
+}
+
+var BRAND_INFO_LABELS = {
+  name: '브랜드명 (한국어)', name_ja: '브랜드명 (일본어)', name_en: '브랜드명 (영문)', company_id: '회사', status: '상태',
+  official_instagram_url: '공식 Instagram URL', official_x_url: '공식 X URL', publish_default: '브랜드 공개 기본 열'
+};
+var BRAND_INFO_INPUT = {
+  name: 'brandFormName', name_ja: 'brandFormNameJa', name_en: 'brandFormNameEn', company_id: 'brandFormCompanyId', status: 'brandFormStatus',
+  official_instagram_url: 'brandFormInstagramUrl', official_x_url: 'brandFormXUrl'
+};
+
+function _bdInfoSetBusy(on) {
+  _bdInfoBusy = !!on;
+  ['brandInfoSaveBtn', 'brandInfoRevertBtn'].forEach(function(id){ var b = $(id); if (b) b.disabled = !!on; });
+  var sb = $('brandInfoSaveBtn'); if (sb) sb.textContent = on ? '저장하는 중…' : '저장';
+}
+
+// 「저장」 — opts.fields·opts.prev 는 저장 충돌 창의 「내 값으로 저장」(지금 서버 값을 새 연 순간 값으로)
+async function saveBrandInfoTab(opts) {
+  opts = opts || {};
+  if (_bdInfoBusy) return;
+  var brandId = _brandsCurrentId;
+  if (!brandId || !brandDetailIsTabsPage()) return;
+  var ch = opts.fields ? { fields: opts.fields, prev: opts.prev, keys: Object.keys(opts.fields) } : collectBrandInfoChanges();
+  if (!ch.keys.length) { toast('바뀐 내용이 없습니다.'); brandDetailMarkClean(); return; }
+  if (Object.prototype.hasOwnProperty.call(ch.fields, 'name') && !ch.fields.name) {
+    toast('브랜드명(한국어)을 입력하세요.', 'warn'); var n = $('brandFormName'); if (n) n.focus(); return;
+  }
+  _bdInfoSetBusy(true);
+  var res = await saveBrandInfoAdmin(brandId, ch.fields, ch.prev);
+  _bdInfoSetBusy(false);
+  if (_brandsCurrentId !== brandId || !brandDetailIsTabsPage()) return;
+  if (!res.ok) {
+    if (/forbidden|42501/.test(String(res.error || ''))) { toast('권한이 바뀌어 저장할 수 없습니다. 페이지를 새로고침해 주십시오.', 'error'); return; }
+    toast('브랜드 정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.', 'error'); return;
+  }
+  var r = res.result;
+  if (r === 'ok') { _bdAfterInfoSaved(ch.fields); return; }
+  if (r === 'stale') { openBrandInfoConflictModal(ch); return; }
+  if (r === 'duplicate_name') { toast('이미 같은 이름의 브랜드가 등록돼 있습니다. (띄어쓰기·대소문자는 같은 것으로 봅니다)', 'error'); var nm = $('brandFormName'); if (nm) nm.focus(); return; }
+  if (r === 'forbidden') { toast('권한이 바뀌어 저장할 수 없습니다. 페이지를 새로고침해 주십시오.', 'error'); return; }
+  if (r === 'not_found') { toast('브랜드를 찾지 못했습니다 — 목록에서 다시 열어 주십시오.', 'error'); return; }
+  if (r === 'invalid_input') {
+    var f = res.field || '';
+    var label = BRAND_INFO_LABELS[f];
+    var msg = !label ? '저장할 수 없는 값이 있습니다 [' + f + ']'
+      : (f === 'official_instagram_url' || f === 'official_x_url') ? label + '은 https:// 로 시작하는 주소로 넣어 주십시오.'
+      : f === 'name' ? '브랜드명(한국어)을 입력하세요.'
+      : label + ' 값이 올바르지 않습니다.';
+    toast(msg, 'warn');
+    var el = BRAND_INFO_INPUT[f] && $(BRAND_INFO_INPUT[f]); if (el) el.focus();
+    return;
+  }
+  toast('브랜드 정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.', 'error');
+}
+
+// 저장 성공 — 저장한 값으로 행·연 순간 값·머리(제목·배지)·요약 줄을 맞추고 띠·점을 끈다. 화면 칸은 그대로(다시 그리지 않는다)
+function _bdAfterInfoSaved(fields) {
+  var b = _brandDetailBrand;
+  if (b) {
+    Object.keys(fields).forEach(function(k){ if (k !== 'publish_default') b[k] = fields[k]; });
+    if (Object.prototype.hasOwnProperty.call(fields, 'company_id')) {
+      var co = fields.company_id ? (_brandFormCompanies || []).find(function(c){ return c.id === fields.company_id; }) : null;
+      b.company_name = co ? (co.name_ko || null) : null;
+    }
+  }
+  _brandInfoPrev = Object.assign({}, _brandInfoPrev || {});
+  Object.keys(fields).forEach(function(k){ _brandInfoPrev[k] = (k === 'publish_default' && Array.isArray(fields[k])) ? fields[k].slice() : fields[k]; });
+  if (Object.prototype.hasOwnProperty.call(fields, 'publish_default') && _bdPublishData) {
+    _bdPublishData = Object.assign({}, _bdPublishData, { brand_spec: fields.publish_default });
+  }
+  if (b) {
+    var nameEl = document.querySelector('#brandDetailPaneHeader [data-brand-name]');
+    if (nameEl) nameEl.textContent = b.name || '';
+    var badge = $('brandDetailStatusBadge'); if (badge) badge.innerHTML = _bdStatusBadgeHtml(b.status);
+  }
+  renderBrandDetailSummaryLine();
+  brandDetailMarkClean();
+  toast('브랜드 정보를 저장했습니다.');
+  if (typeof refreshPane === 'function') refreshPane('brands');
+}
+
+// 탭을 주어진 값으로 다시 그린다(되돌리기·다시 불러오기) — 🔴 이 탭만. 담당자·계정 탭·메모는 건드리지 않는다
+async function _bdRenderInfoPane(b, publishData) {
+  var pane = $('brandDetailPane_info');
+  var brandId = _brandsCurrentId;
+  if (!pane || !b) return;
+  pane.innerHTML = _bdInfoPaneHtml(b);
+  onBrandCompanyChange();
+  brandDetailMarkClean();
+  if (publishData !== undefined) await _bdLoadPublishBox(brandId, publishData);
+  else _bdLoadPublishBox(brandId, undefined);
+  if (_brandsCurrentId === brandId) brandDetailMarkClean();
+}
+
+// 「되돌리기」 — 확인 없이 연(또는 저장한) 순간 값으로(A4)
+function revertBrandInfoTab() {
+  if (_bdInfoBusy || !_brandDetailBrand) return;
+  _bdRenderInfoPane(_brandDetailBrand, _bdPublishData);
+}
+
+// ══ 저장 충돌 확인 (조각 8 — 피그마 a03-10 · 사양서 4-6 · D5) ══════════════════════
+//   575 가 stale 을 주면 연다 — 서버 값을 다시 받아 **내가 보낸 칸 중 값이 달라진 칸만** 표로(기본값 4).
+//   누가·언제 = brand_profile_history(이름·SNS·회사·상태) · 공개 기본 열은 544 표의 저장자·시각(575 가 읽기 함수에 더함).
+//   이력 조회가 실패하면 한 줄 안내 + 같은 두 단추.
+var _bdConflict = null;   // {ch, fresh, freshPublish, nowPrev}
+var _bdConflictReturnFocus = null;
+async function openBrandInfoConflictModal(ch) {
+  var brandId = _brandsCurrentId;
+  var needPublish = Object.prototype.hasOwnProperty.call(ch.fields, 'publish_default');
+  var histKeys = ch.keys.filter(function(k){ return k !== 'publish_default'; });
+  var res = await Promise.all([
+    fetchBrandById(brandId),
+    needPublish ? fetchBrandPublishDefaults(brandId) : Promise.resolve(undefined),
+    histKeys.length ? fetchBrandProfileHistory(brandId, histKeys) : Promise.resolve([])
+  ]);
+  if (_brandsCurrentId !== brandId || !brandDetailIsTabsPage()) return;
+  var fresh = res[0], freshPublish = res[1], hist = res[2];
+  if (!fresh || (needPublish && !freshPublish)) {
+    toast('다른 사람이 그사이 이 브랜드 정보를 고쳤습니다. 지금 값을 불러오지 못했습니다 — 잠시 후 다시 「저장」을 눌러 주십시오.', 'error');
+    return;
+  }
+  var nowPrev = _bdInfoPrevFromBrand(fresh, needPublish ? freshPublish : undefined);
+  var rows = [];
+  ch.keys.forEach(function(k) {
+    var nowV = nowPrev[k], oldV = ch.prev[k];
+    var differs = (k === 'publish_default') ? (_bdSpecKey(nowV) !== _bdSpecKey(oldV)) : (_bdNorm(nowV) !== _bdNorm(oldV));
+    if (!differs) return;
+    var who = null, when = null;
+    if (k === 'publish_default') { who = freshPublish.brand_updated_by_name || null; when = freshPublish.brand_updated_at || null; }
+    else if (Array.isArray(hist)) {
+      var h = hist.find(function(x){ return x.field_name === k; });
+      if (h) { who = h.changed_by_name || (h.change_source === 'system' ? '시스템' : h.change_source === 'brand' ? '브랜드 담당자' : '관리자'); when = h.changed_at; }
+    }
+    rows.push({ key: k, now: nowV, mine: ch.fields[k], who: who, when: when });
+  });
+  _bdConflict = { ch: ch, fresh: fresh, freshPublish: freshPublish, nowPrev: nowPrev };
+  _bdRenderConflictModal(rows, hist === null);
+}
+function _bdInfoValueText(k, v) {
+  if (k === 'publish_default') return Array.isArray(v) ? '이 브랜드만 따로 정함 · ' + v.length + '개 열' : '전체 기본값 따르기';
+  if (k === 'status') return v === 'archived' ? '비활성' : '활성';
+  if (k === 'company_id') {
+    if (!v) return '(회사 미지정)';
+    var co = (_brandFormCompanies || []).find(function(c){ return c.id === v; });
+    return co ? (co.name_ko || co.name_ja || co.name_en || v) : v;
+  }
+  return (v === null || v === undefined || v === '') ? '(비어 있음)' : String(v);
+}
+function _bdRenderConflictModal(rows, histFailed) {
+  var ov = $('brandInfoConflictModal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'brandInfoConflictModal';
+    ov.className = 'modal-overlay';
+    ov.style.zIndex = '800';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    ov.setAttribute('aria-labelledby', 'brandInfoConflictTitle');
+    ov.addEventListener('keydown', function(e) { _bdModalKeydown(ov, e, brandInfoConflictClose); });
+    document.body.appendChild(ov);
+  }
+  if (!ov.classList.contains('open')) _bdConflictReturnFocus = document.activeElement;
+  var table = '';
+  if (!histFailed && rows.length) {
+    table = '<div class="admin-table-wrap bd-people-wrap" style="margin-bottom:6px"><table class="data-table bd-conflict-table">'
+      + '<thead><tr><th>칸</th><th>지금 저장된 값</th><th>내가 고친 값</th><th>누가</th><th>언제</th></tr></thead><tbody>'
+      + rows.map(function(r) {
+          return '<tr><td class="bd-people-name">' + esc(BRAND_INFO_LABELS[r.key] || r.key) + '</td>'
+            + '<td>' + esc(_bdInfoValueText(r.key, r.now)) + '</td>'
+            + '<td>' + esc(_bdInfoValueText(r.key, r.mine)) + '</td>'
+            + '<td>' + esc(r.who || '—') + '</td>'
+            + '<td>' + esc(r.when ? formatDateTime(r.when) : '—') + '</td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  }
+  ov.innerHTML = '<div class="modal" style="max-width:640px;border-radius:16px;margin:auto">'
+    + '<div class="modal-body" style="padding:24px 24px 20px">'
+      + '<div id="brandInfoConflictTitle" class="bd-acct-title">다른 사람이 그사이 이 브랜드 정보를 고쳤습니다</div>'
+      + (table
+          ? '<div class="bd-acct-text">이 화면을 연 뒤 아래 칸이 바뀌었습니다. 지금 저장하면 그 값이 내 값으로 바뀝니다.</div>' + table
+          : '<div class="bd-acct-text">이 화면을 연 뒤 다른 사람이 같은 칸을 고쳤습니다. 지금 저장하면 그 값이 내 값으로 바뀝니다.</div>')
+      + _bdBullets([
+          '「다시 불러와서 확인」을 누르면 내가 고친 값은 버리고, 지금 저장된 값으로 이 탭을 다시 채웁니다.',
+          '「내 값으로 저장」을 누르면 위 칸을 내 값으로 저장합니다.'
+        ])
+      + '<div class="bd-acct-btns">'
+        + '<button type="button" class="btn btn-ghost" onclick="reloadBrandInfoFromServer()">다시 불러와서 확인</button>'
+        + '<button type="button" class="btn btn-primary" onclick="brandInfoConflictSaveMine()">내 값으로 저장</button>'
+      + '</div>'
+    + '</div></div>';
+  ov.classList.add('open');
+  var first = ov.querySelector('.bd-acct-btns .btn'); if (first) setTimeout(function(){ first.focus(); }, 30);
+}
+function brandInfoConflictClose() {
+  _bdConflict = null;
+  var ov = $('brandInfoConflictModal'); if (ov) ov.classList.remove('open');
+  var back = _bdConflictReturnFocus; _bdConflictReturnFocus = null;
+  if (back && document.contains(back) && typeof back.focus === 'function') back.focus();
+}
+// 「다시 불러와서 확인」 — 이 탭만 서버 값으로 다시 채운다(내 변경은 버린다 — 창 문구에 적음)
+async function reloadBrandInfoFromServer() {
+  var c = _bdConflict;
+  brandInfoConflictClose();
+  if (!c || !_brandDetailBrand) return;
+  BRAND_INFO_KEYS.concat(['company_name']).forEach(function(k){ _brandDetailBrand[k] = c.fresh[k]; });
+  _brandInfoPrev = _bdInfoPrevFromBrand(_brandDetailBrand, undefined);
+  var nameEl = document.querySelector('#brandDetailPaneHeader [data-brand-name]');
+  if (nameEl) nameEl.textContent = _brandDetailBrand.name || '';
+  var badge = $('brandDetailStatusBadge'); if (badge) badge.innerHTML = _bdStatusBadgeHtml(_brandDetailBrand.status);
+  renderBrandDetailSummaryLine();
+  // 공개 기본 열은 다시 받은 값이 있으면 그것으로, 없으면 다시 받는다
+  await _bdRenderInfoPane(_brandDetailBrand, c.freshPublish !== undefined ? c.freshPublish : undefined);
+  toast('지금 저장된 값으로 다시 불러왔습니다.');
+}
+// 「내 값으로 저장」 — 다시 받은 서버 값을 새 연 순간 값으로 삼아 같은 칸을 다시 저장
+function brandInfoConflictSaveMine() {
+  var c = _bdConflict;
+  brandInfoConflictClose();
+  if (!c) return;
+  var prev = {};
+  c.ch.keys.forEach(function(k){ prev[k] = c.nowPrev[k]; });
+  // 다른 칸의 연 순간 값도 서버 값으로 맞춘다 — 다음 저장이 같은 충돌을 다시 만나지 않게
+  _brandInfoPrev = Object.assign({}, _brandInfoPrev || {}, c.nowPrev);
+  saveBrandInfoTab({ fields: c.ch.fields, prev: prev });
 }
 
 // ══ 담당자·계정 탭 (조각 10 — a03-00 · 00a · 00f · 91 · 92 · 93 ③④) ══════════════════════
@@ -519,7 +810,8 @@ function bdOpenContactModal(contactId) {
   toast('담당자 추가·수정 창은 준비 중입니다.', 'warn');
 }
 
-// 옛 「저장」 성공 뒤(조각 5 임시) — 저장한 값으로 머리·요약 줄·기준값을 맞춘다
+// 옛 「저장」 성공 뒤(조각 5 임시) — 저장한 값으로 머리·요약 줄·기준값을 맞춘다.
+//   ⚠️ 조각 7 부터 새 페이지는 saveBrandDetail 을 부르지 않아 이 함수가 돌 일이 없다(saveBrandDetail 의 typeof 호출만 남음) — 출시 뒤 조각 18 에서 함께 지운다
 function brandDetailAfterLegacySave(brandId, patch) {
   if (!brandDetailIsTabsPage() || brandId !== _brandsCurrentId || !_brandDetailBrand) return;
   Object.assign(_brandDetailBrand, patch || {});
@@ -592,16 +884,14 @@ function _bdAfterCompanySaved(company) {
 //   ④「← 목록」·캠페인 줄(brandDetailOpenCampProgress). 그 밖에 「새 브랜드」 모달·오리엔시트 「신규 캠페인 발행」도 같은 확인.
 //   🔴 switchAdminPane 안에는 걸지 않는다 — 저장 뒤 복귀·권한 리다이렉트가 지나간다(campLeaveGuard 와 같은 원칙).
 
-// 칸 스냅샷 — {열쇠: 값}. ⚠️ 공개 기본 열 칸(#brandPublishDefaultBox)은 조각 5 동안 자기 「기본 열 저장」이 따로 있어 뺀다(조각 7 이 탭 저장에 합치며 넣는다)
+// 칸 스냅샷 — {열쇠: 값}. 공개 기본 열 칸도 든다(조각 7 — 탭 「저장」이 함께 저장). 그 칸은 늦게 그려져 _bdLoadPublishBox 가 기준값에 더한다
 function _bdSnapshot() {
   var pane = $('brandDetailPane_info');
   var snap = {};
   if (!pane) return snap;
-  var box = $('brandPublishDefaultBox');
   var els = pane.querySelectorAll('input, select, textarea');
   for (var i = 0; i < els.length; i++) {
     var el = els[i];
-    if (box && box.contains(el)) continue;
     var key = el.id || ((el.name || el.tagName) + '#' + i);
     snap[key] = (el.type === 'checkbox' || el.type === 'radio') ? (el.checked ? '1' : '0') : String(el.value);
   }
@@ -625,8 +915,11 @@ function brandDetailDirty() {
 }
 
 function _bdSyncDirtyUi() {
+  var dirty = brandDetailDirty();
   var dot = document.querySelector('#brandDetailTab_info .brand-detail-dirty-dot');
-  if (dot) dot.style.display = brandDetailDirty() ? '' : 'none';
+  if (dot) dot.style.display = dirty ? '' : 'none';
+  var bar = $('brandInfoSaveBar');
+  if (bar) bar.style.display = dirty ? '' : 'none';
 }
 
 function _bdBindInfoPane() {
