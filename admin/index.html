@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792560963';
+  var CURRENT_BUILD = 'v1792563001';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3617,7 +3617,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-21 14:36 · 3cbcf67</span>
+          <span class="admin-build-text">2026-10-21 15:10 · 5c95833</span>
         </div>
       </div>
     </aside>
@@ -14780,6 +14780,35 @@ function saveBrandContact(brandId, contactId, row) {
 }
 function deleteBrandContact(brandId, contactId) {
   return _brandAccountRpc('deleteBrandContact', 'admin_delete_brand_contact', { p_brand_id: brandId, p_contact_id: contactId });
+}
+
+// 「연결 요청」(관리자 작업표 조각 13 · 연결 요청 사양서 4-6, 마이그레이션 578) — 이미 있는 브랜드 계정을 대표로 잇자는 요청(본인 24시간 수락).
+//   요청 → data {result:'ok'|'forbidden'|'owner_exists'|'request_exists'|'already_linked'|'not_brand_account'|'brand_archived'|'brand_not_found'|'invalid_email',
+//                request_id, email_kind, expires_at}. 같은 이메일로 다시 부르면 같은 줄 다시 발급(옛 링크 무효) — 「다시 보내기」도 이것.
+//   메일은 따로 sendBrandOwnerLinkMail.
+function requestBrandOwnerLink(brandId, email) {
+  return _brandAccountRpc('requestBrandOwnerLink', 'admin_request_brand_owner_link', { p_brand_id: brandId, p_email: email });
+}
+// 요청 취소(계정 관리 권한이면 누구나) → data {result:'ok'|'forbidden'|'not_pending'}
+function cancelBrandOwnerLink(brandId, requestId) {
+  return _brandAccountRpc('cancelBrandOwnerLink', 'admin_cancel_brand_owner_link', { p_brand_id: brandId, p_request_id: requestId });
+}
+// 연결 요청 메일(notify-brand-invite 의 연결 요청 갈래 — invite_id = request_id).
+//   {sent:true[, dev_mail:{subject, text}]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_mail(링크는 본문 안 — dev_link 아님).
+async function sendBrandOwnerLinkMail(requestId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-invite', { body: { invite_id: requestId } });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
 }
 
 // 관리자 브랜드 정보 저장(조각 7, 마이그레이션 575 admin_update_brand_info) — 바뀐 칸만, 연 순간 값(prev)과 대조.
@@ -31750,8 +31779,8 @@ function renderBrandDetailSummaryLine() {
   var st = _brandDetailAccountStatus;
   var ownerActive = !!(st && st.status === 'active');
   parts.push(primaryName
-    ? '대표 담당자 ' + esc(primaryName) + (ownerActive ? ' (브랜드 페이지 사용 중)' : '')
-    : '대표 담당자 없음');
+    ? '대표 담당자 ' + esc(primaryName) + (ownerActive ? ' (브랜드 페이지 사용 중)' : (bdLinkPending(st) ? ' (연결 요청 보냄)' : ''))
+    : (bdLinkPending(st) ? '대표 담당자 없음 (연결 요청 보냄)' : '대표 담당자 없음'));
   if (st && st.member_limit !== undefined && st.member_limit !== null && st.seat_used !== undefined && st.seat_used !== null) {
     var pend = Number(st.pending_invite_count) || 0;
     parts.push('멤버 ' + esc(String(st.seat_used)) + ' / ' + esc(String(st.member_limit)) + '명' + (pend > 0 ? ' · 초대 대기 ' + pend + ' 포함' : ''));
@@ -32147,7 +32176,7 @@ function brandInfoConflictSaveMine() {
 //   초대 줄은 없다 — 숫자로만(§16-5 11번).
 //   🔴 이 탭의 다시 그리기는 **이 영역(#bdPeopleCard)·탭 숫자·요약 줄만** — 브랜드 정보 영역을 건드리지 않는다(사양서 6절 ②).
 //   🔴 계정 버튼 표시 판정은 서버 상태 조회의 `can_manage` 하나(작업표 기본값 6). 조회 실패면 버튼 없음 — 실패를 「권한 있음」·「계정 없음」으로 그리지 않는다.
-//   ⚠️ 「브랜드 연결 추가」(a03-04)·연결 요청 칩(a03-91a)은 연결 요청 서버가 생긴 뒤 조각 13 이 붙인다 — 지금은 그리지 않는다.
+//   「브랜드 연결 추가」(a03-04)·연결 요청 칩(a03-91a)은 조각 13 — 계정이 없는 대표 줄(ⓐ)에만. 요청 대기 중에는 ⓐ 단추 대신 「다시 보내기」·「요청 취소」.
 //   계정 동작(만들기·다시 보내기·대표 바꾸기·해제·상한)은 조각 11 — 버튼은 `bdAccountAction(동작, 인자)` 한 곳으로 모은다.
 var BRAND_SETUP_LINK_HOURS = 24;   // 설정 메일 링크 유효 시간(인증 설정 Email OTP Expiration 86400 — 표시 전용, 작업표 기본값 7)
 var _bdPeopleReq = 0;
@@ -32169,6 +32198,14 @@ function bdOwnerState(st) {
   }
   return null;
 }
+
+// 연결 요청(조각 13 — 578 owner_link_request) {request_id, status: pending|expired|declined|cancelled, email, sent_at, expires_at} | null
+//   🔴 pending 은 서버가 「만료 전」으로 판정한 값 — 화면이 시각으로 다시 가르지 않는다
+function bdLinkRequest(st) {
+  var r = st && typeof st === 'object' ? st.owner_link_request : null;
+  return (r && typeof r === 'object' && r.status) ? r : null;
+}
+function bdLinkPending(st) { var r = bdLinkRequest(st); return !!(r && r.status === 'pending'); }
 
 // 줄 합치기 → [{kind:'owner'|'member'|'contact', contact, member}] — 대표 → 멤버 → 담당자 순
 function bdMergePeopleRows(contacts, st) {
@@ -32234,6 +32271,11 @@ function renderBrandPeopleTab() {
   var canManage = known && st.can_manage === true;
   var ownerState = bdOwnerState(st);
   var rows = bdMergePeopleRows(_brandFormContacts, known ? st : null);
+  // 대표 줄이 없는 브랜드에 연결 요청이 있으면 그 칩을 그릴 대표 자리를 만든다(요청이 표에서 사라지지 않게)
+  var lreq = known ? bdLinkRequest(st) : null;
+  if (lreq && ownerState === 'none' && !rows.some(function(r){ return r.kind === 'owner'; })) {
+    rows.unshift({ kind: 'owner', contact: null, member: { name: '', email: lreq.email || '' } });
+  }
   var icon = function(name) { return '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">' + name + '</span>'; };
 
   // 탭 숫자 — 표 줄 수(담당자 ∪ 계정)
@@ -32261,14 +32303,16 @@ function renderBrandPeopleTab() {
   if (known) {
     lead = canManage
       ? (ownerState === 'none'
-          ? '대표 담당자 계정을 만들면 비밀번호 설정 메일이 갑니다.'
-          : '멤버는 대표 담당자가 초대합니다. 관리자는 대표 담당자 계정 만들기 · 대표 담당자 바꾸기 · 해제 · 멤버 상한을 합니다.')
+          ? (bdLinkPending(st)
+              ? '연결 요청을 보냈습니다 — 받는 사람이 24시간 안에 수락하면 이 브랜드의 대표 담당자가 됩니다. 그동안 대표 담당자 줄은 바꿀 수 없습니다.'
+              : '대표 담당자 계정을 만들면 비밀번호 설정 메일이 갑니다. 이미 다른 브랜드 계정이 있는 이메일이면 「브랜드 연결 추가」로 연결을 요청합니다(본인이 수락해야 연결).')
+          :'멤버는 대표 담당자가 초대합니다. 관리자는 대표 담당자 계정 만들기 · 대표 담당자 바꾸기 · 해제 · 멤버 상한을 합니다.')
       : '멤버는 대표 담당자가 초대합니다. 계정 만들기 · 다시 보내기 · 대표 담당자 바꾸기 · 해제 · 멤버 상한은 「브랜드 페이지 계정 관리」 권한이 있는 관리자만 할 수 있습니다.';
   }
   var notes = lead ? '<div class="bd-card-lead">' + esc(lead) + '</div>' : '';
   // 대표 줄이 없거나 이메일이 비면 계정을 만들 수 없다 — 권한이 있을 때만 안내(D15)
   var ownerRow = rows.find(function(r){ return r.kind === 'owner'; });
-  if (canManage && ownerState === 'none' && (!ownerRow || !ownerRow.contact || !String(ownerRow.contact.email || '').trim())) {
+  if (canManage && ownerState === 'none' && !bdLinkPending(st) && (!ownerRow || !ownerRow.contact || !String(ownerRow.contact.email || '').trim())) {
     notes += '<div class="bd-card-note">먼저 「+ 담당자 추가」로 대표 담당자를 등록하십시오.</div>';
   }
 
@@ -32305,8 +32349,26 @@ function _bdPeopleRowHtml(r, st, known, canManage, ownerState) {
         : '<span class="bd-muted">불러오는 중…</span>';
       if (st === null) acts.push('<button type="button" class="btn btn-ghost btn-sm" onclick="bdReloadPeopleTab()">다시 불러오기</button>');
     } else if (ownerState === 'none') {
-      acct = _bdChip('', '계정 없음');
-      if (canManage && c && String(c.email || '').trim()) acts.push(btn('계정 만들기', 'create', null, 'btn-primary'));
+      // 연결 요청(조각 13 · a03-91a) — 서버가 대표가 생기면 늘 null 로 준다(연결 요청 사양서 4-2)
+      var lr = bdLinkRequest(st);
+      var lrDevLink = (typeof _brandAccountDevLinks !== 'undefined') ? _brandAccountDevLinks[_brandsCurrentId] : null;
+      if (lr && lr.status === 'pending') {
+        acct = _bdChip('is-sent', '연결 요청 보냄')
+          + sub((lr.email ? lr.email + ' · ' : '') + (lr.expires_at ? formatDateTime(lr.expires_at) + '까지' : ''));
+        if (lrDevLink) acct += '<div class="bd-devlink"><button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandAccountDevLink(' + jsStr(_brandsCurrentId) + ')">개발서버 링크 복사</button></div>';
+        if (canManage) {
+          acts.push(btn('다시 보내기', 'link_resend'));
+          acts.push(btn('요청 취소', 'link_cancel', lr.request_id || '', 'btn-ghost bd-danger'));
+        }
+      } else {
+        var lrText = lr ? { expired: '연결 요청 만료됨', declined: '연결 요청 거절됨', cancelled: '연결 요청 취소됨' }[lr.status] : null;
+        acct = lrText
+          ? _bdChip(lr.status === 'expired' ? 'is-warn' : '', '계정 없음 · ' + lrText)
+            + sub((lr.email ? lr.email + ' · ' : '') + (lr.sent_at ? formatDateTime(lr.sent_at) + ' 보냄' : ''))
+          : _bdChip('', '계정 없음');
+        if (canManage && c && String(c.email || '').trim()) acts.push(btn('계정 만들기', 'create', null, 'btn-primary'));
+        if (canManage) acts.push(btn('브랜드 연결 추가', 'link_add'));
+      }
     } else {
       var sentAt = st.setup_mail_sent_at ? new Date(st.setup_mail_sent_at) : null;
       var self = st.setup_mail_sent_by === 'self' ? ' (본인 요청)' : '';
@@ -32536,7 +32598,7 @@ window.addEventListener('beforeunload', function(e) {
 //   입구는 bdAccountAction → bdRunAccountAction 한 곳. 창은 #bdAccountModal 하나를 동작마다 다시 그린다(동적 생성).
 //   🔴 모든 동작 뒤 bdReloadPeopleTab() — 이 탭·탭 숫자·요약 줄만 다시 그린다(브랜드 정보 영역 안 건드림).
 //   🔴 개발서버 실제 메일 발송 시험은 하지 않는다 — 개발서버는 설정 메일 함수가 메일 대신 링크(dev_link)를 돌려준다(두 겹 잠금).
-//   ⚠️ 이미 다른 브랜드 계정이 있는 이메일(a03-01c 연결 요청)은 조각 13 — 그 전에는 임시 안내 토스트.
+//   이미 다른 브랜드 계정이 있는 이메일은 새 계정을 만들지 않고 연결 요청 확인 창(a03-01c — 조각 13)으로 넘긴다.
 var _bdAcct = null;     // {action, brandId, ...} — 창이 열린 동안의 대상
 var _bdAcctBusy = false;
 var BD_TOAST_FAIL = '저장하지 못했습니다. 잠시 후 다시 시도해 주십시오.';
@@ -32550,6 +32612,9 @@ function bdRunAccountAction(action, arg) {
   if (action === 'owner_change') return openBrandOwnerChangeModal(arg || null);
   if (action === 'release') return openBrandAccountReleaseModal(arg);
   if (action === 'member_limit') return openBrandMemberLimitModal();
+  if (action === 'link_add') return openBrandLinkRequestModal(null, 'add');
+  if (action === 'link_resend') return brandLinkRequestResend();
+  if (action === 'link_cancel') return openBrandLinkCancelModal(arg);
 }
 
 // ── 창 틀 ──
@@ -32631,6 +32696,7 @@ function _bdAfterAction(msg, level) {
 function openBrandAccountCreateModal() {
   var st = _brandDetailAccountStatus;
   if (bdOwnerState(st) !== 'none') { toast('이미 대표 담당자 계정이 있습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  if (bdLinkPending(st)) { toast('연결 요청이 기다리는 중이라 계정을 만들 수 없습니다.', 'warn'); bdReloadPeopleTab(); return; }
   // 🔴 받을 이메일은 담당자 목록의 대표 줄로만(D15) — 손으로 넣는 칸을 두지 않는다
   var owner = bdMergePeopleRows(_brandFormContacts, st).find(function(r){ return r.kind === 'owner' && r.contact; });
   var c = owner && owner.contact;
@@ -32682,8 +32748,9 @@ async function bdAccountCreateSubmit() {
       if (cd.result === 'invalid_email') { _bdAcctBusy = false; _bdRenderCreateModal('이메일 형식이 올바르지 않습니다 — 「수정」으로 대표 담당자 이메일을 고친 뒤 다시 눌러 주십시오.'); return; }
       if (cd.email_kind === 'influencer' || cd.email_kind === 'admin') { _bdAcctBusy = false; _bdRenderCreateRefused(a.email); return; }
       if (cd.email_kind === 'brand') {
-        _bdAcctBusy = false; bdAccountModalClose();
-        toast('이미 브랜드 계정이 있는 이메일입니다 — 「연결 요청」 기능은 준비 중입니다.', 'warn');
+        // 이미 다른 브랜드 계정 — 새 계정을 만들지 않고 연결 요청 확인(a03-01c)으로
+        _bdAcctBusy = false;
+        openBrandLinkRequestModal(a.email, 'create', { name: cd.name || '', count: cd.linked_brand_count });
         return;
       }
       var up = await upsertBrandOwnerAccount(a.brandId, a.contactId, a.email);
@@ -32698,9 +32765,11 @@ async function bdAccountCreateSubmit() {
         var ns = bdOwnerState(_brandDetailAccountStatus);
         if (ns === 'mail_pending' || ns === 'mail_sent' || ns === 'link_expired') { a.accountMade = true; r = 'created'; d.needs_mail = true; }
       }
+      // 서버가 브랜드 계정 겹침으로 판정(겹침 확인 뒤 그사이 생긴 경우) — 연결 요청 확인으로
+      if (r === 'conflict_brand') { _bdAcctBusy = false; openBrandLinkRequestModal(d.email || a.email, 'create', null); return; }
       if (r !== 'created') {
         var msg = {
-          conflict_brand: ['이미 브랜드 계정이 있는 이메일입니다 — 「연결 요청」 기능은 준비 중입니다.', 'warn'],
+          request_exists: ['연결 요청이 기다리는 중이라 계정을 만들 수 없습니다 — 계정 칸을 다시 불러왔습니다.', 'warn'],
           noop: ['이미 대표 담당자 계정이 있습니다.', 'warn'],
           primary_moved: ['이미 대표 담당자 계정이 있습니다 — 목록을 다시 불러왔습니다.', 'warn'],
           password_already_set: ['이미 대표 담당자 계정이 있습니다 — 목록을 다시 불러왔습니다.', 'warn'],
@@ -32755,6 +32824,176 @@ async function brandAccountResend() {
     forbidden: ['브랜드 페이지 계정 관리 권한이 없습니다.', 'warn']
   }[reason] || ['메일을 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + reason + ']', 'error'];
   _bdAfterAction(text[0], text[1]);
+}
+
+// ── ⑥ 연결 요청 (조각 13 — a03-01c · 04 · 04a · 91a, 연결 요청 사양서 4-6) ──
+//   이미 있는 브랜드 계정을 대표 담당자가 없는 이 브랜드의 대표로 잇자는 요청 — 본인이 24시간 안에 수락해야 연결된다.
+//   from 'create' = 계정 만들기에서 겹침(01c — 이메일 고정, 이름·연결된 브랜드 수) / 'add' = 「브랜드 연결 추가」(04 — 이메일 입력).
+//   요청 → 메일(notify-brand-invite). 메일이 실패해도 요청은 남는다 — 다시 보내기 = 같은 이메일로 요청 다시(같은 줄 다시 발급, 옛 링크 무효).
+//   🔴 개발서버는 메일 대신 dev_mail{subject, text} — 본문 안 링크를 「개발서버 링크 복사」로 둔다(실제 메일 시험 안 함).
+function _bdDevMailLink(dm) {
+  var m = dm && typeof dm.text === 'string' ? dm.text.match(/https?:\/\/\S*[?&]link=\S+/) : null;
+  return m ? m[0].replace(/[)\]>.,]+$/, '') : null;
+}
+function openBrandLinkRequestModal(email, from, info) {
+  if (!_brandsCurrentId) return;
+  var st = _brandDetailAccountStatus;
+  if (bdOwnerState(st) !== 'none') { bdAccountModalClose(); toast('이 브랜드에는 이미 대표 담당자가 있습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  if (from === 'add' && !email) {
+    // 기본값 = 대표 담당자 줄 이메일(없으면 빈 칸)
+    var owner = bdMergePeopleRows(_brandFormContacts, st).find(function(r){ return r.kind === 'owner' && r.contact; });
+    email = (owner && owner.contact && owner.contact.email) || '';
+  }
+  _bdAcct = { action: 'link', from: from === 'create' ? 'create' : 'add', brandId: _brandsCurrentId, email: String(email || '').trim(),
+              info: info || null, requested: false, fieldErr: null };
+  _bdRenderLinkModal(null);
+}
+var BD_LINK_NOT_BRAND = '브랜드 계정이 아닌 이메일입니다. 「브랜드 연결 추가」는 이미 브랜드 계정이 있는 이메일만 쓸 수 있습니다. 새 사람이면 담당자를 대표 담당자로 표시한 뒤 「계정 만들기」를 쓰십시오.';
+var BD_LINK_MAIL_FAIL = '연결 요청은 만들었지만 메일을 보내지 못했습니다 — 「다시 보내기」를 눌러 주십시오. 창을 닫아도 계정 칸의 「다시 보내기」로 보낼 수 있습니다.';
+function _bdRenderLinkModal(error) {
+  var a = _bdAcct; if (!a || a.action !== 'link') return;
+  var brandName = (_brandDetailBrand && _brandDetailBrand.name) || '이 브랜드';
+  var body, title;
+  if (a.from === 'create') {
+    title = '브랜드 연결 요청 확인';
+    var who = a.info && (a.info.name || a.info.count != null)
+      ? '(' + [a.info.name, (a.info.count != null ? '연결된 브랜드 ' + a.info.count + '개' : '')].filter(Boolean).join(' · ') + ')'
+      : '';
+    body = '<div class="bd-acct-text">이미 브랜드 계정이 있는 이메일입니다' + esc(who) + '. (' + esc(a.email) + ')</div>'
+      + '<div class="bd-acct-text">새 계정을 만들지 않고, 이 사람에게 ' + esc(brandName) + ' 대표 담당자 연결 요청을 보냅니다. 본인이 24시간 안에 수락해야 이 브랜드에 연결됩니다. 비밀번호를 아직 정하지 않은 계정이면 메일 링크에서 비밀번호를 정하며 수락합니다.</div>';
+  } else {
+    title = '다른 브랜드 계정에 이 브랜드 연결을 요청하시겠습니까?';
+    var fe = a.fieldErr;
+    body = '<div class="bd-ct-field"><label class="bd-acct-label" for="bdLinkEmail">이미 브랜드 계정이 있는 이메일</label>'
+      + '<input id="bdLinkEmail" type="email" class="admin-filter' + (fe ? ' is-invalid' : '') + '" value="' + esc(a.email) + '" placeholder="example@brand.com" autocomplete="off"'
+        + ' aria-invalid="' + (fe ? 'true' : 'false') + '"' + (a.requested ? ' readonly aria-readonly="true"' : '') + ' data-autofocus>'
+      + (fe ? '<div class="bd-acct-field-error" role="alert"><span class="material-icons-round notranslate" translate="no">error</span>' + esc(fe) + '</div>' : '')
+      + '</div>'
+      + _bdBullets(fe
+          ? ['그 사람이 수락하면 ' + brandName + '의 대표 담당자가 됩니다(대표 담당자가 없을 때만 요청할 수 있습니다).',
+             '그 사람에게 「브랜드 연결 요청」 메일이 갑니다. 24시간 안에 수락해야 연결됩니다.']
+          : ['그 사람이 수락하면 ' + brandName + '의 대표 담당자가 됩니다(대표 담당자가 없을 때만 요청할 수 있습니다).',
+             '그 사람에게 「브랜드 연결 요청」 메일이 가고, 브랜드 페이지 마이페이지 「받은 초대」에도 표시됩니다.',
+             '수락하기 전에는 연결되지 않습니다. 24시간 안에 수락하지 않으면 요청이 끝나며, 「다시 보내기」로 새로 보낼 수 있습니다. 비밀번호를 아직 정하지 않은 계정은 메일 링크에서 비밀번호를 정하며 수락합니다.']);
+  }
+  _bdAcctModalRender({
+    title: title,
+    error: error,
+    body: body,
+    buttons: [{label: a.requested ? '닫기' : '취소', kind:'ghost', onclick:'bdAccountModalClose()'},
+              {label: a.requested ? '다시 보내기' : '연결 요청 보내기', kind:'primary', id:'bdLinkSubmit', onclick:'bdLinkRequestSubmit()'}]
+  });
+}
+// 요청 + 메일 — 창(01c·04)의 「연결 요청 보내기」·「다시 보내기」와 계정 칸 「다시 보내기」가 같이 쓴다.
+//   반환 {done:true, devLink} | {done:false, result, mailFailed, reason}
+async function _bdLinkRequestAndMail(brandId, email) {
+  var rq = await requestBrandOwnerLink(brandId, email);
+  if (!rq.ok) return { done: false, result: /forbidden|42501/.test(String(rq.error || '')) ? 'forbidden' : 'error' };
+  var d = rq.data || {};
+  if (d.result !== 'ok') return { done: false, result: d.result || 'empty' };
+  var mail = await sendBrandOwnerLinkMail(d.request_id);
+  // already_sent = 이번 발급분 메일이 이미 나갔다(두 번 누르기) — 보낸 것으로 본다
+  if (mail && (mail.sent || mail.reason === 'already_sent')) {
+    // already_sent 는 앞 누름이 이미 보냈다 — 그때 만든 개발서버 링크를 지우지 않는다
+    if (mail.sent) {
+      var link = mail.dev_mail ? _bdDevMailLink(mail.dev_mail) : null;
+      if (link) _brandAccountDevLinks[brandId] = link; else delete _brandAccountDevLinks[brandId];
+    }
+    return { done: true, dev: !!mail.dev_mail };
+  }
+  // 메일 함수가 거부한 사유는 메일 실패와 가른다 — not_pending = 그사이 취소·수락됨, forbidden = 권한
+  var mr = String((mail && (mail.reason || mail.error)) || 'unknown');
+  if (mail && mail.reason === 'not_pending') return { done: false, result: 'mail_not_pending' };
+  if (mail && mail.reason === 'forbidden') return { done: false, result: 'forbidden' };
+  return { done: false, result: 'ok', mailFailed: true, reason: mr };
+}
+// 요청 결과 → [문구, 단계] (창을 닫고 토스트로 끝나는 것들)
+function _bdLinkResultToast(r) {
+  return {
+    owner_exists: ['이 브랜드에는 이미 대표 담당자가 있습니다 — 목록을 다시 불러왔습니다.', 'warn'],
+    request_exists: ['다른 이메일로 보낸 연결 요청이 기다리는 중입니다 — 계정 칸을 다시 불러왔습니다.', 'warn'],
+    already_linked: ['이미 이 브랜드에 연결된 계정입니다.', 'warn'],
+    mail_not_pending: ['메일을 보내기 전에 요청이 끝났습니다(취소·수락) — 계정 칸을 다시 불러왔습니다.', 'warn'],
+    brand_archived: ['비활성 브랜드라 연결 요청을 보낼 수 없습니다.', 'warn'],
+    brand_not_found: ['브랜드를 찾지 못했습니다.', 'error'],
+    forbidden: ['브랜드 페이지 계정 관리 권한이 없습니다.', 'warn']
+  }[r] || null;
+}
+async function bdLinkRequestSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'link' || _bdAcctBusy) return;
+  if (a.from === 'add' && !a.requested) {
+    var inp = $('bdLinkEmail');
+    a.email = String((inp && inp.value) || '').trim();
+    if (!_bdEmailOk(a.email)) { a.fieldErr = '이메일 형식이 올바르지 않습니다.'; _bdRenderLinkModal(null); return; }
+  }
+  a.fieldErr = null;
+  _bdAcctSetBusy(true, 'bdLinkSubmit', '보내는 중…');
+  var res;
+  try { res = await _bdLinkRequestAndMail(a.brandId, a.email); }
+  catch (e) { console.error('[bdLinkRequestSubmit]', e); res = { done: false, result: 'error' }; }
+  _bdAcctBusy = false;
+  if (_bdAcct !== a) return;
+  if (res.done) {
+    bdAccountModalClose();
+    _bdAfterAction(res.dev ? '연결 요청을 보냈습니다. (개발서버 — 메일 대신 링크를 만들었습니다)' : '연결 요청을 보냈습니다.');
+    return;
+  }
+  if (res.mailFailed) { a.requested = true; _bdRenderLinkModal(BD_LINK_MAIL_FAIL + ' [' + res.reason + ']'); bdReloadPeopleTab(); return; }
+  if (res.result === 'not_brand_account') {
+    if (a.from === 'add') { a.fieldErr = BD_LINK_NOT_BRAND; _bdRenderLinkModal(null); }
+    else _bdRenderLinkModal(BD_LINK_NOT_BRAND);
+    return;
+  }
+  if (res.result === 'invalid_email') {
+    if (a.from === 'add') { a.fieldErr = '이메일 형식이 올바르지 않습니다.'; _bdRenderLinkModal(null); }
+    else _bdRenderLinkModal('이메일 형식이 올바르지 않습니다 — 「수정」으로 대표 담당자 이메일을 고친 뒤 다시 눌러 주십시오.');
+    return;
+  }
+  var t = _bdLinkResultToast(res.result);
+  if (t) { bdAccountModalClose(); _bdAfterAction(t[0], t[1]); return; }
+  _bdRenderLinkModal('연결 요청을 보내지 못했습니다 — 연결·서버 오류입니다. 잠시 후 다시 눌러 주십시오. [' + String(res.result) + ']');
+}
+// 계정 칸 「다시 보내기」(요청 대기 중) — 확인 창 없음. 같은 이메일로 다시 발급되어 앞서 보낸 링크는 쓸 수 없게 된다
+async function brandLinkRequestResend() {
+  var brandId = _brandsCurrentId;
+  var lr = bdLinkRequest(_brandDetailAccountStatus);
+  if (_bdAcctBusy || !brandId || !lr || !lr.email) { bdReloadPeopleTab(); return; }
+  _bdAcctBusy = true;
+  var res;
+  try { res = await _bdLinkRequestAndMail(brandId, lr.email); }
+  catch (e) { console.error('[brandLinkRequestResend]', e); res = { done: false, result: 'error' }; }
+  finally { _bdAcctBusy = false; }
+  if (res.done) { _bdAfterAction(res.dev ? '연결 요청을 다시 보냈습니다. (개발서버 — 메일 대신 링크를 만들었습니다)' : '연결 요청을 다시 보냈습니다. 앞서 보낸 링크는 쓸 수 없게 됐습니다.'); return; }
+  if (res.mailFailed) { _bdAfterAction('메일을 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + res.reason + ']', 'error'); return; }
+  var t = _bdLinkResultToast(res.result);
+  _bdAfterAction(t ? t[0] : '연결 요청을 다시 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + String(res.result) + ']', t ? t[1] : 'error');
+}
+// 요청 취소 — 계정 관리 권한이면 누구나(L7)
+function openBrandLinkCancelModal(requestId) {
+  var lr = bdLinkRequest(_brandDetailAccountStatus);
+  if (!lr || lr.status !== 'pending' || !requestId || lr.request_id !== requestId) { toast('기다리는 연결 요청이 없습니다 — 목록을 다시 불러왔습니다.', 'warn'); bdReloadPeopleTab(); return; }
+  _bdAcct = { action: 'link_cancel', brandId: _brandsCurrentId, requestId: requestId, email: lr.email || '' };
+  _bdAcctModalRender({
+    title: '연결 요청을 취소하시겠습니까?',
+    body: '<div class="bd-acct-text">' + esc(lr.email || '') + ' 에게 보낸 연결 요청을 취소합니다.</div>'
+      + _bdBullets(['이미 간 메일의 링크는 쓸 수 없게 됩니다.', '다시 보내려면 계정 칸의 「브랜드 연결 추가」를 누르십시오.']),
+    buttons: [{label:'닫기', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'요청 취소', kind:'danger', id:'bdLinkCancelGo', onclick:'bdLinkCancelSubmit()'}]
+  });
+}
+async function bdLinkCancelSubmit() {
+  var a = _bdAcct;
+  if (!a || a.action !== 'link_cancel' || _bdAcctBusy) return;
+  _bdAcctSetBusy(true, 'bdLinkCancelGo', '취소하는 중…');
+  var res = await cancelBrandOwnerLink(a.brandId, a.requestId);
+  _bdAcctBusy = false;
+  if (_bdAcct !== a) return;
+  var r = res.ok ? (res.data || {}).result : (/forbidden|42501/.test(String(res.error || '')) ? 'forbidden' : null);
+  bdAccountModalClose();
+  if (r === 'ok') { delete _brandAccountDevLinks[a.brandId]; _bdAfterAction('연결 요청을 취소했습니다.'); return; }
+  if (r === 'not_pending') { _bdAfterAction('이미 끝난 요청입니다(수락·만료·취소) — 계정 칸을 다시 불러왔습니다.', 'warn'); return; }
+  if (r === 'forbidden') { _bdAfterAction('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+  _bdAfterAction('요청을 취소하지 못했습니다. 잠시 후 다시 시도해 주십시오.', 'error');
 }
 
 // ── ③ 대표 담당자 바꾸기 (a03-02 · 02a · 02b) ──
@@ -32943,7 +33182,7 @@ async function bdMemberLimitSubmit() {
 //      계정이 있는 동안(bdOwnerLocked)은 대표 줄 이메일·체크·삭제 잠금(08e), 다른 줄은 멤버 계정이 있을 때만
 //      체크 → 「대표 담당자 바꾸기」(a03-02)로 넘긴다(08d). 계정 관리 권한이 없으면 잠긴 동안 체크칸을 숨긴다.
 //   🔴 is_primary 는 항상 참/거짓으로 보낸다(574 — 비면 서버가 지금 값을 유지).
-//   ⚠️ 연결 요청 중(조각 13)도 잠금에 든다 — 그 칸이 생기면 bdOwnerLocked 에 더한다.
+//   만료 전 연결 요청 중(조각 13)도 잠금에 든다 — bdOwnerLocked 가 본다(578 `_brand_contacts_locked` 와 같은 기준).
 var _bdCt = null;        // {contactId, isNew, wasPrimary, name, phone, email, primary, error, fieldErr, confirmDelete}
 var _bdCtBusy = false;
 var _bdCtReturnFocus = null;
@@ -32951,11 +33190,18 @@ var BD_CT_FAIL = '저장하지 못했습니다 — 연결·서버 오류입니�
 var BD_CT_EMAIL_NOTE = '여기서 이메일을 바꿔도 브랜드 페이지 로그인 이메일은 바뀌지 않습니다(1차에는 로그인 이메일을 바꾸는 기능이 없습니다).';
 var BD_CT_PRIMARY_NOTE = '대표 표시는 브랜드 페이지 대표 담당자와 같습니다. 대표 담당자 계정이 있는 브랜드에서 다른 줄로 옮기면 대표 담당자도 그 사람으로 바뀌고, 지금 대표 담당자는 멤버가 됩니다. 브랜드 페이지 멤버인 사람에게만 옮길 수 있습니다.';
 
-// 「계정이 있는 동안」 — 대표 계정 ⓑ~ⓔ. 상태를 모르면(null·아직) 잠긴 것으로 본다(서버가 다시 판정한다)
+// 「계정이 있는 동안」 — 대표 계정 ⓑ~ⓔ 또는 만료 전 연결 요청(578 `_brand_contacts_locked` 와 같은 기준).
+//   상태를 모르면(null·아직) 잠긴 것으로 본다(서버가 다시 판정한다)
 function bdOwnerLocked() {
-  var s = bdOwnerState(_brandDetailAccountStatus);
-  return s !== 'none';
+  var st = _brandDetailAccountStatus;
+  return bdOwnerState(st) !== 'none' || bdLinkPending(st);
 }
+// 잠긴 이유가 연결 요청 대기인가(대표 계정은 없음) — 안내 문구만 가른다
+function _bdLockedByRequest() {
+  var st = _brandDetailAccountStatus;
+  return bdOwnerState(st) === 'none' && bdLinkPending(st);
+}
+var BD_REQ_LOCK = '연결 요청 대기 중에는 대표 담당자를 바꿀 수 없습니다. 담당자·계정 탭에서 「요청 취소」하거나 요청이 끝난 뒤 바꾸십시오.';
 function _bdEmailOk(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim()); }
 function _bdNormEmail(v) { return (typeof _brandAccountNormEmail === 'function') ? _brandAccountNormEmail(v) : String(v || '').trim().toLowerCase(); }
 // 서버에 실제로 있는 줄인가 — 담당자 목록이 비어 옛 대표 칸으로 화면이 만든 줄은 새 줄로 저장한다
@@ -32995,6 +33241,7 @@ function _bdCtPrimaryMode() {
   // 계정 관리 권한이 없으면 잠긴 동안 체크칸을 숨긴다(사양서 4-5 · D15). 대표 줄이면 이메일·삭제 잠금은 그대로(primaryLocked)
   if (!canManage) return { kind: 'hidden', primaryLocked: a.wasPrimary };
   if (a.wasPrimary) return { kind: 'locked' };                                                             // 08e
+  if (_bdLockedByRequest()) return { kind: 'blocked', text: BD_REQ_LOCK };                                 // 연결 요청 대기(멤버 없음)
   if (a.isNew) return { kind: 'blocked', text: '대표 담당자 계정이 있는 동안 새 담당자는 대표로 표시할 수 없습니다. 먼저 대표 담당자가 이 사람을 멤버로 초대해야 합니다.' };
   var m = ((st && st.members) || []).find(function(x){ return x && x.role === 'member' && x.password_set_at && _bdNormEmail(x.email) && _bdNormEmail(x.email) === _bdNormEmail(a.email); });
   if (m) return { kind: 'member', authId: m.auth_id };
@@ -33083,7 +33330,9 @@ function _bdCtRender(keepFocus) {
     var note = {
       auto: '첫 담당자(또는 대표가 없는 브랜드의 새 담당자)는 대표 담당자가 됩니다 — 이메일이 필요합니다.',
       fixed: '대표 표시는 끌 수 없습니다. 대표를 옮기려면 다른 담당자의 「수정」에서 「대표 담당자로 표시」를 켜십시오.',
-      locked: '대표 표시는 끌 수 없습니다. 대표 담당자를 바꾸려면 다른 멤버 줄에서 「대표 담당자로 표시」를 켜거나 「해제」하십시오. 이름·연락처는 고칠 수 있습니다.',
+      locked: _bdLockedByRequest()
+        ? '연결 요청 대기 중에는 대표 표시를 끌 수 없습니다. 바꾸려면 담당자·계정 탭에서 「요청 취소」하십시오. 이름·연락처는 고칠 수 있습니다.'
+        : '대표 표시는 끌 수 없습니다. 대표 담당자를 바꾸려면 다른 멤버 줄에서 「대표 담당자로 표시」를 켜거나 「해제」하십시오. 이름·연락처는 고칠 수 있습니다.',
       free: BD_CT_PRIMARY_NOTE,
       member: BD_CT_PRIMARY_NOTE,
       blocked: mode.text
@@ -33115,7 +33364,11 @@ function _bdCtRender(keepFocus) {
       + field('bdCtPhone', '연락처', a.phone, { key: 'phone', ph: '010-0000-0000', type: 'tel', auto: 'off' })
       + '<div id="bdCtEmailWrap">' + field('bdCtEmail', '이메일', a.email, { key: 'email', req: emailReq, ph: 'example@brand.com', type: 'email', auto: 'off',
           readonly: emailLocked,
-          note: emailLocked ? '대표 담당자 계정이 있는 동안 대표 줄의 이메일은 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.' : BD_CT_EMAIL_NOTE,
+          note: emailLocked
+            ? (_bdLockedByRequest()
+                ? '연결 요청 대기 중에는 대표 줄의 이메일을 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「요청 취소」하십시오.'
+                : '대표 담당자 계정이 있는 동안 대표 줄의 이메일은 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.')
+            : BD_CT_EMAIL_NOTE,
           noteWarn: emailLocked }) + '</div>'
       + prim
       + foot
@@ -33189,8 +33442,9 @@ async function bdContactSaveSubmit() {
     invalid_email: function(){ a.fieldErr = { email: '이메일 형식이 올바르지 않습니다.' }; },
     primary_email_required: function(){ a.fieldErr = { email: '대표 담당자는 이메일이 필요합니다.' }; },
     primary_required: function(){ a.error = '대표 표시는 끌 수 없습니다. 대표를 옮기려면 다른 담당자의 「수정」에서 「대표 담당자로 표시」를 켜십시오.'; },
-    primary_locked: function(){ a.error = '대표 담당자 계정이 있는 동안 대표 줄의 이메일과 대표 표시는 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.'; },
-    primary_move_needs_owner_change: function(){ a.error = '대표 담당자 계정이 있는 동안에는 「대표 담당자 바꾸기」로만 대표를 옮길 수 있습니다.'; },
+    // 잠긴 이유가 연결 요청 대기일 수 있다(578) — 그때는 「요청 취소」로 안내
+    primary_locked: function(){ a.error = _bdLockedByRequest() ? BD_REQ_LOCK : '대표 담당자 계정이 있는 동안 대표 줄의 이메일과 대표 표시는 바꿀 수 없습니다. 이메일이 잘못됐으면 먼저 담당자·계정 탭에서 「해제」하십시오.'; },
+    primary_move_needs_owner_change: function(){ a.error = _bdLockedByRequest() ? BD_REQ_LOCK : '대표 담당자 계정이 있는 동안에는 「대표 담당자 바꾸기」로만 대표를 옮길 수 있습니다.'; },
     forbidden: function(){ a.error = '담당자를 저장할 권한이 없습니다.'; }
   }[r];
   if (r === 'contact_not_found' || r === 'brand_not_found') {
@@ -33220,7 +33474,9 @@ async function bdContactDeleteSubmit() {
   if (r === 'contact_not_found' || r === 'brand_not_found') { brandContactModalClose(); _bdAfterAction('이미 삭제된 담당자입니다 — 목록을 다시 불러왔습니다.', 'warn'); return; }
   a.confirmDelete = false;
   a.error = r === 'primary_locked'
-    ? '대표 담당자 계정이 있는 동안 대표 줄은 삭제할 수 없습니다. 먼저 담당자·계정 탭에서 「해제」하십시오.'
+    ? (_bdLockedByRequest()
+        ? '연결 요청 대기 중에는 대표 줄을 삭제할 수 없습니다. 먼저 담당자·계정 탭에서 「요청 취소」하십시오.'
+        : '대표 담당자 계정이 있는 동안 대표 줄은 삭제할 수 없습니다. 먼저 담당자·계정 탭에서 「해제」하십시오.')
     : (r === 'forbidden' || /forbidden|42501/.test(String(res.error || '')) ? '담당자를 삭제할 권한이 없습니다.' : '삭제하지 못했습니다 — 연결·서버 오류입니다. 잠시 후 다시 시도해 주십시오.');
   if (r === 'primary_locked') { await bdReloadPeopleTab(); if (!_bdCt) return; }
   _bdCtRender();
