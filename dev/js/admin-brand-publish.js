@@ -266,7 +266,7 @@ async function renderBrandPublishDefaultBox(brandId, opts) {
       + brandPublishDefaultPickerHtml('bpBrand', own ? d.brand_spec : d.global_spec, editable)
     + '</div>'
     + (opts.embedded
-      ? '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">전체 기본값은 「기준 데이터」 → 「브랜드 공개 기본 열」에서 바꿉니다. 이 칸도 아래 「저장」으로 함께 저장됩니다.</div>'
+      ? '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">전체 기본값은 「기준 데이터」 → 「브랜드 공개 기본 열」에서 바꿉니다.' + (editable ? ' 이 칸도 아래 「저장」으로 함께 저장됩니다.' : '') + '</div>'
         + (editable ? '' : '<div style="margin-top:8px;font-size:12px;color:var(--muted)">변경 권한이 없어 볼 수만 있습니다.</div>')
       : '<div style="margin-top:10px;font-size:11.5px;color:var(--muted)">이 브랜드 캠페인에서 「브랜드 공개」를 처음 켤 때 미리 체크됩니다. 바꿔도 이미 공개를 켠 캠페인은 바뀌지 않습니다. 이 칸은 아래 「저장」으로만 저장됩니다(브랜드 정보 저장과 따로).</div>'
     + (editable ? '<div style="margin-top:10px"><button type="button" class="btn btn-ghost btn-sm" id="bpBrandSaveBtn" onclick="saveBrandPublishDefaultFromDetail(\'' + esc(brandId) + '\')">기본 열 저장</button></div>'
