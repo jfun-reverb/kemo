@@ -409,7 +409,7 @@ function _csCdFootHtml(r) {
   const right = purged ? '' : (r.status === 'done'
     ? `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdReopen()">다시 열기</button>`
     : `<button type="button" class="btn btn-ghost btn-sm" onclick="csCdSaveDraft()" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
-       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">완료 저장</button>`);
+       <button type="button" id="csCdSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csCdComplete()">CS 완료</button>`);
   return `<div style="display:flex;gap:6px">${left}${del}</div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('csCaseDetailModal')">닫기</button>${right}</div>`;
 }
 
@@ -481,7 +481,7 @@ async function csCdSetStatus(status) {
   await _csCdWrite(() => csSetCaseStatus(r.id, r.version, status), `진행현황을 「${CS_STATUS_LABEL_KO[status]}」(으)로 바꿨습니다`);
 }
 
-// 완료 저장 — 빈 칸은 빨갛게 표시하고 저장 안 함(D-17 · a10-07a). 저장 중엔 단추 잠금
+// 「CS 완료」 — 빈 칸은 빨갛게 표시하고 저장 안 함(D-17 · a10-07a). 저장 중엔 단추 잠금
 async function csCdComplete() {
   const r = _csCd && _csCd.row;
   if (!r) return;
@@ -490,7 +490,7 @@ async function csCdComplete() {
   const btn = $('csCdSaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   const ok = await _csCdWrite(() => csCompleteCase(r.id, r.version, f.category, f.response, f.completedAt), 'CS 건을 완료했습니다');
-  if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = '완료 저장'; }
+  if (!ok && $('csCdSaveBtn')) { $('csCdSaveBtn').disabled = false; $('csCdSaveBtn').textContent = 'CS 완료'; }
 }
 
 // 완료와 별개로 항목·대응 안내만 저장(571) — 빈 칸 검사 없이 지금 값 그대로

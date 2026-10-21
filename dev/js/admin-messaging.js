@@ -1111,10 +1111,8 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
       const origHtml = esc(msg.body || '').replace(/\n/g, '<br>');
       const transHtml = esc(msg.body_translated).replace(/\n/g, '<br>');
       const transLabel = msg.translated_lang === 'ja' ? '일본어 번역(자동)' : '번역';
-      const caption = (fromAdmin && msg.translated_lang === 'ja')
-        ? '<div class="msg-trans-caption">인플루언서 화면에는 이 일본어 번역이 본문으로 표시됩니다</div>' : '';
       bodyHtml = `${origHtml}
-        <div class="msg-trans-orig"><span class="msg-trans-label">${transLabel}</span>${transHtml}</div>${caption}`;
+        <div class="msg-trans-orig"><span class="msg-trans-label">${transLabel}</span>${transHtml}</div>`;
     } else {
       bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
     }

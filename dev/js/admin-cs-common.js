@@ -138,7 +138,7 @@ function csFromLocalInput(v) {
 }
 
 // 완료 양식 — 항목 + 대응 안내(+ 수기 건 완료 일시). prefix 로 같은 화면에 둘이 있어도 칸 id 가 겹치지 않게
-//   「완료 저장」은 늘 누를 수 있다 — 빈 칸은 csReadCompleteForm 이 빨갛게 표시하고 막는다(D-17·a10-07a)
+//   「CS 완료」는 늘 누를 수 있다 — 빈 칸은 csReadCompleteForm 이 빨갛게 표시하고 막는다(D-17·a10-07a)
 function csCompleteFormHtml(row, prefillText, prefix) {
   const manual = csIsManual(row);
   return `<div class="cs-complete-form" data-cs-form="${esc(prefix)}">

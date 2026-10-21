@@ -202,7 +202,7 @@ function _csPnCompleteHtml(r) {
     <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnCancelComplete()">취소</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="csPnSaveDraft(${jsStr(r.id)})" title="완료하지 않고 항목·대응 안내 내용만 저장">저장</button>
-      <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">완료 저장</button></div></div>`;
+      <button type="button" id="csPnSaveBtn" class="btn btn-primary btn-sm cs-btn-complete" onclick="csPnSaveComplete(${jsStr(r.id)})">CS 완료</button></div></div>`;
 }
 
 // 펼친 완료 건 — 저장 값·해결 시간·완료한 사람 + 다시 열기
@@ -293,7 +293,7 @@ function csPnCancelComplete() {
   renderInboxCsPanel();
 }
 
-// 완료 저장 — 빈 칸은 빨갛게 표시하고 저장 안 함(a10-07a) · 저장 중 「처리 중…」 잠금 · 실패하면 양식을 닫지 않는다
+// 「CS 완료」 — 빈 칸은 빨갛게 표시하고 저장 안 함(a10-07a) · 저장 중 「처리 중…」 잠금 · 실패하면 양식을 닫지 않는다
 async function csPnSaveComplete(id) {
   const r = _csPnRow(id);
   if (!r) return;
