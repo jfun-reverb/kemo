@@ -634,7 +634,7 @@ function osReasonText(r) {
 //   갈래는 대표 담당자 계정 줄 상태로: none → ⓐ / mail_pending·mail_sent → ⓑ~ⓓ(공용 문구). 발급은 막지 않는다.
 //   🔴 조회 실패(null)를 「계정 없음」으로 그리지 않는다 — 「확인하지 못했습니다」.
 //   result=true(발급 결과 화면)면 경고가 없을 때 「메일 받을 계정 N명」을 보여 준다(받는 사람 칸을 없앤 대신).
-//   문구 정본은 사양서 16-5 8번 — 「담당자·계정 탭」(아직 없는 관리자 화면 묶음 ③)을 지금 화면의 「브랜드 로그인 계정」 줄로 바꿔 적었다(기획 확인 필요)
+//   문구 정본은 사양서 16-5 8번 — 「담당자·계정 탭」(관리자 브랜드 상세 새 페이지, 2026-10-21 작업표 조각 5)
 let _osAcctNoticeSeq = 0;
 async function osRenderAcctNotice(brandId, elId, result) {
   const el = document.getElementById(elId);
@@ -657,7 +657,7 @@ async function osRenderAcctNotice(brandId, elId, result) {
   if (!ready.length) {
     const noAcct = st.status === 'none';
     const msg = noAcct
-      ? '이 브랜드는 아직 브랜드 페이지 계정이 없어 시트를 작성할 수 없습니다 — 브랜드 상세의 「브랜드 로그인 계정」 줄에서 대표 담당자 계정을 먼저 만들어 주십시오.'
+      ? '이 브랜드는 아직 브랜드 페이지 계정이 없어 시트를 작성할 수 없습니다 — 브랜드 상세의 「담당자·계정」 탭에서 대표 담당자 계정을 먼저 만들어 주십시오.'
       : '대표 담당자가 아직 비밀번호를 정하지 않아 시트를 작성할 수 없습니다 — 설정 메일 상태를 확인해 주십시오.';
     el.innerHTML = '<div class="os-acct-notice is-warn"><span class="material-icons-round notranslate" translate="no">warning</span><div>'
       + esc(msg) + goBtn(noAcct ? '먼저 계정 만들기' : '설정 메일 상태 확인')
@@ -673,10 +673,10 @@ async function osRenderAcctNotice(brandId, elId, result) {
   }
 }
 
-// 경고의 단추 — 발급 창을 닫고 브랜드 상세 페이지(「브랜드 로그인 계정」 줄이 있는 곳)로 간다
+// 경고의 단추 — 발급 창을 닫고 브랜드 상세의 「담당자·계정」 탭으로 간다(D7 의 예외 — 처음 탭이 담당자·계정)
 function osGoBrandAccount(brandId) {
   osCloseModal('orientCreateModal');
-  if (typeof openBrandDetail === 'function') openBrandDetail(brandId, 'brands');
+  if (typeof openBrandDetail === 'function') openBrandDetail(brandId, 'brands', { tab: 'people' });
 }
 
 // 발급 결과 화면 글자 — 계정 모드면 「링크 전달」 대신 브랜드 페이지 기준 안내(받는 사람은 서버가 정한다)
@@ -1884,7 +1884,12 @@ function osPublishCard(cardIdx) {
 }
 
 // 발행 방식 ① 신규 캠페인 발행 — 기존 자동 채움 흐름(applyOrientCardPrefill)
-async function osChooseNewPublish() {
+async function osChooseNewPublish(_guarded) {
+  // 브랜드 상세 새 페이지 위에서 열린 창이면 — 캠페인 등록 화면으로 떠나기 전에 저장 안 한 변경을 묻는다(작업표 M2)
+  if (_guarded !== true && typeof brandDetailDirty === 'function' && brandDetailDirty()) {
+    brandDetailLeaveGuard(function(){ osChooseNewPublish(true); });
+    return;
+  }
   const s = _osDetailSheet;
   if (!s || _osPublishCardIdx == null) return;
   const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];

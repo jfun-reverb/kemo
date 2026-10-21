@@ -11801,6 +11801,33 @@ async function fetchCompanies({ status = 'active', search } = {}) {
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
+// 회사 한 건 — 브랜드 상세의 회사 수정 모달(a03-07)이 「회사 관리」 목록 보관값 대신 아이디로 새로 받는다.
+//   반환 객체 | null(조회 실패·없음 — 부르는 쪽은 모달을 열지 않는다). 칸은 fetchCompanies 와 같다.
+async function fetchCompanyById(id) {
+  if (!db || !id) return null;
+  try {
+    const {data, error} = await db.from('companies')
+      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, address_detail, homepage_url, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by')
+      .eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchCompanyById]', e); return null; }
+}
+
+// 회사에 속한 **활성** 브랜드 이름(이름순) — 회사 수정 모달 「브랜드 N개에 함께 바뀝니다」(브랜드 화면과 같은 기준 — 작업표 M5).
+//   🔴 실패 null / 0건 [] — 실패를 「0개」로 그리지 않는다.
+async function fetchCompanyActiveBrandNames(companyId) {
+  if (!db || !companyId) return null;
+  try {
+    const rows = await fetchAllPaged(() => db.from('brands')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .order('name', {ascending: true}).order('id'));
+    return (rows || []).map(r => r.name || '(이름 없음)');
+  } catch(e) { console.error('[fetchCompanyActiveBrandNames]', e); return null; }
+}
+
 // 운영 현황 페인 — 브랜드 카드 그리드용 핵심 지표 집계
 // companyId 지정 시 해당 회사 소속 브랜드만, null 이면 전체 브랜드
 // 반환: 행 배열(19컬럼). 🔴 **오류면 `null`**(0건 `[]` 과 구분 — 실패를 「브랜드 없음」으로 그리지 않게,
