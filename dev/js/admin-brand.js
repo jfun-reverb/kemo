@@ -2355,7 +2355,8 @@ async function saveBrandDetail() {
     if (em.indexOf('duplicate') >= 0 || em.indexOf('unique') >= 0 || em.indexOf('name_normalized') >= 0) {
       toast('이미 같은 이름의 브랜드가 등록돼 있습니다. (띄어쓰기·대소문자는 같은 것으로 봅니다)', 'error');
     } else {
-      toast('저장 실패: ' + (em || '알 수 없는 오류'), 'error');
+      // 576 담당자 칸 직접 저장 거부 등 서버 코드는 안내 문구로(원문 노출 금지)
+      toast('저장 실패: ' + friendlyError(em), 'error');
     }
     return;
   }
