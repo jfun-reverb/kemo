@@ -3601,6 +3601,35 @@ function deleteBrandContact(brandId, contactId) {
   return _brandAccountRpc('deleteBrandContact', 'admin_delete_brand_contact', { p_brand_id: brandId, p_contact_id: contactId });
 }
 
+// 「연결 요청」(관리자 작업표 조각 13 · 연결 요청 사양서 4-6, 마이그레이션 578) — 이미 있는 브랜드 계정을 대표로 잇자는 요청(본인 24시간 수락).
+//   요청 → data {result:'ok'|'forbidden'|'owner_exists'|'request_exists'|'already_linked'|'not_brand_account'|'brand_archived'|'brand_not_found'|'invalid_email',
+//                request_id, email_kind, expires_at}. 같은 이메일로 다시 부르면 같은 줄 다시 발급(옛 링크 무효) — 「다시 보내기」도 이것.
+//   메일은 따로 sendBrandOwnerLinkMail.
+function requestBrandOwnerLink(brandId, email) {
+  return _brandAccountRpc('requestBrandOwnerLink', 'admin_request_brand_owner_link', { p_brand_id: brandId, p_email: email });
+}
+// 요청 취소(계정 관리 권한이면 누구나) → data {result:'ok'|'forbidden'|'not_pending'}
+function cancelBrandOwnerLink(brandId, requestId) {
+  return _brandAccountRpc('cancelBrandOwnerLink', 'admin_cancel_brand_owner_link', { p_brand_id: brandId, p_request_id: requestId });
+}
+// 연결 요청 메일(notify-brand-invite 의 연결 요청 갈래 — invite_id = request_id).
+//   {sent:true[, dev_mail:{subject, text}]} | {sent:false, reason[, error]}. 개발서버는 메일 대신 dev_mail(링크는 본문 안 — dev_link 아님).
+async function sendBrandOwnerLinkMail(requestId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-invite', { body: { invite_id: requestId } });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 관리자 브랜드 정보 저장(조각 7, 마이그레이션 575 admin_update_brand_info) — 바뀐 칸만, 연 순간 값(prev)과 대조.
 //   fields·prev 열쇠 = name·name_ja·name_en·company_id·status·official_instagram_url·official_x_url·publish_default 중 바뀐 것.
 //   🔴 contacts·소개·Qoo10 은 보내지 않는다(서버가 invalid_input 으로 거부). 반환 {ok:true, result, field?} | {ok:false, error}
