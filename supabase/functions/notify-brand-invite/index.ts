@@ -12,7 +12,17 @@
 //   · 일회용 인증 링크를 만들지 않는다 — 링크는 우리 링크 번호만(감출 토큰 없음). 수락은 화면+서버 함수 몫
 //   · 선점 먼저: mail_sent_link_id 가 지금 link_id 가 아닐 때만 그 값으로 바꾸고 보낸다. 실패하면 되돌린다
 //
-// 요청:  POST { invite_id: uuid }  + Authorization: Bearer <브랜드 계정 로그인 토큰>
+// 🔴 「연결 요청」 갈래(brand_invites.invite_kind='owner_link' — 사양서 docs/specs/2026-10-21-brand-link-request.md 4-3 · B8)
+//   · 관리자가 기존 브랜드 계정을 대표 담당자 없는 브랜드의 대표로 이을 때(admin_request_brand_owner_link 뒤 관리자 화면이 부른다)
+//   · 줄을 읽자마자 **종류로 먼저 가른다** — member 줄 = 그 브랜드의 현재 대표만 / owner_link 줄 = 호출자 토큰의
+//     has_permission('brand.account_manage','write') 가 참인 관리자만. 두 판정을 섞지 않는다(대표가 연결 요청을, 관리자가 멤버 초대를 보내면 403)
+//   · 판정은 선점 전 한 번·선점 뒤 한 번(브랜드 활성 재확인과 함께) — 멤버 초대 갈래의 대표 확인과 같은 자리
+//   · 양식 brand-link-request 하나 — 받는 계정이 비밀번호를 정했든 안 정했든 같은 메일·같은 링크(화면이 가른다)
+//   · 보낸 사람은 「REVERB 운영팀」(L4 — inviter_name 칸을 읽지 않는다)
+//   · 응답 모양·선점·기록·두 겹 잠금은 멤버 초대와 같다. 갈래를 응답에 싣지 않는다
+//   🔴 배포는 invite_kind 칸이 있는 데이터베이스에서만(마이그레이션 577 — 연결 1). 칸이 없으면 조회가 실패해 멤버 초대 메일까지 500 이 된다
+//
+// 요청:  POST { invite_id: uuid }  + Authorization: Bearer <브랜드 계정 로그인 토큰 | 연결 요청이면 관리자 로그인 토큰>
 // 응답:  200 { sent:true }
 //        200 { sent:true, dev_mail:{ subject, text } }            ← 개발서버 두 겹 잠금일 때만(메일 안 보냄)
 //        200 { sent:false, reason:'not_pending' | 'already_sent' | 'send_failed' }
@@ -35,7 +45,7 @@
 //   BREVO_API_KEY · PUBLIC_BRAND_URL(기본값 없음) · BRAND_SETUP_DEV_ECHO(개발만) ·
 //   BREVO_SENDER_EMAIL / BREVO_SENDER_NAME · SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY(자동 주입)
 //
-// 템플릿: templates.ts (sync-email-templates.sh 자동 생성) → TEMPLATES['brand-invite-new' | 'brand-invite-existing' | 'brand-invite-blocked']
+// 템플릿: templates.ts (sync-email-templates.sh 자동 생성) → TEMPLATES['brand-invite-new' | 'brand-invite-existing' | 'brand-invite-blocked' | 'brand-link-request']
 //
 // 배포 (개발 → 운영):
 //   bash scripts/sync-email-templates.sh
@@ -172,23 +182,42 @@ Deno.serve(async (req: Request) => {
     //    없는 초대도 forbidden 으로 답한다(초대 번호가 존재하는지 알려 주지 않는다).
     const { data: inv, error: invErr } = await sb
       .from("brand_invites")
-      .select("id, brand_id, email, inviter_name, status, recipient_kind, link_id, expires_at, mail_sent_link_id")
+      .select("id, brand_id, email, inviter_name, status, recipient_kind, link_id, expires_at, mail_sent_link_id, invite_kind")
       .eq("id", inviteId)
       .maybeSingle();
     if (invErr) throw invErr;
     if (!inv) return jsonResponse({ sent: false, reason: "forbidden" }, 403);
 
-    // 3) 호출자 = 그 초대 브랜드의 「현재」 대표인가(대표를 넘긴 옛 대표·멤버·무관 계정은 403)
-    const { data: ownerLink, error: ownerErr } = await sb
-      .from("brand_account_links")
-      .select("auth_id")
-      .eq("brand_id", inv.brand_id)
-      .eq("auth_id", caller.id)
-      .eq("role", "owner")
-      .eq("status", "active")
-      .maybeSingle();
-    if (ownerErr) throw ownerErr;
-    if (!ownerLink) return jsonResponse({ sent: false, reason: "forbidden" }, 403);
+    // 3) 종류로 먼저 가른 뒤 호출자 판정 — 두 판정을 섞지 않는다(머리말 「연결 요청」 갈래).
+    //    member     = 그 초대 브랜드의 「현재」 대표인가(대표를 넘긴 옛 대표·멤버·무관 계정은 403)
+    //    owner_link = 호출자 토큰으로 has_permission('brand.account_manage','write')(notify-brand-account-setup 과 같은 판정).
+    //                 판정 호출 자체가 실패하면 403 이 아니라 예외로 — 권한 없음과 서버 문제를 섞지 않는다.
+    const inviteKind = String(inv.invite_kind);
+    if (inviteKind !== "member" && inviteKind !== "owner_link") {
+      throw new Error("unknown invite_kind");
+    }
+    const isOwnerLink = inviteKind === "owner_link";
+    const callerAllowed = async (): Promise<boolean> => {
+      if (isOwnerLink) {
+        const { data: allowed, error: permErr } = await userSb.rpc("has_permission", {
+          p_feature: "brand.account_manage",
+          p_min: "write",
+        });
+        if (permErr) throw permErr;
+        return allowed === true;
+      }
+      const { data: ownerLink, error: ownerErr } = await sb
+        .from("brand_account_links")
+        .select("auth_id")
+        .eq("brand_id", inv.brand_id)
+        .eq("auth_id", caller.id)
+        .eq("role", "owner")
+        .eq("status", "active")
+        .maybeSingle();
+      if (ownerErr) throw ownerErr;
+      return !!ownerLink;
+    };
+    if (!(await callerAllowed())) return jsonResponse({ sent: false, reason: "forbidden" }, 403);
 
     // 4) 아직 보낼 수 있는 초대인가 — 대기 + 만료 전 + 브랜드 활성(수락 가능 판정과 같은 조건 중 메일에 필요한 것)
     const { data: brandRow } = await sb
@@ -207,21 +236,26 @@ Deno.serve(async (req: Request) => {
     if (kind !== "new" && kind !== "brand" && kind !== "blocked") {
       throw new Error("unknown recipient_kind");
     }
+    // 연결 요청은 늘 기존 브랜드 계정 앞이다(검사 제약 brand_invites_owner_link_recipient_check — 577)
+    if (isOwnerLink && kind !== "brand") throw new Error("owner_link with non-brand recipient");
 
     // 5-앞) 문구 — 정본은 피그마 bw01-97·97a·97b(초안, 2026-10-16 「초안대로」). HTML 은 _templates/ 양식, 아래 text 는 그 사본(함께 고칠 것)
     const brandName = String(brandRow.name || "").trim() || "브랜드";
     const inviterName = String(inv.inviter_name || "").trim() || "대표 담당자";
     const toEmail = String(inv.email);
     const link = kind === "blocked" ? "" : `${brandBase}/brand/?link=${inv.link_id}&kind=invite`;
+    const opsTeam = "REVERB 운영팀";
 
     // 제목은 갈래마다 다르고 끝에 보낸 시각을 붙인다 — 같은 제목이면 메일 앱이 한 대화로 묶어 앞 메일 끝부분(발신 전용·© 줄)을 접는다
     //   (2026-10-20 사용자 결정 — 10/16 「세 갈래 같은 제목」을 바꿈. 각 양식 머리말 주석의 제목도 함께)
-    const subject = kind === "new"
+    const subject = isOwnerLink
+      ? `[REVERB JP] 「${brandName}」 브랜드 대표 담당자 연결 요청 — 24시간 안에 수락해 주십시오 (${kstStamp()})`
+      : kind === "new"
       ? `[REVERB JP] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다 — 비밀번호를 설정해 주십시오 (${kstStamp()})`
       : kind === "brand"
       ? `[REVERB JP] ${inviterName} 님이 「${brandName}」 브랜드 페이지에 초대했습니다 — 로그인해 수락해 주십시오 (${kstStamp()})`
       : `[REVERB JP] 「${brandName}」 브랜드 페이지 초대 — 이 이메일로는 계정을 만들 수 없습니다 (${kstStamp()})`;
-    const tplKey = kind === "new" ? "brand-invite-new" : kind === "brand" ? "brand-invite-existing" : "brand-invite-blocked";
+    const tplKey = isOwnerLink ? "brand-link-request" : kind === "new" ? "brand-invite-new" : kind === "brand" ? "brand-invite-existing" : "brand-invite-blocked";
 
     // HTML 주석 strip — 템플릿 안 주석(용도 안내)이 메일 본문에 누출되는 것 차단
     const tpl = TEMPLATES[tplKey].replace(/<!--[\s\S]*?-->/g, "");
@@ -237,7 +271,17 @@ Deno.serve(async (req: Request) => {
     const contact = `이 메일은 발신 전용입니다. 초대에 관한 문의는 ${inviterName} 님께 직접 연락해 주십시오.\n`;
     const ignoreLink = `무슨 메일인지 모르시겠다면 이 메일을 무시하셔도 됩니다. 링크를 누르지 않으면 아무 일도 일어나지 않습니다.\n`;
     let text: string;
-    if (kind === "new") {
+    if (isOwnerLink) {
+      // 정본 = _templates/brand-link-request.html(피그마 bw01-98 초안). 계정 상태(비밀번호 유무)를 드러내지 않는 같은 본문
+      text = `안녕하십니까\n\n` +
+        `${opsTeam}이 회원님의 브랜드 페이지 계정을 「${brandName}」 브랜드의 대표 담당자로 연결하려 합니다.\n\n` +
+        `아래 링크에서 요청을 수락하면 「${brandName}」 브랜드가 지금 쓰시는 계정에 연결됩니다. 수락하기 전에는 연결되지 않습니다.\n\n` +
+        `연결 요청 확인하기: ${link}\n\n` + validity +
+        `기한이 지나면 링크가 열리지 않습니다. 그때는 ${opsTeam}에 다시 보내 달라고 요청해 주십시오.\n` +
+        `로그인한 뒤 마이페이지 「받은 초대」에서도 수락하거나 거절할 수 있습니다. 비밀번호를 아직 정하지 않으셨다면 링크를 연 화면에서 비밀번호를 정하며 바로 수락할 수 있습니다.\n\n` +
+        `이 메일은 ${opsTeam}이 보냈습니다.\n` + ignoreLink +
+        `이 메일은 발신 전용입니다. 연결 요청에 관한 문의는 ${opsTeam} 담당자에게 연락해 주십시오.\n`;
+    } else if (kind === "new") {
       text = `안녕하십니까\n\n` + intro +
         `아래 링크에서 비밀번호를 설정하면 「${brandName}」 브랜드의 오리엔시트와 캠페인을 함께 보실 수 있습니다.\n\n` +
         `초대 수락하고 비밀번호 설정하기: ${link}\n\n` + validity +
@@ -289,20 +333,13 @@ Deno.serve(async (req: Request) => {
 
     // 선점 뒤 구간 — 어떤 예외가 나도(재확인·시간 초과·발송) 선점을 되돌린다. 안 그러면 만료까지 already_sent/already_pending 으로 멈춘다.
     try {
-      // 선점 직후 재확인 — 호출자가 여전히 그 브랜드의 활성 대표이고 브랜드가 활성인가(그 사이 대표 해제·넘기기·보관)
-      const { data: stillOwner, error: soErr } = await sb
-        .from("brand_account_links")
-        .select("auth_id")
-        .eq("brand_id", inv.brand_id)
-        .eq("auth_id", caller.id)
-        .eq("role", "owner")
-        .eq("status", "active")
-        .maybeSingle();
-      if (soErr) throw soErr;
+      // 선점 직후 재확인 — 호출자가 여전히 보낼 자격이 있고(멤버 초대 = 그 브랜드의 활성 대표 · 연결 요청 = 계정 관리 권한)
+      // 브랜드가 활성인가(그 사이 대표 해제·넘기기·권한 회수·보관)
+      const stillAllowed = await callerAllowed();
       const { data: stillBrand, error: sbErr } = await sb
         .from("brands").select("status").eq("id", inv.brand_id).maybeSingle();
       if (sbErr) throw sbErr;
-      if (!stillOwner || !stillBrand || stillBrand.status !== "active") {
+      if (!stillAllowed || !stillBrand || stillBrand.status !== "active") {
         await releaseClaim();
         return jsonResponse({ sent: false, reason: "forbidden" }, 403);
       }
