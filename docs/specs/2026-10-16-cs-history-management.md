@@ -354,3 +354,8 @@
 - 메시지 화면 파일(`admin-messaging.js`) 변경: 메시지 줄에 `data-msg-id`·`data-cs-member`(보이는 회원 글) · `renderAdminMsgThread` 끝에서 `csSplitDecorateThread`(검색·30초 갱신으로 다시 그려도 고른 상태 유지 — 대화 영역이 통째로 다시 그려졌으면 잠금도 다시) · `sendAdminMessage`·`markCurrentResolved` 첫 줄 막기
 - 추가 성공 → 새 건이 펼쳐진 패널 · 실패 → 양식 그대로 + 문구(`contains_case_start`·`case_purged` 등)
 
+
+### 피그마 맞춤 — 필수 표시·메모 입력 줄 (2026-10-21, 화면만 · 개발서버)
+- 위 「피그마 화면」 2026-10-21 결정 반영: 완료 양식 칸 제목 「항목 (필수)」·「대응 안내 내용 (필수)」·수기 건 「완료 일시 (필수)」(`csCompleteFormHtml` 한 곳 — 패널·건 상세 모달 공용)
+- 메모 입력 줄(`_csCommentFormHtml`): 왼쪽 이미지 아이콘(고른 장수는 작은 숫자) · 한 줄 입력칸(`csMemoAutoGrow` — 글이 길면 최대 160px 까지 늘어남) · 보라 「게시」. 패널 아래 「담당자끼리만 봅니다 · 회원에게 보이지 않음」은 패널 파일에 그대로
+- 건 상세 모달만 `csMountComments` 의 `opts.note` 로 입력 줄 아래 「회원에게 보이지 않음」(다시 그려도 `st.opts` 로 남는다)
