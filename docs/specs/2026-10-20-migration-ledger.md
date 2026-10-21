@@ -188,4 +188,12 @@
 - 착수 전 확인: ① 개발서버 `supabase_migrations.schema_migrations` **없음** · `migration_ledger` 이름 비어 있음 / 운영도 **없음**(2026-10-21 사용자 실행 — 확인 파일 pre-1·pre-2) ② 개발서버에서 `BEGIN;` → 한 줄 → `SELECT 1/0;` → 한 줄 → `COMMIT;` 한 번 실행 → 따로 센 시험 표 **0줄**(전제 성립) · 시험 표는 지웠다(완료 기준 3)
 - 문서: `.claude/rules/supabase.md` 「적용 기록 표」 절(세 길 · 실행 뒤 확인 · 손기록 SQL · 결정 10 · 결정 11 체크리스트 · 두 서버 비교와 한계 · 알려진 틈) · `CLAUDE.md` Dev Workflow 한 줄
 - 「현재 상태」 미적용 목록을 운영 카탈로그로 바로잡아 2026-10-21 고정(그 절)
-- **남은 것(운영)**: 운영에 572 적용 → 완료 기준 1·2 운영 확인(확인 조회 `supabase/patches/2026-10-21-migration-ledger-prod-check.sql` 은 끝남). 그 뒤 P2
+- **운영 적용(2026-10-21, 사용자 실행)**: 기록 표 `1:baseline · 2:migration:572` · `relacl` = postgres·service_role 만 · 행 단위 보안 켬 · 비로그인·회원 SELECT 거짓 · 서비스 키 INSERT 참 — 완료 기준 1·2 개발·운영 모두 충족
+
+### 단계 P2 — 검사 스크립트 + GitHub 실행 파일 + 문서 〔P2〕 (2026-10-21)
+- `scripts/check-migrations.js`(검사 ①~⑤ · 주석·따옴표·`$$` 묶음을 가려 문장을 나눈다 · `--self-test` 판정 시험 12개 통과) + `.github/workflows/migration-check.yml`(dev·main 으로 가는 모든 병합 요청 — 경로 조건 없음, 필수 검사로 지정하려면 결과가 늘 있어야 해서)
+- **받는 브랜치 판의 스크립트로 돈다**: 실행 파일이 `origin/<받는 브랜치>:scripts/check-migrations.js` 를 꺼내 돌린다 · 받는 브랜치에 아직 없으면 통과(P2 를 싣고 가는 요청)
+- 검사 ②의 「정의」 = `CREATE [OR REPLACE] FUNCTION`·`TRIGGER`·`VIEW` · `ADD CONSTRAINT`(권한·주석만 손댄 파일은 0) — 실제 554·555 쌍에서 `제약 lookup_values_kind_check` 를 잡고, 권한만 바꾼 375 는 0
+- 검사 시작 번호 `CHECK_START_NUMBER` = 572(병합 직전 dev 마지막 번호로 다시 맞춘다 — 「착수 전 알아야 할 것」 ①) · 572 자신은 baseline 줄 때문에 양식 판정에서 걸리지만 시작 번호 이하라 검사 ③ 대상이 아니다
+- 문서: `.claude/rules/supabase.md` 「새 파일 양식」(양식 · 검사 다섯 표 · 재정의 경고 절차) · `.claude/commands/migration.md` · `CLAUDE.md` 한 줄
+- 남은 것: 시험 병합 요청(「착수 전 알아야 할 것」 ⑤ ⓐ~ⓙ) · P3 필수 검사 지정(저장소 관리자 — dev 는 이 요청 병합 직후)
