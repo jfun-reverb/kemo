@@ -61,3 +61,4 @@ REVOKE ALL ON FUNCTION public.cs_save_case_draft(uuid, integer, text, text) FROM
 GRANT EXECUTE ON FUNCTION public.cs_save_case_draft(uuid, integer, text, text) TO authenticated;   -- 안에서 메시지 메뉴 권한(_cs_actor)
 
 NOTIFY pgrst, 'reload schema';
+-- zz 시험 한 줄
