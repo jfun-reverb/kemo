@@ -2159,7 +2159,10 @@ function renderBrandOrientSheetsView(sheets, campMap) {
     return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">불러오지 못했습니다</div>';
   }
   if (!sheets.length) {
-    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">오리엔시트 없음 — 하단 「오리엔시트 발급」으로 만듭니다</div>';
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">오리엔시트 없음 — '
+      // 새 페이지는 발급 단추가 머리에 있다(작업표 M6). 옛 창(운영)은 아래 단추 그대로
+      + ((typeof brandDetailIsTabsPage === 'function' && brandDetailIsTabsPage()) ? '머리의' : '하단')
+      + ' 「오리엔시트 발급」으로 만듭니다</div>';
   }
   return sheets.map(function(x){ return renderBrandOrientSheetCard(x, campMap); }).join('');
 }
@@ -2238,7 +2241,6 @@ function renderBrandOrientSheetCard(s, campMap) {
 function renderBrandContactsRows() {
   var wrap = $('brandContactsWrap');
   if (!wrap) return;
-  if (typeof brandDetailOnContactsChanged === 'function') setTimeout(brandDetailOnContactsChanged, 0);   // 새 페이지 탭 숫자·저장 안 한 표시
   if (_brandFormContacts.length === 0) {
     wrap.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:6px">담당자가 없습니다. "담당자 추가" 버튼을 눌러 등록하세요.</div>';
     return;
@@ -2351,8 +2353,8 @@ async function saveBrandDetail() {
     syncBrandDetailTabOffset(); }
   // 새 페이지(조각 5 임시 저장) — 머리 배지·요약 줄·떠날 때 확인 기준값. 조각 7 이 새 저장으로 바꾼다
   if (typeof brandDetailAfterLegacySave === 'function') brandDetailAfterLegacySave(savedId, patch);
-  // 브랜드 로그인 계정(조각 10) — 브랜드 저장과 **별개의** 안내. 운영 주소에서는 아무것도 안 한다.
-  await _brandAccountAfterBrandSave(savedId, patch.contacts, 'save');
+  // 🔴 저장 뒤 계정 자동 처리(_brandAccountAfterBrandSave)는 부르지 않는다 — 계정은 담당자·계정 탭 「계정 만들기」로만 만든다
+  //    (사양서 2026-10-21 D10). 운영은 계정 기능이 꺼져 원래 아무 일도 안 했다. 함수 자체는 조각 18 에서 지운다.
   // 목록은 뒤에서 새로 받는다 — 안 받으면 돌아갔을 때 옛 이름이 남는다.
   await refreshPane('brands');
 }
@@ -2407,8 +2409,7 @@ async function submitNewBrand() {
   }
   toast('브랜드가 등록되었습니다.');
   closeBrandDetailModal();
-  // 브랜드 로그인 계정(조각 10) — 이전 대표 없음. 창이 닫혔으므로 안내는 토스트만(개발서버 링크는 상세 화면 계정 줄에 남긴다).
-  if (result.data?.id) await _brandAccountAfterBrandSave(result.data.id, patch.contacts, 'new');
+  // 🔴 새 브랜드 등록도 계정을 자동으로 만들지 않는다(D10 — 「계정 만들기」로만).
   // 캠페인 폼에서 호출됐으면 해당 폼의 brand select 갱신 + 신규 brand 자동 선택
   if (_newBrandCallbackPrefix && result.data?.id) {
     var prefix = _newBrandCallbackPrefix;

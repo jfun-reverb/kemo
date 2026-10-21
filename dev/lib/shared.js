@@ -2104,6 +2104,13 @@ const ADMIN_PERMISSION_CATALOG = [
   //    ⚠️ 열쇠말이 네 곳(시드 554 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 557) — 철자가 하나만 달라도 조용히 거부된다.
   //    🔴 staging_only — 운영엔 554 가 없어 권한 관리 화면에서 숨긴다(renderPermGrid). 출시 날 이 표시를 걷는다
   { key: 'shipping.manage',               label_ko: '배송 리스트 보기·전달·송장 수정(시딩형)',     category: '캠페인',       server_enforced: true, staging_only: true },
+  // ── 브랜드 페이지 계정 관리 1개 — 마이그레이션 530 role_permissions 시드와 1:1(최고·캠페인 관리자 쓰기, 매니저 숨김) ──
+  //    533 관리자 계정 함수(만들기·대표 바꾸기·해제·멤버 상한·상태 조회의 can_manage)와 서버 함수
+  //    notify-brand-account-setup 이 has_permission 으로 서버 강제 → server_enforced=true.
+  //    ⚠️ 열쇠말이 네 곳(시드 530 · 이 카탈로그 · PERM_SUPER_SERVER_ENFORCED · 서버 가드 533·notify-brand-account-setup) — 철자가 하나만 달라도 조용히 거부된다.
+  //    화면의 버튼 표시 판정은 이 카탈로그가 아니라 서버 상태 조회의 can_manage 하나(작업표 기본값 6 — admin-brand-detail.js).
+  //    🔴 staging_only — 운영엔 530 이 없어 권한 관리 화면에서 숨긴다(renderPermGrid). 출시 날 이 표시를 걷는다
+  { key: 'brand.account_manage',          label_ko: '브랜드 페이지 계정 관리',                       category: '브랜드',       server_enforced: true, staging_only: true },
 ];
 
 // ══════════════════════════════════════
@@ -2131,7 +2138,7 @@ const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
 const PERM_SUPER_SERVER_ENFORCED = [
   'influencer.sensitive_pii', 'settlement.view', 'settlement.pay',
   'outbound.view', 'campaign.caution_history_view', 'withdrawal.proxy_request',
-  'ad_tracking.manage', 'application.restore_cancelled', 'shipping.manage'
+  'ad_tracking.manage', 'application.restore_cancelled', 'shipping.manage', 'brand.account_manage'
 ];
 function permSuperEffect(featureKey) {
   if (PERM_SUPER_SERVER_ENFORCED.indexOf(featureKey) >= 0) return 'server';
