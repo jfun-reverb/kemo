@@ -132,7 +132,7 @@
 
 - 오리엔시트 발급·조회 페인(신규 발급 창의 신청 연결 칸은 잠김 · 발급 메일 수신자는 서버가 정함 · ⚠️ 재발송 버튼·발송 이력은 없다)·발급 목록 삭제 — 상세 `.claude/rules/orient-sheet.md`
 - 🔴 **브랜드 상세 탭 4개 새 페이지는 개발서버만**(`dev/js/admin-brand-detail.js` — `openBrandDetail` 맨 앞 `_brandAccountEnabled()` 한 줄, 출시 날 걷고 출시 뒤 옛 경로 정리 · 작업표 `docs/specs/2026-10-21-admin-brand-detail-tabs-breakdown.md`) · 떠날 때 확인은 `navAdminPaneReload`·`popstate` 등에 걸고 `switchAdminPane` 안에는 걸지 않는다
-- 브랜드 상세 모달(🔴 편집 폼이라 탭 전환은 `display` 토글만)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
+- 브랜드 상세(운영은 옛 한 장 페이지 — 🔴 편집 폼이라 탭 전환은 `display` 토글만 · 개발서버는 위 줄의 탭 4개 새 페이지)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
 - 운영 현황 일정(간트)·브랜드 뷰(🔴 날짜→위치 변환은 `ganttDayOffset` 하나 · 선정 막대 조건은 다섯째 사본 · 경고 꼬리표는 브랜드 카드 경고의 화면 사본) — 상세 `.claude/rules/brand-ops.md`
 
 ### 인플루언서 관리
@@ -184,11 +184,11 @@
 
 ### 브랜드 계정·로그인·멤버 관리 (마이그레이션 526~528 · 530~533 — 🔴 **개발서버만**, 운영 반영 보류)
 > 상세는 **`.claude/rules/brand-account.md`** — 브랜드 화면(`dev/brand/**`·`dev/js/brand-*.js`)·관리자 브랜드 상세(`admin-brand.js`)·브랜드 메일 함수 둘·526~528을 열면 실린다.
-> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md` · 화면 작업표 `docs/specs/2026-10-15-brand-member-screen-breakdown.md`(관리자 화면 묶음 ③ 미착수) · 인수인계 `…-brand-login-handoff.md`
+> 사양서 `docs/specs/2026-07-15-brand-portal.md` §16-6·§16-7 · 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` · 멤버 관리 작업표 `docs/specs/2026-10-15-brand-member-breakdown.md` · 화면 작업표 `docs/specs/2026-10-15-brand-member-screen-breakdown.md`(관리자 화면 묶음 ③ → 2026-10-21 브랜드 상세 탭 작업표가 대체 — 개발서버 완료, 연결 요청 서버(조각 4)·화면(조각 13)은 별도 작업표 대기) · 인수인계 `…-brand-login-handoff.md`
 
 **현재 원본 번호**
 - 브랜드 관리 화면 함수 셋 `get_my_brand_profile`·`update_my_brand_info`·`update_my_brand_company` + 이력 표 `brand_profile_history`(트리거 `trg_brands_profile_history`·`trg_companies_profile_history` — 관리자·브랜드 구분 없이 바뀐 칸마다 한 줄) — **536**(신설, 개발서버만 · 운영 묶음은 … → 534 → 536). 🔴 브랜드 계정이 처음으로 173(캠페인 브랜드명 동기화)·266(캠페인 변경 이력)을 부른다 — 이력은 `change_source='admin'`·`changed_by`=브랜드 계정·`changed_by_name` 빈 값(266 은 이름을 `admins` 에서만 찾는다, Q4 로 그대로 둠)
-- 🔴 **관리자 화면이 브랜드가 고친 값을 되돌린다** — 관리자 브랜드 편집(`saveBrandDetail`)·회사 편집(`saveCompany`)은 폼을 연 순간 값으로 **통째** 저장한다. 브랜드 담당자가 그사이 고친 이름·SNS·회사 정보가 경고 없이 덮인다. 막는 것은 묶음 ③(관리자 화면)
+- 🔴 **운영의 관리자 화면은 브랜드가 고친 값을 되돌린다** — 옛 브랜드 편집(`saveBrandDetail`)·회사 편집(`saveCompany`)은 폼을 연 순간 값으로 **통째** 저장한다. **개발서버는 막힘**(새 페이지 브랜드 정보 탭 = 575 바뀐 칸만 + `stale` 확인 창 · 담당자는 574 한 줄씩). 운영은 출시 날 판정을 걷는 순간 막힌다. ⚠️ 회사 모달(`saveCompany`)은 개발서버도 충돌 확인 없이 통째 저장(사양서 A9 — 받아들임)
 - 외부 결과 파일 캠페인 첨부(`attach_campaign_ext_source`·`detach_campaign_ext_source`·`get_campaign_ext_sources`) + 410 의 `replace_report_source_rows`·`remove_report_source` — **546**(410 베이스 금지 · 개발서버만, 운영은 「사전」 단계) · 🔴 공유 판정(545)·리포트 화면(410)은 `report_id` 로만 찾는다 — 캠페인 첨부는 공유 링크로 새지 않는다 · ⚠️ 캠페인 **보관 삭제 때 첨부·줄이 30일 남는다**(신청·결과물은 즉시 파기 — 후속 과제) · 화면 `admin-camp-ext.js`
 - 캠페인 「브랜드 공개」 표 셋·관리자 함수 일곱 — **544**(개발서버만, 운영은 「사전」 단계) · 🔴 화면(`admin-brand-publish.js`·목록 배지·기준 데이터 탭)은 `_brandAccountEnabled()`(개발서버)일 때만 — 운영엔 544 가 없다. 출시 때 그 판정을 걷는다 · 🔴 쓰기 함수 `admin_set_campaign_brand_publish` 현재 원본 **559**(켜기·끄기·열 바꾸기를 같은 거래에서 제공 기록 — 544 베이스 금지, 개발서버만) · 결과물 열람·내려받기 기록은 서버 함수 `brand-campaign-results` 가 남긴다(547 은 그대로)
 - 결과물 사진 값 두 형식(조각 6 — 옛 공개 주소 / 비공개 통 경로 `receipts/…`, 「://」 유무로 가름): 판별 `deliverableMediaRef`(ui.js) · 서명·보관 `signDeliverableMedia`·`prefetchDeliverableMedia`·그리기 `deliverableImgAttrs` + 그린 뒤 `hydrateDeliverableMedia`(목록은 `mountLazyList` 묶음마다)·누를 때 서명 `openDeliverableMediaLightbox`(storage.js) · 엑셀 링크 7일 `_excelMediaLink`(admin-excel.js) · 지우기 `_deleteDeliverableMediaFiles`(가리키는 통마다 — 🔴 통을 고정하면 비공개 통 파일을 「없는 파일 삭제 성공」으로 넘긴다) · 탈퇴 파기 목록 `list_pending_withdrawal_media_purge` 현재 원본 **549**(364 베이스, 두 형식을 같은 파일로 셈 — 내부 `_deliverable_media_key`) + 서버 함수 `purge-withdrawal-media` 통 둘 · 관리자 일일 메일은 경로 영수증이면 관리자 화면 링크. 🔴 새로 사진을 그리는 자리는 `receipt_url` 을 `<img src>` 에 바로 넣지 말 것(경로면 안 열린다) · ⚠️ 공유 리포트 `report.html` 은 서명 못 한다(비로그인) · 업로드(조각 7): 영수증(회원 제출·관리자 대리 등록)은 `uploadImage(…, {bucket: receiptUploadBucket()})` 로 비공개 통에 올리고 **경로**를 저장 — 🔴 `receiptUploadBucket()` 이 **운영 주소에서는 아직 공개 통**(공유 화면이 비공개 사진을 못 열어서). 출시 날 공유를 닫은 뒤 그 조건을 걷는다 · 리뷰 인증샷은 공개 통 그대로(D1) · 옛 영수증 옮기기(조각 8, 출시 날 ⑥): 복사 도구 `scripts/copy-receipts-to-private.js` → 변환 패치 `supabase/patches/2026-10-19-receipt-url-to-private-path.sql`(복사본 있는 줄만, 백업 표 `_receipt_url_backup_20261019` — 🔴 조각 20·21 끝나기 전에 지우지 말 것) · 개발서버는 이미 변환됨
@@ -209,8 +209,8 @@
 - 🔴 **인플루언서 표 삽입 거부 트리거**(526)가 인플루언서 앱 `handleLogin` 의 프로필 자동 생성을 막는다 — 인플루언서 앱 차단(`auth.js`·`app.js`)은 **판정 실패(`null`)를 「차단」으로 처리하지 않는다**(함수 없는 서버에서 전원 로그인 불가)
 - 🔴 **브랜드 비밀번호를 바꾸면 서버가 같은 계정의 다른 로그인을 모두 끊는다**(2026-10-16 실측) — 마이페이지 변경은 일회 연결로 바꾼 세션을 로그인 연결에 옮겨 담는다(`brandChangePasswordWithCurrent`, 일회 연결을 로그아웃하면 옮긴 세션까지 끊긴다)
 - 🔴 **브랜드 계정 표시는 앱 메타데이터 `raw_app_meta_data.account_kind='brand'`**(사용자 메타데이터는 누구나 채운다) · 계정 생성에 `auth.admin.createUser` 를 쓰지 않는다(497 가입 관문에 걸린다)
-- ⚠️ 528 이 기존 함수 셋(`merge_brands`·`delete_brand`·`invite_admin`)에 브랜드 계정 거부를 넣었다 — 현재 원본 번호는 「브랜드 서베이」·「기준 데이터」 절. ⚠️ **연결 해제는 함수만 있다**(대표 `release_brand_member` 531 · 관리자 `admin_release_brand_account` 533 — 화면 없음). 해제 이력이 있는 브랜드는 해제 뒤에도 삭제가 막힌다(528 — 병합으로)
-- 🔴 묶음 ③ 전까지 관리자 브랜드 편집 폼이 `brands.contacts` 를 **통째로** 저장한다 — 서버가 옮긴 대표 표시(531 `_brand_contacts_mark_primary`)가 폼을 연 채 저장하면 되돌아간다
+- ⚠️ 528 이 기존 함수 셋(`merge_brands`·`delete_brand`·`invite_admin`)에 브랜드 계정 거부를 넣었다 — 현재 원본 번호는 「브랜드 서베이」·「기준 데이터」 절. 연결 해제는 대표 `release_brand_member` 531 · 관리자 `admin_release_brand_account` 533 — 관리자 화면은 개발서버 새 페이지 「해제」(2026-10-21 조각 11). 해제 이력이 있는 브랜드는 해제 뒤에도 삭제가 막힌다(528 — 병합으로)
+- 🔴 운영 옛 브랜드 편집 폼은 `brands.contacts` 를 **통째로** 저장한다 — 서버가 옮긴 대표 표시(531 `_brand_contacts_mark_primary`)가 폼을 연 채 저장하면 되돌아간다. 개발서버는 576 이 그 직접 저장을 거부한다(운영 576 은 화면 병합 뒤)
 - ⚠️ 권한 「브랜드 페이지 계정 관리」(`brand.account_manage`)는 관리자 권한 카탈로그(`shared.js`)에 `staging_only` 로 등록됐다(2026-10-21 조각 10 — 출시 날 그 표시를 걷는다). 등급을 바꾸면 계정 함수·설정 메일 함수가 함께 따른다. 🔴 화면의 계정 버튼 표시는 카탈로그가 아니라 서버 상태 조회의 `can_manage` 하나
 - ⚠️ 알려진 틈(기록만, 다음 작업): 인플루언서 「비밀번호 찾기」·가입 인증번호(499)가 브랜드 이메일에도 동작
 
