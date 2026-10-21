@@ -253,7 +253,7 @@
   <section class="brand-card" data-screen="invite" hidden>
     <div class="brand-logo"><span class="brand-logo-mark">R</span><span class="brand-logo-text">REVERB JP 브랜드</span></div>
     <div class="brand-head">
-      <h1>브랜드 초대</h1>
+      <h1 id="inviteTitle">브랜드 초대</h1>
       <p id="inviteDesc"></p>
     </div>
     <div class="brand-fields">
@@ -261,6 +261,18 @@
         <label for="inviteEmail">초대받은 계정</label>
         <input type="email" id="inviteEmail" class="brand-input" readonly>
       </div>
+      <!-- 수락 = 그때 시행 중인 약관·개인정보처리방침 동의(브랜드 약관 제5조 5항 · 연결 요청 사양서 L3) — 멤버 초대·연결 요청 둘 다 -->
+      <div class="brand-agree brand-accept-agree" id="inviteAgreeBox" aria-describedby="inviteAgreeError">
+        <label class="brand-check">
+          <input type="checkbox" id="inviteAgree">
+          <span>[필수] 이용약관과 개인정보처리방침에 동의합니다</span>
+        </label>
+        <div class="brand-accept-agree-views">
+          <button type="button" class="brand-agree-view" data-legal="terms">이용약관 보기</button>
+          <button type="button" class="brand-agree-view" data-legal="privacy">개인정보처리방침 보기</button>
+        </div>
+      </div>
+      <p class="brand-field-error" id="inviteAgreeError" role="alert" hidden></p>
     </div>
     <div class="brand-notice brand-notice-info" id="inviteResult" role="status" hidden></div>
     <div class="brand-actions">

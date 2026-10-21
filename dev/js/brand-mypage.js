@@ -16,6 +16,7 @@ const BRAND_MYPAGE_MSG = {
   declined: '초대를 거절했습니다.',                                    // bw07-90
   invalid: '이 초대는 더 이상 쓸 수 없습니다.',                        // bw07-90
   acceptFail: '브랜드를 연결하지 못했습니다. 잠시 후 다시 시도해 주십시오.',   // 초대 수락 화면(bw01-92 ⑥)과 같은 문구
+  agreeRequired: '수락하려면 이용약관과 개인정보처리방침에 동의해 주십시오.',     // 초대 수락 화면과 같은 문구
   declineFail: '처리하지 못했습니다. 잠시 후 다시 시도해 주십시오.',          // 피그마에 없음 — 멤버 관리 임시 문구와 같게
   pwChanged: '비밀번호를 바꿨습니다.',                                  // bw07-90
   pwWrong: '현재 비밀번호가 맞지 않습니다.',                            // bw07-01a
@@ -135,18 +136,48 @@ function _brandMyAccountHtml() {
     _brandMySectionHead('계정 정보', tools).replace('<h2>', '<h2 id="brandMyAcctTitle">') + body + '</section>';
 }
 
+// 받은 초대 한 줄 — 멤버 초대와 연결 요청(invite_kind='owner_link')이 같은 묶음에 산다(연결 요청 사양서 L1).
+//   수락 = 그때 시행 중인 약관 동의라 줄마다 동의 칸 하나 + 「보기」 둘(사양서 L3).
+//   🔴 「보기」는 data-legal 이 아니라 data-my-act — data-legal 은 부팅 때 한 번만 묶여 나중에 그린 이 줄엔 안 붙는다(작업표 의심 5)
 function _brandMyInviteRowHtml(inv) {
   const recv = _brandInviteMd(inv.issued_at);
   const until = _brandInviteMd(inv.expires_at);
-  const meta = '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' +
-    (recv ? ' · ' + recv + ' 받음' : '') + (until ? ' · ' + until + '까지 수락할 수 있습니다' : '');
-  return '<li class="brand-my-invite">' +
-    '<div class="brand-my-invite-text"><p class="brand-my-invite-name">' + brandEsc(inv.brand_name || '') + '</p>' +
-      '<p class="brand-my-invite-meta">' + brandEsc(meta) + '</p></div>' +
-    '<div class="brand-my-invite-btns">' +
-      _brandMyBtn('거절', 'decline', { data: 'data-invite="' + brandEsc(inv.invite_id) + '"' }) +
-      _brandMyBtn('수락', 'accept', { fill: true, data: 'data-invite="' + brandEsc(inv.invite_id) + '"' }) +
-    '</div></li>';
+  const who = isOwnerLinkInvite(inv)
+    ? '보낸 곳 REVERB 운영팀 · 대표 담당자로 연결'
+    : '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)';
+  const meta = who + (recv ? ' · ' + recv + ' 받음' : '') + (until ? ' · ' + until + '까지 수락할 수 있습니다' : '');
+  const id = brandEsc(inv.invite_id);
+  const dis = _brandMyBusy ? ' disabled' : '';
+  return '<li class="brand-my-invite"><div class="brand-my-invite-body">' +
+    '<div class="brand-my-invite-top">' +
+      '<div class="brand-my-invite-text"><p class="brand-my-invite-name">' + brandEsc(inv.brand_name || '') + '</p>' +
+        '<p class="brand-my-invite-meta">' + brandEsc(meta) + '</p></div>' +
+      '<div class="brand-my-invite-btns">' +
+        _brandMyBtn('거절', 'decline', { data: 'data-invite="' + id + '"' }) +
+        _brandMyBtn('수락', 'accept', { fill: true, data: 'data-invite="' + id + '"' }) +
+      '</div></div>' +
+    '<div class="brand-agree brand-accept-agree brand-my-invite-agree" data-agree-box="' + id + '">' +
+      '<label class="brand-check"><input type="checkbox" class="brand-my-invite-agree-check" data-agree-invite="' + id + '"' + dis + '>' +
+        '<span>[필수] 이용약관과 개인정보처리방침에 동의합니다</span></label>' +
+      '<div class="brand-accept-agree-views">' +
+        '<button type="button" class="brand-agree-view" data-my-act="legal" data-legal-kind="terms"' + dis + '>이용약관 보기</button>' +
+        '<button type="button" class="brand-agree-view" data-my-act="legal" data-legal-kind="privacy"' + dis + '>개인정보처리방침 보기</button>' +
+      '</div></div>' +
+    '<p class="brand-field-error" data-agree-error="' + id + '" role="alert" hidden></p>' +
+  '</div></li>';
+}
+
+function _brandMyAgreeEls(inviteId) {
+  const host = document.getElementById('brandPageHost');
+  if (!host) return {};
+  const pick = (attr) => Array.from(host.querySelectorAll('[' + attr + ']')).find(el => el.getAttribute(attr) === inviteId) || null;
+  return { check: pick('data-agree-invite'), box: pick('data-agree-box'), err: pick('data-agree-error') };
+}
+function _brandMyAgreeError(inviteId, msg) {
+  const els = _brandMyAgreeEls(inviteId);
+  if (els.box) els.box.classList.toggle('is-error', !!msg);
+  if (els.err) { els.err.textContent = msg || ''; els.err.hidden = !msg; }
+  if (msg && els.check) els.check.focus();
 }
 
 function _brandMyBrandsHtml() {
@@ -194,7 +225,7 @@ function renderBrandMypage(host) {
 // ── 동작
 function _brandMySetBusy(busy) {
   _brandMyBusy = busy;
-  document.querySelectorAll('#brandPageHost [data-my-act], #brandPageHost .brand-my-input').forEach(el => { el.disabled = busy; });
+  document.querySelectorAll('#brandPageHost [data-my-act], #brandPageHost .brand-my-input, #brandPageHost .brand-my-invite-agree-check').forEach(el => { el.disabled = busy; });
 }
 
 function _brandMyFieldError(id, msg) {
@@ -248,15 +279,22 @@ function _brandMyFindInvite(id) {
 async function acceptMyBrandInvite(inviteId) {
   const inv = _brandMyFindInvite(inviteId);
   if (!inv) return;
+  // 동의 없이 누르면 서버를 부르지 않는다
+  const agreeEl = _brandMyAgreeEls(inviteId).check;
+  if (!agreeEl || !agreeEl.checked) { _brandMyAgreeError(inviteId, BRAND_MYPAGE_MSG.agreeRequired); return; }
+  _brandMyAgreeError(inviteId, '');
   _brandMySetBusy(true);
-  const r = await respondBrandInvite({ inviteId, action: 'accept' });
-  if (!r) { _brandMySetBusy(false); brandToast(BRAND_MYPAGE_MSG.acceptFail, { error: true }); return; }
+  const r = await respondBrandInvite({ inviteId, action: 'accept', termsVersion: BRAND_TERMS_VERSION });
+  // terms_version_required 는 화면이 늘 보내므로 일반 실패로(연결 요청 사양서 4-4)
+  if (!r || r.result === 'terms_version_required') { _brandMySetBusy(false); brandToast(BRAND_MYPAGE_MSG.acceptFail, { error: true }); return; }
   if (r.result === 'ok' || r.result === 'already_member') {
     brandToast(_brandMyAcceptedMsg(inv.brand_name));
     // 연결된 브랜드·브랜드 고르기 목록을 새로(둘이 되면 ⌃⌄ 생김). 지금 브랜드는 그대로 — 판정이 보던 브랜드를 이어받는다
     await refreshBrandLoginState();
   } else if (r.result === 'invalid') {
-    brandToast(BRAND_MYPAGE_MSG.invalid, { error: true });
+    brandToast(isOwnerLinkInvite(inv) ? BRAND_INVITE_MSG.linkInvalid : BRAND_MYPAGE_MSG.invalid, { error: true });
+  } else if (r.result === 'owner_exists') {
+    brandToast(BRAND_INVITE_MSG.ownerExists, { error: true });
   } else {
     // not_brand · setup_incomplete — 계정 상태가 바뀜. 로그인 판정 갈래를 그대로 따른다
     _brandMySetBusy(false);
@@ -271,20 +309,18 @@ async function acceptMyBrandInvite(inviteId) {
 async function declineMyBrandInvite(inviteId) {
   const inv = _brandMyFindInvite(inviteId);
   if (!inv) return;
-  const brand = inv.brand_name || '';
-  const until = _brandInviteMd(inv.expires_at);
+  const ownerLink = isOwnerLinkInvite(inv);
+  const t = brandInviteDeclineText(inv);
   const ok = await brandConfirm({
-    title: brand + ' 브랜드 초대를 거절하시겠습니까?',
-    sub: '초대한 사람 ' + (inv.inviter_name || '') + '(대표 담당자)' + (until ? ' · ' + until + '까지 수락할 수 있는 초대입니다.' : ''),
-    body: '거절하면 이 초대로는 ' + brand + ' 브랜드 페이지에 들어갈 수 없습니다.\n다시 함께하려면 대표 담당자에게 새로 초대해 달라고 요청해 주십시오.',
+    title: t.title, sub: t.sub, body: t.body,
     okLabel: '거절', cancelLabel: '취소', card: true, wide: true   // 피그마 bw07-02 「취소 · 거절」, 거절은 검정 채움
   });
   if (!ok) return;
   _brandMySetBusy(true);
   const r = await respondBrandInvite({ inviteId, action: 'decline' });
   if (!r) { _brandMySetBusy(false); brandToast(BRAND_MYPAGE_MSG.declineFail, { error: true }); return; }
-  if (r.result === 'ok') brandToast(BRAND_MYPAGE_MSG.declined);
-  else if (r.result === 'invalid') brandToast(BRAND_MYPAGE_MSG.invalid, { error: true });
+  if (r.result === 'ok') brandToast(ownerLink ? BRAND_INVITE_MSG.linkDeclined : BRAND_MYPAGE_MSG.declined);
+  else if (r.result === 'invalid') brandToast(ownerLink ? BRAND_INVITE_MSG.linkInvalid : BRAND_MYPAGE_MSG.invalid, { error: true });
   else { _brandMySetBusy(false); await refreshBrandLoginState(); return; }
   _brandMyBusy = false;
   await reloadMyBrandInvites();
@@ -443,10 +479,17 @@ document.addEventListener('click', async (e) => {
   if (act === 'accept') { await acceptMyBrandInvite(btn.dataset.invite); return; }
   if (act === 'decline') { await declineMyBrandInvite(btn.dataset.invite); return; }
   if (act === 'password') { openBrandPasswordModal(); return; }
+  if (act === 'legal') { openLegalModal(btn.dataset.legalKind === 'privacy' ? 'privacy' : 'terms'); return; }
   if (act === 'logout') {
     _brandMySetBusy(true);
     try { await brandLogout(); } finally { _brandMySetBusy(false); }   // 실패해 화면에 남아도 단추가 잠긴 채로 두지 않는다
   }
+});
+
+// 받은 초대 줄 동의 칸 — 체크하면 그 줄의 오류를 지운다
+document.addEventListener('change', (e) => {
+  const c = e.target.closest('#brandPageHost [data-agree-invite]');
+  if (c) _brandMyAgreeError(c.getAttribute('data-agree-invite'), '');
 });
 
 // 수정 중 엔터 = 저장
