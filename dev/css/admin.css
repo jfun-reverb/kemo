@@ -2850,3 +2850,38 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .adm-msg-actionbar button[data-cs-was-disabled]{opacity:.4;cursor:not-allowed}
 .cs-btn-danger{color:var(--red-d)}
 .cs-link-danger{color:var(--red-d)}
+
+/* ── 관리자 브랜드 상세 — 탭 4개 새 페이지(admin-brand-detail.js · 피그마 a03-00d, 개발서버만) ── */
+.bd-head{display:flex;flex-direction:column;gap:4px}
+.bd-head-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bd-title{font-size:20px;font-weight:800;color:var(--ink)}
+.bd-no-chip{background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums}
+.bd-status{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+.bd-status.is-active{background:#E8F5E9;color:var(--green)}
+.bd-status.is-archived{background:#F0F0F0;color:#666}
+.bd-head-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bd-lock-note{font-size:11px;color:#B45309}
+.bd-more-wrap{position:relative}
+.bd-more-btn{padding-left:8px;padding-right:8px}
+.bd-more-menu{position:absolute;right:0;top:calc(100% + 4px);min-width:150px}
+.bd-summary{font-size:12px;color:var(--muted);line-height:1.6}
+.bd-tabs{margin-top:8px;margin-bottom:-12px}
+.brand-detail-dirty-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle}
+.bd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.bd-memo{position:sticky;top:var(--brand-detail-head,0px);max-height:calc(100vh - var(--brand-detail-head,0px) - 40px);overflow-y:auto;border-left:1px solid var(--line);padding-left:24px}
+.bd-section{margin-bottom:28px}
+.bd-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:14px;font-weight:700;color:var(--ink)}
+.bd-label{color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px}
+.bd-company-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.bd-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.bd-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.bd-save-row{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 16px;border-radius:10px;background:var(--surface-dim)}
+.bd-save-note{font-size:12px;color:var(--muted)}
+.bd-link-btn{background:none;border:none;padding:0;color:var(--accent-ink);font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer}
+/* 회사 모달 — 맨 위 안내(브랜드 상세에서 열 때)·저장 실패(a03-07a) */
+.company-modal-notice,.company-modal-error{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.6;border-radius:8px;padding:10px 12px;margin-bottom:14px}
+.company-modal-notice{background:var(--accent-tint);color:var(--accent-deep)}
+.company-modal-error{background:#FDECEC;color:#B42318;border:1px solid #F5C2C0}
+.company-modal-notice .material-icons-round,.company-modal-error .material-icons-round{font-size:16px;line-height:1.5}
+#companyModalBody .form-input.is-invalid{border-color:#D92D20}
+.company-field-error{font-size:11.5px;color:#B42318;margin-top:4px}

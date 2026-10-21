@@ -74,8 +74,14 @@ function navAdminPaneReload(pane) {
   //      복귀**·동시 저장 충돌 복귀·권한 리다이렉트·브라우저 뒤로가기가 전부 지나간다.
   //      거기 두면 「저장했는데 저장 안 됐다고 묻는」 모습이 된다. 사이드바는 이 함수
   //      하나로 모이므로 여기가 정확한 자리다.
-  if (typeof campLeaveGuard === 'function') { campLeaveGuard(go); return; }
-  go();
+  //   브랜드 상세 새 페이지(admin-brand-detail.js)의 떠날 때 확인도 같은 이유로 여기에 다음 고리로 건다.
+  //   둘은 서로 다른 화면이라 한 번에 하나만 묻는다(떠 있지 않은 화면의 판정은 늘 「변경 없음」).
+  const goAfterBrand = () => {
+    if (typeof brandDetailLeaveGuard === 'function') { brandDetailLeaveGuard(go); return; }
+    go();
+  };
+  if (typeof campLeaveGuard === 'function') { campLeaveGuard(goAfterBrand); return; }
+  goAfterBrand();
 }
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)

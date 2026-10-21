@@ -396,6 +396,17 @@ window.addEventListener('popstate', function(e) {
   document.querySelectorAll('.admin-si').forEach(function(si) {
     if (si.getAttribute('onclick') && si.getAttribute('onclick').indexOf("'" + pane + "'") > -1) sideItem = si;
   });
+  // 브랜드 상세 새 페이지에 저장 안 한 변경이 있으면 묻는다(admin-brand-detail.js — 조각 6).
+  //   🔴 이 신호는 주소가 **이미 바뀐 뒤** 온다 — 주소를 #brand-detail 로 되돌려 둔 채 묻고,
+  //      「나가기」면 되돌린 그 기록을 목적지로 **바꿔 쓴다**(새로 쌓지 않는다).
+  if (pane !== 'brand-detail' && typeof brandDetailDirty === 'function' && brandDetailDirty()) {
+    history.pushState({pane: 'brand-detail'}, '', '#brand-detail');
+    brandDetailLeaveGuard(function() {
+      history.replaceState({pane: pane}, '', '#' + pane);
+      switchAdminPane(pane, sideItem, false);
+    });
+    return;
+  }
   switchAdminPane(pane, sideItem, false);
 });
 

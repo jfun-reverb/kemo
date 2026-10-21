@@ -151,21 +151,32 @@ var COMPANY_FIELDS = [
   { key: 'memo', label: '메모', textarea: true }
 ];
 
-// opts.onSaved(company) — 브랜드 폼 등에서 신규 회사 등록 후 콜백.
-//   콜백이 있으면 회사 모달을 다른 모달 위에 띄우고(z-index 상향), 저장 후 콜백 실행.
+// opts.onSaved(company) — 저장 뒤 콜백(새 등록·수정 모두). 콜백이 있으면 회사 모달을 다른 화면 위에 띄우고(z-index 상향),
+//   저장 후 회사 페인 갱신 대신 콜백을 부른다.
+// opts.company — 수정할 회사 값(브랜드 상세 a03-07 이 아이디로 새로 받아 넘긴다). 없으면 「회사 관리」 목록 보관값에서 찾는다.
+// opts.notice — 맨 위 안내 한 줄 · opts.readOnly — 권한이 있어도 보기만(보관 회사를 브랜드 상세에서 열 때)
 function openCompanyModal(id, opts) {
-  _companySavedCallback = (opts && typeof opts.onSaved === 'function') ? opts.onSaved : null;
-  var readOnly = !canEditCompanies();
+  opts = opts || {};
+  _companySavedCallback = (typeof opts.onSaved === 'function') ? opts.onSaved : null;
+  var readOnly = !canEditCompanies() || opts.readOnly === true;
   // 신규 추가는 권한 없으면 진입 차단. 기존 회사 행 클릭은 읽기 전용으로 열람 허용.
   if (!id && readOnly) { toast('회사 추가 권한이 없습니다 (캠페인 관리자 이상)'); _companySavedCallback = null; return; }
+  var c = id ? (opts.company || (_companiesCache || []).find(function(x){ return x.id === id; })) : null;
+  // 🔴 수정할 회사 값을 못 찾았으면 열지 않는다 — 빈 폼으로 열면 「저장」이 그 회사를 빈 값으로 덮는다(사양서 4-4)
+  if (id && !c) { toast('회사 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주십시오.', 'error'); _companySavedCallback = null; return; }
   _companyCurrentId = id || null;
-  var c = id ? (_companiesCache || []).find(function(x){ return x.id === id; }) : null;
   var title = $('companyModalTitle');
-  if (title) title.textContent = readOnly ? '회사 정보 (읽기 전용)' : (c ? '회사 수정' : '새 회사 추가');
+  if (title) title.textContent = (readOnly ? '회사 정보 (읽기 전용)' : (c ? '회사 수정' : '새 회사 추가'))
+    + (c && c.name_ko ? ' — ' + c.name_ko : '');
   var dis = readOnly ? ' disabled' : '';
 
   var body = $('companyModalBody');
   if (body) {
+    // 저장 실패 안내 자리(회사명 중복 등 — a03-07a) + 맨 위 안내(브랜드 상세에서 열 때)
+    var head = '<div id="companyModalError" role="alert" class="company-modal-error" style="display:none"></div>'
+      + (opts.notice
+          ? '<div class="company-modal-notice"><span class="material-icons-round notranslate" translate="no">info</span><span>' + esc(opts.notice) + '</span></div>'
+          : '');
     var rows = COMPANY_FIELDS.map(function(f) {
       var val = c ? (c[f.key] || '') : '';
       var input = f.textarea
@@ -186,7 +197,7 @@ function openCompanyModal(id, opts) {
         + '<option value="archived"' + (st === 'archived' ? ' selected' : '') + '>보관</option>'
         + '</select></div>';
     }
-    body.innerHTML = rows + statusRow;
+    body.innerHTML = head + rows + statusRow;
   }
   var saveBtn = $('companySaveBtn');
   if (saveBtn) saveBtn.style.display = readOnly ? 'none' : '';
@@ -194,6 +205,25 @@ function openCompanyModal(id, opts) {
   var modalEl = $('companyModal');
   if (modalEl) modalEl.style.zIndex = _companySavedCallback ? '620' : '612';
   openModal('companyModal');
+}
+
+// 모달 안 저장 실패 안내 — text 가 없으면 지운다. field 를 주면 그 칸에 빨간 테두리 + 칸 아래 한 줄
+function _companyModalShowError(text, field) {
+  var box = $('companyModalError');
+  document.querySelectorAll('#companyModalBody .company-field-error').forEach(function(n){ n.remove(); });
+  document.querySelectorAll('#companyModalBody .form-input.is-invalid').forEach(function(n){ n.classList.remove('is-invalid'); n.removeAttribute('aria-invalid'); });
+  if (!box) return;
+  if (!text) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = '<span class="material-icons-round notranslate" translate="no">error</span><span>' + esc(text) + '</span>';
+  box.style.display = '';
+  var el = field ? $('companyF_' + field) : null;
+  if (el) {
+    el.classList.add('is-invalid');
+    el.setAttribute('aria-invalid', 'true');
+    el.insertAdjacentHTML('afterend', '<div class="company-field-error">같은 이름의 회사가 「회사 관리」에 이미 있습니다.</div>');
+    el.focus();
+  }
+  if (box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
 }
 
 function closeCompanyModal() {
@@ -216,15 +246,16 @@ async function saveCompany() {
   var stEl = $('companyF_status');
   if (stEl) payload.status = stEl.value;
 
+  _companyModalShowError(null);
   var btn = $('companySaveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중…'; }
   var res = await upsertCompany(payload);
   if (btn) { btn.disabled = false; btn.textContent = '저장'; }
   if (!res.ok) {
     var em = res.error || '';
-    // name_normalized UNIQUE 충돌 = 같은 회사명 중복
+    // name_normalized UNIQUE 충돌 = 같은 회사명 중복 — 모달 안에 알리고 값은 그대로 둔다(a03-07a · 회사 관리 화면도 같다)
     if (em.indexOf('duplicate') >= 0 || em.indexOf('23505') >= 0) {
-      toast('이미 등록된 회사명입니다');
+      _companyModalShowError('저장하지 못했습니다 — 이미 등록된 회사명입니다(띄어쓰기·대소문자는 같은 것으로 봅니다). 입력한 값은 그대로 있습니다.', 'name_ko');
     } else {
       toast('저장에 실패했습니다: ' + friendlyError({ message: em }));
     }

@@ -131,6 +131,7 @@
 - `merge_brands` — **528**(175 → 328 → 467 → 528, 🔴 175 를 베이스로 잡으면 오리엔시트·메모 이동이, 467 을 잡으면 브랜드 계정 연결 거부가 사라진다) · `delete_brand` — **528**(174 → 191 → 325 → 528, 🔴 191 베이스 금지 — 325 의 보관 캠페인 제외가 사라진다). ⚠️ 528 은 **개발서버만** — 운영 원본은 아직 467·325(운영 반영은 526 → 527 → 528 한 묶음, 528 단독이면 없는 표를 불러 삭제·병합·초대가 전부 깨진다)
 
 - 오리엔시트 발급·조회 페인(신규 발급 창의 신청 연결 칸은 잠김 · 발급 메일 수신자는 서버가 정함 · ⚠️ 재발송 버튼·발송 이력은 없다)·발급 목록 삭제 — 상세 `.claude/rules/orient-sheet.md`
+- 🔴 **브랜드 상세 탭 4개 새 페이지는 개발서버만**(`dev/js/admin-brand-detail.js` — `openBrandDetail` 맨 앞 `_brandAccountEnabled()` 한 줄, 출시 날 걷고 출시 뒤 옛 경로 정리 · 작업표 `docs/specs/2026-10-21-admin-brand-detail-tabs-breakdown.md`) · 떠날 때 확인은 `navAdminPaneReload`·`popstate` 등에 걸고 `switchAdminPane` 안에는 걸지 않는다
 - 브랜드 상세 모달(🔴 편집 폼이라 탭 전환은 `display` 토글만)·회사 관리·브랜드 삭제·병합(되돌리기 불가)·서베이 신청 목록·상태 10단계·제품별 메모·입금 칩·캠페인↔신청 연결 — 상세 `.claude/rules/brand-admin.md`
 - 운영 현황 일정(간트)·브랜드 뷰(🔴 날짜→위치 변환은 `ganttDayOffset` 하나 · 선정 막대 조건은 다섯째 사본 · 경고 꼬리표는 브랜드 카드 경고의 화면 사본) — 상세 `.claude/rules/brand-ops.md`
 
