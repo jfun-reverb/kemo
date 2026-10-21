@@ -284,4 +284,11 @@
 ---
 
 ## 구현 결과
-(개발이 채운다)
+
+### 조각 5·6·9 (2026-10-21 · 화면 세션 · 개발서버만)
+- **새 파일** `dev/js/admin-brand-detail.js`(빌드 목록 `admin-brand.js` 바로 뒤). `openBrandDetail(id, from, opts)` 맨 앞 한 줄이 `_brandAccountEnabled()` 일 때만 `openBrandDetailTabs` 로 보낸다 — 운영은 옛 페이지 그대로. ⚠️ 원본 `<script>` 태그는 넣지 않았다(관리자 화면 파일은 빌드 목록에만 있다 — 작업표의 「원본 태그」 항목과 다름).
+- **조각 5**: 머리(「← 목록」·이름·번호·상태 배지·요약 줄·「병합」·「오리엔시트 발급」·「…」)·탭 넷(`setBrandDetailTab` 이 네 코드)·오른쪽 영업 메모. 「…」 = 「제공 기록」·「삭제」(`#brandDetailDeleteBtn` 그대로 — 시트가 생기면 `refreshBrandDetailSheets` 가 떼고 `brandDetailSyncMoreMenu` 가 빈 「…」 를 지운다). 요약 줄 = 저장된 브랜드 행 + `admin_get_brand_account_status`(실패면 멤버 구절 생략). 발급 창 계정 경고 → `{tab:'people'}` 로 담당자·계정 탭, 경고 문구도 그 탭 이름.
+  - ⚠️ **중간 상태(조각 7·10·12 가 바꾼다)**: 브랜드 정보 탭 = 옛 폼 칸(소개·어필·Qoo10 포함 — 옛 저장이 읽어 빼면 빈 값으로 덮는다) + 옛 `saveBrandDetail` 「저장」 / 담당자·계정 탭 = 옛 담당자 줄·계정 줄. 입력칸 아이디는 옛 것 그대로(접두어 변경은 조각 7). 공개 기본 열 칸은 아직 자기 「기본 열 저장」.
+- **조각 6**: `brandDetailDirty`(브랜드 정보 탭 칸 스냅샷 — 공개 기본 열 칸 제외, 중간 상태 동안 담당자 줄 포함) · `brandDetailLeaveGuard` · 동적 창 `#brandDetailLeaveModal`. 거는 자리: `navAdminPaneReload`(`campLeaveGuard` 다음 고리) · `popstate`(주소를 `#brand-detail` 로 되돌려 묻고, 나가기면 `replaceState` — 같은 화면 기록이 하나 남는 것은 수용) · `openBrandDetailTabs` 진입 · 「← 목록」 · 캠페인 줄 · `openNewBrandModal` · `osChooseNewPublish`(「이 카드로 발행」) · `beforeunload`. 「제공 기록」은 `navAdminPaneReload` 를 지난다.
+- **조각 9**: `openCompanyModal(id, {company, notice, readOnly, onSaved})` · `fetchCompanyById` · `fetchCompanyActiveBrandNames`(실패 null) · `openBrandCompanyEdit` · `#companyModalError`. 🔴 **운영 회사 관리 화면에도 실린다**: 회사명 중복이 토스트 → 모달 안 안내, 제목에 회사명, 회사 값을 못 찾으면 빈 폼 대신 열지 않음. 회사 선택지 생성을 `_brandCompanyOptionsHtml` 한 곳으로(다시 만들 때 보관 회사가 빠져 연결이 끊기던 길 차단).
+- 후속(범위 밖 그대로): 관리자 회사 이름 변경이 `brands.company_name` 사본을 안 맞춘다(기존 틈).

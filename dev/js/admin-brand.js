@@ -1199,7 +1199,10 @@ function canOpenBrandDetail() {
   return !(typeof isHidden === 'function' && isHidden('menu.brands'));
 }
 
-async function openBrandDetail(id, from) {
+async function openBrandDetail(id, from, opts) {
+  // 탭 4개 새 페이지(admin-brand-detail.js, 작업표 2026-10-21 조각 5) — 개발서버만. 운영은 출시 날까지 아래 옛 페이지.
+  //   🔴 판정은 `_brandAccountEnabled()` 한 곳(사양서 6절 ⑩). 출시 날 이 줄의 판정을 걷고, 출시 뒤 옛 경로를 지운다(조각 18).
+  if (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled() && typeof openBrandDetailTabs === 'function') return openBrandDetailTabs(id, opts || {});
   // 단추를 숨겨도 다른 자리에서 불릴 수 있다 — 상태를 비우고 조회를 띄우기 전에 멈춘다
   if (!canOpenBrandDetail()) { if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error'); return; }
   _brandsCurrentId = id;
@@ -1347,7 +1350,11 @@ async function refreshBrandDetailSheets() {
   };
   setCnt('sheets', Array.isArray(sheets) ? String(sheets.length) : '…');
   setCnt('camps', (campCount === null || campCount === undefined) ? '…' : String(campCount));
-  if (Array.isArray(sheets) && sheets.length > 0) { var del = $('brandDetailDeleteBtn'); if (del) del.remove(); }
+  if (Array.isArray(sheets) && sheets.length > 0) {
+    var del = $('brandDetailDeleteBtn'); if (del) del.remove();
+    // 새 페이지는 「삭제」가 「…」 메뉴 안에 있다 — 항목이 0개가 되면 「…」 를 지운다
+    if (typeof brandDetailSyncMoreMenu === 'function') brandDetailSyncMoreMenu();
+  }
   // 캠페인 탭은 다음에 열 때 새로 받는다 — 지금 열려 있으면 바로 다시 받는다(도는 중인 옛 조회는 요청 번호로 버린다)
   _brandDetailCampsReq++;
   _brandDetailCamps = undefined;
@@ -1370,6 +1377,11 @@ function clearBrandDetailPaneBody() {
 // 캠페인 탭 배지 → 진행현황(조각 10). 이 창은 편집 폼이라 닫으면 저장 안 한 값이 사라진다 — 먼저 묻는다
 function brandDetailOpenCampProgress(campId) {
   if (!campId) return;
+  // 새 페이지 — 떠날 때 확인(a03-09)을 거친다. 「머물기」면 아무것도 비우지 않는다(조각 6)
+  if (typeof brandDetailIsTabsPage === 'function' && brandDetailIsTabsPage()) {
+    brandDetailLeaveGuard(function(){ closeBrandDetailModal(); openCampApplicants(campId); });
+    return;
+  }
   if (!confirm('브랜드 상세를 닫고 그 캠페인의 진행현황으로 갑니다.\n저장하지 않은 변경은 사라집니다. 계속할까요?')) return;
   closeBrandDetailModal();
   openCampApplicants(campId);
@@ -1674,19 +1686,7 @@ function renderBrandCompanyBlock(b) {
   var curId = b.company_id || '';
   var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
   var canEdit = (typeof canEditCompanies === 'function') ? canEditCompanies() : false;
-  var companies = _brandFormCompanies || [];
-
-  var optHtml = '<option value="">(미지정)</option>'
-    + companies
-        .filter(function(c){ return c.status !== 'archived'; })
-        .map(function(c){
-          return '<option value="' + esc(c.id) + '"' + (c.id === curId ? ' selected' : '') + '>' + esc(c.name_ko || '(이름없음)') + '</option>';
-        }).join('');
-  // 현재 연결 회사가 보관(archived) 상태면 별도 옵션으로 노출(선택 유지)
-  var curCompany = companies.find(function(c){ return c.id === curId; });
-  if (curCompany && curCompany.status === 'archived') {
-    optHtml += '<option value="' + esc(curCompany.id) + '" selected>' + esc(curCompany.name_ko || '(이름없음)') + ' (보관됨)</option>';
-  }
+  var optHtml = _brandCompanyOptionsHtml(curId);
 
   var newBtn = canEdit
     ? '<button type="button" class="btn btn-ghost btn-xs" onclick="openCompanyModalForBrand()" style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 신규 회사 등록</button>'
@@ -1704,7 +1704,25 @@ function renderBrandCompanyBlock(b) {
   + '</div>';
 }
 
+// 회사 선택칸 선택지 — 활성 회사 + (지금 고른 회사가 보관이면) 「(보관됨)」 한 줄. 🔴 보관 회사를 빼면 선택이 「미지정」으로
+//   떨어져 저장 때 회사 연결이 끊긴다 — 처음 그리기(renderBrandCompanyBlock)와 다시 만들기(_rebuildBrandCompanySelect)가 이 한 곳을 쓴다.
+function _brandCompanyOptionsHtml(curId) {
+  var companies = _brandFormCompanies || [];
+  var html = '<option value="">(미지정)</option>'
+    + companies
+        .filter(function(c){ return c.status !== 'archived'; })
+        .map(function(c){
+          return '<option value="' + esc(c.id) + '"' + (c.id === curId ? ' selected' : '') + '>' + esc(c.name_ko || '(이름없음)') + '</option>';
+        }).join('');
+  var curCompany = curId ? companies.find(function(c){ return c.id === curId; }) : null;
+  if (curCompany && curCompany.status === 'archived') {
+    html += '<option value="' + esc(curCompany.id) + '" selected>' + esc(curCompany.name_ko || '(이름없음)') + ' (보관됨)</option>';
+  }
+  return html;
+}
+
 // 읽기전용 회사정보 카드 내부 (사업자등록번호·청구 이메일 + 회사 관리 안내)
+//   카드가 새 브랜드 상세 페이지(#brandDetailPane_info) 안에 있으면 끝 줄이 「수정 / 보기」 링크다(조각 9 — a03-07)
 function renderBrandCompanyInfoCardInner(companyId) {
   if (!companyId) {
     return '<div style="background:var(--surface-dim);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted)">회사를 연결하면 사업자등록번호·청구 이메일이 여기에 표시됩니다. 회사 정보는 「회사 관리」에서 수정합니다.</div>';
@@ -1722,8 +1740,15 @@ function renderBrandCompanyInfoCardInner(companyId) {
   return '<div style="background:var(--surface-dim);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'
     + row('사업자등록번호', c.business_no)
     + row('청구 이메일', c.billing_email)
-    + '<div style="margin-top:6px;font-size:11px;color:var(--muted)">이 정보는 「회사 관리」에서 수정합니다.</div>'
+    + ((typeof brandDetailCompanyCardFootHtml === 'function' && _brandCompanyCardInTabsPage())
+        ? brandDetailCompanyCardFootHtml(c)
+        : '<div style="margin-top:6px;font-size:11px;color:var(--muted)">이 정보는 「회사 관리」에서 수정합니다.</div>')
   + '</div>';
+}
+// 회사 카드가 새 페이지의 브랜드 정보 탭 안인가 — 같은 카드를 「새 브랜드」 모달·옛 페이지도 그린다(DOM 위치로 가른다)
+function _brandCompanyCardInTabsPage() {
+  var card = $('brandCompanyInfoCard');
+  return !!(card && card.closest && card.closest('#brandDetailPane_info'));
 }
 
 function onBrandCompanyChange() {
@@ -1737,11 +1762,7 @@ function onBrandCompanyChange() {
 function _rebuildBrandCompanySelect(selectedId) {
   var sel = $('brandFormCompanyId');
   if (!sel) return;
-  sel.innerHTML = '<option value="">(미지정)</option>'
-    + (_brandFormCompanies || [])
-        .filter(function(c){ return c.status !== 'archived'; })
-        .map(function(c){ return '<option value="' + esc(c.id) + '"' + (c.id === selectedId ? ' selected' : '') + '>' + esc(c.name_ko || '(이름없음)') + '</option>'; })
-        .join('');
+  sel.innerHTML = _brandCompanyOptionsHtml(selectedId);
   sel.value = selectedId || '';
 }
 
@@ -1758,10 +1779,8 @@ function openCompanyModalForBrand() {
   }});
 }
 
-// ⚠️ 인자가 넷이다 — `sheets`(오리엔시트 목록 · 실패는 `null`) · `surveyCount`(지난 서베이 건수 · 실패는 `null`)
-//    · `campMap`(발행 캠페인 맵). 신규 브랜드 등록 폼은 `({}, [], 0, {})` 로 부른다.
-function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
-  // contacts 초기화
+// 담당자 작업 사본 초기화 — 새 페이지(admin-brand-detail.js)도 같은 규칙으로 쓴다
+function _initBrandFormContacts(b) {
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
     return {
       id: c.id || _genContactId(),
@@ -1780,6 +1799,30 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
       is_primary: true
     });
   }
+}
+
+// 담당자 줄 묶음(머리 줄 + 줄 자리 + 계정 줄) — 옛 페이지·「새 브랜드」 모달·새 페이지 담당자·계정 탭(조각 5 임시)이 같이 쓴다
+function renderBrandContactsBlockHtml(b) {
+  var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
+  return '<div id="brandContactsHeader" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr 110px 32px;gap:8px;margin-bottom:6px;padding:0 4px">'
+      + '<div style="' + labelStyle + ';margin:0">담당자명</div>'
+      + '<div style="' + labelStyle + ';margin:0">연락처</div>'
+      + '<div style="' + labelStyle + ';margin:0">메일주소</div>'
+      + '<div style="' + labelStyle + ';margin:0;text-align:center">대표</div>'
+      + '<div></div>'
+    + '</div>'
+    + '<div id="brandContactsWrap"></div>'
+    // 브랜드 로그인 계정 줄(조각 10) — 기존 브랜드 + 개발서버에서만. 🔴 운영 주소에서는 아예 안 그린다(P-1).
+    //   ⚠️ 이 줄만 `renderBrandAccountRow` 가 다시 그린다 — 편집 폼 본문은 다시 그리지 않는다.
+    + ((b && b.id && _brandAccountFeatureOn())
+        ? '<div id="brandAccountStatusRow" class="brand-account-row"><span class="brand-account-muted">브랜드 로그인 계정 상태를 불러오는 중…</span></div>'
+        : '');
+}
+
+// ⚠️ 인자가 넷이다 — `sheets`(오리엔시트 목록 · 실패는 `null`) · `surveyCount`(지난 서베이 건수 · 실패는 `null`)
+//    · `campMap`(발행 캠페인 맵). 신규 브랜드 등록 폼은 `({}, [], 0, {})` 로 부른다.
+function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
+  _initBrandFormContacts(b);
 
   // 공통 헬퍼 — 신청 등록 모달과 동일한 섹션 패턴(border-bottom:2px solid pink)
   // 절 간격 — 2026-09-23 사용자 요청으로 넓혔다(제목끼리 붙어 빽빽해 보였다).
@@ -1818,19 +1861,7 @@ function renderBrandDetailFormHtml(b, sheets, surveyCount, campMap, campCount) {
       )
     // § 담당자
     + section('담당자', '<button type="button" class="btn btn-ghost btn-xs" onclick="addBrandContact()" style="display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 담당자 추가</button>',
-        '<div id="brandContactsHeader" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr 110px 32px;gap:8px;margin-bottom:6px;padding:0 4px">'
-          + '<div style="' + labelStyle + ';margin:0">담당자명</div>'
-          + '<div style="' + labelStyle + ';margin:0">연락처</div>'
-          + '<div style="' + labelStyle + ';margin:0">메일주소</div>'
-          + '<div style="' + labelStyle + ';margin:0;text-align:center">대표</div>'
-          + '<div></div>'
-        + '</div>'
-        + '<div id="brandContactsWrap"></div>'
-        // 브랜드 로그인 계정 줄(조각 10) — 기존 브랜드 + 개발서버에서만. 🔴 운영 주소에서는 아예 안 그린다(P-1).
-        //   ⚠️ 이 줄만 `renderBrandAccountRow` 가 다시 그린다 — 편집 폼 본문은 다시 그리지 않는다.
-        + ((b && b.id && _brandAccountFeatureOn())
-            ? '<div id="brandAccountStatusRow" class="brand-account-row"><span class="brand-account-muted">브랜드 로그인 계정 상태를 불러오는 중…</span></div>'
-            : '')
+        renderBrandContactsBlockHtml(b)
       )
     // § 브랜드 콘텐츠
     + section('브랜드 콘텐츠 (오리엔시트용)', '',
@@ -2045,12 +2076,16 @@ function renderBrandDetailTabsHtml(sheets, campMap, surveyCount, campCount) {
 
 // 탭 전환 — 🔴 본문을 다시 그리지 않는다(편집 중인 값이 사라진다). `display` 만 바꾼다.
 //   캠페인 목록은 **탭을 처음 누를 때** 받는다 — 안 누르는 사람에게 조회를 시키지 않는다.
+//   네 코드 — 옛 페이지는 sheets·camps 둘, 새 페이지(admin-brand-detail.js)는 info·people 까지 넷(없는 영역은 건너뛴다).
+//   🔴 `info` 는 표시만 바꾸고 **다시 그리지 않는다**(편집 폼) · `people` 은 누를 때마다 다시 받는다(사양서 6절 ③).
+var BRAND_DETAIL_TAB_CODES = ['info', 'people', 'sheets', 'camps'];
 async function setBrandDetailTab(code) {
-  _brandDetailTab = (code === 'camps') ? 'camps' : 'sheets';
-  ['sheets', 'camps'].forEach(function(k){
+  _brandDetailTab = (BRAND_DETAIL_TAB_CODES.indexOf(code) >= 0) ? code : 'sheets';
+  BRAND_DETAIL_TAB_CODES.forEach(function(k){
     var btn = $('brandDetailTab_' + k); if (btn) btn.classList.toggle('on', k === _brandDetailTab);
     var pane = $('brandDetailPane_' + k); if (pane) pane.style.display = (k === _brandDetailTab) ? '' : 'none';
   });
+  if (_brandDetailTab === 'people' && typeof brandDetailOnPeopleTab === 'function') { brandDetailOnPeopleTab(); return; }
   if (_brandDetailTab !== 'camps' || _brandDetailCamps !== undefined) return;
   var brandId = _brandsCurrentId;
   var req = ++_brandDetailCampsReq;
@@ -2203,6 +2238,7 @@ function renderBrandOrientSheetCard(s, campMap) {
 function renderBrandContactsRows() {
   var wrap = $('brandContactsWrap');
   if (!wrap) return;
+  if (typeof brandDetailOnContactsChanged === 'function') setTimeout(brandDetailOnContactsChanged, 0);   // 새 페이지 탭 숫자·저장 안 한 표시
   if (_brandFormContacts.length === 0) {
     wrap.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:6px">담당자가 없습니다. "담당자 추가" 버튼을 눌러 등록하세요.</div>';
     return;
@@ -2313,6 +2349,8 @@ async function saveBrandDetail() {
   { var nameEl = $('brandDetailPaneHeader') && $('brandDetailPaneHeader').querySelector('[data-brand-name]');
     if (nameEl && patch.name) nameEl.textContent = patch.name;
     syncBrandDetailTabOffset(); }
+  // 새 페이지(조각 5 임시 저장) — 머리 배지·요약 줄·떠날 때 확인 기준값. 조각 7 이 새 저장으로 바꾼다
+  if (typeof brandDetailAfterLegacySave === 'function') brandDetailAfterLegacySave(savedId, patch);
   // 브랜드 로그인 계정(조각 10) — 브랜드 저장과 **별개의** 안내. 운영 주소에서는 아무것도 안 한다.
   await _brandAccountAfterBrandSave(savedId, patch.contacts, 'save');
   // 목록은 뒤에서 새로 받는다 — 안 받으면 돌아갔을 때 옛 이름이 남는다.
@@ -2324,7 +2362,12 @@ async function saveBrandDetail() {
 var _newBrandCallbackPrefix = null;
 var NEW_BRAND_CALLBACKS = ['new', 'edit', 'orient'];
 
-async function openNewBrandModal(callbackPrefix) {
+async function openNewBrandModal(callbackPrefix, _guarded) {
+  // 새 브랜드 상세 페이지에 저장 안 한 변경이 있으면 먼저 묻는다 — 아래에서 페이지 본문을 비운다(조각 6, 작업표 M2)
+  if (!_guarded && typeof brandDetailDirty === 'function' && brandDetailDirty()) {
+    brandDetailLeaveGuard(function(){ openNewBrandModal(callbackPrefix, true); });
+    return;
+  }
   // 🔴 이 모달과 브랜드 상세 **페이지**가 같은 입력칸 이름을 쓴다 — 페이지 본문을 먼저 비운다(사양서 2-2).
   clearBrandDetailPaneBody();
   _brandsCurrentId = null;
