@@ -1518,7 +1518,10 @@ function renderBrandDetailHeaderHtml(b) {
   var status = b.status || 'active';
   var subtitle = b.company_name
     ? '회사명: ' + esc(b.company_name)
-    : '브랜드 마스터 정보 · 담당자 · 콘텐츠 · 영업 메모를 한 곳에서 관리';
+    // 개발서버는 콘텐츠 칸을 뺐다(_bdNoContentFields) — 운영 옛 창만 「콘텐츠」를 적는다
+    : (_bdNoContentFields()
+      ? '브랜드 마스터 정보 · 담당자 · SNS 정보 · 영업 메모를 한 곳에서 관리'
+      : '브랜드 마스터 정보 · 담당자 · 콘텐츠 · 영업 메모를 한 곳에서 관리');
   return ''
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
