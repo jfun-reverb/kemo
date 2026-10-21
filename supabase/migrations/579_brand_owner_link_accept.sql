@@ -32,7 +32,9 @@
 -- 🔴 수락 본체는 정의자 권한 함수 안에서 담당자 목록을 고친다 — 576 직접 고치기 막기 트리거(current_user='authenticated' 판정)를 통과해야 한다(작업표 의심 9).
 -- 편집기 경고: 뜸 — 「destructive operations」(DROP FUNCTION respond_brand_invite 3인자). 「Run query」.
 --   2026-10-21 개발서버 적용(기록 표 579 줄 15:10:53 JST — 연결 8 화면 #2258 리뷰 통과 신호 뒤) · respond_brand_invite 4인자 한 벌 · 본체 권한 postgres·service_role 만
---   실제 수락 시험(브랜드 계정 로그인)은 연결 8 화면 병합 뒤
+--   실제 수락 시험(2026-10-21, 연결 8 병합 뒤 · zz-b2-second 로그인 · 시험브랜드0923): 약관 없이 terms_version_required ·
+--   마이페이지 카드 약관 체크 + 「수락」 → 대표 연결 active·source_contact_id=새 대표 담당자 줄 · 담당자·대표 칸 셋(576 트리거 통과) ·
+--   약관 칸 셋 기록 · 관리자 상태 active·owner_link_request null. 정리: 관리자 해제 + 담당자 삭제
 -- 롤백(연결 8 을 먼저 되돌린다): DROP FUNCTION respond_brand_invite(uuid,uuid,text,text) → 577 의 respond_brand_invite 블록(3인자) 재실행 +
 --   GRANT postgres·authenticated·service_role / REVOKE PUBLIC·anon → 577 의 _brand_acceptable_invites_for·get_brand_invite_link_state 블록 재실행 →
 --   532 의 get_my_brand_invites 블록 재실행 → DROP FUNCTION _brand_accept_owner_link(uuid,uuid,text)
