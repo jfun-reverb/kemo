@@ -98,12 +98,35 @@ function setBrandSessionFromState(state, opts) {
   if (prevBrand && prevBrand !== brandSession.currentBrandId) _emitBrandChanged();
 }
 
+// ── 로그인 시간 만료 뒤 「보던 화면」(bw01-91 ⑦) — 세션 저장소에 { hash, email } 한 벌.
+//   끊기는 순간(로그인 시간 만료 이벤트·새로고침 때 복원 실패) 남기고, 다시 로그인하면 같은 계정일 때만 한 번 꺼낸다.
+//   다른 계정으로 로그인하면 버린다(남의 캠페인 주소로 가지 않게). 틀 안 페이지 주소만 남긴다.
+const BRAND_RETURN_KEY = 'reverb.brandReturnTo';
+function rememberBrandReturnTo(email) {
+  const hash = location.hash.replace(/^#/, '');
+  const mail = String(email || '').trim().toLowerCase();
+  if (!mail || !isBrandShellPage(hash)) return;
+  try { sessionStorage.setItem(BRAND_RETURN_KEY, JSON.stringify({ hash, email: mail })); } catch (e) { /* 저장소 막힘 — 첫 페이지로 */ }
+}
+function takeBrandReturnTo(email) {
+  let t = null;
+  try { t = JSON.parse(sessionStorage.getItem(BRAND_RETURN_KEY) || 'null'); sessionStorage.removeItem(BRAND_RETURN_KEY); } catch (e) { t = null; }
+  if (!t || typeof t.hash !== 'string' || !isBrandShellPage(t.hash)) return null;
+  return t.email && t.email === String(email || '').trim().toLowerCase() ? t.hash : null;
+}
+// 「가려던 시트」(메일 링크·옛 링크·쓰던 오리엔시트 — brand-orient.js)가 남아 있으면 첫 페이지(오리엔시트)가 그것을 연다 — 보던 화면보다 앞선다
+function _brandHasOrientTarget() {
+  try { return typeof BRAND_ORIENT_TARGET_KEY === 'string' && !!sessionStorage.getItem(BRAND_ORIENT_TARGET_KEY); } catch (e) { return false; }
+}
+
 // 로그인 직후·초대 수락 뒤 — 첫 페이지로. 🔴 활동 기록은 남기지 않는다(로그인만 한 것은 활동이 아니다 — 사양서 16-4 ③).
 function enterBrandApp(state, opts) {
   brandSession = null;          // 로그인 직후에는 이전 브랜드를 이어받지 않는다
   setBrandAuthed(state, opts);
-  // 배송 리스트 메일 링크(?shipping=)로 들어와 로그인했으면 그 리스트로 — 아니면 첫 페이지(brand-shipping.js)
-  goBrandScreen((typeof takeBrandShippingTarget === 'function' && takeBrandShippingTarget()) || BRAND_FIRST_PAGE);
+  // 배송 리스트 메일 링크(?shipping=)로 들어와 로그인했으면 그 리스트로(brand-shipping.js) — 그다음 만료 전에 보던 화면 — 아니면 첫 페이지
+  const ship = (typeof takeBrandShippingTarget === 'function') ? takeBrandShippingTarget() : null;
+  const back = takeBrandReturnTo(state && state.email);
+  goBrandScreen(ship || (!_brandHasOrientTarget() && back) || BRAND_FIRST_PAGE);
 }
 
 // 판정을 다시 받아 세션 상태를 갱신 — 반환 state 또는 null(호출 실패).

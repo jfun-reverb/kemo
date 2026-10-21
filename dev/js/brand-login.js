@@ -134,6 +134,15 @@ function initLoginForm() {
         failMsg = brandSignInErrorMsg(signErr);
       } else {
         const state = await fetchBrandLoginState();
+        if (state === null) {
+          // bw01-14 — 판정 호출 실패는 일시 오류일 수 있다. 방금 생긴 세션을 두고 「다시 시도」 화면(새로고침 실패·초대 수락 뒤와 같은 처리)
+          pwInput.value = '';
+          setNotice('loginExpiredNotice', '');
+          _brandCheckPending = true;
+          history.replaceState(null, '', location.pathname + location.search + '#check-fail');
+          paintBrandScreen('check-fail');
+          return;
+        }
         const result = await applyBrandLoginState(state);
         if (result === 'ok') {
           setNotice('loginExpiredNotice', '');

@@ -197,6 +197,14 @@ async function handleBrandLinkLanding(params) {
   await showBrandLinkInvalid();
 }
 
+// 저장 칸에 남은 세션의 이메일(복원 실패 때 「보던 화면」 계정 대조용) — 못 읽으면 빈 값(그러면 남기지 않는다)
+function _brandStoredEmail() {
+  try {
+    const v = JSON.parse(localStorage.getItem(BRAND_AUTH_STORAGE_KEY) || 'null');
+    return (v && v.user && v.user.email) || '';
+  } catch (e) { return ''; }
+}
+
 // ── 새로고침 때 로그인 연결의 세션 복원
 async function restoreBrandSession() {
   let hadStored = false;
@@ -207,8 +215,8 @@ async function restoreBrandSession() {
     session = data && data.session;
   } catch (e) { session = null; }
   if (!session) {
-    // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료)
-    if (hadStored) setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
+    // 저장된 세션이 있었는데 이어 가지 못했다 = 갱신 실패(로그인 시간 만료) — 보던 주소를 남겨 다시 로그인하면 그리로(bw01-91 ⑦)
+    if (hadStored) { rememberBrandReturnTo(_brandStoredEmail()); setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG); }
     // 옛 오리엔시트 작성 링크로 들어옴 — 로그인 화면 대신 안내 카드(bw01-09)부터. 「브랜드 페이지 로그인」(#login)을 누르면 그 뒤로는
     //   로그인 화면이 그대로 남는다(카드 해시가 아닐 때만 — 로그인 화면에서 새로고침해도 카드로 되돌리지 않는다)
     if (brandOrientHasPendingLink() && !BRAND_SCREENS.includes(currentBrandHash())) { goBrandScreen('orient-moved'); return; }
@@ -228,7 +236,9 @@ async function restoreBrandSession() {
   if (result === 'ok') {
     // 배송 리스트 메일 링크로 들어왔으면 그 주소로(로그인 폼을 거친 경우는 enterBrandApp 이 꺼낸다)
     const shipTarget = (typeof takeBrandShippingTarget === 'function') ? takeBrandShippingTarget() : null;
-    if (shipTarget) history.replaceState(null, '', location.pathname + location.search + '#' + shipTarget);
+    // 로그인 직후 판정 실패(bw01-14)에서 「다시 시도」로 온 경우 — 주소가 틀 밖(#check-fail)이라 보던 화면을 여기서 꺼낸다
+    const backTarget = !shipTarget && !isBrandShellPage(currentBrandHash()) && !_brandHasOrientTarget() ? takeBrandReturnTo(state.email) : null;
+    if (shipTarget || backTarget) history.replaceState(null, '', location.pathname + location.search + '#' + (shipTarget || backTarget));
     routeBrand();
   }
 }
@@ -282,7 +292,10 @@ function initBrandAuthEvents() {
       // 대기 초대만 있는 계정(초대 수락 화면)도 세션이 있으므로 같이 본다
       if (brandAuthed || _brandInviteCtx) {
         _brandInviteCtx = null;
-        if (brandAuthed) emitBrandSessionLost();   // 쓰던 오리엔시트를 이 기기 사본에 남기고 다시 로그인하면 그 시트로(결정 11) — 틀을 감추기 전에
+        if (brandAuthed) {
+          emitBrandSessionLost();   // 쓰던 오리엔시트를 이 기기 사본에 남기고 다시 로그인하면 그 시트로(결정 11) — 틀을 감추기 전에
+          rememberBrandReturnTo(brandAuthed.email);   // 보던 주소 — 다시 로그인하면 그리로(bw01-91 ⑦)
+        }
         setBrandAuthed(null);
         setNotice('loginExpiredNotice', BRAND_EXPIRED_MSG);
         goBrandScreen('login');
