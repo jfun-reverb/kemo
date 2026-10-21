@@ -55,8 +55,10 @@ function routeBrand() {
     history.replaceState(null, '', location.pathname + location.hash);
   }
   _brandCheckPending = false;
-  // 초대 메일 링크 흐름(계속하기·새 이메일 설정 화면)에 있다가 주소가 바뀌면 그 흐름을 끝낸다
-  if (_brandInviteLanding || _brandInviteNewCtx) { _brandInviteLanding = null; endBrandInviteNew(); clearBrandInviteLink(); }
+  // 초대 메일 링크 흐름(계속하기·새 이메일 설정 화면·연결 요청 비밀번호 설정)에 있다가 주소가 바뀌면 그 흐름을 끝낸다
+  if (_brandInviteLanding || _brandInviteNewCtx || _brandOwnerLinkSetpwCtx) {
+    _brandInviteLanding = null; endBrandInviteNew(); endOwnerLinkSetpw(); clearBrandInviteLink();
+  }
   const hash = currentBrandHash();
   // 로그인돼 있으면 틀 안 페이지만(카드 화면 해시로 오면 첫 페이지) / 로그인 안 했으면 틀 페이지로 못 간다
   if (brandAuthed) {
@@ -258,7 +260,7 @@ function updatePreviewVisibility() {
   const bar = document.getElementById('brandPreview');
   if (!bar) return;
   bar.hidden = !_brandPreviewReady || !!brandAuthed || !!brandLinkCtx || _brandCheckPending || !!_brandInviteCtx
-    || !!_brandInviteLanding || !!_brandInviteNewCtx;
+    || !!_brandInviteLanding || !!_brandInviteNewCtx || !!_brandOwnerLinkSetpwCtx;
 }
 
 function initPreviewBar() {
