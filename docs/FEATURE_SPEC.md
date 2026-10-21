@@ -2337,7 +2337,7 @@ SELECT
 ## 59. 브랜드 계정 — 데이터베이스 함수 — 2026-10-14 (마이그레이션 527, 개발서버만 · 운영 보류)
 
 - 작업표 `docs/specs/2026-10-14-brand-login-breakdown.md` 조각 2 (+ 「🎨 피그마 설명 반영」 F-2)
-- 관리자: 대표 계정 만들기·바꾸기(`admin_upsert_brand_owner_account` — created·noop·email_replaced·password_already_set·primary_moved·conflict_influencer/admin/brand·no_primary_email·invalid_email·brand_not_found·brand_archived·forbidden) · 계정 상태(`admin_get_brand_account_status` — none·mail_pending·mail_sent·active)
+- 관리자: 대표 계정 만들기·바꾸기(`admin_upsert_brand_owner_account` — created·noop·email_change_locked(573 — 설정 전이어도 계정이 있으면 대표 이메일을 안 바꾼다. 옛 email_replaced 는 안 나온다)·password_already_set·primary_moved·conflict_influencer/admin/brand·no_primary_email·invalid_email·brand_not_found·brand_archived·forbidden) · 계정 상태(`admin_get_brand_account_status` — none·mail_pending·mail_sent·active)
 - 브랜드 화면: 링크 상태(`get_brand_link_state`) · 설정 완료(`complete_brand_account_setup` — 동의 시각은 서버 시각) · 재설정 완료(`complete_brand_password_reset`) · 로그인 판정(`get_my_brand_login_state` — ok·not_brand·setup_incomplete·no_active_brand)
 - 서버 메일 함수용(서비스 키 전용): 링크 번호 발급·발송 기록·비밀번호 찾기 요청 제한(관리자와 같은 3층) + 30일 정리 예약
 - 화면 변경 없음. 개발서버 확인: 실행 권한 · 함수 13개 단독 호출 · 판정 10가지 · 링크·설정 완료 14가지 · 로그인한 관리자 화면 호출 — 모두 통과
