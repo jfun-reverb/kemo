@@ -425,7 +425,8 @@ async function osReopenSendMail(id) {
   // 브랜드만 선택 건만 수신자 선택 UI (신청 연결 건은 자동 결정) · 계정 모드는 받는 사람을 서버가 정한다(고르는 칸 없음)
   if (!s.application_id && !osBrandAccountMode()) { osLoadRecipients(s.brand_id); }   // 내부 osOnRecipientChange 가 버튼 상태 갱신
   else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; osUpdateSendBtnState(); }
-  osApplyResultMode();
+  const onEl = document.getElementById('osCreateOrientNo'); if (onEl) onEl.textContent = s.orient_no || '-';
+  osApplyResultMode(true);
   osRenderAcctNotice(s.brand_id, 'osResultAcctNotice', s.id);
   const title = document.getElementById('osCreateTitle'); if (title) title.textContent = '메일 재발송';
   document.getElementById('orientCreateModal').classList.add('open');
@@ -775,12 +776,15 @@ function osGoBrandAccount(brandId) {
 }
 
 // 발급 결과 화면 글자 — 계정 모드면 「링크 전달」 대신 브랜드 페이지 기준 안내(받는 사람은 서버가 정한다)
-function osApplyResultMode() {
+//   resend=true(목록 「…」→「메일」 재발송 창)면 「발급되었습니다」 대신 재발송 안내
+function osApplyResultMode(resend) {
   const on = osBrandAccountMode();
   const lead = document.getElementById('osCreateResultLead');
-  if (lead) lead.textContent = on
-    ? '발급되었습니다. 브랜드 페이지에 로그인한 그 브랜드의 계정은 오리엔시트 목록에서 이 시트를 볼 수 있습니다.'
-    : '발급되었습니다. 아래 링크를 브랜드에게 전달하세요.';
+  if (lead) lead.textContent = resend
+    ? (on ? '이미 발급한 시트입니다. 브랜드 페이지에 로그인한 그 브랜드의 계정은 오리엔시트 목록에서 이 시트를 볼 수 있습니다.'
+          : '이미 발급한 시트입니다. 필요하면 아래 링크를 브랜드에게 전달하거나 메일을 다시 보내세요.')
+    : (on ? '발급되었습니다. 브랜드 페이지에 로그인한 그 브랜드의 계정은 오리엔시트 목록에서 이 시트를 볼 수 있습니다.'
+          : '발급되었습니다. 아래 링크를 브랜드에게 전달하세요.');
   const hint = document.getElementById('osSendMailHint');
   if (hint) hint.textContent = on
     ? '메일은 자동 발송되지 않습니다. 단추를 누르면 이 브랜드의 브랜드 페이지 계정 중 아직 못 받은 계정에게만 한 통씩 보냅니다. 이미 받은 계정에는 다시 보내지 않습니다.'
