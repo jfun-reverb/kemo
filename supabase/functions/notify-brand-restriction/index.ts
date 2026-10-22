@@ -20,7 +20,9 @@
 //     | 400 invalid_request · 401 Unauthorized · 500 server_error
 //   · disabled        — 잠금이 꺼져 있음(선점 안 함). 작업표 응답 목록에 더한 값(배송 메일 선례 — 2026-10-22 기획 확인)
 //   · already_claimed — 같은 줄·같은 종류는 한 번만(「알림 1건 = 메일 1통」). 기간 바꾸기는 새 줄이라 줄마다 한 번(A1)
-//   · not_eligible    — 종류와 줄 상태가 안 맞음(예: account_lift 인데 아직 걸린 줄 · 저절로 풀린 줄)
+//   · not_eligible    — 종류와 줄 상태가 안 맞음(예: account_lift 인데 아직 걸린 줄 · 저절로 풀린 줄 ·
+//                       account_restrict·account_period 인데 지금 걸려 있지 않은 줄 — 걸자마자 기간을 바꾸면 옛 줄의 account_restrict 는
+//                       여기로 오고 새 줄의 account_period 만 나간다 · results_suspend 인데 이미 풀린 정지). 조용히 넘긴다(제한 4 계약)
 //   관리자 화면은 sent:false 전부를 「알림 메일을 보내지 못했습니다」로 그린다 — 제한·정지는 그대로 걸려 있다(4-8)
 //
 // 🔴 호출자 판정 = 그 사람 토큰으로 has_permission('brand.restriction_manage','write') — 쓰기 함수(제한 4)와 같은 등급.
