@@ -38,7 +38,7 @@ const BRAND_SHIP_MSG = {
   //   결과물 정지 안내(brand-campaign-results.js BRAND_RES_MSG.suspended*)와 같은 틀
   suspendedDesc: '배송 리스트는 열람이 정지된 동안 보이지 않습니다',
   suspendedTitle: '배송 리스트 열람이 정지되었습니다',
-  suspendedBody: '이용약관에 따라 배송 리스트 열람이 정지되었습니다. 자세한 사유는 등록된 이메일로 안내드렸습니다. 받는 분 정보 보기와 송장 등록은 정지가 풀리면 다시 할 수 있습니다.',
+  suspendedBody: '이용약관에 따라 정지되었습니다. 자세한 사유는 등록된 이메일을 확인해 주십시오. 궁금한 점은 REVERB 운영팀 담당자에게 문의해 주십시오. 받는 분 정보 보기와 송장 등록은 정지가 풀리면 다시 할 수 있습니다.',
   suspendedToast: '배송 리스트 열람이 정지되었습니다. 운영팀에 문의해 주십시오.'
 };
 // 서버 거부가 열람 정지인가 — 요약은 {success:true, ready:false, reason}, 목록·내려받기·저장은 {success:false, reason}
