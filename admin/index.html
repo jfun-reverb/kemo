@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792655810';
+  var CURRENT_BUILD = 'v1792656061';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3318,16 +3318,26 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .cs-memo-note{font-size:11px;color:var(--accent-ink,#625EBD)}
 
 /* ── CS 이력 표 화면(admin-cs-history.js — 작업표 2-1 · 피그마 a10-08) ── */
-.cs-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px;max-height:480px;overflow:hidden;transition:max-height .2s ease,opacity .2s ease,margin-top .2s ease}
-/* 요약 자동 접힘(D-23 · 피그마 a10-08b) — 표를 내리면 카드 넷 → 한 줄. 둘 다 그려 두고 클래스로 보이기만 바꾼다 */
-.cs-summary-line{display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;max-height:0;opacity:0;overflow:hidden;margin-top:0;border:1px solid var(--line);border-width:0;border-radius:12px;background:#fff;padding:0 14px;font-size:12.5px;color:var(--ink);transition:max-height .2s ease,opacity .2s ease,margin-top .2s ease,padding .2s ease}
+.cs-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+/* 요약 + 표 한 스크롤 영역(D-23 ① · 피그마 a10-08b) — 요약은 스크롤을 따라 밀려 올라가고(저절로 재생되는 움직임 없음),
+   다 올라가면 한 줄 요약이 위에 붙는다. 🔴 카드·표 칸은 스크롤 상자를 만들면 안 된다(overflow:hidden·auto 면 표 머리 sticky 가 그 안에 갇힌다 → clip/visible) */
+.cs-hist-scroll{flex:1;min-height:0;overflow:auto;position:relative;--cs-line-h:0px}
+.cs-hist-scroll .admin-card{flex:none;display:block;overflow:clip}
+.cs-hist-scroll .admin-table-wrap{overflow:visible}
+.cs-hist-scroll .data-table th{top:var(--cs-line-h)}
+.cs-summary-line{position:sticky;top:0;z-index:8;margin-bottom:calc(-1 * var(--cs-line-h));display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 14px;font-size:12.5px;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.06);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
+.cs-summary-line:empty{display:none}
+.cs-hist-scroll.cs-sum-stuck .cs-summary-line{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .12s ease}
 .cs-summary-line b{font-weight:800}
-.cs-sl-item{display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-left:1px solid var(--line);white-space:nowrap}
+/* 위아래 맞춤 — 칸·글·배지를 모두 같은 줄 높이(22px)에 두고 가운데로. 글 조각은 .cs-sl-val 한 덩어리 안에서 기준선으로 맞는다 */
+.cs-sl-item{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 14px;border-left:1px solid var(--line);white-space:nowrap}
 .cs-sl-item:first-child{padding-left:0;border-left:0}
-.cs-sl-label{font-size:12px;font-weight:700;color:var(--muted)}
-.cs-sum-folded .cs-summary{max-height:0;opacity:0;margin-top:0}
-.cs-sum-folded .cs-summary-line{max-height:60px;opacity:1;margin-top:12px;padding:9px 14px;border-width:1px}
-@media (prefers-reduced-motion:reduce){.cs-summary,.cs-summary-line{transition:none}}
+.cs-sl-label,.cs-sl-val{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;line-height:22px}
+.cs-sl-label{font-weight:700;color:var(--muted)}
+.cs-sl-val{display:inline-block}
+.cs-sl-item .cs-badge{display:inline-flex;align-items:center;line-height:1;height:20px;box-sizing:border-box;vertical-align:middle;margin-left:4px}
+.cs-sl-item .cs-badge:first-child{margin-left:0}
+@media (prefers-reduced-motion:reduce){.cs-summary-line,.cs-hist-scroll.cs-sum-stuck .cs-summary-line{transition:none}}
 .cs-sort-th{white-space:nowrap;cursor:pointer;user-select:none}
 .cs-summary-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;min-width:0}
 .cs-summary-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
@@ -3642,7 +3652,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 16:56 · c7d860d</span>
+          <span class="admin-build-text">2026-10-22 17:01 · 9e46a4d</span>
         </div>
       </div>
     </aside>
@@ -5779,7 +5789,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <span class="material-icons-round notranslate" translate="no" style="font-size:15px">arrow_back</span> 메시지
                 </button>
                 <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--ink)">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--accent)">table_chart</span> CS 이력 관리
+                  CS 이력 관리
                 </div>
               </div>
               <button type="button" id="btnCsManualAdd" class="btn btn-primary btn-sm" onclick="openCsManualModal(null)" style="display:inline-flex;align-items:center;gap:4px">
@@ -5827,24 +5837,29 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
               </div>
             </div>
-            <div id="csHistSummary" class="cs-summary-wrap"></div>
           </div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px;flex:1">
-                <span class="admin-card-title">CS 건</span>
-                <span id="csHistCount" style="font-size:12px;color:var(--muted)"></span>
+          <!-- 요약 + 표가 한 스크롤 영역(D-23 ①) — 요약은 손 움직임만큼 밀려 올라가고, 다 올라가면 한 줄 요약(#csHistSummaryLine)이 위에 붙는다
+               🔴 한 줄 요약은 이 영역의 바로 아래 자식이어야 붙는다(sticky 는 부모 안에서만 붙는다) · 표 머리는 그 한 줄 바로 아래에 붙는다 -->
+          <div id="csHistScroll" class="cs-hist-scroll">
+            <div id="csHistSummaryLine" class="cs-summary-line" aria-hidden="true"></div>
+            <div id="csHistSummary" class="cs-summary"></div>
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <div style="display:flex;align-items:center;gap:8px;flex:1">
+                  <span class="admin-card-title">CS 건</span>
+                  <span id="csHistCount" style="font-size:12px;color:var(--muted)"></span>
+                </div>
               </div>
-            </div>
-            <div class="admin-table-wrap">
-              <table class="data-table cs-hist-table">
-                <!-- 정렬(D-23): 클릭은 머리 칸 전체에 건다 — 화살표 글자에만 걸면 정렬 뒤 ▲ 한 글자로 줄어 빗나간다(_settleSortTh 주석) -->
-                <thead id="csHistHead"><tr>
-                  <th class="cs-sort-th" onclick="toggleCsHistSort('no')">번호 <span class="sort-arrows" data-sort="cshist-no">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('received')">접수일시 <span class="sort-arrows" data-sort="cshist-received">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('source')">출처 <span class="sort-arrows" data-sort="cshist-source">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('kind')">분류 <span class="sort-arrows" data-sort="cshist-kind">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('campaign')">캠페인 <span class="sort-arrows" data-sort="cshist-campaign">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('member')">회원 <span class="sort-arrows" data-sort="cshist-member">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('email')">이메일 <span class="sort-arrows" data-sort="cshist-email">▲▼</span></th>
-                  <th class="cs-sort-th" onclick="toggleCsHistSort('category')">항목 <span class="sort-arrows" data-sort="cshist-category">▲▼</span></th><th>문의 요약</th><th class="cs-sort-th" onclick="toggleCsHistSort('status')">진행현황 <span class="sort-arrows" data-sort="cshist-status">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('owner')">담당자 <span class="sort-arrows" data-sort="cshist-owner">▲▼</span></th><th>같은 대화</th><th>메모</th>
-                </tr></thead>
-                <tbody id="csHistTbody"></tbody>
-              </table>
+              <div class="admin-table-wrap">
+                <table class="data-table cs-hist-table">
+                  <!-- 정렬(D-23): 클릭은 머리 칸 전체에 건다 — 화살표 글자에만 걸면 정렬 뒤 ▲ 한 글자로 줄어 빗나간다(_settleSortTh 주석) -->
+                  <thead id="csHistHead"><tr>
+                    <th class="cs-sort-th" onclick="toggleCsHistSort('no')">번호 <span class="sort-arrows" data-sort="cshist-no">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('received')">접수일시 <span class="sort-arrows" data-sort="cshist-received">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('source')">출처 <span class="sort-arrows" data-sort="cshist-source">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('kind')">분류 <span class="sort-arrows" data-sort="cshist-kind">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('campaign')">캠페인 <span class="sort-arrows" data-sort="cshist-campaign">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('member')">회원 <span class="sort-arrows" data-sort="cshist-member">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('email')">이메일 <span class="sort-arrows" data-sort="cshist-email">▲▼</span></th>
+                    <th class="cs-sort-th" onclick="toggleCsHistSort('category')">항목 <span class="sort-arrows" data-sort="cshist-category">▲▼</span></th><th>문의 요약</th><th class="cs-sort-th" onclick="toggleCsHistSort('status')">진행현황 <span class="sort-arrows" data-sort="cshist-status">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('owner')">담당자 <span class="sort-arrows" data-sort="cshist-owner">▲▼</span></th><th>같은 대화</th><th>메모</th>
+                  </tr></thead>
+                  <tbody id="csHistTbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -22638,7 +22653,6 @@ let _csHistLazy = null;
 let _csHistSeq = 0;          // 기간을 빠르게 바꿀 때 늦게 온 옛 응답이 새 결과를 덮지 않게
 let _csHistMemoFailed = false;
 const _csHistSort = { col: null, dir: null };   // 머리 정렬(D-23) — 해제면 받은 순서(최근 접수 먼저)
-const CS_HIST_FOLD_AT = 40;   // 표를 이만큼(px) 넘게 내리면 요약을 한 줄로 접는다(D-23) — 펴는 건 맨 위에서 위로 굴릴 때
 
 // 분류 — 앱 건은 캠페인 모집 형식(서비스 문의는 「서비스」), 수기 건은 등록 값
 function csCaseKind(r) {
@@ -22690,53 +22704,36 @@ async function loadCsHistoryPane() {
   renderCsHistoryTable();
 }
 
-// ── 요약 자동 접힘(D-23 · 피그마 a10-08b) — 단추 없이 표 스크롤에만 반응 ──────────
-//   펼친 카드와 접힌 한 줄을 둘 다 그려 두고 클래스(cs-sum-folded)로 보이기만 바꾼다
-//   접기 = 표를 40px 넘게 내림 / 펴기 = 맨 위에서 위로 한 번 더 굴림(또는 스크롤 막대를 맨 위로)
-//   🔴 「맨 위(0)에 닿으면 폄」으로 두면, 짧은 목록은 접는 순간 표가 길어져 스크롤이 0 으로 당겨지고 곧바로 다시 펴진다
-//      — 그래서 접은 직후 잠깐(CS_HIST_FOLD_SETTLE_MS) 생기는 0 은 무시하고, 펴기는 사람의 위로 굴림으로만 한다
-const CS_HIST_FOLD_SETTLE_MS = 400;   // 접힘 전환(0.2초) 동안 높이가 바뀌며 생기는 스크롤 당김을 넉넉히 덮는다
-let _csHistFoldedAt = 0;
+// ── 요약 한 줄 붙이기(D-23 ① · 피그마 a10-08b) — 요약과 표가 한 스크롤 영역(#csHistScroll) ──────────
+//   카드 넷은 스크롤을 따라 그대로 밀려 올라가고(저절로 재생되는 움직임 없음 — 손 움직임과 1:1),
+//   카드가 한 줄 요약 높이만큼 남았을 때부터 한 줄 요약(sticky)을 보인다. 표 머리는 그 한 줄 바로 아래에 붙는다(--cs-line-h)
+//   ⚠️ 옛 방식(표 안 스크롤 + 시간으로 접기)은 접는 순간 표가 손 밑에서 튀어 버렸다(2026-10-22 사용자 결정으로 교체)
+function _csHistScrollBox() { return $('csHistScroll'); }
 
-function _csHistBindFold() {
-  const wrap = _csHistWrap();
-  if (!wrap || wrap.dataset.csFold) return;
-  wrap.dataset.csFold = '1';
-  wrap.addEventListener('scroll', _csHistSyncFold, { passive: true });
-  wrap.addEventListener('wheel', e => {
-    if (e.deltaY < 0 && wrap.scrollTop <= 0) _csHistUnfold();
-  }, { passive: true });
+function _csHistBindStick() {
+  const box = _csHistScrollBox();
+  if (!box || box.dataset.csStick) return;
+  box.dataset.csStick = '1';
+  box.addEventListener('scroll', _csHistSyncStick, { passive: true });
+  window.addEventListener('resize', () => { _csHistMeasureLine(); _csHistSyncStick(); }, { passive: true });
 }
 
-function _csHistWrap() {
-  return $('csHistTbody') && $('csHistTbody').closest('.admin-table-wrap');
+// 한 줄 요약 높이 — 창이 좁으면 두 줄로 넘어가므로 그릴 때·창 크기가 바뀔 때 잰다(요약 실패면 0)
+function _csHistMeasureLine() {
+  const box = _csHistScrollBox(), line = $('csHistSummaryLine');
+  if (!box || !line) return;
+  box.style.setProperty('--cs-line-h', (line.innerHTML ? line.offsetHeight : 0) + 'px');
 }
 
-function _csHistUnfold() {
-  const sum = $('csHistSummary');
-  if (sum && sum.classList.contains('cs-sum-folded')) _csHistSetFolded(sum, false);
-}
-
-function _csHistSyncFold() {
-  const sum = $('csHistSummary');
-  const wrap = _csHistWrap();
-  if (!sum || !wrap) return;
-  if (sum.classList.contains('cs-sum-folded')) {
-    // 스크롤 막대를 끌어 맨 위로 올린 경우 — 접은 직후의 당김(자동)은 빼고
-    if (wrap.scrollTop <= 0 && Date.now() - _csHistFoldedAt > CS_HIST_FOLD_SETTLE_MS) _csHistUnfold();
-    return;
-  }
-  if (!sum.querySelector('.cs-summary-line') || wrap.scrollTop <= CS_HIST_FOLD_AT) return;
-  _csHistFoldedAt = Date.now();
-  _csHistSetFolded(sum, true);
-}
-
-// 보이는 쪽만 화면 읽기 프로그램이 읽게 aria-hidden 을 서로 바꾼다
-function _csHistSetFolded(sum, on) {
-  sum.classList.toggle('cs-sum-folded', on);
-  const cards = sum.querySelector('.cs-summary'), line = sum.querySelector('.cs-summary-line');
-  if (cards) cards.setAttribute('aria-hidden', on ? 'true' : 'false');
-  if (line) line.setAttribute('aria-hidden', on ? 'false' : 'true');
+function _csHistSyncStick() {
+  const box = _csHistScrollBox(), line = $('csHistSummaryLine'), cards = $('csHistSummary');
+  if (!box || !line || !cards) return;
+  // 페인이 숨은 채 그려졌으면 높이가 0 으로 재졌다 — 보이는 지금 다시 잰다(안 그러면 표 머리가 한 줄 요약에 가린다)
+  if (line.innerHTML && line.offsetHeight && box.style.getPropertyValue('--cs-line-h') !== line.offsetHeight + 'px') _csHistMeasureLine();
+  const stuck = !!line.innerHTML && cards.getBoundingClientRect().bottom - box.getBoundingClientRect().top <= line.offsetHeight;
+  if (stuck === box.classList.contains('cs-sum-stuck')) return;
+  box.classList.toggle('cs-sum-stuck', stuck);
+  line.setAttribute('aria-hidden', stuck ? 'false' : 'true');
 }
 
 // 항목 필터 선택지 — 미분류(과거)도 거를 수 있게 넣는다(고르는 자리가 아니라 거르는 자리)
@@ -22813,7 +22810,7 @@ function _csHistApplySortArrows() {
 function renderCsHistoryTable() {
   const tbody = $('csHistTbody');
   if (!tbody) return;
-  _csHistBindFold();
+  _csHistBindStick();
   _csHistApplySortArrows();
   const list = _csHistSorted(_csHistFiltered());
   const cnt = $('csHistCount');
@@ -22821,13 +22818,13 @@ function renderCsHistoryTable() {
   if (_csHistLazy) _csHistLazy.destroy();
   _csHistLazy = mountLazyList({
     tbody,
-    scrollRoot: tbody.closest('.admin-table-wrap'),
+    scrollRoot: _csHistScrollBox(),
     rows: list,
     renderRow: _csHistRowHtml,
     pageSize: CS_HIST_PAGE_SIZE,
     emptyHtml: `<tr><td colspan="${CS_HIST_COLS}" style="text-align:center;color:var(--muted);padding:40px">조건에 맞는 CS 건이 없습니다</td></tr>`
   });
-  _csHistSyncFold();   // 목록이 줄어 스크롤이 맨 위로 당겨졌으면 다시 편다(접은 직후는 제외)
+  _csHistSyncStick();   // 목록이 줄어 스크롤이 당겨졌으면 한 줄 요약을 다시 맞춘다
 }
 
 // 문의 요약 — 원문 / 한국어 번역 한 줄씩 줄여서(D-12). 고친 요약이면 「수정됨」
@@ -22919,12 +22916,17 @@ function openCsManualModal(caseId) {
 
 // ── 요약 넷(a10-08) — 항목별 건수 · 응답 시간 · 해결 시간 · 진행현황·출처 ──────────
 function renderCsHistorySummary(sm) {
-  const el = $('csHistSummary');
+  const el = $('csHistSummary'), line = $('csHistSummaryLine');
   if (!el) return;
-  el.classList.remove('cs-sum-folded');
-  if (!sm) { el.innerHTML = '<div class="cs-summary"><div class="cs-summary-card" style="grid-column:1/-1;color:var(--red)">요약을 불러오지 못했습니다</div></div>'; return; }
-  el.innerHTML = `<div class="cs-summary">${_csSumCategoryCard(sm) + _csSumTimeCard(sm, 'response') + _csSumTimeCard(sm, 'resolve') + _csSumStatusCard(sm)}</div>`
-    + _csSumFoldedLine(sm);
+  if (!sm) {
+    el.innerHTML = '<div class="cs-summary-card" style="grid-column:1/-1;color:var(--red)">요약을 불러오지 못했습니다</div>';
+    if (line) line.innerHTML = '';        // 실패면 한 줄 요약을 붙이지 않는다
+  } else {
+    el.innerHTML = _csSumCategoryCard(sm) + _csSumTimeCard(sm, 'response') + _csSumTimeCard(sm, 'resolve') + _csSumStatusCard(sm);
+    if (line) line.innerHTML = _csSumFoldedLine(sm);
+  }
+  _csHistMeasureLine();
+  _csHistSyncStick();
 }
 
 // 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤)
@@ -22941,17 +22943,15 @@ function _csSumFoldedLine(sm) {
   const rows = _csSumCategoryRows(sm).filter(r => r.n > 0);
   const top = rows.slice(0, 3);
   const rest = rows.slice(3).reduce((s, r) => s + r.n, 0);
+  // 글·숫자는 한 덩어리(.cs-sl-val)로 묶는다 — 낱개 글 조각이 각자 가운데 맞춤되면 글자 크기·굵기 차이로 위아래가 들쑥날쑥해진다
   const cats = top.map(r => `${esc(r.k === '' ? '항목 없음' : csCategoryLabel(r.k))} <b>${r.n}</b>`).join(' · ')
     + (rest ? ` · 외 <b>${rest}</b>건` : '') || '<span style="color:var(--muted)">건 없음</span>';
   const avg = k => esc(csFormatDuration((sm[k] || {}).avg_sec));
   const st = sm.by_status || {};
   const badges = ['needs_check', 'in_progress', 'done'].map(s =>
-    csStatusBadgeHtml(s).replace('</span>', ` ${Number(st[s] || 0)}</span>`)).join(' ');
-  return `<div class="cs-summary-line" aria-hidden="true">
-    <span class="cs-sl-item"><span class="cs-sl-label">요약</span>${cats}</span>
-    <span class="cs-sl-item"><span class="cs-sl-label">응답 평균</span><b>${avg('response')}</b></span>
-    <span class="cs-sl-item"><span class="cs-sl-label">해결 평균</span><b>${avg('resolve')}</b></span>
-    <span class="cs-sl-item">${badges}</span></div>`;
+    csStatusBadgeHtml(s).replace('</span>', ` ${Number(st[s] || 0)}</span>`)).join('');
+  const item = (label, val) => `<span class="cs-sl-item">${label ? `<span class="cs-sl-label">${label}</span>` : ''}<span class="cs-sl-val">${val}</span></span>`;
+  return item('요약', cats) + item('응답 평균', `<b>${avg('response')}</b>`) + item('해결 평균', `<b>${avg('resolve')}</b>`) + item('', badges);
 }
 
 function _csSumCategoryCard(sm) {

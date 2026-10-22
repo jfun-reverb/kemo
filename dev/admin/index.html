@@ -2306,7 +2306,7 @@
                   <span class="material-icons-round notranslate" translate="no" style="font-size:15px">arrow_back</span> 메시지
                 </button>
                 <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--ink)">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--accent)">table_chart</span> CS 이력 관리
+                  CS 이력 관리
                 </div>
               </div>
               <button type="button" id="btnCsManualAdd" class="btn btn-primary btn-sm" onclick="openCsManualModal(null)" style="display:inline-flex;align-items:center;gap:4px">
@@ -2354,24 +2354,29 @@
                 </div>
               </div>
             </div>
-            <div id="csHistSummary" class="cs-summary-wrap"></div>
           </div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px;flex:1">
-                <span class="admin-card-title">CS 건</span>
-                <span id="csHistCount" style="font-size:12px;color:var(--muted)"></span>
+          <!-- 요약 + 표가 한 스크롤 영역(D-23 ①) — 요약은 손 움직임만큼 밀려 올라가고, 다 올라가면 한 줄 요약(#csHistSummaryLine)이 위에 붙는다
+               🔴 한 줄 요약은 이 영역의 바로 아래 자식이어야 붙는다(sticky 는 부모 안에서만 붙는다) · 표 머리는 그 한 줄 바로 아래에 붙는다 -->
+          <div id="csHistScroll" class="cs-hist-scroll">
+            <div id="csHistSummaryLine" class="cs-summary-line" aria-hidden="true"></div>
+            <div id="csHistSummary" class="cs-summary"></div>
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <div style="display:flex;align-items:center;gap:8px;flex:1">
+                  <span class="admin-card-title">CS 건</span>
+                  <span id="csHistCount" style="font-size:12px;color:var(--muted)"></span>
+                </div>
               </div>
-            </div>
-            <div class="admin-table-wrap">
-              <table class="data-table cs-hist-table">
-                <!-- 정렬(D-23): 클릭은 머리 칸 전체에 건다 — 화살표 글자에만 걸면 정렬 뒤 ▲ 한 글자로 줄어 빗나간다(_settleSortTh 주석) -->
-                <thead id="csHistHead"><tr>
-                  <th class="cs-sort-th" onclick="toggleCsHistSort('no')">번호 <span class="sort-arrows" data-sort="cshist-no">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('received')">접수일시 <span class="sort-arrows" data-sort="cshist-received">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('source')">출처 <span class="sort-arrows" data-sort="cshist-source">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('kind')">분류 <span class="sort-arrows" data-sort="cshist-kind">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('campaign')">캠페인 <span class="sort-arrows" data-sort="cshist-campaign">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('member')">회원 <span class="sort-arrows" data-sort="cshist-member">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('email')">이메일 <span class="sort-arrows" data-sort="cshist-email">▲▼</span></th>
-                  <th class="cs-sort-th" onclick="toggleCsHistSort('category')">항목 <span class="sort-arrows" data-sort="cshist-category">▲▼</span></th><th>문의 요약</th><th class="cs-sort-th" onclick="toggleCsHistSort('status')">진행현황 <span class="sort-arrows" data-sort="cshist-status">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('owner')">담당자 <span class="sort-arrows" data-sort="cshist-owner">▲▼</span></th><th>같은 대화</th><th>메모</th>
-                </tr></thead>
-                <tbody id="csHistTbody"></tbody>
-              </table>
+              <div class="admin-table-wrap">
+                <table class="data-table cs-hist-table">
+                  <!-- 정렬(D-23): 클릭은 머리 칸 전체에 건다 — 화살표 글자에만 걸면 정렬 뒤 ▲ 한 글자로 줄어 빗나간다(_settleSortTh 주석) -->
+                  <thead id="csHistHead"><tr>
+                    <th class="cs-sort-th" onclick="toggleCsHistSort('no')">번호 <span class="sort-arrows" data-sort="cshist-no">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('received')">접수일시 <span class="sort-arrows" data-sort="cshist-received">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('source')">출처 <span class="sort-arrows" data-sort="cshist-source">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('kind')">분류 <span class="sort-arrows" data-sort="cshist-kind">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('campaign')">캠페인 <span class="sort-arrows" data-sort="cshist-campaign">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('member')">회원 <span class="sort-arrows" data-sort="cshist-member">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('email')">이메일 <span class="sort-arrows" data-sort="cshist-email">▲▼</span></th>
+                    <th class="cs-sort-th" onclick="toggleCsHistSort('category')">항목 <span class="sort-arrows" data-sort="cshist-category">▲▼</span></th><th>문의 요약</th><th class="cs-sort-th" onclick="toggleCsHistSort('status')">진행현황 <span class="sort-arrows" data-sort="cshist-status">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('owner')">담당자 <span class="sort-arrows" data-sort="cshist-owner">▲▼</span></th><th>같은 대화</th><th>메모</th>
+                  </tr></thead>
+                  <tbody id="csHistTbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
