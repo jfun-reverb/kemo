@@ -812,11 +812,20 @@ function _bdPeopleRowHtml(r, st, known, canManage, ownerState) {
         else acts.push(btn('다시 보내기', 'resend', null, ownerState === 'link_expired' ? 'btn-primary' : 'btn-ghost'));
         acts.push(btn('해제', 'release', st.owner_auth_id || (m && m.auth_id) || '', 'btn-ghost bd-danger'));
       }
+      // 이용 제한(제한 10 — admin-brand-sanction.js): 배지는 누구에게나, 단추·「…」 는 사용 중 대표 줄 + can_restrict 만
+      if (m && typeof bdRestrictionBadgeHtml === 'function') {
+        acct += bdRestrictionBadgeHtml(m.restriction);
+        if (ownerState === 'active') acts.push(bdRestrictionActionsHtml(m, st));
+      }
     }
   } else if (r.kind === 'member') {
     role = _bdChip('is-member', '멤버');
     acct = _bdChip('is-active', '사용 중') + ((m && m.last_active_at) ? sub('마지막 접속 ' + formatDateTime(m.last_active_at)) : '');
     if (canManage && m && m.auth_id) acts.push(btn('해제', 'release', m.auth_id, 'btn-ghost bd-danger'));
+    if (m && typeof bdRestrictionBadgeHtml === 'function') {
+      acct += bdRestrictionBadgeHtml(m.restriction);
+      acts.push(bdRestrictionActionsHtml(m, st));
+    }
   } else {
     role = _bdChip('is-member', '담당자');
     acct = !known
