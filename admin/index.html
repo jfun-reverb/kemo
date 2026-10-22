@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792656061';
+  var CURRENT_BUILD = 'v1792656218';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3322,7 +3322,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 요약 + 표 한 스크롤 영역(D-23 ① · 피그마 a10-08b) — 요약은 스크롤을 따라 밀려 올라가고(저절로 재생되는 움직임 없음),
    다 올라가면 한 줄 요약이 위에 붙는다. 🔴 카드·표 칸은 스크롤 상자를 만들면 안 된다(overflow:hidden·auto 면 표 머리 sticky 가 그 안에 갇힌다 → clip/visible) */
 .cs-hist-scroll{flex:1;min-height:0;overflow:auto;position:relative;--cs-line-h:0px}
-.cs-hist-scroll .admin-card{flex:none;display:block;overflow:clip}
+.cs-hist-scroll .admin-card{flex:none;display:block;overflow:clip;min-height:calc(100% - var(--cs-line-h))}
+/* ↑ 최소 높이 — 짧은 목록도 요약 카드가 끝까지 밀려 올라가 한 줄 요약이 붙을 만큼 내릴 거리를 만든다(표 카드가 스크롤 영역 높이만큼은 차지) */
 .cs-hist-scroll .admin-table-wrap{overflow:visible}
 .cs-hist-scroll .data-table th{top:var(--cs-line-h)}
 .cs-summary-line{position:sticky;top:0;z-index:8;margin-bottom:calc(-1 * var(--cs-line-h));display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 14px;font-size:12.5px;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.06);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
@@ -3652,7 +3653,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 17:01 · 9e46a4d</span>
+          <span class="admin-build-text">2026-10-22 17:03 · efe6880</span>
         </div>
       </div>
     </aside>
@@ -22929,7 +22930,7 @@ function renderCsHistorySummary(sm) {
   _csHistSyncStick();
 }
 
-// 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤)
+// 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤) — 그리는 쪽이 0건을 거른다
 function _csSumCategoryRows(sm) {
   const by = sm.by_category || {};
   const codes = new Set((_csCategories || []).filter(c => c.active).map(c => c.code));
@@ -22955,7 +22956,7 @@ function _csSumFoldedLine(sm) {
 }
 
 function _csSumCategoryCard(sm) {
-  const rows = _csSumCategoryRows(sm);
+  const rows = _csSumCategoryRows(sm).filter(r => r.n > 0);   // 0건 항목은 숨긴다(2026-10-22 사용자 지시)
   const max = Math.max(1, ...rows.map(r => r.n));
   const bars = rows.map(r => {
     const label = r.k === '' ? '항목 없음(진행 중)' : csCategoryLabel(r.k);
@@ -22963,7 +22964,7 @@ function _csSumCategoryCard(sm) {
     return `<div class="cs-bar-row"><span class="cs-bar-label">${esc(label)}</span>
       <span class="cs-bar-track"><span class="cs-bar${grey ? ' cs-bar-grey' : ''}" style="width:${r.n ? Math.max(2, Math.round(r.n / max * 100)) : 0}%"></span></span>
       <span class="cs-bar-n">${r.n}</span></div>`;
-  }).join('');
+  }).join('') || '<div class="cs-summary-note">건 없음</div>';
   return `<div class="cs-summary-card"><div class="cs-summary-title">항목별 건수 · 기간 안 ${Number(sm.total || 0)}건</div>${bars}</div>`;
 }
 

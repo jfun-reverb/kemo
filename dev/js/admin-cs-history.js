@@ -290,7 +290,7 @@ function renderCsHistorySummary(sm) {
   _csHistSyncStick();
 }
 
-// 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤)
+// 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤) — 그리는 쪽이 0건을 거른다
 function _csSumCategoryRows(sm) {
   const by = sm.by_category || {};
   const codes = new Set((_csCategories || []).filter(c => c.active).map(c => c.code));
@@ -316,7 +316,7 @@ function _csSumFoldedLine(sm) {
 }
 
 function _csSumCategoryCard(sm) {
-  const rows = _csSumCategoryRows(sm);
+  const rows = _csSumCategoryRows(sm).filter(r => r.n > 0);   // 0건 항목은 숨긴다(2026-10-22 사용자 지시)
   const max = Math.max(1, ...rows.map(r => r.n));
   const bars = rows.map(r => {
     const label = r.k === '' ? '항목 없음(진행 중)' : csCategoryLabel(r.k);
@@ -324,7 +324,7 @@ function _csSumCategoryCard(sm) {
     return `<div class="cs-bar-row"><span class="cs-bar-label">${esc(label)}</span>
       <span class="cs-bar-track"><span class="cs-bar${grey ? ' cs-bar-grey' : ''}" style="width:${r.n ? Math.max(2, Math.round(r.n / max * 100)) : 0}%"></span></span>
       <span class="cs-bar-n">${r.n}</span></div>`;
-  }).join('');
+  }).join('') || '<div class="cs-summary-note">건 없음</div>';
   return `<div class="cs-summary-card"><div class="cs-summary-title">항목별 건수 · 기간 안 ${Number(sm.total || 0)}건</div>${bars}</div>`;
 }
 
