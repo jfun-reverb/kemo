@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792657833';
+  var CURRENT_BUILD = 'v1792658014';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3664,7 +3664,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 17:30 · 262326e</span>
+          <span class="admin-build-text">2026-10-22 17:33 · 4fcb7a9</span>
         </div>
       </div>
     </aside>
@@ -13288,6 +13288,17 @@ async function fetchBrandPublishDefaults(brandId) {
     if (error) throw error;
     return (data && typeof data === 'object') ? data : null;
   } catch (e) { console.error('[fetchBrandPublishDefaults]', e); return null; }
+}
+// 여러 캠페인의 처음 체크 기본 열(리포트 엑셀 열 고르기 — 작업표 조각 17) → {spec, source('brand'|'global')} · 실패 null
+//   한 브랜드 캠페인뿐이면 그 브랜드 값, 여러 브랜드·브랜드 없는 캠페인이 섞이면 전체 기본값(서버가 정한다)
+async function fetchPublishDefaultForCampaigns(campaignIds) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const ids = [...new Set((campaignIds || []).filter(Boolean))];
+    const { data, error } = await db.rpc('admin_get_publish_default_for_campaigns', { p_campaign_ids: ids });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchPublishDefaultForCampaigns]', e); return null; }
 }
 // 전체 기본값 저장(배열) · 브랜드 기본값 저장(배열, null = 「전체 기본값 따르기」) — 권한·형식 오류는 던진다
 async function saveBrandPublishDefaultGlobal(spec) {
@@ -61218,7 +61229,10 @@ function _reportRowHtml(r, cols) {
     }
     return `<td${c.wrap ? '' : ' style="white-space:nowrap"'}>${esc(String(r[c.key] === null || r[c.key] === undefined ? '' : r[c.key]))}</td>`;
   }).join('');
-  // 맨 앞 「구분」 열 — 🔴 **관리자 화면에만** 있다. 공유 화면·엑셀에는 넣지 않는다.
+  // 맨 앞 「구분」 열 — 공유 화면에는 없다. 리포트 엑셀은 두 갈래(exportReportExcel 머리말):
+  //   운영 = 넣지 않는다(옛 확정된 결정 12 — docs/specs/2026-09-03-campaign-report-builder.md)
+  //   개발서버(_brandAccountEnabled) = 맨 앞에 늘 넣는다(2026-10-22 사용자 결정 —
+  //     docs/specs/2026-07-15-brand-portal.md 16-5 15번 ④ 「리포트 엑셀은 맨 앞 「구분」 칸을 그대로 둔다」)
   return `<tr><td style="text-align:center;font-weight:600">${esc(r.src || '')}</td>${cells}</tr>`;
 }
 
@@ -61289,7 +61303,7 @@ async function openReport(reportId) {
   const tableMinW = 50 + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
 
   _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt,
-                 extSources: sources, extFailed: extFailed};
+                 extSources: sources, extFailed: extFailed, campaignIds: liveIds};
 
   pane.innerHTML = `
     <div class="admin-card">
@@ -61390,20 +61404,110 @@ async function loadReportCampaignExtRows(camps) {
 // ══════════════════════════════════════════════════════════════
 // 엑셀 내려받기 — 작업 10 (관리자용 = 전부 보이는 판)
 //
-// 🔴 **「구분」 열은 엑셀에 넣지 않는다**(확정된 결정 12).
-//    관리자용·브랜드용 엑셀은 **값만 다르고 열 구성은 같아야** 어느 파일이 무엇인지
-//    알아본다. 화면에만 있는 열이다.
+// 운영(544 없음)은 누르면 바로 받는다 — 화면과 같은 열 전부, 「구분」 열 없음
+//    (옛 확정된 결정 12 — docs/specs/2026-09-03-campaign-report-builder.md. 출시 때 아래 갈래로 바뀐다).
+// 🔴 개발서버(_brandAccountEnabled — 브랜드 묶음과 같은 판정)는 「넣을 열 고르기」 창을 먼저 연다
+//    (작업표 2026-10-19 조각 17 · 사양서 §4 ③ 「리포트 엑셀의 열은 엑셀을 내려받을 때 고른다」):
+//    · 처음 체크 = 담긴 캠페인들의 기본 열(544 admin_get_publish_default_for_campaigns → reportDefaultCheckedKeys).
+//      리포트에 저장된 옛 공유 열은 쓰지 않고, 고른 열은 기억하지 않는다(16-5 16번 — 매번 처음 체크로 연다).
+//    · 고르지 않은 열은 뺀다 · 계정 ID 는 늘 뺀다 · 「구분」(REVERB / 외부 참가자)은 고르기와 상관없이 늘 맨 앞에 넣는다
+//      (2026-10-22 사용자 결정으로 결정 12 를 바꿨다 — docs/specs/2026-07-15-brand-portal.md 16-5 15번 ④).
+//    출시 때 판정을 걷으면 바로 받기 갈래가 사라진다.
 // ══════════════════════════════════════════════════════════════
 
 async function exportReportExcel(reportId) {
-  // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
-  let rows, title, cols;
-  if (_openReport && _openReport.id === reportId) {
-    rows = _openReport.rows; title = _openReport.title;
-    cols = _openReport.cols || reportColumnsFor(rows);      // 화면과 **같은 열**
-  } else {
+  if (!(_openReport && _openReport.id === reportId)) {
     if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
     return;
+  }
+  if (_reportCampExtMode()) { await openReportExcelColsModal(reportId); return; }   // 출시 전 판정 한 곳(조각 17-가와 같다)
+  await _reportWriteExcel(reportId, null);
+}
+
+// 고르기 창에 나올 열 — 화면 열(reportColumnsFor) 중 계정 ID 를 뺀 것. 공유 설정 창과 같은 목록이다.
+function _reportExcelSelectable() {
+  return (_openReport.cols || reportColumnsFor(_openReport.rows)).filter(function(c){ return c.key !== 'account_id'; });
+}
+function _reportCloseExcelColsModal() { const m = document.getElementById('reportExcelColsModal'); if (m) m.remove(); }
+
+async function openReportExcelColsModal(reportId) {
+  _reportCloseExcelColsModal();
+  const wrap = document.createElement('div');
+  wrap.id = 'reportExcelColsModal';
+  wrap.className = 'modal-overlay open';
+  wrap.dataset.reportId = reportId;
+  wrap.innerHTML = `
+    <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><div class="modal-title">엑셀 내려받기</div>
+        <button class="modal-close" onclick="_reportCloseExcelColsModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" id="reportExcelColsBody" style="overflow-y:auto">불러오는 중…</div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="_reportCloseExcelColsModal()">취소</button>
+        <button class="btn btn-primary" id="reportExcelColsGo" disabled onclick="submitReportExcelCols()">내려받기</button>
+      </div>
+    </div>`;
+  (document.getElementById('page-admin') || document.body).appendChild(wrap);
+
+  const def = await fetchPublishDefaultForCampaigns(_openReport.campaignIds || []);
+  const m = document.getElementById('reportExcelColsModal');
+  if (!m || m.dataset.reportId !== reportId) return;   // 기다리는 사이 닫혔거나 다른 리포트로 바뀜
+  const list = _reportExcelSelectable();
+  // 🔴 기본 열을 못 받으면(null) 아무것도 체크하지 않고 연다 — 「꺼짐」을 기본값으로 꾸미지 않는다
+  const checked = def ? reportDefaultCheckedKeys(list, def.spec) : [];
+  document.getElementById('reportExcelColsBody').innerHTML = `
+    ${def ? '' : '<div style="color:var(--pink);font-size:12px;margin-bottom:8px">기본 열을 불러오지 못해 아무 열도 체크하지 않고 열었습니다. 넣을 열을 직접 골라 주세요.</div>'}
+    ${_openReport.extFailed ? '<div style="color:var(--pink);font-size:12px;margin-bottom:8px">⚠️ 일부 캠페인의 외부 결과물을 불러오지 못했습니다 — 내려받는 엑셀에도 그 줄이 빠집니다.</div>' : ''}
+    <div class="form-group" style="margin:0"><label class="form-label">엑셀에 넣을 열</label>
+      ${_reportExcelColGroupsHtml(list, checked)}
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7">계정 ID(로그인 이메일)는 고르지 않아도 늘 빼고 만듭니다. 고르지 않은 열은 엑셀에 들어가지 않습니다.</div></div>`;
+  _reportExcelColsSync();
+}
+
+// 묶음(기본·구매·영수증·채널별…)으로 나눠 그린다 — 공유 설정 창 열 고르기(_reportShareColGroupsHtml)와 같은 모양.
+//   ⚠️ 그 함수를 그대로 부르지 않는 이유: 체크 상태가 공유 저장값(reportShareColOff) 기준이고 바꾸면 곧바로 공유 설정을 저장한다.
+//   🔴 저장·전역 상태 없이 (열 목록, 체크할 열쇠 배열)만 받아 그린다 — 브랜드 공개 창(admin-brand-publish.js)과 합칠 자리.
+//   같은 묶음 모양이 admin-brand-publish.js 에도 있다 — 고치면 함께.
+function _reportExcelColGroupsHtml(list, checked) {
+  const order = [], byGrp = {};
+  list.forEach(function(c){ const g = c.grp || '기본'; if (!byGrp[g]) { byGrp[g] = []; order.push(g); } byGrp[g].push(c); });
+  return order.map(function(g, gi) {
+    const sep = gi === 0 ? 'margin-top:8px' : 'margin-top:10px;padding-top:10px;border-top:1px solid var(--line)';
+    return `<div style="${sep}"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px">${esc(g)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px;font-size:12px">
+        ${byGrp[g].map(function(c){ return `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="reportExcelCol" value="${esc(c.key)}" ${checked.indexOf(c.key) !== -1 ? 'checked' : ''} onchange="_reportExcelColsSync()"> ${esc(c.pick || c.label)}</label>`; }).join('')}
+      </div></div>`;
+  }).join('');
+}
+// 하나도 안 고르면 「내려받기」를 막는다
+function _reportExcelColsSync() {
+  const go = document.getElementById('reportExcelColsGo');
+  if (go) go.disabled = !document.querySelector('#reportExcelColsModal .reportExcelCol:checked');
+}
+async function submitReportExcelCols() {
+  const m = document.getElementById('reportExcelColsModal');
+  if (!m) return;
+  const keys = [...m.querySelectorAll('.reportExcelCol:checked')].map(function(i){ return i.value; });
+  if (!keys.length) { toast('엑셀에 넣을 열을 하나 이상 골라 주세요'); return; }
+  const go = document.getElementById('reportExcelColsGo');
+  if (go) go.disabled = true;
+  const ok = await _reportWriteExcel(m.dataset.reportId, keys);
+  if (ok) _reportCloseExcelColsModal();
+  else _reportExcelColsSync();
+}
+
+// pickedKeys = null 이면 화면 열 전부(옛 갈래 — 「구분」 없음), 배열이면 그 열만 + 맨 앞 「구분」. 파일을 만들었으면 true.
+async function _reportWriteExcel(reportId, pickedKeys) {
+  // 화면에서 이미 조회한 것을 그대로 쓴다 — 다시 조회하면 화면과 다른 숫자가 나올 수 있다.
+  if (!(_openReport && _openReport.id === reportId)) {
+    if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
+    return false;
+  }
+  const rows = _openReport.rows, title = _openReport.title;
+  let cols = _openReport.cols || reportColumnsFor(rows);      // 화면과 **같은 열**
+  if (pickedKeys) {
+    cols = cols.filter(function(c){ return c.key !== 'account_id' && pickedKeys.indexOf(c.key) !== -1; });
+    // 「구분」 — 화면 값 B 는 REVERB, 그 밖(외부 첨부·캠페인 외부 결과물)은 외부 참가자
+    cols = [{key: '_src', label: '구분', w: '90px'}].concat(cols);
   }
   try {
     await loadExcelJS();
@@ -61422,14 +61526,15 @@ async function exportReportExcel(reportId) {
       const o = {};
       cols.forEach(function(c) {
         // ⚠️ 구매금액은 숫자로 넣는다(엑셀에서 합계를 낼 수 있게). 빈 값은 빈칸.
-        if (c.key === 'receipt_url') { o[c.key] = _splitLines(r.receipt_url).map(_excelMediaLink).filter(Boolean).join('\n'); }
+        if (c.key === '_src') { o[c.key] = r.src === 'B' ? 'REVERB' : '외부 참가자'; }
+        else if (c.key === 'receipt_url') { o[c.key] = _splitLines(r.receipt_url).map(_excelMediaLink).filter(Boolean).join('\n'); }
         else if (c.key === 'amount') { o[c.key] = (r.amount === '' || r.amount === null || r.amount === undefined) ? '' : Number(r.amount); }
         else { o[c.key] = (r[c.key] === null || r[c.key] === undefined) ? '' : r[c.key]; }
       });
       ws.addRow(o);
     });
 
-    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 리포트', rows.length, { title: String(title || '').slice(0, 100) }))) return;
+    if (!(await _excelInternalGate(wb, '엑셀 · 캠페인 리포트', rows.length, { title: String(title || '').slice(0, 100) }))) return false;
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url = URL.createObjectURL(blob);
@@ -61442,9 +61547,11 @@ async function exportReportExcel(reportId) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
     if (typeof toast === 'function') toast('엑셀 다운로드 완료 (' + rows.length + '행)');
+    return true;
   } catch (e) {
     console.error('[exportReportExcel]', e);
     if (typeof toast === 'function') toast('엑셀을 만들지 못했습니다 — ' + ((e && e.message) || e));
+    return false;
   }
 }
 
