@@ -285,6 +285,8 @@ async function acceptMyBrandInvite(inviteId) {
   _brandMyAgreeError(inviteId, '');
   _brandMySetBusy(true);
   const r = await respondBrandInvite({ inviteId, action: 'accept', termsVersion: BRAND_TERMS_VERSION });
+  // 이용 제한 — 공통 입구가 이미 「이용이 제한된 계정」 화면으로 보냈다. 실패 안내를 겹쳐 띄우지 않는다(제한 14)
+  if (!r && _brandRestrictedHandled) { _brandMySetBusy(false); return; }
   // terms_version_required 는 화면이 늘 보내므로 일반 실패로(연결 요청 사양서 4-4)
   if (!r || r.result === 'terms_version_required') { _brandMySetBusy(false); brandToast(BRAND_MYPAGE_MSG.acceptFail, { error: true }); return; }
   if (r.result === 'ok' || r.result === 'already_member') {

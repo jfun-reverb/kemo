@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792633903';
+  var CURRENT_BUILD = 'v1792634725';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3622,7 +3622,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 10:51 · 67aaff4</span>
+          <span class="admin-build-text">2026-10-22 11:05 · 897dc16</span>
         </div>
       </div>
     </aside>
@@ -33126,7 +33126,9 @@ function _bdRenderOwnerChangeModal(error) {
       + '<div class="bd-acct-radios" role="radiogroup">' + cands.map(function(m) {
           return '<label class="bd-acct-radio"><input type="radio" name="bdOwnerPick" value="' + esc(m.auth_id) + '"'
             + (m.auth_id === a.selected ? ' checked data-autofocus' : '') + ' onchange="_bdAcct && (_bdAcct.selected=this.value)">'
-            + '<span>' + esc(_bdMemberName(m)) + ' · ' + esc(m.email || '') + '</span></label>';
+            + '<span>' + esc(_bdMemberName(m)) + ' · ' + esc(m.email || '') + '</span>'
+            // 제한 계정도 고를 수는 둔다(빼면 왜 없는지 모른다) — 지정은 서버가 account_restricted 로 거부
+            + (m.restriction ? ' <span class="bd-chip is-error">이용 제한 중</span>' : '') + '</label>';
         }).join('') + '</div>' + note,
     buttons: [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'대표 담당자로 지정', kind:'primary', id:'bdAcctSubmit', onclick:'bdOwnerChangeSubmit()'}]
   });
@@ -33141,6 +33143,14 @@ async function bdOwnerChangeSubmit() {
   if (!res.ok) { _bdRenderOwnerChangeModal(BD_TOAST_FAIL); return; }
   if (res.data === 'ok') { bdAccountModalClose(); _bdAfterAction('대표 담당자를 바꿨습니다.'); return; }
   if (res.data === 'forbidden') { bdAccountModalClose(); _bdAfterAction('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+  if (res.data === 'account_restricted') {   // 제한 14 — 새 대표가 이용 제한 계정(531 → 582)
+    var pick = _bdOwnerCandidates().find(function(m){ return m.auth_id === a.selected; });
+    bdShowRestrictedAccount((pick && pick.email) || '', null, {
+      title: '이용이 제한된 계정이라 대표 담당자로 지정할 수 없습니다',
+      hint: '대표 담당자로 지정하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 지정할 수 있습니다.'
+    });
+    return;
+  }
   // owner_changed · not_member — 목록을 다시 받고 창에 남는다
   await bdReloadPeopleTab();
   if (!_bdAcct) return;
@@ -34128,7 +34138,9 @@ async function bdSuspendLiftSubmit() {
 // ── 겹침 확인에서 만난 제한 계정 (A12) — 「계정 만들기」·「브랜드 연결 추가」 ──
 //   chk = admin_check_brand_account_email 결과(restricted·restriction_id·linked_brands). 연결 요청 결과 account_restricted 는
 //   번호를 주지 않으므로 겹침 확인을 한 번 더 불러 받는다.
-async function bdShowRestrictedAccount(email, chk) {
+//   opts.title·opts.hint — 연결이 아닌 자리(대표 바꾸기)에서 제목·해제 안내를 바꾼다
+async function bdShowRestrictedAccount(email, chk, opts) {
+  opts = opts || {};
   var cd = chk || null;
   if (!cd || !cd.restriction_id) {
     try { var r = await checkBrandAccountEmail(_brandsCurrentId, email); cd = (r && r.ok) ? (r.data || null) : null; }
@@ -34141,9 +34153,9 @@ async function bdShowRestrictedAccount(email, chk) {
   _bds = { mode: 'restricted_notice', brandId: _brandsCurrentId, email: email, name: (cd && cd.name) || email,
            rx: rid ? { id: rid, linked_brands: Array.isArray(cd.linked_brands) ? cd.linked_brands : [] } : null, mail: true };
   _bdsModalRender('bdRestrictLiftModal', {
-    title: '이용이 제한된 계정이라 연결할 수 없습니다',
+    title: opts.title || '이용이 제한된 계정이라 연결할 수 없습니다',
     body: '<div class="bd-acct-text">' + esc(email) + ' 계정은 지금 브랜드 페이지 이용이 제한되어 있습니다.</div>'
-      + '<div class="bd-acct-text is-muted">' + (can ? '연결하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 시도하면 연결 요청을 보낼 수 있습니다.' : '제한을 해제할 권한이 있는 관리자에게 요청하십시오.') + '</div>',
+      + '<div class="bd-acct-text is-muted">' + (can ? (opts.hint || '연결하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 시도하면 연결 요청을 보낼 수 있습니다.') : '제한을 해제할 권한이 있는 관리자에게 요청하십시오.') + '</div>',
     buttons: can
       ? [{ label: '닫기', kind: 'ghost', onclick: 'bdSanctionModalClose()' }, { label: '제한 해제', kind: 'primary', onclick: 'bdRestrictedNoticeLift()' }]
       : [{ label: '확인', kind: 'primary', onclick: 'bdSanctionModalClose()' }]

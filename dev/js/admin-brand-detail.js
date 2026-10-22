@@ -1466,7 +1466,9 @@ function _bdRenderOwnerChangeModal(error) {
       + '<div class="bd-acct-radios" role="radiogroup">' + cands.map(function(m) {
           return '<label class="bd-acct-radio"><input type="radio" name="bdOwnerPick" value="' + esc(m.auth_id) + '"'
             + (m.auth_id === a.selected ? ' checked data-autofocus' : '') + ' onchange="_bdAcct && (_bdAcct.selected=this.value)">'
-            + '<span>' + esc(_bdMemberName(m)) + ' · ' + esc(m.email || '') + '</span></label>';
+            + '<span>' + esc(_bdMemberName(m)) + ' · ' + esc(m.email || '') + '</span>'
+            // 제한 계정도 고를 수는 둔다(빼면 왜 없는지 모른다) — 지정은 서버가 account_restricted 로 거부
+            + (m.restriction ? ' <span class="bd-chip is-error">이용 제한 중</span>' : '') + '</label>';
         }).join('') + '</div>' + note,
     buttons: [{label:'취소', kind:'ghost', onclick:'bdAccountModalClose()'}, {label:'대표 담당자로 지정', kind:'primary', id:'bdAcctSubmit', onclick:'bdOwnerChangeSubmit()'}]
   });
@@ -1481,6 +1483,14 @@ async function bdOwnerChangeSubmit() {
   if (!res.ok) { _bdRenderOwnerChangeModal(BD_TOAST_FAIL); return; }
   if (res.data === 'ok') { bdAccountModalClose(); _bdAfterAction('대표 담당자를 바꿨습니다.'); return; }
   if (res.data === 'forbidden') { bdAccountModalClose(); _bdAfterAction('브랜드 페이지 계정 관리 권한이 없습니다.', 'warn'); return; }
+  if (res.data === 'account_restricted') {   // 제한 14 — 새 대표가 이용 제한 계정(531 → 582)
+    var pick = _bdOwnerCandidates().find(function(m){ return m.auth_id === a.selected; });
+    bdShowRestrictedAccount((pick && pick.email) || '', null, {
+      title: '이용이 제한된 계정이라 대표 담당자로 지정할 수 없습니다',
+      hint: '대표 담당자로 지정하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 지정할 수 있습니다.'
+    });
+    return;
+  }
   // owner_changed · not_member — 목록을 다시 받고 창에 남는다
   await bdReloadPeopleTab();
   if (!_bdAcct) return;

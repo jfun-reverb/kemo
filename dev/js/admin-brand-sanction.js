@@ -548,7 +548,9 @@ async function bdSuspendLiftSubmit() {
 // ── 겹침 확인에서 만난 제한 계정 (A12) — 「계정 만들기」·「브랜드 연결 추가」 ──
 //   chk = admin_check_brand_account_email 결과(restricted·restriction_id·linked_brands). 연결 요청 결과 account_restricted 는
 //   번호를 주지 않으므로 겹침 확인을 한 번 더 불러 받는다.
-async function bdShowRestrictedAccount(email, chk) {
+//   opts.title·opts.hint — 연결이 아닌 자리(대표 바꾸기)에서 제목·해제 안내를 바꾼다
+async function bdShowRestrictedAccount(email, chk, opts) {
+  opts = opts || {};
   var cd = chk || null;
   if (!cd || !cd.restriction_id) {
     try { var r = await checkBrandAccountEmail(_brandsCurrentId, email); cd = (r && r.ok) ? (r.data || null) : null; }
@@ -561,9 +563,9 @@ async function bdShowRestrictedAccount(email, chk) {
   _bds = { mode: 'restricted_notice', brandId: _brandsCurrentId, email: email, name: (cd && cd.name) || email,
            rx: rid ? { id: rid, linked_brands: Array.isArray(cd.linked_brands) ? cd.linked_brands : [] } : null, mail: true };
   _bdsModalRender('bdRestrictLiftModal', {
-    title: '이용이 제한된 계정이라 연결할 수 없습니다',
+    title: opts.title || '이용이 제한된 계정이라 연결할 수 없습니다',
     body: '<div class="bd-acct-text">' + esc(email) + ' 계정은 지금 브랜드 페이지 이용이 제한되어 있습니다.</div>'
-      + '<div class="bd-acct-text is-muted">' + (can ? '연결하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 시도하면 연결 요청을 보낼 수 있습니다.' : '제한을 해제할 권한이 있는 관리자에게 요청하십시오.') + '</div>',
+      + '<div class="bd-acct-text is-muted">' + (can ? (opts.hint || '연결하려면 먼저 제한을 해제하십시오. 해제한 뒤 다시 시도하면 연결 요청을 보낼 수 있습니다.') : '제한을 해제할 권한이 있는 관리자에게 요청하십시오.') + '</div>',
     buttons: can
       ? [{ label: '닫기', kind: 'ghost', onclick: 'bdSanctionModalClose()' }, { label: '제한 해제', kind: 'primary', onclick: 'bdRestrictedNoticeLift()' }]
       : [{ label: '확인', kind: 'primary', onclick: 'bdSanctionModalClose()' }]
