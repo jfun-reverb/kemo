@@ -27,9 +27,11 @@
 --   ⚠️ 539 의 화면 상태 「등록됨(registered)」(캠페인이 등록된 카드가 있는 시트)은 여기서 막지 않는다 — 사용자 지정 거부는 consumed·expired 둘뿐.
 --
 -- 선행: 201(mail_sent_at·mail_sent_to) · 526(brand_accounts·brand_account_links) · 581(_brand_account_restricted) · 582(_brand_mailable_accounts)
--- 🔴 운영 반영 순서: 582 뒤에 이 파일을 적용 → 그다음에 서버 함수 notify-orient-sheet(계정 갈래가 아래 두 서비스 함수를 부르는 판)를 배포.
---   (함수보다 이 파일이 먼저 — 반대면 서버 함수가 없는 함수를 불러 발급 메일이 전부 실패한다.) 운영의 옛 갈래(신청서 이메일·대표 담당자)는
---   이 함수들을 부르지 않으므로 이 파일이 먼저 들어가도 운영 동작은 그대로다. 개발서버만 먼저 적용한다(브랜드 묶음 출시 전).
+-- 🔴 운영 반영 순서: 브랜드 묶음(526 → … → 582) 뒤에 이 파일 → 그다음에 서버 함수 notify-orient-sheet(계정 갈래가 아래 두 서비스 함수를 부르는 판).
+--   🔴 이 파일은 브랜드 묶음보다 먼저 운영에 넣을 수 없다 — 5절 옮기기가 brand_accounts·brand_account_links(526)를 바로 읽어
+--   「relation does not exist」로 파일 전체가 되돌아간다(582·581 도 운영에 없다). (2026-10-22 정정 — 처음 판은 「먼저 들어가도 그대로」라 적었다)
+--   함수보다 이 파일이 먼저 — 반대면 서버 함수가 없는 함수를 불러 계정 갈래 발급 메일이 전부 실패한다. 운영의 옛 갈래(신청서 이메일·대표 담당자)는
+--   이 함수들을 부르지 않는다. 지금은 개발서버만 적용(브랜드 묶음 출시 전).
 --
 -- 거부 코드
 --   claim  : {result:'error', reason} — forbidden(호출자가 admins 에 없음) · not_found(시트 없음) · consumed · expired
