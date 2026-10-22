@@ -478,6 +478,13 @@ input.admin-filter{padding-right:8px}
 .os-acct-notice.is-warn{display:flex;gap:6px;align-items:flex-start;color:#92400E;background:#FFF7E6;border:1px solid #F5D9A8}
 .os-acct-notice.is-warn>.material-icons-round{font-size:16px;margin-top:1px}
 .os-acct-notice-sub{margin-top:4px;color:var(--muted);font-size:11px}
+.os-acct-list ul{list-style:none;margin:4px 0 0;padding:0}
+.os-acct-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0;border-top:1px solid var(--line,#EEE);color:var(--ink,#1A1A1A)}
+.os-acct-list-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.os-mail-chip{flex-shrink:0;font-size:11px;line-height:1;padding:4px 7px;border-radius:999px;background:#F2F2F2;color:#555;white-space:nowrap}
+.os-mail-chip.is-sent{background:#E8F5EC;color:#1E7A3C}
+.os-mail-chip.is-flight{background:#EEEDFA;color:var(--accent,#625EBD)}
+.os-mail-chip.is-failed{background:#FFF0F2;color:#C41E3A}
 .os-copy-btn:hover{background:var(--light-pink)}
 .os-copy-btn:hover .material-icons-round{color:var(--pink)}
 .os-copy-btn:active{background:var(--baby-pink)}
