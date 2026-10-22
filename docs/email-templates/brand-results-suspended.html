@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!--
+  Mail: 결과물 열람 정지 알림 — 그 브랜드의 대표·멤버에게 (brand results view suspended)
+  Figma: Admin [1차] a03-4 (a03-12 결과물 열람 정지 모달 — 안내 「대표 담당자·멤버에게 이메일로 알립니다」, 사양서 R5)
+  Trigger: 관리자 브랜드 상세 머리 「…」 → 「결과물 열람 정지」 성공 → Edge Function notify-brand-restriction (kind:'results_suspend')
+           걸 때는 항상 보낸다(체크 없음 — 사양서 F6)
+  To:      그 브랜드(활성)에 활성 연결된 계정 중 비밀번호를 정한 계정 전원(대표 먼저) — 이용 제한 중인 계정은 뺀다(R4·R5). 1명당 1통
+           받는 사람은 서버(service_claim_brand_sanction_mail → _brand_mailable_accounts)가 정한다
+  Lang:    KO
+
+  Placeholders:
+    {{recipient_name}}  호칭 — 「{계정 이름} 님」, 이름이 비면 「{브랜드명} 담당자님」
+    {{brand_name}}      브랜드명
+    {{blocked_items}}   막는 것 — 「캠페인 결과물 표 · 결과물 엑셀 · 영수증 사진」(+ 배송 포함이면 「 · 시딩형 배송 리스트」)
+    {{reason_label}}    사유 이름 — 이용약관 제8조 위반(인플루언서 정보) / 기타(🔴 이름표 사본 두 벌 — brand-account-restricted.html 머리말)
+    {{reason_note}}     관리자가 쓴 사유 설명(이스케이프 + 줄바꿈 <br>)
+    {{brand_url}}       브랜드 페이지 주소(PUBLIC_BRAND_URL + /brand/ — 사양서 A9, 이 메일과 정지 해제 메일만)
+
+  Note:
+    정지 중에도 모집 현황·일정은 보인다(사양서 F7). 정지는 기간이 없다(운영팀이 풀 때까지 — F5).
+    🔴 텍스트 판은 notify-brand-restriction/index.ts 안의 사본 — 함께 고친다.
+    브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#161618;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">결과물 열람이 정지되었습니다</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{recipient_name}}</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">
+    이용약관에 따라 「{{brand_name}}」 브랜드의 캠페인 결과물 열람을 정지했습니다. 정지 중에도 캠페인 모집 현황과 일정은 브랜드 페이지에서 볼 수 있습니다.
+  </p>
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+    <div style="color:#888;font-size:11px;margin-bottom:4px;font-weight:700">볼 수 없게 된 것</div>
+    <div style="font-weight:700;color:#161618;margin-bottom:14px">{{blocked_items}}</div>
+    <div style="color:#888;font-size:11px;margin-bottom:4px;font-weight:700">정지 사유</div>
+    <div style="font-weight:700;color:#161618;margin-bottom:4px">{{reason_label}}</div>
+    <div style="color:#444;line-height:1.7">{{reason_note}}</div>
+  </div>
+  <p style="margin:0 0 4px;font-size:13px;color:#444;line-height:1.7">정지는 운영팀이 해제할 때까지 이어집니다.</p>
+  <p style="margin:0 0 22px;font-size:13px;color:#444;line-height:1.7">브랜드 페이지: <span style="font-family:monospace;font-size:12px;color:#555;word-break:break-all">{{brand_url}}</span></p>
+  <div style="border-top:1px solid #EAEAE4;padding-top:16px">
+    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">이 메일은 「{{brand_name}}」 브랜드에 연결된 계정 모두에게 보냈습니다.</p>
+    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">정지에 이의가 있으면 REVERB 운영팀 담당자에게 직접 문의해 주십시오. 이 메일은 발신 전용입니다.</p>
+    <p style="margin:12px 0 0;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+  </div>
+</div>
