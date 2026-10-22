@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792658014';
+  var CURRENT_BUILD = 'v1792658484';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3664,7 +3664,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 17:33 · 4fcb7a9</span>
+          <span class="admin-build-text">2026-10-22 17:41 · 28b64f0</span>
         </div>
       </div>
     </aside>
@@ -61192,7 +61192,7 @@ function _reportChannelCellHtml(url, kind, who) {
 
 // cols = reportColumnsFor(rows) 가 계산한 열 목록(report-rows.js). 머리글·몸통·엑셀이 **같은 목록**을 돈다 —
 //   한쪽만 REPORT_COLS(고정 17칸)를 돌면 머리글과 몸통의 칸이 어긋난다.
-function _reportRowHtml(r, cols) {
+function _reportRowHtml(r, cols, opts) {
   // 확대 창 제목 머리말 — 주문번호가 있으면 그것, 없으면 이름(외부 행은 계정)으로 사람을 지목한다
   const whoBase = r.order_no ? ('주문번호 ' + r.order_no) : (r.name_kanji || r.account_id || ('No.' + r.no));
   const cells = (cols || REPORT_COLS).map(function(c) {
@@ -61233,7 +61233,8 @@ function _reportRowHtml(r, cols) {
   //   운영 = 넣지 않는다(옛 확정된 결정 12 — docs/specs/2026-09-03-campaign-report-builder.md)
   //   개발서버(_brandAccountEnabled) = 맨 앞에 늘 넣는다(2026-10-22 사용자 결정 —
   //     docs/specs/2026-07-15-brand-portal.md 16-5 15번 ④ 「리포트 엑셀은 맨 앞 「구분」 칸을 그대로 둔다」)
-  return `<tr><td style="text-align:center;font-weight:600">${esc(r.src || '')}</td>${cells}</tr>`;
+  //   새 동작(_reportCampExtMode)에서는 「외부 참가자」가 꺾이지 않게 한 줄로(opts.nowrapSrc).
+  return `<tr><td style="text-align:center;font-weight:600${opts && opts.nowrapSrc ? ';white-space:nowrap' : ''}">${esc(r.src || '')}</td>${cells}</tr>`;
 }
 
 async function openReport(reportId) {
@@ -61300,7 +61301,9 @@ async function openReport(reportId) {
   // 열 목록은 행에서 계산한다 — 「쓰일 때만」 생기는 채널 열·기타 열이 여기서 정해진다(report-rows.js).
   const cols = reportColumnsFor(rows);
   // 표 최소 폭 = 「구분」 50 + 열 너비의 합. 숫자로 박아 두면 열이 늘 때 눌린다.
-  const tableMinW = 50 + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
+  //   ⚠️ 새 동작은 「구분」 칸이 「외부 참가자」 한 줄 폭이라 90 으로 잡는다(머리글 칸과 같은 값).
+  const srcColW = campExtMode ? 90 : 50;
+  const tableMinW = srcColW + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
 
   _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt,
                  extSources: sources, extFailed: extFailed, campaignIds: liveIds};
@@ -61350,12 +61353,12 @@ async function openReport(reportId) {
       <div class="admin-table-wrap" style="overflow-x:auto">
         <table class="data-table" style="min-width:${tableMinW}px">
           <thead><tr>
-            <th style="width:50px;text-align:center">구분</th>
+            <th style="width:${srcColW}px;text-align:center${campExtMode ? ';white-space:nowrap' : ''}">구분</th>
             ${cols.map(function(c){ return `<th style="width:${c.w};white-space:nowrap">${esc(c.label)}</th>`; }).join('')}
           </tr></thead>
           <tbody>
             <!-- ⚠️ 빈 상태 colspan 18 은 그대로 맞다 — 행이 0이면 「쓰일 때만」 열이 생길 재료가 없어 열은 늘 17칸(+구분)이다. -->
-            ${rows.length ? rows.map(function(r){ return _reportRowHtml(r, cols); }).join('')
+            ${rows.length ? rows.map(function(r){ return _reportRowHtml(r, cols, {nowrapSrc: campExtMode}); }).join('')
               : `<tr><td colspan="18" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">담긴 캠페인에 제출된 결과물이 없습니다.</td></tr>`}
           </tbody>
         </table>
@@ -61391,9 +61394,11 @@ async function loadReportCampaignExtRows(camps) {
     const srcById = {};
     d.sources.forEach(function(s) {
       const sv = Object.assign({}, s, {campaign_id: x.camp.id, campaign_no: x.camp.campaign_no || '', campaign_title: x.camp.title || ''});
+      sv.shown_count = 0;   // 표에 나오는 줄(제출한 줄) 수 — 구성 창이 파일 전체 명수(row_count)와 나란히 보인다
       srcById[s.id] = sv; sources.push(sv);
     });
     (d.ext_rows || []).filter(reportExtRowSubmitted).forEach(function(r) {
+      if (srcById[r.source_id]) srcById[r.source_id].shown_count++;
       rows.push(_reportExtToRow(r, srcById[r.source_id], {rules: 'campaign', keepExtCampaign: true,
         campaign: {campaign_no: x.camp.campaign_no || '', campaign_name: x.camp.title || ''}}));
     });
@@ -61956,7 +61961,7 @@ async function _reportComposeBodyHtml(reportId) {
     const ext = (_openReport && _openReport.id === reportId) ? _openReport : null;
     const list = ext ? (ext.extSources || []) : [];
     const items = list.map(function(sv) {
-      return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:8px" title="${esc((sv.file_name || '') + ' · ' + formatDateTime(sv.attached_at) + ' · ' + (sv.attached_by_name || ''))}">${esc(sv.ext_campaign_no)} ${esc(sv.ext_campaign_name)} · ${esc(String(sv.row_count))}명 <span style="color:var(--muted);margin-left:4px">(${esc(sv.campaign_no)})</span></span>`;
+      return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:8px" title="${esc((sv.file_name || '') + ' · ' + formatDateTime(sv.attached_at) + ' · ' + (sv.attached_by_name || ''))}">${esc(sv.ext_campaign_no)} ${esc(sv.ext_campaign_name)} · 파일 ${esc(String(sv.row_count))}명 · 표에 ${esc(String(sv.shown_count || 0))}명 <span style="color:var(--muted);margin-left:4px">(${esc(sv.campaign_no)})</span></span>`;
     }).join('');
     return `
     <div class="form-group">
@@ -61969,7 +61974,7 @@ async function _reportComposeBodyHtml(reportId) {
     <div class="form-group" style="margin-top:14px">
       <label class="form-label">외부 결과 파일 ${list.length}개 <span style="font-weight:400;color:var(--muted)">(담긴 캠페인에서 가져옴)</span></label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${items || '<span style="font-size:12px;color:var(--muted)">' + (ext && ext.extFailed ? '외부 결과 파일을 불러오지 못했습니다.' : '담긴 캠페인에 붙은 파일이 없습니다.') + '</span>'}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">외부 결과 파일은 캠페인 진행현황 결과물 탭에서 붙이고 뗍니다. 괄호 안은 붙인 캠페인 번호입니다.</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">외부 결과 파일은 캠페인 진행현황 결과물 탭에서 붙이고 뗍니다. 괄호 안은 붙인 캠페인 번호입니다. 표에는 제출한 줄(영수증·결과물이 하나라도 있는 줄)만 나옵니다.</div>
     </div>`;
   }
   const srcs = (rep.sources || []).map(function(sv) {
