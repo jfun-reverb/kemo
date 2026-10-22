@@ -10,7 +10,7 @@ const BRAND_SETUP_STORAGE_KEY = 'reverb.brandSetup';
 
 // 로그인 전 카드 화면. 로그인 뒤 틀 안 페이지(#orient·#members 등)는 brand-shell.js 의 등록부가 따로 갖는다.
 const BRAND_SCREENS = ['login', 'forgot', 'forgot-sent', 'setpw', 'resetpw', 'reset-done', 'confirm',
-  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'check-fail', 'orient-moved'];
+  'invite', 'email-change', 'link-invalid', 'not-brand', 'no-brand', 'restricted', 'check-fail', 'orient-moved'];
 
 // ── 연결 둘 (사양서 분해표 「조각 8」 착수 전 주의 ①②⑤)
 //   brandDb      : 로그인 연결. pkce + 저장 칸 'reverb.brandAuth' + 주소의 인증 값은 읽지 않는다(detectSessionInUrl:false).
@@ -55,9 +55,41 @@ function isBrandJwtError(err) {
   return err.code === 'PGRST301' || err.status === 401 || /jwt|token is expired/i.test(msg);
 }
 
+// ── 이용이 제한된 계정(bw01-13 — 사양서 docs/specs/2026-10-21-brand-account-restriction.md 4-3 · R2)
+//   서버는 제한된 계정의 브랜드 데이터 요청을 오류 'account_restricted'(원격 호출) 또는
+//   응답 reason 'account_restricted'(서버 함수)로 거부한다. 🔴 받는 자리는 아래 공통 입구 둘(brandRpc·brandCallFunction) 한 곳 —
+//   페이지마다 따로 넣지 않는다. 한 화면의 여러 호출이 동시에 받아도 화면 전환은 한 번.
+//   ⚠️ 공통 입구를 안 거치는 호출(오리엔시트 사진 올리기 — 저장소 직접)은 그 동작만 일반 실패 문구가 뜨고 다음 동작 때 이 화면으로 온다(작업표 stale 9).
+//      큐텐 불러오기는 brandCallFunction(auth) 를 거치지만 관문이 거짓이면 일반 실패라 같은 모양이다.
+const BRAND_RESTRICTED_CODE = 'account_restricted';
+let _brandRestrictedHandled = false;
+function isBrandRestrictedError(err) {
+  return !!err && String(err.message || '') === BRAND_RESTRICTED_CODE;
+}
+// 로그아웃 → 「이용이 제한된 계정」 화면. 처리한 뒤로는 다시 로그인할 때까지(resetBrandRestricted)
+//   원격 호출을 서버에 보내지 않고 같은 거부를 돌려준다 — 로그아웃 뒤 늦게 끝난 호출이 「찾을 수 없음」·다른 안내 화면으로 덮지 않게.
+async function handleBrandAccountRestricted() {
+  if (_brandRestrictedHandled) return;
+  _brandRestrictedHandled = true;
+  _brandInviteCtx = null;   // 초대 수락 화면에 있었어도 그 맥락을 버린다(routeBrand 가 초대 정리 갈래로 새지 않게)
+  await brandSignOutLocal();
+  setBrandAuthed(null);
+  // 해시를 바꾸지 않고 그린다 — 떠나기 전 확인 장치는 틀이 감춰지며(hideBrandShell) 사본만 남기고 닫힌다
+  history.replaceState(null, '', location.pathname + location.search + '#restricted');
+  routeBrand();
+}
+// 다시 로그인을 시작할 때 — 로그인 폼·「다른 계정으로 로그인」
+function resetBrandRestricted() { _brandRestrictedHandled = false; }
+
 // 로그인 연결로 원격 호출 — 토큰 만료면 한 번 갱신하고 다시 부른다. 실패면 { data:null, error }
 async function brandRpc(name, args) {
   if (!brandDb) return { data: null, error: new Error('no_client') };
+  if (_brandRestrictedHandled) return { data: null, error: new Error(BRAND_RESTRICTED_CODE) };
+  const r = await _brandRpcOnce(name, args);
+  if (r && isBrandRestrictedError(r.error)) await handleBrandAccountRestricted();
+  return r;
+}
+async function _brandRpcOnce(name, args) {
   let r;
   try { r = await brandDb.rpc(name, args || {}); } catch (e) { return { data: null, error: e }; }
   // postgrest 는 상태 코드를 응답 최상위(r.status)에 둔다 — 오류 객체만 보면 401 을 놓친다
@@ -97,6 +129,7 @@ function showBrandScreen(name) {
     setpw: '비밀번호 설정', resetpw: '새 비밀번호 정하기', 'reset-done': '비밀번호를 바꿨습니다', confirm: '링크 확인',
     invite: '브랜드 초대', 'email-change': '로그인 이메일 바꾸기', 'link-invalid': '링크를 쓸 수 없습니다',
     'not-brand': '브랜드 계정이 아닙니다', 'no-brand': '연결된 브랜드가 없습니다',
+    restricted: '이용이 제한된 계정입니다',
     'check-fail': '로그인을 확인하지 못했습니다',
     'orient-moved': '오리엔시트 작성 안내'
   };
@@ -287,18 +320,23 @@ async function brandCallFunction(name, payload, opts) {
     try { body = await res.json(); } catch (e) { body = null; }
     return { status: res.status, body };
   };
+  // 제한 화면으로 보낸 뒤에는 로그인이 필요한 호출을 보내지 않는다(brandRpc 와 같은 이유)
+  if (auth && _brandRestrictedHandled) return { status: 200, body: { success: false, reason: BRAND_RESTRICTED_CODE } };
+  let r;
   try {
-    let r = await send();
+    r = await send();
     if (auth && r.status === 401) {
       try {
         const { error } = await brandDb.auth.refreshSession();
         if (!error) r = await send();
       } catch (e) { /* 아래에서 그대로 돌려준다 */ }
     }
-    return r;
   } catch (e) {
     return { status: 0, body: null };
   }
+  // 서버 함수는 제한 거부를 응답 reason 으로 넘긴다(brand-campaign-results — 작업표 stale 2 · 연결 요청 수락은 화면이 따로 받는다)
+  if (auth && r.body && r.body.reason === BRAND_RESTRICTED_CODE) await handleBrandAccountRestricted();
+  return r;
 }
 
 // 날짜 표기 — 관리자 formatDate(2026/10/15)·formatDateTime(2026/10/15 14:05)과 같은 모양.

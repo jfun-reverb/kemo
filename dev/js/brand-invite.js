@@ -178,6 +178,8 @@ async function laterCurrentInvite() {
   _brandInviteCtx = null;
   const state = await fetchBrandLoginState();
   if (state && state.state === 'ok') { enterBrandApp(state); return; }
+  // 그사이 이용이 제한됨 — 「나중에」 안내 대신 판정 갈래(로그아웃 + bw01-13)를 따른다
+  if (state && state.state === 'restricted') { await applyBrandLoginState(state); return; }
   await brandSignOutLocal();
   setBrandAuthed(null);
   goBrandScreen('login');
@@ -357,6 +359,10 @@ async function submitOwnerLinkSetpw(pw) {
   if (r.status === 200 && reason === 'password_already_set') { _ownerLinkToLogin(ctx.email, BRAND_OWNER_LINK_SETPW_MSG.pwAlreadySet); return; }
   if (r.status === 200 && reason === 'owner_exists') { _ownerLinkToLogin(ctx.email, BRAND_INVITE_MSG.ownerExists); return; }
   if (r.status === 200 && reason === 'already_member') { _ownerLinkToLogin(ctx.email, BRAND_OWNER_LINK_SETPW_MSG.alreadyMember); return; }
+  // 이용이 제한된 계정 — 연결하지 않는다(사양서 A5). 로그인 전이라 세션 정리 없이 bw01-13
+  if (r.status === 200 && reason === BRAND_RESTRICTED_CODE) {
+    clearPw(); clearBrandInviteLink(); endOwnerLinkSetpw(); resetSetpwForm(); goBrandScreen('restricted'); return;
+  }
   if (!(r.status === 200 && body.ok === true && body.email)) {
     // failed · terms_version_required · 500 · 연결 끊김 — 같은 화면에 남는다
     clearPw(); setNotice('setpwResult', BRAND_OWNER_LINK_SETPW_MSG.failed); return;
@@ -367,6 +373,7 @@ async function submitOwnerLinkSetpw(pw) {
   resetSetpwForm();
   // 이 브라우저에 다른 브랜드 세션이 있으면 먼저 정리하고 그 계정으로 로그인
   await brandSignOutLocal();
+  resetBrandRestricted();
   let signErr = null;
   try {
     const { error } = await brandDb.auth.signInWithPassword({ email: body.email, password: pw });
@@ -430,6 +437,7 @@ async function submitInviteNew(pw) {
   resetSetpwForm();   // 비밀번호 원문을 입력 칸에 남기지 않는다
   // 이 브라우저에 다른 브랜드 세션이 있으면 먼저 정리하고 새 계정으로 로그인
   await brandSignOutLocal();
+  resetBrandRestricted();
   let signErr = null;
   try {
     const { error } = await brandDb.auth.signInWithPassword({ email: body.email, password: pw });
