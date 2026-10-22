@@ -2043,6 +2043,17 @@ async function fetchBrandPublishDefaults(brandId) {
     return (data && typeof data === 'object') ? data : null;
   } catch (e) { console.error('[fetchBrandPublishDefaults]', e); return null; }
 }
+// 여러 캠페인의 처음 체크 기본 열(리포트 엑셀 열 고르기 — 작업표 조각 17) → {spec, source('brand'|'global')} · 실패 null
+//   한 브랜드 캠페인뿐이면 그 브랜드 값, 여러 브랜드·브랜드 없는 캠페인이 섞이면 전체 기본값(서버가 정한다)
+async function fetchPublishDefaultForCampaigns(campaignIds) {
+  if (!db || !_brandAccountEnabled()) return null;
+  try {
+    const ids = [...new Set((campaignIds || []).filter(Boolean))];
+    const { data, error } = await db.rpc('admin_get_publish_default_for_campaigns', { p_campaign_ids: ids });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { console.error('[fetchPublishDefaultForCampaigns]', e); return null; }
+}
 // 전체 기본값 저장(배열) · 브랜드 기본값 저장(배열, null = 「전체 기본값 따르기」) — 권한·형식 오류는 던진다
 async function saveBrandPublishDefaultGlobal(spec) {
   if (!db) throw new Error('DB 미연결');
