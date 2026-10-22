@@ -27,6 +27,34 @@ function brandPublishBadgeHtml(enabled, onclickJs) {
     + (enabled ? '브랜드 공개 중' : '브랜드 공개 꺼짐') + '</span>';
 }
 
+// 「열람 정지」 배지(이용 제한 12) — 브랜드 결과물 열람 정지 중이면 공개 배지 옆에. 브랜드 단위 값이라 그 브랜드 캠페인 전부에 붙는다.
+//   suspended 가 true 일 때만 그린다 — 조회 실패(null)·모름은 「정지 아님」으로 단정하지 않고 아무것도 안 그린다(보조 표시)
+//   size 'head' = 진행현황 머리 줄 크기
+function brandSuspendBadgeHtml(suspended, size) {
+  if (suspended !== true) return '';
+  const head = size === 'head';
+  const style = 'display:inline-flex;align-items:center;gap:' + (head ? '3px' : '2px') + ';font-weight:600;border-radius:999px;white-space:nowrap;'
+    + (head ? 'font-size:12px;padding:3px 10px;' : 'font-size:10px;padding:1px 7px;')
+    + 'background:#FDECEC;color:#B42318;border:1px solid #F5C2C0;';
+  return '<span style="' + style + '" title="이 브랜드의 결과물 열람이 정지되어 있습니다(브랜드 상세에서 해제)">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:' + (head ? '14px' : '12px') + '">block</span>열람 정지</span>';
+}
+
+// 머리 줄 「열람 정지」 — 캠페인의 브랜드 정지 여부를 한 번 묻는다. 브랜드를 모르거나 조회 실패면 숨김
+async function refreshCampBrandSuspendStatus(campaignId) {
+  const el = document.getElementById('campBrandSuspendStatus');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!campaignId || typeof _brandAccountEnabled !== 'function' || !_brandAccountEnabled()) return;
+  const camp = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(c => c.id === campaignId) : null;
+  const brandId = camp && camp.brand_id;
+  if (!brandId) return;
+  const map = await fetchBrandResultsSuspendedMap([brandId]);
+  if (campaignId !== currentCampApplicantId) return;   // 그사이 다른 캠페인을 열었다
+  if (!map) return;
+  el.innerHTML = brandSuspendBadgeHtml(map[brandId] === true, 'head');
+}
+
 // 머리 줄 상태 표시 + 결과물 카드 단추 — loadCampApplicants 가 캠페인을 열 때마다 부른다
 async function refreshCampBrandPublishStatus(campaignId) {
   const el = document.getElementById('campBrandPublishStatus');
@@ -35,6 +63,7 @@ async function refreshCampBrandPublishStatus(campaignId) {
   const live = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
   const hidden = !live || ((typeof isHidden === 'function') && isHidden('report.share'));
   if (btn) btn.style.display = hidden ? 'none' : '';
+  refreshCampBrandSuspendStatus(campaignId);   // 공개 상태와 따로 — 권한 report.share 와 무관하게 보인다
   if (!el) return;
   el.style.display = 'none';
   if (!campaignId) return;

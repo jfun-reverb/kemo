@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792633583';
+  var CURRENT_BUILD = 'v1792633903';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3622,7 +3622,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 10:46 · dd9484e</span>
+          <span class="admin-build-text">2026-10-22 10:51 · 67aaff4</span>
         </div>
       </div>
     </aside>
@@ -4888,6 +4888,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
               <!-- 브랜드 공개 상태(조각 9) — admin-brand-publish.js refreshCampBrandPublishStatus 가 채운다. 조회 실패면 숨김 -->
               <span id="campBrandPublishStatus" style="display:none"></span>
+              <!-- 브랜드 결과물 열람 정지(이용 제한 12) — refreshCampBrandSuspendStatus 가 채운다. 정지 아님·조회 실패면 비어 있음 -->
+              <span id="campBrandSuspendStatus"></span>
               <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
               <button class="btn btn-ghost btn-sm" title="더보기" onclick="openCampDetailMoreMenu(event, this)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">more_vert</span></button>
             </div>
@@ -11364,6 +11366,8 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
+  // 브랜드 번호 — 목록의 「열람 정지」 배지(이용 제한 12)가 브랜드별 정지 여부를 이 값으로 찾는다
+  'brand_id',
   'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
@@ -33934,6 +33938,8 @@ async function _bdsSendMail(kind, refId, doneMsg) {
   toast(doneMsg + ' 알림 메일을 보내지 못했습니다.', 'warn');
 }
 async function _bdsAfterAction() {
+  // 캠페인 목록 「열람 정지」 배지(이용 제한 12)가 다음 그리기에서 새로 받게
+  if (typeof _campListSuspendedMap !== 'undefined') _campListSuspendedMap = undefined;
   if (typeof refreshPane === 'function') await refreshPane('brand-detail');
   await bdReloadPeopleTab();   // 계정 상태를 다시 받고 머리 정지 배지·「…」 항목도 다시 그린다(bdSanctionSyncHead)
 }
@@ -61744,6 +61750,34 @@ function brandPublishBadgeHtml(enabled, onclickJs) {
     + (enabled ? '브랜드 공개 중' : '브랜드 공개 꺼짐') + '</span>';
 }
 
+// 「열람 정지」 배지(이용 제한 12) — 브랜드 결과물 열람 정지 중이면 공개 배지 옆에. 브랜드 단위 값이라 그 브랜드 캠페인 전부에 붙는다.
+//   suspended 가 true 일 때만 그린다 — 조회 실패(null)·모름은 「정지 아님」으로 단정하지 않고 아무것도 안 그린다(보조 표시)
+//   size 'head' = 진행현황 머리 줄 크기
+function brandSuspendBadgeHtml(suspended, size) {
+  if (suspended !== true) return '';
+  const head = size === 'head';
+  const style = 'display:inline-flex;align-items:center;gap:' + (head ? '3px' : '2px') + ';font-weight:600;border-radius:999px;white-space:nowrap;'
+    + (head ? 'font-size:12px;padding:3px 10px;' : 'font-size:10px;padding:1px 7px;')
+    + 'background:#FDECEC;color:#B42318;border:1px solid #F5C2C0;';
+  return '<span style="' + style + '" title="이 브랜드의 결과물 열람이 정지되어 있습니다(브랜드 상세에서 해제)">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:' + (head ? '14px' : '12px') + '">block</span>열람 정지</span>';
+}
+
+// 머리 줄 「열람 정지」 — 캠페인의 브랜드 정지 여부를 한 번 묻는다. 브랜드를 모르거나 조회 실패면 숨김
+async function refreshCampBrandSuspendStatus(campaignId) {
+  const el = document.getElementById('campBrandSuspendStatus');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!campaignId || typeof _brandAccountEnabled !== 'function' || !_brandAccountEnabled()) return;
+  const camp = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(c => c.id === campaignId) : null;
+  const brandId = camp && camp.brand_id;
+  if (!brandId) return;
+  const map = await fetchBrandResultsSuspendedMap([brandId]);
+  if (campaignId !== currentCampApplicantId) return;   // 그사이 다른 캠페인을 열었다
+  if (!map) return;
+  el.innerHTML = brandSuspendBadgeHtml(map[brandId] === true, 'head');
+}
+
 // 머리 줄 상태 표시 + 결과물 카드 단추 — loadCampApplicants 가 캠페인을 열 때마다 부른다
 async function refreshCampBrandPublishStatus(campaignId) {
   const el = document.getElementById('campBrandPublishStatus');
@@ -61752,6 +61786,7 @@ async function refreshCampBrandPublishStatus(campaignId) {
   const live = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
   const hidden = !live || ((typeof isHidden === 'function') && isHidden('report.share'));
   if (btn) btn.style.display = hidden ? 'none' : '';
+  refreshCampBrandSuspendStatus(campaignId);   // 공개 상태와 따로 — 권한 report.share 와 무관하게 보인다
   if (!el) return;
   el.style.display = 'none';
   if (!campaignId) return;
@@ -63182,6 +63217,7 @@ const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 // 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
 var _campListPublishStates;   // 브랜드 공개 여부 {id:bool} · null = 조회 실패 · undefined = 아직 안 받음(조각 10)
+var _campListSuspendedMap;    // 브랜드 결과물 열람 정지 {brand_id:true} · null = 조회 실패 · undefined = 아직 안 받음(이용 제한 12)
 function updateCampViewResetBtn() {
   const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null || !!($('campPublishFilter')?.value);
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
@@ -63613,6 +63649,10 @@ async function loadAdminCampaigns(useCache) {
   if (!(useCache && _campListPublishStates !== undefined)) {
     _campListPublishStates = await fetchBrandPublishStates(allCampaigns.map(c => c.id));
   }
+  // 열람 정지(이용 제한 12) — 브랜드 단위, 목록 전체에 한 번. 실패(null)면 배지를 그리지 않는다
+  if (!(useCache && _campListSuspendedMap !== undefined)) {
+    _campListSuspendedMap = await fetchBrandResultsSuspendedMap(allCampaigns.map(c => c.brand_id));
+  }
   const _pubSel = $('campPublishFilter');
   const _pubGroup = $('campPublishFilterGroup');
   if (_pubGroup) _pubGroup.style.display = _campListPublishStates ? '' : 'none';
@@ -63721,7 +63761,7 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
-            ${_campListPublishStates ? `<div style="margin-top:3px">${brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`)}</div>` : ''}
+            ${(_campListPublishStates || (_campListSuspendedMap && c.brand_id && _campListSuspendedMap[c.brand_id] === true)) ? `<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${_campListPublishStates ? brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`) : ''}${_campListSuspendedMap && c.brand_id ? brandSuspendBadgeHtml(_campListSuspendedMap[c.brand_id] === true) : ''}</div>` : ''}
           </div>
         </div>
       </td>
