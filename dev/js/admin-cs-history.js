@@ -14,7 +14,6 @@ let _csHistLazy = null;
 let _csHistSeq = 0;          // 기간을 빠르게 바꿀 때 늦게 온 옛 응답이 새 결과를 덮지 않게
 let _csHistMemoFailed = false;
 const _csHistSort = { col: null, dir: null };   // 머리 정렬(D-23) — 해제면 받은 순서(최근 접수 먼저)
-const CS_HIST_FOLD_AT = 40;   // 표를 이만큼(px) 넘게 내리면 요약을 한 줄로 접는다(D-23) — 펴는 건 맨 위에서 위로 굴릴 때
 
 // 분류 — 앱 건은 캠페인 모집 형식(서비스 문의는 「서비스」), 수기 건은 등록 값
 function csCaseKind(r) {
@@ -66,53 +65,36 @@ async function loadCsHistoryPane() {
   renderCsHistoryTable();
 }
 
-// ── 요약 자동 접힘(D-23 · 피그마 a10-08b) — 단추 없이 표 스크롤에만 반응 ──────────
-//   펼친 카드와 접힌 한 줄을 둘 다 그려 두고 클래스(cs-sum-folded)로 보이기만 바꾼다
-//   접기 = 표를 40px 넘게 내림 / 펴기 = 맨 위에서 위로 한 번 더 굴림(또는 스크롤 막대를 맨 위로)
-//   🔴 「맨 위(0)에 닿으면 폄」으로 두면, 짧은 목록은 접는 순간 표가 길어져 스크롤이 0 으로 당겨지고 곧바로 다시 펴진다
-//      — 그래서 접은 직후 잠깐(CS_HIST_FOLD_SETTLE_MS) 생기는 0 은 무시하고, 펴기는 사람의 위로 굴림으로만 한다
-const CS_HIST_FOLD_SETTLE_MS = 400;   // 접힘 전환(0.2초) 동안 높이가 바뀌며 생기는 스크롤 당김을 넉넉히 덮는다
-let _csHistFoldedAt = 0;
+// ── 요약 한 줄 붙이기(D-23 ① · 피그마 a10-08b) — 요약과 표가 한 스크롤 영역(#csHistScroll) ──────────
+//   카드 넷은 스크롤을 따라 그대로 밀려 올라가고(저절로 재생되는 움직임 없음 — 손 움직임과 1:1),
+//   카드가 한 줄 요약 높이만큼 남았을 때부터 한 줄 요약(sticky)을 보인다. 표 머리는 그 한 줄 바로 아래에 붙는다(--cs-line-h)
+//   ⚠️ 옛 방식(표 안 스크롤 + 시간으로 접기)은 접는 순간 표가 손 밑에서 튀어 버렸다(2026-10-22 사용자 결정으로 교체)
+function _csHistScrollBox() { return $('csHistScroll'); }
 
-function _csHistBindFold() {
-  const wrap = _csHistWrap();
-  if (!wrap || wrap.dataset.csFold) return;
-  wrap.dataset.csFold = '1';
-  wrap.addEventListener('scroll', _csHistSyncFold, { passive: true });
-  wrap.addEventListener('wheel', e => {
-    if (e.deltaY < 0 && wrap.scrollTop <= 0) _csHistUnfold();
-  }, { passive: true });
+function _csHistBindStick() {
+  const box = _csHistScrollBox();
+  if (!box || box.dataset.csStick) return;
+  box.dataset.csStick = '1';
+  box.addEventListener('scroll', _csHistSyncStick, { passive: true });
+  window.addEventListener('resize', () => { _csHistMeasureLine(); _csHistSyncStick(); }, { passive: true });
 }
 
-function _csHistWrap() {
-  return $('csHistTbody') && $('csHistTbody').closest('.admin-table-wrap');
+// 한 줄 요약 높이 — 창이 좁으면 두 줄로 넘어가므로 그릴 때·창 크기가 바뀔 때 잰다(요약 실패면 0)
+function _csHistMeasureLine() {
+  const box = _csHistScrollBox(), line = $('csHistSummaryLine');
+  if (!box || !line) return;
+  box.style.setProperty('--cs-line-h', (line.innerHTML ? line.offsetHeight : 0) + 'px');
 }
 
-function _csHistUnfold() {
-  const sum = $('csHistSummary');
-  if (sum && sum.classList.contains('cs-sum-folded')) _csHistSetFolded(sum, false);
-}
-
-function _csHistSyncFold() {
-  const sum = $('csHistSummary');
-  const wrap = _csHistWrap();
-  if (!sum || !wrap) return;
-  if (sum.classList.contains('cs-sum-folded')) {
-    // 스크롤 막대를 끌어 맨 위로 올린 경우 — 접은 직후의 당김(자동)은 빼고
-    if (wrap.scrollTop <= 0 && Date.now() - _csHistFoldedAt > CS_HIST_FOLD_SETTLE_MS) _csHistUnfold();
-    return;
-  }
-  if (!sum.querySelector('.cs-summary-line') || wrap.scrollTop <= CS_HIST_FOLD_AT) return;
-  _csHistFoldedAt = Date.now();
-  _csHistSetFolded(sum, true);
-}
-
-// 보이는 쪽만 화면 읽기 프로그램이 읽게 aria-hidden 을 서로 바꾼다
-function _csHistSetFolded(sum, on) {
-  sum.classList.toggle('cs-sum-folded', on);
-  const cards = sum.querySelector('.cs-summary'), line = sum.querySelector('.cs-summary-line');
-  if (cards) cards.setAttribute('aria-hidden', on ? 'true' : 'false');
-  if (line) line.setAttribute('aria-hidden', on ? 'false' : 'true');
+function _csHistSyncStick() {
+  const box = _csHistScrollBox(), line = $('csHistSummaryLine'), cards = $('csHistSummary');
+  if (!box || !line || !cards) return;
+  // 페인이 숨은 채 그려졌으면 높이가 0 으로 재졌다 — 보이는 지금 다시 잰다(안 그러면 표 머리가 한 줄 요약에 가린다)
+  if (line.innerHTML && line.offsetHeight && box.style.getPropertyValue('--cs-line-h') !== line.offsetHeight + 'px') _csHistMeasureLine();
+  const stuck = !!line.innerHTML && cards.getBoundingClientRect().bottom - box.getBoundingClientRect().top <= line.offsetHeight;
+  if (stuck === box.classList.contains('cs-sum-stuck')) return;
+  box.classList.toggle('cs-sum-stuck', stuck);
+  line.setAttribute('aria-hidden', stuck ? 'false' : 'true');
 }
 
 // 항목 필터 선택지 — 미분류(과거)도 거를 수 있게 넣는다(고르는 자리가 아니라 거르는 자리)
@@ -189,7 +171,7 @@ function _csHistApplySortArrows() {
 function renderCsHistoryTable() {
   const tbody = $('csHistTbody');
   if (!tbody) return;
-  _csHistBindFold();
+  _csHistBindStick();
   _csHistApplySortArrows();
   const list = _csHistSorted(_csHistFiltered());
   const cnt = $('csHistCount');
@@ -197,13 +179,13 @@ function renderCsHistoryTable() {
   if (_csHistLazy) _csHistLazy.destroy();
   _csHistLazy = mountLazyList({
     tbody,
-    scrollRoot: tbody.closest('.admin-table-wrap'),
+    scrollRoot: _csHistScrollBox(),
     rows: list,
     renderRow: _csHistRowHtml,
     pageSize: CS_HIST_PAGE_SIZE,
     emptyHtml: `<tr><td colspan="${CS_HIST_COLS}" style="text-align:center;color:var(--muted);padding:40px">조건에 맞는 CS 건이 없습니다</td></tr>`
   });
-  _csHistSyncFold();   // 목록이 줄어 스크롤이 맨 위로 당겨졌으면 다시 편다(접은 직후는 제외)
+  _csHistSyncStick();   // 목록이 줄어 스크롤이 당겨졌으면 한 줄 요약을 다시 맞춘다
 }
 
 // 문의 요약 — 원문 / 한국어 번역 한 줄씩 줄여서(D-12). 고친 요약이면 「수정됨」
@@ -295,12 +277,17 @@ function openCsManualModal(caseId) {
 
 // ── 요약 넷(a10-08) — 항목별 건수 · 응답 시간 · 해결 시간 · 진행현황·출처 ──────────
 function renderCsHistorySummary(sm) {
-  const el = $('csHistSummary');
+  const el = $('csHistSummary'), line = $('csHistSummaryLine');
   if (!el) return;
-  el.classList.remove('cs-sum-folded');
-  if (!sm) { el.innerHTML = '<div class="cs-summary"><div class="cs-summary-card" style="grid-column:1/-1;color:var(--red)">요약을 불러오지 못했습니다</div></div>'; return; }
-  el.innerHTML = `<div class="cs-summary">${_csSumCategoryCard(sm) + _csSumTimeCard(sm, 'response') + _csSumTimeCard(sm, 'resolve') + _csSumStatusCard(sm)}</div>`
-    + _csSumFoldedLine(sm);
+  if (!sm) {
+    el.innerHTML = '<div class="cs-summary-card" style="grid-column:1/-1;color:var(--red)">요약을 불러오지 못했습니다</div>';
+    if (line) line.innerHTML = '';        // 실패면 한 줄 요약을 붙이지 않는다
+  } else {
+    el.innerHTML = _csSumCategoryCard(sm) + _csSumTimeCard(sm, 'response') + _csSumTimeCard(sm, 'resolve') + _csSumStatusCard(sm);
+    if (line) line.innerHTML = _csSumFoldedLine(sm);
+  }
+  _csHistMeasureLine();
+  _csHistSyncStick();
 }
 
 // 항목별 건수 — 끈 항목 제외 · 건이 있으면 보임 · 항목 없음 포함, 많은 순(미분류(과거)·항목 없음은 맨 뒤)
@@ -317,17 +304,15 @@ function _csSumFoldedLine(sm) {
   const rows = _csSumCategoryRows(sm).filter(r => r.n > 0);
   const top = rows.slice(0, 3);
   const rest = rows.slice(3).reduce((s, r) => s + r.n, 0);
+  // 글·숫자는 한 덩어리(.cs-sl-val)로 묶는다 — 낱개 글 조각이 각자 가운데 맞춤되면 글자 크기·굵기 차이로 위아래가 들쑥날쑥해진다
   const cats = top.map(r => `${esc(r.k === '' ? '항목 없음' : csCategoryLabel(r.k))} <b>${r.n}</b>`).join(' · ')
     + (rest ? ` · 외 <b>${rest}</b>건` : '') || '<span style="color:var(--muted)">건 없음</span>';
   const avg = k => esc(csFormatDuration((sm[k] || {}).avg_sec));
   const st = sm.by_status || {};
   const badges = ['needs_check', 'in_progress', 'done'].map(s =>
-    csStatusBadgeHtml(s).replace('</span>', ` ${Number(st[s] || 0)}</span>`)).join(' ');
-  return `<div class="cs-summary-line" aria-hidden="true">
-    <span class="cs-sl-item"><span class="cs-sl-label">요약</span>${cats}</span>
-    <span class="cs-sl-item"><span class="cs-sl-label">응답 평균</span><b>${avg('response')}</b></span>
-    <span class="cs-sl-item"><span class="cs-sl-label">해결 평균</span><b>${avg('resolve')}</b></span>
-    <span class="cs-sl-item">${badges}</span></div>`;
+    csStatusBadgeHtml(s).replace('</span>', ` ${Number(st[s] || 0)}</span>`)).join('');
+  const item = (label, val) => `<span class="cs-sl-item">${label ? `<span class="cs-sl-label">${label}</span>` : ''}<span class="cs-sl-val">${val}</span></span>`;
+  return item('요약', cats) + item('응답 평균', `<b>${avg('response')}</b>`) + item('해결 평균', `<b>${avg('resolve')}</b>`) + item('', badges);
 }
 
 function _csSumCategoryCard(sm) {
