@@ -1494,9 +1494,11 @@ async function doBrandMerge(sourceId) {
   if (!confirm('정말 병합할까요?\n캠페인·신청 번호가 재발급되며 되돌릴 수 없습니다.')) return;
   var result = await mergeBrands(sourceId, targetId);
   if (!result.ok) {
-    // 528 — 원본에 브랜드 계정 연결이 있으면 코드 문자열로 거부한다(다른 거부는 한국어 문구라 그대로 싣는다)
+    // 528 — 원본에 브랜드 계정 연결이 있으면 · 이용 제한 제한 4(R8) — 원본이 결과물 열람 정지 중이면 코드 문자열로 거부한다
+    //   (다른 거부는 한국어 문구라 그대로 싣는다)
     var mergeErr = result.error || '';
-    toast('병합 실패: ' + (mergeErr.indexOf('brand_has_account_links') >= 0 ? friendlyError(mergeErr) : (mergeErr || '알 수 없는 오류')), 'error');
+    var mergeCoded = mergeErr.indexOf('brand_has_account_links') >= 0 || mergeErr.indexOf('source_results_suspended') >= 0;
+    toast('병합 실패: ' + (mergeCoded ? friendlyError(mergeErr) : (mergeErr || '알 수 없는 오류')), 'error');
     return;
   }
   var d = result.data || {};

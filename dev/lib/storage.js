@@ -3630,6 +3630,65 @@ async function sendBrandOwnerLinkMail(requestId) {
   }
 }
 
+// ── 브랜드 이용 제한·결과물 열람 정지(이용 제한 작업표 제한 9, 마이그레이션 584) ──
+//   쓰기 다섯은 _brandAccountRpc 방식 — {ok:true, data:{result, …}} | {ok:false, error}. 서버 결과 코드는 data.result 그대로.
+//   가드는 서버 has_permission('brand.restriction_manage','write') — 아니면 data.result 'forbidden'.
+// 계정 이용 제한 걸기(until null = 해제할 때까지, 일본 날짜 'YYYY-MM-DD')
+//   → data {result:'ok'|'forbidden'|'invalid_reason'|'note_required'|'note_too_long'|'invalid_until'|'not_found'|'not_active_account'|'already_restricted', restriction_id}
+function restrictBrandAccount(authId, reasonCode, reasonNote, until) {
+  return _brandAccountRpc('restrictBrandAccount', 'admin_restrict_brand_account',
+    { p_auth_id: authId, p_reason_code: reasonCode, p_reason_note: reasonNote, p_until: until || null });
+}
+// 기간 바꾸기 → data {result:'ok'|'forbidden'|'not_restricted'|'invalid_until'|'same_period', restriction_id}
+//   🔴 ok 면 restriction_id 가 **새 줄** — 메일은 그 새 번호로 'account_period'(옛 번호는 not_eligible)
+function changeBrandRestrictionPeriod(restrictionId, until) {
+  return _brandAccountRpc('changeBrandRestrictionPeriod', 'admin_change_brand_restriction_period',
+    { p_restriction_id: restrictionId, p_until: until || null });
+}
+// 제한 해제 → data {result:'ok'|'forbidden'|'not_restricted'}
+function liftBrandAccountRestriction(restrictionId) {
+  return _brandAccountRpc('liftBrandAccountRestriction', 'admin_lift_brand_account_restriction', { p_restriction_id: restrictionId });
+}
+// 결과물 열람 정지 → data {result:'ok'|'forbidden'|'invalid_reason'|'note_required'|'note_too_long'|'brand_not_found'|'already_suspended', suspension_id}
+//   (보관 삭제된 브랜드도 brand_not_found)
+function suspendBrandResults(brandId, reasonCode, reasonNote, includeShipping) {
+  return _brandAccountRpc('suspendBrandResults', 'admin_suspend_brand_results',
+    { p_brand_id: brandId, p_reason_code: reasonCode, p_reason_note: reasonNote, p_include_shipping: !!includeShipping });
+}
+// 정지 해제 → data {result:'ok'|'forbidden'|'not_suspended', suspension_id}
+function liftBrandResultsSuspension(brandId) {
+  return _brandAccountRpc('liftBrandResultsSuspension', 'admin_lift_brand_results_suspension', { p_brand_id: brandId });
+}
+// 브랜드별 정지 여부 → {브랜드id: true}(정지 중만) · 🔴 실패는 null(배지를 그리지 않는다 — 「정지 아님」으로 그리지 않는다)
+async function fetchBrandResultsSuspendedMap(brandIds) {
+  if (!db || !_brandAccountEnabled()) return null;
+  const ids = [...new Set((brandIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    const { data, error } = await db.rpc('admin_get_brand_results_suspended_map', { p_brand_ids: ids });
+    if (error) throw error;
+    return (data && typeof data === 'object') ? data : {};
+  } catch (e) { console.error('[fetchBrandResultsSuspendedMap]', e); return null; }
+}
+// 알림 메일(서버 함수 notify-brand-restriction) — kind 'account_restrict'|'account_period'|'account_lift'|'results_suspend'|'results_lift',
+//   refId = 제한 줄 번호(account_*) 또는 정지 줄 번호(results_*). 받는 사람은 서버가 정한다.
+//   {sent:true, count[, dev_mail]} | {sent:false, reason[, error]} — 화면은 sent:false 를 모두 「알림 메일을 보내지 못했습니다」 한 가지로.
+async function sendBrandSanctionMail(kind, refId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  if (!_brandAccountEnabled()) return { sent: false, reason: 'brand_account_disabled' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-brand-restriction', { body: { kind: kind, ref_id: refId } });
+    if (error) {
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 관리자 브랜드 정보 저장(조각 7, 마이그레이션 575 admin_update_brand_info) — 바뀐 칸만, 연 순간 값(prev)과 대조.
 //   fields·prev 열쇠 = name·name_ja·name_en·company_id·status·official_instagram_url·official_x_url·publish_default 중 바뀐 것.
 //   🔴 contacts·소개·Qoo10 은 보내지 않는다(서버가 invalid_input 으로 거부). 반환 {ok:true, result, field?} | {ok:false, error}
