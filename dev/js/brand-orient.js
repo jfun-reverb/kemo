@@ -36,9 +36,9 @@ const BRAND_ORIENT_TAB_EMPTY = {
   registered: { title: '캠페인이 등록된 오리엔시트가 없습니다', desc: '운영팀이 캠페인을 등록하면 여기에 나타납니다. 「전체」 탭에서 모든 오리엔시트를 볼 수 있습니다.' },
   expired: { title: '만료된 오리엔시트가 없습니다', desc: '작성 기한이 지난 오리엔시트가 여기에 나타납니다. 「전체」 탭에서 모든 오리엔시트를 볼 수 있습니다.' }
 };
-// 시딩 채널 표기 — 견적서(_orient_compute_quote)·작성 폼과 같은 하이픈 표기
+// 시딩 채널 표기 — 작성 폼·관리자 화면과 같은 띄어쓰기 표기(2026-10-22 사용자 결정). ⚠️ 서버 견적서(_orient_compute_quote)·견적 기준값 이름은 아직 붙임표 — 맞출지 확인 대기
 const BRAND_ORIENT_CHANNEL = {
-  instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', x: 'X', tiktok: '틱톡', youtube: '유튜브'
+  instagram_feed: '인스타그램 피드', instagram_reels: '인스타그램 릴스', x: 'X', tiktok: '틱톡', youtube: '유튜브'
 };
 const BRAND_ORIENT_MARKET = { lips: 'LIPS', cosme: '@cosme' };
 
