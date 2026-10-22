@@ -42,16 +42,28 @@
 //      — 운영 데이터베이스에는 브랜드 계정이 없다. 출시 때 ①운영 비밀값을 넣고 ②아래 isStagingProject() 조건을 걷어 운영에 다시 배포한다.
 //   켜지면:
 //     · 받는 사람 = 그 시트 브랜드(활성)에 활성 연결된 계정 중 비밀번호를 정한 계정 전원(대표 먼저) — 이용 제한 중인 계정은 뺀다.
-//       판정은 데이터베이스 service_brand_mailable_accounts 한 곳(이용 제한 작업표 제한 5 — 옛 직접 조회 사본은 걷었다).
-//       🔴 배포는 그 함수가 있는 데이터베이스에서만(제한 2 적용 뒤) — 없으면 브랜드 계정 갈래 발급 메일이 전부 500. 화면이 넘긴 to_email 은 무시한다
+//       판정은 데이터베이스 한 곳 — service_claim_orient_sheet_mail(585) 안의 _brand_mailable_accounts(582). 이 함수에 사본을 두지 않는다.
+//       🔴 배포는 585 가 적용된 데이터베이스에서만 — 없으면 브랜드 계정 갈래 발급 메일이 전부 500. 화면이 넘긴 to_email 은 무시한다
 //       (남기면 받는 사람 고르는 칸을 없앤 것이 서버에서 다시 열린다). 신청서 이메일 갈래도 쓰지 않는다
 //     · 1명당 1통(받는 사람끼리 주소가 안 보이게) · 호칭 「{계정 이름}님」(이름이 비면 「{브랜드명} 담당자님」 — 결정 12)
 //     · 링크 = PUBLIC_BRAND_URL + '/brand/?orient=' + 시트 번호(브랜드 페이지가 로그인 뒤 그 시트를 연다). 양식 orient-sheet-invite-brand
-//     · 결과 {sent, recipients:[보낸 주소], failed:[못 보낸 주소], reason?:'no_account'} — 받을 계정이 0명이면 보내지 않고 no_account
-//     · 기록: 1명 이상 성공이면 mail_sent_at + mail_sent_to = 보낸 주소를 「, 」로 이은 값(일부 실패면 성공분만) · 전원 실패면 기록 안 함
+//     · 🔄 「아직 못 받은 계정에만」(마이그레이션 585, 2026-10-22 사용자 결정 — 강제 재발송 없음):
+//         ① service_claim_orient_sheet_mail(시트, 호출 관리자) 가 시트 상태(발행 끝 consumed · 기한 지남 expired 거부)를 보고
+//            받을 계정(582 판정) 중 아직 못 받은 계정만 선점해 돌려준다 — 동시 클릭·재시도에도 한 계정에 한 통
+//         ② 한 명 보낼 때마다 service_mark_orient_sheet_mail_sent(…, claimed_at, 성공 여부) — 🔴 claimed_at 은 ①이 준 문자열 그대로
+//            (Date 로 바꾸면 밀리초로 잘려 대조가 실패해 기록이 안 남는다). 시트의 mail_sent_at(처음 시각)·mail_sent_to(이어 붙임)도 그 함수가 맞춘다
+//     · 결과 {sent, recipients:[보낸 주소], failed:[확실히 못 보낸 주소], reason?, already_sent_count, remaining_count,
+//             unconfirmed?:[나갔는지 모름], record_failed?:[나갔는데 받음 기록 못 남김], dev_no_send?}
+//         reason: no_account(받을 계정 0) · all_sent(전원 이미 받음) · in_flight(다른 실행이 보내는 중) · consumed · expired · not_found
+//                 · send_failed(아무도 안 나감 — 전부 확실한 실패) · send_unconfirmed(확인된 발송 0 + 나갔는지 모르는 계정 있음)
+//     · 🔴 실패를 둘로 가른다 — Brevo 가 거부(4xx·키 미설정)하면 실패 보고로 선점을 풀고, 5xx·연결 오류·시간 초과(20초)는 나갔을 수 있어
+//         보고하지 않는다(선점이 15분 뒤 풀린다). 성공 보고는 실패하면 한 번 더 시도하고, 그래도 안 되면 record_failed 에 싣는다
 //     · 1명 이상 성공 + 연결 신청이면 서베이 상태 자동 전진(지금 규칙 그대로)
+//     · 🔴 개발 프로젝트 「보내지 않고 성공으로 기록」(사용자 결정 Q4) — 비밀값 ORIENT_MAIL_DEV_NO_SEND === "1" **그리고** 개발 프로젝트일 때만.
+//         Brevo 를 부르지 않고 성공으로 보고, 응답에 dev_no_send:true. 🔴 이 잠금의 isStagingProject() 는 출시 때도 걷지 않는다(운영에서 절대 안 켜지게)
 //   비밀값: ORIENT_MAIL_TO_BRAND_ACCOUNTS(개발서버에만 "1") · PUBLIC_BRAND_URL(브랜드 계정 메일 함수와 같은 값 — 기본값 없음)
 //     supabase secrets set ORIENT_MAIL_TO_BRAND_ACCOUNTS=1 --project-ref qysmxtipobomefudyixw
+//     supabase secrets set ORIENT_MAIL_DEV_NO_SEND=1 --project-ref qysmxtipobomefudyixw   # 개발 프로젝트에만 — 운영에 넣어도 개발 판정 때문에 안 켜진다
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -59,6 +71,8 @@ import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 const STAGING_PROJECT_REF = "qysmxtipobomefudyixw";
+// 브랜드 계정 갈래 Brevo 한 통 시간 제한 — 넘으면 「나갔는지 모름」(실패로 보고하지 않는다)
+const BREVO_TIMEOUT_MS = 20_000;
 
 // CORS — 이 함수는 관리자 화면(globalreverb.com 등)에서 supabase.functions.invoke 로 직접 호출한다.
 // 다른 도메인(*.supabase.co) 호출이라 브라우저가 사전요청(OPTIONS)+응답 CORS 헤더를 요구.
@@ -101,6 +115,10 @@ function isStagingProject(): boolean {
 function brandAccountRuleEnabled(): boolean {
   return env("ORIENT_MAIL_TO_BRAND_ACCOUNTS") === "1" && isStagingProject();
 }
+// 🔴 개발 프로젝트 「보내지 않고 성공으로 기록」 — 두 겹 잠금. 위와 달리 출시 때도 isStagingProject() 를 걷지 않는다
+function devNoSendEnabled(): boolean {
+  return env("ORIENT_MAIL_DEV_NO_SEND") === "1" && isStagingProject();
+}
 
 // 작성 기한 표기 (ja-JP 와 통일된 한국어 날짜 — YYYY. M. D.)
 function fmtDeadline(iso?: string | null): string {
@@ -111,14 +129,18 @@ function fmtDeadline(iso?: string | null): string {
   return d.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "long", day: "numeric" });
 }
 
+// Brevo 가 응답을 돌려주며 거부한 경우(상태 코드 있음) — 「확실히 안 나감」. 연결 오류·시간 초과는 이 오류가 아니다(나갔는지 모름)
+class BrevoRejectedError extends Error {}
+
 async function sendBrevoEmail(params: {
   to: { email: string; name?: string }[];
   subject: string;
   htmlContent: string;
   textContent: string;
+  signal?: AbortSignal;   // 브랜드 계정 갈래만 시간 제한을 건다(옛 갈래는 그대로 — 넘기지 않는다)
 }): Promise<void> {
   const apiKey = env("BREVO_API_KEY");
-  if (!apiKey) throw new Error("BREVO_API_KEY not configured");
+  if (!apiKey) throw new BrevoRejectedError("BREVO_API_KEY not configured");   // 보내지도 않았다 — 확실한 실패
 
   const body = {
     sender: {
@@ -135,11 +157,14 @@ async function sendBrevoEmail(params: {
     method: "POST",
     headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify(body),
+    signal: params.signal,
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Brevo send failed ${res.status}: ${errText}`);
+    // 4xx = 요청을 거부(안 나감) · 5xx = 서버 쪽 오류라 나갔는지 모른다 — 일반 오류로 던져 「나갔는지 모름」 갈래로 보낸다
+    const msg = `Brevo send failed ${res.status}: ${errText}`;
+    throw res.status < 500 ? new BrevoRejectedError(msg) : new Error(msg);
   }
 }
 
@@ -183,36 +208,36 @@ async function resolveRecipient(
   return { email, name: name || String(data?.name || "").trim() };
 }
 
-// 받는 사람 = 데이터베이스 규칙 service_brand_mailable_accounts(이용 제한 작업표 제한 2 — 557 _brand_mailable_accounts 의
-//   서비스 키 감싸개)가 정한다: 활성 브랜드 · 활성 연결 · 비밀번호 정함 · 이용 제한 중 아님 · 대표 먼저 · 같은 주소는 한 번.
-//   🔴 이 함수 안에 규칙을 다시 베끼지 않는다(옛 사본은 제한 5 에서 걷었다 — 판정식 한 곳, 사양서 R4).
-async function resolveBrandAccountRecipients(
-  sb: ReturnType<typeof createClient>,
-  brandId: string,
-): Promise<{ email: string; name: string }[]> {
-  const { data, error } = await sb.rpc("service_brand_mailable_accounts", { p_brand_id: brandId });
-  if (error) throw error;
-  const rows = (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
-  const out: { email: string; name: string }[] = [];
-  for (const r of rows) {
-    const email = String(r?.email || "").trim().toLowerCase();
-    if (!email) continue;
-    out.push({ email, name: String(r?.name || "").trim() });
-  }
-  return out;
-}
-
 // 브랜드 계정 받는 사람 규칙 — 머리말 「브랜드 계정 받는 사람 규칙」. 화면이 넘긴 to_email 은 받지도 않는다
 async function sendToBrandAccounts(
   sb: ReturnType<typeof createClient>,
   sheet: Record<string, any>,
+  callerId: string,
 ): Promise<Response> {
-  const recipients = await resolveBrandAccountRecipients(sb, sheet.brand_id);
-  if (!recipients.length) {
-    // 받을 계정이 없다 — 보내지 않고, 나중에 계정이 설정을 마쳐도 다시 보내지 않는다(16-5 8번). 단계 전진도 없다
-    console.warn("[notify-orient-sheet] no brand account recipient", { orient_sheet_id: sheet.id });
-    return jsonResponse({ sent: false, reason: "no_account", recipients: [], failed: [] }, 200);
+  // ① 선점 — 받을 계정 판정(582)·시트 상태 검사·「아직 못 받은 계정」 고르기는 전부 데이터베이스(585) 한 곳
+  const { data: claim, error: claimErr } = await sb.rpc("service_claim_orient_sheet_mail", {
+    p_sheet_id: sheet.id,
+    p_caller: callerId,
+  });
+  if (claimErr) throw claimErr;
+  const c = (claim || {}) as Record<string, any>;
+  const counts = {
+    already_sent_count: Number(c.already_sent_count || 0),
+    remaining_count: Math.max(0, Number(c.mailable_count || 0) - Number(c.already_sent_count || 0) - Number(c.in_flight_count || 0)),
+  };
+  if (c.result === "error") {
+    // forbidden 은 위에서 이미 걸렀다(같은 판정) — 시트 상태 거부(consumed·expired·not_found)는 그대로 이유로
+    return jsonResponse({ sent: false, reason: String(c.reason || "error"), recipients: [], failed: [] }, 200);
   }
+  if (c.result !== "ok") {
+    // 보낼 계정이 없다 — no_account(받을 계정 0) · all_sent · in_flight. 단계 전진도 없다
+    console.warn("[notify-orient-sheet] nothing to send", { orient_sheet_id: sheet.id, reason: c.reason });
+    return jsonResponse({ sent: false, reason: String(c.reason || "no_account"), recipients: [], failed: [], ...counts }, 200);
+  }
+  // 🔴 문자열 그대로 결과 보고에 돌려준다(Date 로 바꾸면 밀리초로 잘려 대조 실패)
+  const claimedAt = String(c.claimed_at);
+  const recipients = (Array.isArray(c.recipients) ? c.recipients : []) as Array<Record<string, unknown>>;
+  const noSend = devNoSendEnabled();
 
   const brandBase = env("PUBLIC_BRAND_URL").replace(/\/$/, "");
   if (!/^https:\/\/[^/\s]+$/.test(brandBase)) throw new Error("PUBLIC_BRAND_URL not configured");
@@ -222,47 +247,101 @@ async function sendToBrandAccounts(
   const subject = `[REVERB JP] 캠페인 오리엔시트 작성 요청 — ${brandName}`;
   const tpl = TEMPLATES["orient-sheet-invite-brand"].replace(/<!--[\s\S]*?-->/g, "");
   // 링크는 비밀이 아니다(로그인해야 열린다) — 개발서버 확인용으로 로그에 남긴다(작업표 조각 10 완료 정의)
-  console.log("[notify-orient-sheet] brand account rule", { orient_sheet_id: sheet.id, link, count: recipients.length });
+  console.log("[notify-orient-sheet] brand account rule", { orient_sheet_id: sheet.id, link, count: recipients.length, dev_no_send: noSend });
 
-  const sent: string[] = [];
-  const failed: string[] = [];
-  for (const r of recipients) {
-    const greeting = r.name ? `${r.name}님` : `${brandName} 담당자님`;
-    const html = render(tpl, {
-      recipient_name: escapeHtml(greeting),
-      brand_name: escapeHtml(brandName),
-      link: escapeHtml(link),
-      deadline: escapeHtml(deadline),
-    });
-    const text =
-      `${greeting}\n\n` +
-      `${brandName}의 캠페인 오리엔시트가 발급되었습니다.\n` +
-      `브랜드 페이지에 로그인해 제품·콘텐츠 정보를 작성해 주십시오. 작성 중 자동 저장됩니다.\n\n` +
-      `오리엔시트 작성: ${link}\n` +
-      `작성 기한: ${deadline}\n\n` +
-      `[문의]\n` +
-      `· 카카오톡 byhyunho7\n` +
-      `· 연락처 010-2550-1511\n`;
+  const sent: string[] = [];          // 나갔고 「받음」 기록까지 남은 주소
+  const failed: string[] = [];        // 확실히 안 나감(Brevo 거부·본문 만들기 실패) — 선점을 풀어 바로 다시 보낼 수 있다
+  const unconfirmed: string[] = [];   // 나갔는지 모름(연결 오류·시간 초과) — 선점을 풀지 않는다(15분 뒤 다시 잡힌다)
+  const recordFailed: string[] = [];  // 나갔는데 「받음」 기록을 못 남김 — 15분 뒤 다시 누르면 한 통 더 갈 수 있다
+  for (const row of recipients) {
+    const r = {
+      authId: String(row?.auth_id || ""),
+      email: String(row?.email || "").trim().toLowerCase(),
+      name: String(row?.name || "").trim(),
+    };
+    // 한 명마다 결과 보고. 반환 true = 내 선점에 적었다 / false = 내 선점이 아니다(15분이 지나 다른 실행이 잡음 등)
+    const report = async (ok: boolean): Promise<boolean> => {
+      const { data, error: markErr } = await sb.rpc("service_mark_orient_sheet_mail_sent", {
+        p_sheet_id: sheet.id,
+        p_auth_id: r.authId,
+        p_claimed_at: claimedAt,   // 🔴 선점이 준 문자열 그대로
+        p_ok: ok,
+      });
+      if (markErr) {
+        console.error("[notify-orient-sheet] mark failed", { orient_sheet_id: sheet.id, ok, error: markErr.message });
+        return false;
+      }
+      return data === true;
+    };
+    // 받을 계정 판정(582)이 빈 이메일을 걸러 오므로 닿지 않는 갈래 — 혹시 오면 실패로 풀어 둔다
+    if (!r.email) { failed.push("(이메일 없음)"); await report(false); continue; }
+    let html = "";
+    let text = "";
     try {
-      await sendBrevoEmail({ to: [{ email: r.email, name: r.name || brandName }], subject, htmlContent: html, textContent: text });
-      sent.push(r.email);
+      // 본문 만들기 실패도 이 사람 몫 실패로 끝낸다(500 으로 끝나면 나머지 계정 선점이 15분 묶인다)
+      const greeting = r.name ? `${r.name}님` : `${brandName} 담당자님`;
+      html = render(tpl, {
+        recipient_name: escapeHtml(greeting),
+        brand_name: escapeHtml(brandName),
+        link: escapeHtml(link),
+        deadline: escapeHtml(deadline),
+      });
+      text =
+        `${greeting}\n\n` +
+        `${brandName}의 캠페인 오리엔시트가 발급되었습니다.\n` +
+        `브랜드 페이지에 로그인해 제품·콘텐츠 정보를 작성해 주십시오. 작성 중 자동 저장됩니다.\n\n` +
+        `오리엔시트 작성: ${link}\n` +
+        `작성 기한: ${deadline}\n\n` +
+        `[문의]\n` +
+        `· 카카오톡 byhyunho7\n` +
+        `· 연락처 010-2550-1511\n`;
     } catch (e) {
-      // 주소는 로그에 남기지 않는다(응답 failed 에 있다)
-      console.error("[notify-orient-sheet] brand account send failed", { orient_sheet_id: sheet.id, error: (e as Error).message });
+      console.error("[notify-orient-sheet] brand account render failed", { orient_sheet_id: sheet.id, error: (e as Error).message });
       failed.push(r.email);
+      await report(false);
+      continue;
+    }
+    try {
+      // 개발 프로젝트 「보내지 않고 성공으로 기록」(두 겹 잠금) — Brevo 를 부르지 않는다
+      if (!noSend) {
+        await sendBrevoEmail({
+          to: [{ email: r.email, name: r.name || brandName }], subject, htmlContent: html, textContent: text,
+          signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+        });
+      }
+    } catch (e) {
+      // 주소는 로그에 남기지 않는다(응답 목록에 있다)
+      const rejected = e instanceof BrevoRejectedError;
+      console.error("[notify-orient-sheet] brand account send failed", { orient_sheet_id: sheet.id, rejected, error: (e as Error).message });
+      if (rejected) {
+        failed.push(r.email);
+        await report(false);   // 확실히 안 나감 — 선점을 풀어 바로 다시 보낼 수 있게
+      } else {
+        unconfirmed.push(r.email);   // 🔴 나갔을 수 있다 — 실패로 보고하지 않는다(풀면 바로 두 통이 될 수 있다). 15분 창에 맡긴다
+      }
+      continue;
+    }
+    sent.push(r.email);
+    // 성공 보고 — 한 번 실패하면 한 번 더. 시트 mail_sent_at(처음 시각)·mail_sent_to(이어 붙임)도 이 함수가 맞춘다
+    if (!(await report(true)) && !(await report(true))) {
+      console.error("[notify-orient-sheet] sent but not recorded", { orient_sheet_id: sheet.id });
+      recordFailed.push(r.email);
     }
   }
+  counts.already_sent_count += sent.length - recordFailed.length;
+  counts.remaining_count = Math.max(0, counts.remaining_count - sent.length);
+  const extra = {
+    ...counts,
+    ...(unconfirmed.length ? { unconfirmed } : {}),
+    ...(recordFailed.length ? { record_failed: recordFailed } : {}),
+  };
 
   if (!sent.length) {
-    // 전원 실패 — 기록·단계 전진 없음
-    return jsonResponse({ sent: false, reason: "send_failed", recipients: [], failed }, 200);
+    // 아무에게도 안 나감(확인된 것 기준) — 단계 전진 없음. 확실한 실패는 선점이 풀려 다시 누르면 다시 잡는다
+    return jsonResponse({
+      sent: false, reason: unconfirmed.length ? "send_unconfirmed" : "send_failed", recipients: [], failed, ...extra,
+    }, 200);
   }
-
-  const { error: trackErr } = await sb
-    .from("orient_sheets")
-    .update({ mail_sent_at: new Date().toISOString(), mail_sent_to: sent.join(", ") })
-    .eq("id", sheet.id);
-  if (trackErr) console.error("[notify-orient-sheet] mail_sent_at update failed", trackErr.message);
 
   let advanced = false;
   let advanceReason: string | null = null;
@@ -280,7 +359,10 @@ async function sendToBrandAccounts(
   }
 
   return jsonResponse(
-    { sent: true, recipients: sent, failed, recipient: sent.join(", "), advanced, advance_reason: advanceReason },
+    {
+      sent: true, recipients: sent, failed, recipient: sent.join(", "), advanced, advance_reason: advanceReason,
+      ...extra, ...(noSend ? { dev_no_send: true } : {}),
+    },
     200,
   );
 }
@@ -340,7 +422,7 @@ Deno.serve(async (req: Request) => {
 
     // 1-b) 브랜드 계정 받는 사람 규칙(두 겹 잠금 — 머리말). 켜져 있으면 아래 옛 갈래(화면 주소 우선·신청서 이메일)를 타지 않는다
     if (brandAccountRuleEnabled()) {
-      return await sendToBrandAccounts(sb, sheet as Record<string, any>);
+      return await sendToBrandAccounts(sb, sheet as Record<string, any>, caller.id);
     }
 
     // 2) 수신자 결정 — 클라가 to_email 명시(브랜드만 선택 발급 시 수신자 선택) 우선, 없으면 기존 자동 결정 폴백
