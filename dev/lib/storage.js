@@ -171,6 +171,8 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
+  // 브랜드 번호 — 목록의 「열람 정지」 배지(이용 제한 12)가 브랜드별 정지 여부를 이 값으로 찾는다
+  'brand_id',
   'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',

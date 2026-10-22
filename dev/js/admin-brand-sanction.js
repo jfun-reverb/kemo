@@ -358,6 +358,8 @@ async function _bdsSendMail(kind, refId, doneMsg) {
   toast(doneMsg + ' 알림 메일을 보내지 못했습니다.', 'warn');
 }
 async function _bdsAfterAction() {
+  // 캠페인 목록 「열람 정지」 배지(이용 제한 12)가 다음 그리기에서 새로 받게
+  if (typeof _campListSuspendedMap !== 'undefined') _campListSuspendedMap = undefined;
   if (typeof refreshPane === 'function') await refreshPane('brand-detail');
   await bdReloadPeopleTab();   // 계정 상태를 다시 받고 머리 정지 배지·「…」 항목도 다시 그린다(bdSanctionSyncHead)
 }

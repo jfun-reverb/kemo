@@ -1435,6 +1435,8 @@
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
               <!-- 브랜드 공개 상태(조각 9) — admin-brand-publish.js refreshCampBrandPublishStatus 가 채운다. 조회 실패면 숨김 -->
               <span id="campBrandPublishStatus" style="display:none"></span>
+              <!-- 브랜드 결과물 열람 정지(이용 제한 12) — refreshCampBrandSuspendStatus 가 채운다. 정지 아님·조회 실패면 비어 있음 -->
+              <span id="campBrandSuspendStatus"></span>
               <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openEditCampaign(currentCampApplicantId)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">edit</span> 편집</button>
               <button class="btn btn-ghost btn-sm" title="더보기" onclick="openCampDetailMoreMenu(event, this)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">more_vert</span></button>
             </div>

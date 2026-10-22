@@ -62,6 +62,7 @@ const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 // 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
 var _campListPublishStates;   // 브랜드 공개 여부 {id:bool} · null = 조회 실패 · undefined = 아직 안 받음(조각 10)
+var _campListSuspendedMap;    // 브랜드 결과물 열람 정지 {brand_id:true} · null = 조회 실패 · undefined = 아직 안 받음(이용 제한 12)
 function updateCampViewResetBtn() {
   const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null || !!($('campPublishFilter')?.value);
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
@@ -493,6 +494,10 @@ async function loadAdminCampaigns(useCache) {
   if (!(useCache && _campListPublishStates !== undefined)) {
     _campListPublishStates = await fetchBrandPublishStates(allCampaigns.map(c => c.id));
   }
+  // 열람 정지(이용 제한 12) — 브랜드 단위, 목록 전체에 한 번. 실패(null)면 배지를 그리지 않는다
+  if (!(useCache && _campListSuspendedMap !== undefined)) {
+    _campListSuspendedMap = await fetchBrandResultsSuspendedMap(allCampaigns.map(c => c.brand_id));
+  }
   const _pubSel = $('campPublishFilter');
   const _pubGroup = $('campPublishFilterGroup');
   if (_pubGroup) _pubGroup.style.display = _campListPublishStates ? '' : 'none';
@@ -601,7 +606,7 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
-            ${_campListPublishStates ? `<div style="margin-top:3px">${brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`)}</div>` : ''}
+            ${(_campListPublishStates || (_campListSuspendedMap && c.brand_id && _campListSuspendedMap[c.brand_id] === true)) ? `<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${_campListPublishStates ? brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`) : ''}${_campListSuspendedMap && c.brand_id ? brandSuspendBadgeHtml(_campListSuspendedMap[c.brand_id] === true) : ''}</div>` : ''}
           </div>
         </div>
       </td>
