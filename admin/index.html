@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792636888';
+  var CURRENT_BUILD = 'v1792637550';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3625,7 +3625,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 11:41 · 811988b</span>
+          <span class="admin-build-text">2026-10-22 11:52 · b68256e</span>
         </div>
       </div>
     </aside>
@@ -4235,7 +4235,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <table class="data-table">
                   <thead><tr>
                     <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:4px"><input type="checkbox" id="eventSlotSelectAll" onchange="toggleEventSlotSelectAll(this.checked)" title="보이는 타임 전체 선택"></th>
-                    <th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:70px">관리</th>
+                    <th>날짜</th><th>시각</th><th style="width:100px">정원</th><th>대상</th><th>확정</th><th>대기</th><th style="width:170px">관리</th>
                   </tr></thead>
                   <tbody id="eventSlotsBody"></tbody>
                 </table>
@@ -24169,7 +24169,7 @@ function osTypeChip(ft) {
 }
 
 // 목록 「모집 형식」 컬럼 — 옛 시트는 form_type 컬럼이 NULL(카드별 형식)이라 data.cards 를 형식별로 집계.
-//   새 시트(issued)는 형식 하나 + 시딩이면 채널 이름을 덧붙인다(「시딩 · 인스타그램-피드」).
+//   새 시트(issued)는 형식 하나 + 시딩이면 채널 이름을 덧붙인다(「시딩 · 인스타그램 피드」).
 function osCardsSummary(data) {
   if (data && data.issued && typeof data.issued === 'object') {
     const ft = data.issued.form_type || '';
@@ -24325,20 +24325,39 @@ function osToggleRowMenu(e, btnEl, id) {
     + item('link', '링크 복사', `osCopyLink('${sid}')`)
     + (hasQuote ? item('request_quote', '견적서 보기', `osOpenQuoteDoc('${sid}')`) : '')
     + item('delete', '삭제', `osOpenDelete('${sid}')`, 'color:#C41E3A');
-  // 메뉴 항목을 누르면 메뉴를 닫는다(동작은 각 함수가 한다)
-  menu.addEventListener('click', () => menu.remove());
   document.body.appendChild(menu);
   _positionMenuInViewport(menu, btnEl.getBoundingClientRect(), { placement: 'left-of' });
+  // 닫는 길 넷 — 메뉴 항목(동작 뒤) · 바깥 클릭 · 스크롤(메뉴가 position:fixed 라 떠서 다른 줄 옆에 남는다) · Esc
+  //   ⚠️ 메뉴가 열린 채 다른 줄을 누르면 닫기만 하고 상세는 열지 않는다 — 잡는 단계(capture)에서 그 클릭을 멈춘다.
+  //      다른 줄의 「…」 단추는 그대로 통과시켜 바로 그 줄 메뉴가 열리게 한다
+  const close = () => {
+    menu.remove();
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('scroll', close, true);
+    window.removeEventListener('resize', close);
+  };
+  const onDocClick = (ev) => {
+    if (!menu.isConnected) { close(); return; }
+    if (menu.contains(ev.target)) { setTimeout(close, 0); return; }   // 항목 동작이 먼저 돌고 닫힌다
+    if (btnEl.contains(ev.target)) { ev.stopPropagation(); ev.preventDefault(); close(); return; }   // 같은 「…」 = 닫기(다시 열지 않음)
+    const row = ev.target.closest && ev.target.closest('tr.os-row');
+    if (row && !ev.target.closest('.camp-more-btn')) { ev.stopPropagation(); ev.preventDefault(); }
+    close();
+  };
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
   setTimeout(() => {
-    document.addEventListener('click', function _close(ev) {
-      if (!menu.isConnected || !menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', _close); }
-    });
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
   }, 0);
 }
 
 // 목록 「메모」 칸 — 시트 단위 메모 수를 숫자로(피그마 a04-06).
 //   0이면 아무것도 안 그린다(늘 떠 있는 숫자는 눈에 안 들어온다).
-//   안 읽은 메모가 있으면 숫자를 분홍·굵게 + 옆에 작은 점 — 마우스를 올리면 개수가 나온다.
+//   피그마는 읽은 상태만 그렸다(검정 12px 보통 굵기). 안 읽은 메모가 있으면 관리자 강조색(보라 --accent)·굵게 + 옆에 작은 점
+//   — 마우스를 올리면 개수가 나온다. ⚠️ 관리자 --pink 는 흑백 재설계로 #1A1A1A(검정)라 쓰지 않는다
 //   집계는 카드 단위로 오므로 이 시트에 속한 것만 합산한다 —
 //   카드가 지워진 고아 메모도 그 시트 몫으로 잡힌다(집계가 카드 목록으로 안 거름).
 function osRowMemoCell(s) {
@@ -24350,10 +24369,10 @@ function osRowMemoCell(s) {
   //   줄 클릭도 상세를 열므로 전파를 막아 두 번 열리지 않게 한다
   // ⚠️ 스타일을 인라인으로 둔다 — 모달 안 메모 스타일은 상세 본문에 함께 끼워 넣는 <style> 안에만 있다
   return `<button type="button" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="event.stopPropagation();osOpenDetail('${esc(s.id)}')"`
-    + ` style="cursor:pointer;border:0;background:transparent;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;font-size:13px;`
-    + `font-variant-numeric:tabular-nums;font-weight:${unread ? 800 : 400};color:${unread ? 'var(--pink,#E91E63)' : 'var(--ink)'}">`
+    + ` style="cursor:pointer;border:0;background:transparent;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;font-size:12px;`
+    + `font-variant-numeric:tabular-nums;font-weight:${unread ? 800 : 400};color:${unread ? 'var(--accent,#625EBD)' : 'var(--ink)'}">`
     + (total > 99 ? '99+' : total)
-    + (unread ? '<span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:var(--pink,#E91E63)"></span>' : '')
+    + (unread ? '<span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:var(--accent,#625EBD)"></span>' : '')
     + '</button>';
 }
 
@@ -24510,6 +24529,7 @@ async function osOnBrandChange() {
   const brandId = document.getElementById('osCreateBrand').value;
   const appSel = document.getElementById('osCreateApp');
   appSel.innerHTML = '<option value="">연결 안 함</option>';
+  osSetAppHint(false);   // 신청 칸을 비웠다 — 안내도 「연결 안 함」으로(서베이 진입 뒤 브랜드를 다시 고른 경우)
   if (!brandId) return;
   try {
     const apps = await fetchBrandApplicationsByBrand(brandId);
@@ -24538,6 +24558,7 @@ function osBrandInput() {
   document.getElementById('osCreateBrand').value = '';
   const appSel = document.getElementById('osCreateApp');
   if (appSel) appSel.innerHTML = '<option value="">연결 안 함</option>';
+  osSetAppHint(false);
   osRenderAcctNotice(null, 'osCreateAcctNotice');   // 선택이 풀렸다 — 앞 브랜드의 경고를 지운다
   _osRenderBrandList(document.getElementById('osCreateBrandInput').value);
   document.getElementById('osCreateBrandList').classList.add('open');
