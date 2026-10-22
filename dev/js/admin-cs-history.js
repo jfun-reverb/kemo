@@ -69,6 +69,7 @@ async function loadCsHistoryPane() {
 //   카드 넷은 스크롤을 따라 그대로 밀려 올라가고(저절로 재생되는 움직임 없음 — 손 움직임과 1:1),
 //   카드가 한 줄 요약 높이만큼 남았을 때부터 한 줄 요약(sticky)을 보인다. 표 머리는 그 한 줄 바로 아래에 붙는다(--cs-line-h)
 //   ⚠️ 옛 방식(표 안 스크롤 + 시간으로 접기)은 접는 순간 표가 손 밑에서 튀어 버렸다(2026-10-22 사용자 결정으로 교체)
+const CS_HIST_SCROLLBAR_HIDE_MS = 700;
 function _csHistScrollBox() { return $('csHistScroll'); }
 
 function _csHistBindStick() {
@@ -76,6 +77,13 @@ function _csHistBindStick() {
   if (!box || box.dataset.csStick) return;
   box.dataset.csStick = '1';
   box.addEventListener('scroll', _csHistSyncStick, { passive: true });
+  // 스크롤 막대는 움직이는 동안만 보인다 — 멈추고 CS_HIST_SCROLLBAR_HIDE_MS 뒤 서서히 사라짐(CSS 전환)
+  let hideTimer = 0;
+  box.addEventListener('scroll', () => {
+    box.classList.add('cs-scrolling');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => box.classList.remove('cs-scrolling'), CS_HIST_SCROLLBAR_HIDE_MS);
+  }, { passive: true });
   window.addEventListener('resize', () => { _csHistMeasureLine(); _csHistSyncStick(); }, { passive: true });
 }
 
@@ -284,7 +292,7 @@ function renderCsHistorySummary(sm) {
     if (line) line.innerHTML = '';        // 실패면 한 줄 요약을 붙이지 않는다
   } else {
     el.innerHTML = _csSumCategoryCard(sm) + _csSumTimeCard(sm, 'response') + _csSumTimeCard(sm, 'resolve') + _csSumStatusCard(sm);
-    if (line) line.innerHTML = _csSumFoldedLine(sm);
+    if (line) line.innerHTML = `<div class="cs-summary-line-in">${_csSumFoldedLine(sm)}</div>`;
   }
   _csHistMeasureLine();
   _csHistSyncStick();
