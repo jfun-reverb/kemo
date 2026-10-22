@@ -8339,7 +8339,7 @@ const BRAND_SHIP_MSG = {
 };
 // 서버 거부가 열람 정지인가 — 요약은 {success:true, ready:false, reason}, 목록·내려받기·저장은 {success:false, reason}
 function brandShippingSuspended(d) { return !!d && d.reason === 'suspended'; }
-// 정지 안내 칸 — 상세 배송 카드와 리스트 페이지가 함께 쓴다
+// 정지 안내 칸 — 상세 배송 카드 전용(리스트 페이지는 「볼 수 없습니다」와 같은 bo-state 틀)
 function _bsSuspendedHtml() {
   return '<div class="bc-result-empty"><p class="bc-result-title">' + brandEsc(BRAND_SHIP_MSG.suspendedTitle) + '</p>' +
     '<p class="bc-result-desc">' + brandEsc(BRAND_SHIP_MSG.suspendedBody) + '</p></div>';
@@ -8581,8 +8581,10 @@ function renderBrandShippingPage(host, id) {
       '<p class="bo-state-desc">' + brandEsc(BRAND_SHIP_MSG.listFailDesc) + '</p>' +
       '<button type="button" class="brand-btn brand-btn-line bo-state-btn" data-bs-act="retry-list">다시 시도</button></div></div>';
   } else if (st.state === 'suspended') {
-    inner += '<div class="bo-panel">' + _bsSuspendedHtml() +
-      '<div class="bo-state"><a class="brand-btn bo-state-btn" href="#campaigns/' + brandEsc(id) + '">캠페인 상세</a></div></div>';
+    // 「볼 수 없습니다」(not_found) 패널과 같은 틀 — 제목·본문·단추를 한 상자 안에(카드의 회색 안내 상자는 상세 카드 전용)
+    inner += '<div class="bo-panel"><div class="bo-state"><p class="bo-state-title">' + brandEsc(BRAND_SHIP_MSG.suspendedTitle) + '</p>' +
+      '<p class="bo-state-desc">' + brandEsc(BRAND_SHIP_MSG.suspendedBody) + '</p>' +
+      '<a class="brand-btn bo-state-btn" href="#campaigns/' + brandEsc(id) + '">캠페인 상세</a></div></div>';
   } else if (st.state === 'not_found') {
     inner += '<div class="bo-panel"><div class="bo-state"><p class="bo-state-title">' + brandEsc(BRAND_SHIP_MSG.notFoundTitle) + '</p>' +
       '<p class="bo-state-desc">' + brandEsc(BRAND_SHIP_MSG.notFoundDesc) + '</p>' +
@@ -10609,6 +10611,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792632034 -->
+<!-- v1792632572 -->
 </body>
 </html>
