@@ -250,6 +250,107 @@
     </div>
   </div>
 
+  <!-- ⑤-2d 브랜드 이용 제한·결과물 열람 정지 알림 다섯 (이용 제한 작업표 제한 6, 개발서버만) — 함수 notify-brand-restriction -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">브랜드 페이지 이용 제한 (그 계정)</div>
+    <div class="card-desc">운영팀이 브랜드 계정의 이용을 제한하면 그 계정 한 사람에게 — 사유·기간·제한되는 브랜드. 로그인 링크는 넣지 않는다.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자 브랜드 상세 계정 줄 「…」 → 「이용 제한」이 성공한 직후. 걸 때는 항상 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 제한 직후 (제한 줄마다 한 번) · 지금은 개발서버만 — 개발서버는 실제로 보내지 않고 화면 응답으로만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-restriction invoke kind:'account_restrict' (BRAND_SANCTION_MAIL=1 + 개발 프로젝트)</div>
+      <div><b>수신자:</b> 제한한 계정 한 사람</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-account-restricted.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-account-restricted.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">브랜드 페이지 이용 제한 기간 바뀜 (그 계정)</div>
+    <div class="card-desc">제한 기간을 바꾸면 그 계정 한 사람에게 — 바뀐 기간·사유(그대로)·제한되는 브랜드.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">계정 줄 「기간 바꾸기」가 성공하고 「바뀐 기간을 이메일로 알립니다」가 켜져 있을 때(기본 켬).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 기간을 바꿀 때마다 한 번 · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-restriction invoke kind:'account_period'</div>
+      <div><b>수신자:</b> 제한한 계정 한 사람</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-account-restriction-changed.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-account-restriction-changed.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">브랜드 페이지 이용 제한 해제 (그 계정)</div>
+    <div class="card-desc">제한을 풀면 그 계정 한 사람에게 — 다시 쓸 수 있는 브랜드·해제된 제한의 사유.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">「제한 해제」가 성공하고 「해제를 이메일로 알립니다」가 켜져 있을 때(기본 켬). 「날짜까지」 제한이 그날이 지나 저절로 풀릴 때는 보내지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 손으로 해제한 직후 · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-restriction invoke kind:'account_lift'</div>
+      <div><b>수신자:</b> 해제한 계정 한 사람</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-account-unrestricted.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-account-unrestricted.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">결과물 열람 정지 (브랜드 대표·멤버)</div>
+    <div class="card-desc">브랜드의 결과물 열람을 정지하면 그 브랜드의 대표·멤버 1명당 1통 — 볼 수 없게 된 것(배송 리스트 포함 여부)·사유·브랜드 페이지 주소.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자 브랜드 상세 머리 「…」 → 「결과물 열람 정지」가 성공한 직후. 걸 때는 항상 보냅니다. 이용 제한 중인 계정에게는 보내지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 정지 직후 (정지 줄마다 한 번 · 받을 계정이 없으면 보내지 않음) · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-restriction invoke kind:'results_suspend'</div>
+      <div><b>수신자:</b> 그 브랜드의 활성 연결 + 비밀번호를 정한 계정 전원(이용 제한 중 제외)</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-results-suspended.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-results-suspended.html">원본</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">결과물 열람 정지 해제 (브랜드 대표·멤버)</div>
+    <div class="card-desc">정지를 풀면 그 브랜드의 대표·멤버 1명당 1통 — 다시 볼 수 있게 된 것·해제된 정지의 사유·브랜드 페이지 주소.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">「정지 해제」가 성공하고 「해제를 이메일로 알립니다」가 켜져 있을 때(기본 켬).</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 해제 직후 · 지금은 개발서버만</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notify-brand-restriction invoke kind:'results_lift'</div>
+      <div><b>수신자:</b> 그 브랜드의 활성 연결 + 비밀번호를 정한 계정 전원(이용 제한 중 제외)</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-results-unsuspended.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="source.html?f=brand-results-unsuspended.html">원본</a>
+    </div>
+  </div>
+
   <!-- ⑥ 결과물 — 영수증 승인 -->
   <div class="card">
     <div class="card-tag tag-infl">Influencer</div>
