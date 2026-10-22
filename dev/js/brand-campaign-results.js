@@ -7,8 +7,11 @@
 //   🔴 상태 셋 — 불러오는 중 · 오류(「다시 시도」) · 준비 중(공개 꺼짐). 조회 실패를 「준비 중」으로 그리지 않는다.
 //   🔴 view 응답의 receipt_url 은 저장값 그대로(비공개 통 경로 또는 옛 공개 주소) — 그대로 링크·이미지에 넣지 않는다.
 //      영수증 「열기」는 누를 때 receipt 갈래로 그 한 장의 임시 주소를 받는다(열 때마다 새로 — 1시간 지나도 다시 열린다).
-//   ⚠️ 이 페이지에서 뺀 열: No.·캠페인 번호·캠페인명·구매기간 — 한 캠페인 화면이라 머리·일정에 이미 있다(피그마 bw05-01e).
-//      이름(한자)·후리가나는 「이름」 한 칸으로 합쳐 「구분」 바로 뒤에 그린다(피그마). 「구분」은 늘 맨 앞(S25 · 열 고르기 대상 아님).
+//   ⚠️ 이 페이지에서 뺀 열: 캠페인 번호·캠페인명·구매기간 — 한 캠페인 화면이라 머리·일정에 이미 있다. 「No.」는 열 고르기와 상관없이
+//      늘 맨 앞(정렬 뒤 차례 — 피그마 bw05-01a·01e·01f). 이름(한자)·후리가나는 「이름」 한 칸으로 합쳐 「No.」 바로 뒤에 그린다.
+//   🔴 외부 줄인지 브랜드가 알 수 없게(사양서 16-5 15번 ④ — 2026-10-22): 「구분」 칸·외부 문구·나눠 적기 없음 · 외부 줄에 값이 없는
+//      칸도 REVERB 빈칸과 같은 「-」 · 줄 차례는 보이는 날짜 열의 가장 이른 날(_brSortRows) · 외부 줄에 값이 없는 열은 외부 줄이 있으면
+//      그리지 않는다(_brExtLockedCol — 판정 정본은 서버, 서버가 열을 빼기 전까지의 화면 방어).
 //   엑셀(조각 15): purpose:'excel' 한 번 — 영수증만 서버가 7일 서명(올린 사람 대조 551), 줄·열은 화면과 같은 _brBuildRowsCols ·
 //      A1 안내(S27) · 파일 이름 「결과물_{제품명}_{YYYYMMDD}.xlsx」(S5) · 열람·내려받기 제공 기록은 서버 함수가 남긴다(배송 리스트 작업표 조각 R1 — 기록 실패면 응답 reason:'record_failed' → 기존 실패 문구). 열람 정지(S24)는 서버가 아직 안 준다(조각 4c) — 응답 reason:'suspended' · 요약 results_suspended 로 그린다.
 
@@ -22,9 +25,7 @@ const BRAND_RES_MSG = {
   suspendedDesc: '결과물 숫자와 표는 열람이 정지된 동안 보이지 않습니다',
   suspendedTitle: '결과물 열람이 정지되었습니다',
   suspendedBody: '이용약관에 따라 정지되었습니다. 자세한 사유는 등록된 이메일을 확인해 주십시오. 궁금한 점은 REVERB 운영팀 담당자에게 문의해 주십시오. 모집 현황·일정은 그대로 볼 수 있습니다.',
-  noteExt: '「외부 참가자」는 REVERB 밖에서 모집한 분의 결과입니다. 이름·계정은 보이지 않습니다. REVERB 줄의 이름은 일부만 표시됩니다.',
-  noteRecord: '이 캠페인은 REVERB 밖에서 진행한 결과를 기록해 둔 것입니다. 이름·계정은 보이지 않습니다.',
-  noteReverb: '이름은 일부만 표시됩니다. 계정 정보(이메일)는 제공하지 않습니다.',
+  note: '표시 항목은 담당자가 고른 열만 보입니다. 결과물을 제출한 분이 모두 나오며, 「상태」로 검수 진행을 구분합니다.',
   photoFailTitle: '사진을 열지 못했습니다',
   photoFailDesc: '창을 닫고 「열기」를 다시 눌러 주십시오(사진 주소는 열 때마다 새로 받습니다).'
 };
@@ -36,10 +37,6 @@ let _brResSeq = 0;
 // 열람 정지인가 — 요약(results_suspended) 또는 조회 응답(reason:'suspended'). 4c 전에는 늘 거짓
 function brandResultsSuspended(c) {
   return !!(c && c.results_suspended) || !!(_brRes && c && _brRes.id === c.id && _brRes.state === 'suspended');
-}
-// 기록용(외부 참가자만) — 화면식(S17·D2 의 기록용 칸이 생기면 그 칸으로 바꾼다)
-function brandCampaignIsRecordOnly(c) {
-  return !!c && Number(c.applied_reverb) === 0 && Number(c.ext_participants) > 0;
 }
 // 「결과물 게시」 칸 값 — 공개 켜짐이면 「검수 완료 / 참여 합계」(S11), 아니면 null(「-」)
 function brandResultPostedText(c) {
@@ -60,10 +57,43 @@ function _brBuildRowsCols(b, camp) {
   const ext = (b.ext_rows || []).filter(reportExtRowSubmitted).map(x => _reportExtToRow(Object.assign({ account_id: '' }, x), null,
     { rules: 'campaign', campaign: { campaign_no: camp.campaign_no || '', campaign_name: camp.product || '' } }));
   rows = rows.concat(ext);
-  rows.forEach((x, i) => { x.no = i + 1; x.account_id = ''; });   // 계정 ID 는 서버가 안 보낸다 — 열 자체를 비운다
+  rows.forEach(x => { x.account_id = ''; });   // 계정 ID 는 서버가 안 보낸다 — 열 자체를 비운다
   const chosen = Array.isArray(b.columns) ? b.columns : null;
-  const cols = reportColumnsFor(rows).filter(c => BRAND_RES_SKIP_COLS.indexOf(c.key) === -1 && reportShareColDraw(c, chosen, rows));
+  const hasExt = ext.length > 0;
+  const cols = reportColumnsFor(rows).filter(c => BRAND_RES_SKIP_COLS.indexOf(c.key) === -1 && !(hasExt && _brExtLockedCol(c)) &&
+    reportShareColDraw(c, chosen, rows));
+  rows = _brSortRows(rows, cols);
+  rows.forEach((x, i) => { x.no = i + 1; });
   return { rows, cols, delivs };
+}
+// 외부 줄에 값이 없는 열(사양서 ④ ⓓ) — 이름·후리가나·구매기간·구매일·큐텐·엣코스메를 뺀 채널의 계정·결과물·업로드 날짜
+function _brExtLockedCol(c) {
+  if (['name_kanji', 'name_kana', 'purchase_period', 'purchase_date'].indexOf(c.key) !== -1) return true;
+  return !!c.ch && c.ch !== 'qoo10' && c.ch !== 'cosme';
+}
+// 줄 차례(사양서 ④ ⓒ) — 그리는 날짜 열 중 가장 이른 날 순 · 날짜 없는 줄은 맨 뒤 ·
+// 같은 날짜끼리는 보이는 칸 값으로 만든 해시 순(외부·REVERB 출처순이 되지 않게 — 이름·신청일로 정렬하지 않는다)
+function _brDateMs(v) {
+  if (!v) return null;
+  const s = String(v);
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00+09:00' : s);
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+//   링크·주소 칸은 빼고 만든다 — 영수증 값이 화면(저장 경로)과 엑셀(그때 서명한 주소)에서 달라 차례가 어긋나지 않게
+function _brRowHash(r, cols) {
+  const t = cols.filter(c => !c.acct && !/_url$/.test(c.key)).map(c => String(r[c.key] == null ? '' : r[c.key])).join('\u0001');
+  let h = 2166136261;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function _brSortRows(rows, cols) {
+  const dateCols = cols.filter(c => c.key === 'purchase_date' || /_at$/.test(c.key));
+  const keyed = rows.map(r => {
+    const ms = dateCols.map(c => _brDateMs(r[c.key])).filter(x => x != null);
+    return { r, d: ms.length ? Math.min.apply(null, ms) : Infinity, h: _brRowHash(r, cols) };
+  });
+  keyed.sort((a, b) => (a.d - b.d) || (a.h - b.h) || 0);
+  return keyed.map(k => k.r);
 }
 
 // ── 불러오기 — 상세가 「ok」가 되면 부른다
@@ -117,22 +147,21 @@ function _brLinkCell(v) {
     ? '<a class="br-link" href="' + brandEsc(u) + '" target="_blank" rel="noopener">' + (list.length > 1 ? '열기 ' + (i + 1) : '열기') + ' <span aria-hidden="true">↗</span></a>'
     : '<span class="br-raw">' + brandEsc(u) + '</span>').join(' · ');
 }
-// 영수증 칸 — 값이 있으면 「열기」(누를 때 서명 — S26). REVERB 줄은 결과물 번호로, 외부 줄은 http(s) 주소일 때만 그대로
+// 영수증 칸 — 값이 있으면 「열기」(누를 때 서명 — S26). REVERB 줄은 결과물 번호로, 외부 줄은 http(s) 주소일 때만 그대로.
+//   🔴 단추 모양은 두 갈래가 같다(외부 줄인지 화면 요소로 드러나지 않게) — 갈래는 누를 때 줄 값으로 가른다
 function _brReceiptCell(r, rowIdx) {
   if (!r.receipt_url) return _brDash();
-  if (r._ext) {
-    const list = String(r.receipt_url).split(/\r?\n/).map(u => u.trim()).filter(Boolean);
-    return list.map((u, i) => reportIsLinkable(u)
-      ? '<button type="button" class="br-link" data-br-act="photo-url" data-row="' + rowIdx + '" data-i="' + i + '">' + (list.length > 1 ? '열기 ' + (i + 1) : '열기') + '</button>'
-      : '<span class="br-raw">' + brandEsc(u) + '</span>').join(' · ');
-  }
-  return '<button type="button" class="br-link" data-br-act="photo" data-row="' + rowIdx + '">열기</button>';
+  const btn = (i, n) => '<button type="button" class="br-link" data-br-act="photo" data-row="' + rowIdx + '"' +
+    (n > 1 ? ' data-i="' + i + '"' : '') + '>' + (n > 1 ? '열기 ' + (i + 1) : '열기') + '</button>';
+  if (!r._ext) return btn(0, 1);
+  const list = String(r.receipt_url).split(/\r?\n/).map(u => u.trim()).filter(reportIsLinkable);
+  return list.length ? list.map((u, i) => btn(i, list.length)).join(' · ') : _brDash();
 }
 function _brCellHtml(r, c, rowIdx) {
   const v = r[c.key];
   if (c.key === 'name_kanji') {
     const t = [r.name_kanji, r.name_kana].filter(Boolean).join(' ');
-    return t ? brandEsc(t) : (r._ext ? '' : _brDash());
+    return t ? brandEsc(t) : _brDash();
   }
   if (c.key === 'status') return _brStatusCell(v);
   if (c.key === 'receipt_url') return _brReceiptCell(r, rowIdx);
@@ -155,7 +184,7 @@ function _brDrawCols(cols) {
   const hasKanji = cols.some(c => c.key === 'name_kanji');
   const out = cols.filter(c => !(hasKanji && c.key === 'name_kana')).map(c =>
     (c.key === 'name_kanji' || c.key === 'name_kana') ? Object.assign({}, c, { label: '이름', key: 'name_kanji' }) : c);
-  // 「이름」은 「구분」 바로 뒤(피그마 bw05-01e) — 나머지 차례는 reportColumnsFor 그대로
+  // 「이름」은 「No.」 바로 뒤 — 나머지 차례는 reportColumnsFor 그대로
   const i = out.findIndex(c => c.key === 'name_kanji');
   if (i > 0) out.unshift(out.splice(i, 1)[0]);
   return out;
@@ -164,8 +193,8 @@ function _brTableHtml(st) {
   const cols = _brDrawCols(st.cols);
   const start = st.page * BRAND_RES_PAGE;
   const slice = st.rows.slice(start, start + BRAND_RES_PAGE);
-  const head = '<th class="br-src">구분</th>' + cols.map(c => '<th>' + brandEsc(c.label.replace(/\s*\(URL\)$/, '')) + '</th>').join('');
-  const body = slice.map((r, i) => '<tr><td class="br-src">' + (r._ext ? '외부 참가자' : 'REVERB') + '</td>' +
+  const head = '<th>No.</th>' + cols.map(c => '<th>' + brandEsc(c.label.replace(/\s*\(URL\)$/, '')) + '</th>').join('');
+  const body = slice.map((r, i) => '<tr><td>' + r.no + '</td>' +
     cols.map(c => '<td>' + _brCellHtml(r, c, start + i) + '</td>').join('') + '</tr>').join('');
   return '<div class="br-table-scroll"><table class="br-table"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
 }
@@ -204,8 +233,6 @@ function brandResultSectionHtml(c) {
   const num = (label, v) => '<div class="br-count"><span>' + brandEsc(label) + '</span><b>' + (Number(v) || 0) + '</b></div>';
   const rows = st.rows;
   const buyN = rows.filter(r => r.receipt_uploaded_at).length, revN = rows.filter(reportRowHasResult).length;   // 공유 화면 요약과 같은 함수
-  const hasExt = rows.some(r => r._ext);
-  const note = brandCampaignIsRecordOnly(c) ? BRAND_RES_MSG.noteRecord : hasExt ? BRAND_RES_MSG.noteExt : BRAND_RES_MSG.noteReverb;
   return open +
     '<div class="br-counts">' + num('제출', k.submitted) + num('검수 완료', k.approved) + num('검수 대기', k.pending) + '</div>' +
     '<p class="br-counts-note">' + brandEsc(BRAND_RES_MSG.countsNote) + '</p>' +
@@ -213,7 +240,7 @@ function brandResultSectionHtml(c) {
       (rows.length ? '<button type="button" class="brand-btn br-excel" data-br-act="excel"' + (_brExcelBusy ? ' disabled' : '') + '>' +
         '<span aria-hidden="true">↓</span> ' + (_brExcelBusy ? '엑셀 만드는 중…' : '엑셀 내려받기') + '</button>' : '') + '</div>' +
     (rows.length
-      ? _brTableHtml(st) + _brPagerHtml(st) + '<p class="br-note">' + brandEsc(note) + '</p>'
+      ? _brTableHtml(st) + _brPagerHtml(st) + '<p class="br-note">' + brandEsc(BRAND_RES_MSG.note) + '</p>'
       : '<div class="bc-result-empty"><p class="bc-result-title">' + brandEsc(BRAND_RES_MSG.emptyTitle) + '</p><p class="bc-result-desc">' + brandEsc(BRAND_RES_MSG.emptyDesc) + '</p></div>') +
     '</section>';
 }
@@ -263,12 +290,12 @@ async function brandCampaignResultsExcel(btn) {
     // A1 안내(S27) — 머리글은 2행부터
     ws.getCell('A1').value = '「구매 영수증 (URL)」 링크는 내려받은 날(' + brandFormatDate(today.toISOString()) + ')부터 7일 동안만 열립니다. 지나면 브랜드 페이지에서 엑셀을 다시 내려받아 주십시오.';
     ws.getCell('A1').font = { color: { argb: 'FF71717A' } };
-    const heads = ['구분'].concat(drawn.map(c => c.label));
+    const heads = ['No.'].concat(drawn.map(c => c.label));
     ws.addRow([]);   // 2행 자리(아래에서 채운다)
     ws.getRow(2).values = heads;
     ws.getRow(2).font = { bold: true };
-    rows.forEach(r => ws.addRow([r._ext ? '외부 참가자' : 'REVERB'].concat(drawn.map(c => _brExcelValue(r, c)))));
-    ws.columns.forEach((col, i) => { col.width = i === 0 ? 12 : Math.max(10, Math.round(parseInt((drawn[i - 1] || {}).w || '120', 10) / 8)); });
+    rows.forEach(r => ws.addRow([r.no].concat(drawn.map(c => _brExcelValue(r, c)))));
+    ws.columns.forEach((col, i) => { col.width = i === 0 ? 6 : Math.max(10, Math.round(parseInt((drawn[i - 1] || {}).w || '120', 10) / 8)); });
     const buf = await wb.xlsx.writeBuffer();
     const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
     const a = document.createElement('a');
@@ -369,13 +396,20 @@ document.addEventListener('click', (e) => {
   }
   const r = _brRes.rows && _brRes.rows[Number(el.dataset.row)];
   if (!r) return;
-  const who = (r.order_no ? '주문번호 ' + r.order_no : (r._ext ? '외부 참가자' : (r.name_kanji || 'REVERB'))) + ' · 영수증';
-  if (act === 'photo') {
-    const campaignId = _brRes.id, did = _brReceiptDeliverableId(r);
-    _brLbOpen(who, () => _brSignReceipt(campaignId, did), el);
-  } else if (act === 'photo-url') {
-    const list = String(r.receipt_url || '').split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+  // 창 제목 「영수증 · 이름 · 구매일」(피그마 bw05-04) — 값이 있는 것만, 외부 줄인지 드러내지 않는다
+  //   그리는 열의 값만 쓴다(꺼지거나 잠긴 열의 값이 창 제목으로 새지 않게)
+  const drawn = (_brRes.cols || []).map(c => c.key);
+  const on = (k) => drawn.indexOf(k) !== -1;
+  const name = [on('name_kanji') ? r.name_kanji : '', on('name_kana') ? r.name_kana : ''].filter(Boolean).join(' ');
+  const day = _brShortDate((on('purchase_date') && r.purchase_date) || (on('receipt_uploaded_at') && r.receipt_uploaded_at) || '');
+  const who = ['영수증', name, day].filter(Boolean).join(' · ');
+  if (act !== 'photo') return;
+  if (r._ext) {
+    const list = String(r.receipt_url || '').split(/\r?\n/).map(u => u.trim()).filter(reportIsLinkable);
     const u = list[Number(el.dataset.i) || 0];
     _brLbOpen(who, () => (reportIsLinkable(u) ? u : null), el);
+  } else {
+    const campaignId = _brRes.id, did = _brReceiptDeliverableId(r);
+    _brLbOpen(who, () => _brSignReceipt(campaignId, did), el);
   }
 });

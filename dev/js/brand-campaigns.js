@@ -6,7 +6,7 @@
 //   🔴 상태는 서버가 날짜로 다시 판정한 값(543 설계 판단 [I])만 쓴다 — 화면에서 다시 판정하지 않는다.
 //   🔴 조회 실패(null)와 0건([])을 구분한다 — 실패를 「캠페인 없음」으로 그리지 않는다.
 //   2단계(작업표 2026-10-19 조각 14): 결과물 영역은 brand-campaign-results.js(brandResultSectionHtml) · 「결과물 게시」 칸은
-//      서버 요약(550 — result_posted = 검수 완료 / approved_count 합계, S11) · 응모·참여는 「REVERB N + 외부 참가자 M」 나눠 적기(S25)
+//      서버 요약(550 — result_posted = 검수 완료 / approved_count 합계, S11) · 응모·참여는 외부 참가자를 더한 합계 하나 — 나눠 적지 않는다(사양서 16-5 15번 ④ · 2026-10-22)
 
 const BRAND_CAMP_MSG = {
   loadFailTitle: '캠페인 목록을 불러오지 못했습니다',
@@ -275,13 +275,6 @@ function _bcStatsHtml(c, today) {
   if (slots && approved >= slots) slotSub = isMonitor ? '정원 모두 참여' : '정원 모두 선정';
   else if (!isMonitor && (c.status === 'scheduled' || c.status === 'active')) slotSub = '선정은 모집 마감 뒤 진행';
 
-  // S25 — 외부 참가자가 있으면 숫자를 나눠 적는다(기록용이면 「외부 참가자만」)
-  const ext = Number(c.ext_participants) || 0;
-  if (brandCampaignIsRecordOnly(c)) appliedSub = '외부 참가자만 (REVERB 모집 없음)';
-  else if (ext > 0) {
-    appliedSub = 'REVERB ' + (Number(c.applied_reverb) || 0) + ' + 외부 참가자 ' + ext;
-    slotSub = 'REVERB ' + (Number(c.approved_reverb) || 0) + ' + 외부 참가자 ' + ext;
-  }
   const posted = brandResultPostedText(c);
   const postedSub = brandResultsSuspended(c) ? '열람이 정지되었습니다' : posted ? '검수 완료 기준' : '결과가 공개되면 보입니다';
 
