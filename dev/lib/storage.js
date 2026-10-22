@@ -3555,6 +3555,18 @@ async function fetchBrandAccountStatus(brandId) {
   } catch(e) { console.error('[fetchBrandAccountStatus]', e); return null; }
 }
 
+// 오리엔시트 발급 메일 받을 계정 현황(마이그레이션 585 admin_get_orient_mail_recipients — 개발서버만).
+//   받을 계정은 서버 판정(582) 그대로 + 이 시트의 받음/보내는 중/실패 + 0명 까닭 + 보낼 수 있는지 + 옛 방식 발송.
+//   🔴 실패는 null(「계정 없음」으로 그리지 않는다) · sheetId 없이 부르면 브랜드 기준 받을 계정만(발급 창)
+async function fetchOrientMailRecipients(brandId, sheetId) {
+  if (!db || !_brandAccountEnabled() || !brandId) return null;
+  try {
+    const {data, error} = await db.rpc('admin_get_orient_mail_recipients', { p_brand_id: brandId, p_sheet_id: sheetId || null });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchOrientMailRecipients]', e); return null; }
+}
+
 // ── 브랜드 계정 관리자 동작(관리자 브랜드 상세 담당자·계정 탭 — 조각 11, 마이그레이션 533·573) ──
 //   반환 {ok:true, data} | {ok:false, error}. 계정 기능이 꺼진 주소(운영)는 {ok:false, error:'brand_account_disabled'}.
 //   서버 결과 코드(forbidden·owner_changed 등)는 data 안에 그대로 — 화면이 갈래를 가른다.
