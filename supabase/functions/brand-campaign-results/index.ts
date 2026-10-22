@@ -27,6 +27,9 @@
 //    「누가」 = 토큰에서 확인한 계정(화면이 보낸 값 아님) · 칸 = 응답 columns · 사람 = 응답 users(회원 번호 + 응답에 실린 가린 이름).
 //    기록이 실패하면 응답을 돌려주지 않는다 {success:false, reason:'record_failed'}(「기록 없는 제공」 없음). receipt 는 기록하지 않는다
 //    (그 사진을 담은 표 열람이 이미 view 로 남는다). 공개 꺼짐(ready:false)이면 기록 없음.
+// 🔴 이용 제한(사양서 docs/specs/2026-10-21-brand-account-restriction.md 4-2·4-3 · 작업표 제한 5): 판정 함수가 낸 오류
+//    account_restricted 는 {success:false, reason:'account_restricted'}(200)로 넘긴다 — 세 갈래 모두 판정을 먼저 거치므로 한 곳.
+//    결과물 열람 정지(제한 3)는 판정 응답 {success:true, ready:false, reason:'suspended'} 가 아래 「ready 아님 → 그대로」로 나간다.
 // 브라우저가 직접 부른다 — CORS + OPTIONS 필수. 공개 키 거부는 걸지 않는다(판정은 로그인 토큰).
 // 환경변수: SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY(자동 주입) — 새 비밀값 없음.
 // 로그: 경로·주소·토큰을 남기지 않는다(오류 코드만).
@@ -152,6 +155,9 @@ Deno.serve(async (req: Request) => {
   if (error) {
     // 토큰이 낡거나 틀리거나 비로그인(공개 키 — 실행 권한 없음 42501)이면 not_found(거부 하나 — 543 계약). 그 밖의 실패만 server_error
     if (/^PGRST30/.test(String(error.code || "")) || error.code === "42501") return jsonResponse({ success: false, reason: "not_found" });
+    // 🔴 이용 제한 계정 — my_brand_role 이 오류 account_restricted(P0001)를 낸다. 화면 공통 입구(brandCallFunction)가
+    //    body.reason 으로 bw01-13 에 보내므로 500 으로 바꾸지 않고 그대로 넘긴다(이용 제한 작업표 제한 5 · stale 2)
+    if (error.message === "account_restricted") return jsonResponse({ success: false, reason: "account_restricted" });
     console.error("[brand-campaign-results] rpc failed", errTag(error, "rpc"));
     return jsonResponse({ success: false, reason: "server_error" }, 500);
   }
