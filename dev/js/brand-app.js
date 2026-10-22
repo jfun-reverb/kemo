@@ -21,6 +21,7 @@ const BRAND_PREVIEW_SCREENS = [
   { hash: 'link-invalid', label: 'bw01-05 쓸 수 없는 링크' },
   { hash: 'not-brand', label: 'bw01-06 브랜드 계정이 아님' },
   { hash: 'no-brand', label: 'bw01-06a 연결된 브랜드 없음' },
+  { hash: 'restricted', label: 'bw01-13 이용이 제한된 계정' },
   { hash: 'resetpw', label: 'bw01-07 새 비밀번호 정하기' },
   { hash: 'reset-done', label: 'bw01-07a 비밀번호 바꾸기 완료' },
   { hash: 'confirm', label: 'bw01-08 계속하기' },
@@ -330,8 +331,9 @@ function initBrandAuthEvents() {
     document.getElementById('loginPw').value = '';
     goBrandScreen('login');
   });
-  // 「다른 계정으로 로그인」 — 앞서 넣은 이메일·비밀번호를 비운다
+  // 「다른 계정으로 로그인」(bw01-06 · bw01-13) — 앞서 넣은 이메일·비밀번호를 비운다. 세션은 그 화면으로 올 때 이미 지웠다
   document.querySelectorAll('[data-clear-login]').forEach(a => a.addEventListener('click', () => {
+    resetBrandRestricted();
     document.getElementById('loginEmail').value = '';
     document.getElementById('loginPw').value = '';
   }));

@@ -69,6 +69,8 @@ function brandSignInErrorMsg(err) {
 
 // 로그인 직후 판정 — 결과: { state, name, email, brands } 또는 null(호출 실패)
 async function fetchBrandLoginState() {
+  // 제한 화면으로 보낸 뒤에 늦게 도는 판정(초대 수락 뒤·연결 풀림 확인 등)도 같은 화면으로 가게 — 「확인 실패」로 덮지 않는다
+  if (_brandRestrictedHandled) return { state: 'restricted' };
   const { data, error } = await brandRpc('get_my_brand_login_state');
   if (error || !data || typeof data !== 'object' || !data.state) return null;
   return data;
@@ -93,6 +95,8 @@ async function applyBrandLoginState(state) {
   await brandSignOutLocal();
   setBrandAuthed(null);
   if (kind === 'not_brand') { goBrandScreen('not-brand'); return kind; }
+  // 이용이 제한된 계정(bw01-13) — 서버가 연결·설정 여부보다 먼저 판정한다(사양서 4-2). 사유·기간은 메일로 안내돼 화면에 없다
+  if (kind === 'restricted') { goBrandScreen('restricted'); return kind; }
   if (kind === 'no_active_brand') { goBrandScreen('no-brand'); return kind; }
   // setup_incomplete — 비밀번호가 비어 실제로는 로그인 자체가 실패하는 상태라 일반 실패 문구
   goBrandScreen('login');
@@ -123,6 +127,7 @@ function initLoginForm() {
     busy = true;
     setFormBusy(form, true);
     btn.textContent = '로그인 중…';
+    resetBrandRestricted();   // 새 로그인 — 앞 계정의 제한 처리 표시를 내린다
     let failMsg = '';
     try {
       let signErr = null;
@@ -362,6 +367,7 @@ async function submitSetpwReal(pw) {
   const email = ctx.email;
   await brandSetupSignOutLocal();
   endBrandLinkFlow();
+  resetBrandRestricted();
   let signErr = null;
   try {
     const { error } = await brandDb.auth.signInWithPassword({ email, password: pw });
