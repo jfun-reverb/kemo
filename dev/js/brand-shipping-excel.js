@@ -108,7 +108,7 @@ async function brandShippingExcelDownload() {
   try {
     const [, res] = await Promise.all([_brLoadExcelJS(), brandRpc('get_my_brand_shipping_export', { p_campaign_id: id })]);
     const d = res && !res.error ? res.data : null;
-    if (d && d.success === false) { brandToast(BRAND_SHIP_MSG.notFound, { error: true }); loadBrandShippingPage(id); return; }
+    if (d && d.success === false) { brandToast(brandShippingSuspended(d) ? BRAND_SHIP_MSG.suspendedToast : BRAND_SHIP_MSG.notFound, { error: true }); loadBrandShippingPage(id); return; }
     if (!d || d.success !== true || !d.campaign_no) throw new Error('export');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('배송 리스트');
@@ -359,7 +359,8 @@ async function _bsxRead(file) {
     // 줄마다 version 은 지금 새로 받은 리스트에서(작업표 S6) — 파일 읽기와 함께
     const res = await brandRpc('get_my_brand_shipping_list', { p_campaign_id: m.id });
     const d = res && !res.error ? res.data : null;
-    if (!d || d.success !== true || !d.campaign_no) err = BSX_MSG.listFail;
+    if (brandShippingSuspended(d)) err = BRAND_SHIP_MSG.suspendedToast;
+    else if (!d || d.success !== true || !d.campaign_no) err = BSX_MSG.listFail;
     else if (d.editable === false) err = BRAND_SHIP_MSG.ended;
     else list = d;
     if (list) {
@@ -390,7 +391,8 @@ async function _bsxApply() {
   if (!res) { m.step = 'preview'; _bsxRender(); brandToast(BSX_MSG.applyFail, { error: true }); return; }
   if (res.success !== true) {
     m.step = 'result'; _bsxClose();
-    brandToast(res.reason === 'campaign_ended' ? BRAND_SHIP_MSG.ended : BRAND_SHIP_MSG.notFound, { error: true });
+    brandToast(brandShippingSuspended(res) ? BRAND_SHIP_MSG.suspendedToast
+      : res.reason === 'campaign_ended' ? BRAND_SHIP_MSG.ended : BRAND_SHIP_MSG.notFound, { error: true });
     loadBrandShippingPage(m.id);
     return;
   }

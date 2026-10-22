@@ -8329,8 +8329,21 @@ const BRAND_SHIP_MSG = {
   notFoundDesc: '아직 운영팀이 전달하지 않았거나, 지금 브랜드에서 볼 수 없는 캠페인입니다. 캠페인 상세로 돌아가 확인해 주십시오.',
   emptyTitle: '지금 보낼 분이 없습니다',
   emptyDescCancelled: '전달 뒤 선정이 모두 취소되었습니다. 「취소됨」 탭에서 보낼 필요가 없는 분을 확인할 수 있습니다.',
-  emptyDesc: '선정된 분이 생기면 이 리스트에 자동으로 추가됩니다.'
+  emptyDesc: '선정된 분이 생기면 이 리스트에 자동으로 추가됩니다.',
+  // 결과물 열람 정지(배송 리스트 포함) — 사양서 docs/specs/2026-10-21-brand-account-restriction.md 4-5 · F2.
+  //   결과물 정지 안내(brand-campaign-results.js BRAND_RES_MSG.suspended*)와 같은 틀
+  suspendedDesc: '배송 리스트는 열람이 정지된 동안 보이지 않습니다',
+  suspendedTitle: '배송 리스트 열람이 정지되었습니다',
+  suspendedBody: '이용약관 제8조(인플루언서 개인정보의 취급)에 따라 회사가 이 브랜드의 배송 리스트 열람을 멈췄습니다. 받는 분 정보 보기와 송장 등록은 정지가 풀리면 다시 할 수 있습니다. 운영팀에 문의해 주십시오.',
+  suspendedToast: '배송 리스트 열람이 정지되었습니다. 운영팀에 문의해 주십시오.'
 };
+// 서버 거부가 열람 정지인가 — 요약은 {success:true, ready:false, reason}, 목록·내려받기·저장은 {success:false, reason}
+function brandShippingSuspended(d) { return !!d && d.reason === 'suspended'; }
+// 정지 안내 칸 — 상세 배송 카드와 리스트 페이지가 함께 쓴다
+function _bsSuspendedHtml() {
+  return '<div class="bc-result-empty"><p class="bc-result-title">' + brandEsc(BRAND_SHIP_MSG.suspendedTitle) + '</p>' +
+    '<p class="bc-result-desc">' + brandEsc(BRAND_SHIP_MSG.suspendedBody) + '</p></div>';
+}
 
 let _bsSum = null;     // 상세 카드 { id, state:'loading'|'error'|'notready'|'ok', data }
 let _bsSumSeq = 0;
@@ -8385,6 +8398,9 @@ function brandShippingCardHtml(c) {
     return open + '<h2 class="bc-card-title">배송</h2><p class="bc-card-desc">배송 현황을 불러오지 못했습니다.</p>' +
       '<button type="button" class="brand-btn brand-btn-line bs-retry" data-bs-act="retry-sum">다시 시도</button></section>';
   }
+  if (st.state === 'suspended') {
+    return open + '<h2 class="bc-card-title">배송</h2><p class="bc-card-desc">' + brandEsc(BRAND_SHIP_MSG.suspendedDesc) + '</p>' + _bsSuspendedHtml() + '</section>';
+  }
   if (st.state === 'notready') {
     return open + '<div class="bs-card-head"><h2 class="bc-card-title">배송</h2><span class="bs-badge is-ready">준비 중</span></div>' +
       '<p class="bs-card-desc">운영팀이 선정을 마치고 배송 리스트를 전달하면 여기에서 보고 송장번호를 등록할 수 있습니다. 전달되면 「배송 리스트 열기」 단추가 생깁니다.</p></section>';
@@ -8413,6 +8429,7 @@ async function loadBrandShippingSummary(id) {
   const { data, error } = await brandRpc('get_my_brand_shipping_summary', { p_campaign_id: id });
   if (seq !== _bsSumSeq) return;
   if (error || !data || data.success !== true) _bsSum = { id, state: 'error' };
+  else if (data.ready !== true && brandShippingSuspended(data)) _bsSum = { id, state: 'suspended' };
   else if (data.ready !== true) _bsSum = { id, state: 'notready' };
   else _bsSum = { id, state: 'ok', data };
   _bsSumRerender();
@@ -8563,6 +8580,9 @@ function renderBrandShippingPage(host, id) {
     inner += '<div class="bo-panel"><div class="bo-state" role="alert"><p class="bo-state-title">' + brandEsc(BRAND_SHIP_MSG.listFailTitle) + '</p>' +
       '<p class="bo-state-desc">' + brandEsc(BRAND_SHIP_MSG.listFailDesc) + '</p>' +
       '<button type="button" class="brand-btn brand-btn-line bo-state-btn" data-bs-act="retry-list">다시 시도</button></div></div>';
+  } else if (st.state === 'suspended') {
+    inner += '<div class="bo-panel">' + _bsSuspendedHtml() +
+      '<div class="bo-state"><a class="brand-btn bo-state-btn" href="#campaigns/' + brandEsc(id) + '">캠페인 상세</a></div></div>';
   } else if (st.state === 'not_found') {
     inner += '<div class="bo-panel"><div class="bo-state"><p class="bo-state-title">' + brandEsc(BRAND_SHIP_MSG.notFoundTitle) + '</p>' +
       '<p class="bo-state-desc">' + brandEsc(BRAND_SHIP_MSG.notFoundDesc) + '</p>' +
@@ -8604,7 +8624,7 @@ async function loadBrandShippingPage(id) {
   }
   const { data, error } = await brandRpc('get_my_brand_shipping_list', { p_campaign_id: id });
   if (seq !== _bsListSeq) return;
-  if (!error && data && data.success === false) _bsList = { id, state: 'not_found' };
+  if (!error && data && data.success === false) _bsList = { id, state: brandShippingSuspended(data) ? 'suspended' : 'not_found' };
   else if (error || !data || data.success !== true) _bsList = { id, state: 'error' };
   else _bsList = { id, state: 'ok', data };
   _bsRerenderIfShown();
@@ -8704,6 +8724,13 @@ async function _bsSave(rowNo, clear) {
   _bsSaving = false;
   if (failed) { brandToast(BRAND_SHIP_MSG.saveFail, { error: true }); _bsRerenderIfShown(); return; }   // 입력한 값은 칸에 그대로
   if (res.success !== true) {
+    if (brandShippingSuspended(res)) {
+      // 저장 중 정지됨 — 입력값(_bsEdit)은 지우지 않고 리스트를 정지 안내로 바꾼다(서버가 더는 받는 분 정보를 주지 않는다)
+      brandToast(BRAND_SHIP_MSG.suspendedToast, { error: true });
+      _bsList = { id, state: 'suspended' };
+      _bsRerenderIfShown();
+      return;
+    }
     if (res.reason === 'campaign_ended') brandToast(BRAND_SHIP_MSG.ended, { error: true });
     else brandToast(BRAND_SHIP_MSG.notFound, { error: true });
     _bsEdit = null;
@@ -8886,7 +8913,7 @@ async function brandShippingExcelDownload() {
   try {
     const [, res] = await Promise.all([_brLoadExcelJS(), brandRpc('get_my_brand_shipping_export', { p_campaign_id: id })]);
     const d = res && !res.error ? res.data : null;
-    if (d && d.success === false) { brandToast(BRAND_SHIP_MSG.notFound, { error: true }); loadBrandShippingPage(id); return; }
+    if (d && d.success === false) { brandToast(brandShippingSuspended(d) ? BRAND_SHIP_MSG.suspendedToast : BRAND_SHIP_MSG.notFound, { error: true }); loadBrandShippingPage(id); return; }
     if (!d || d.success !== true || !d.campaign_no) throw new Error('export');
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('배송 리스트');
@@ -9137,7 +9164,8 @@ async function _bsxRead(file) {
     // 줄마다 version 은 지금 새로 받은 리스트에서(작업표 S6) — 파일 읽기와 함께
     const res = await brandRpc('get_my_brand_shipping_list', { p_campaign_id: m.id });
     const d = res && !res.error ? res.data : null;
-    if (!d || d.success !== true || !d.campaign_no) err = BSX_MSG.listFail;
+    if (brandShippingSuspended(d)) err = BRAND_SHIP_MSG.suspendedToast;
+    else if (!d || d.success !== true || !d.campaign_no) err = BSX_MSG.listFail;
     else if (d.editable === false) err = BRAND_SHIP_MSG.ended;
     else list = d;
     if (list) {
@@ -9168,7 +9196,8 @@ async function _bsxApply() {
   if (!res) { m.step = 'preview'; _bsxRender(); brandToast(BSX_MSG.applyFail, { error: true }); return; }
   if (res.success !== true) {
     m.step = 'result'; _bsxClose();
-    brandToast(res.reason === 'campaign_ended' ? BRAND_SHIP_MSG.ended : BRAND_SHIP_MSG.notFound, { error: true });
+    brandToast(brandShippingSuspended(res) ? BRAND_SHIP_MSG.suspendedToast
+      : res.reason === 'campaign_ended' ? BRAND_SHIP_MSG.ended : BRAND_SHIP_MSG.notFound, { error: true });
     loadBrandShippingPage(m.id);
     return;
   }
@@ -10580,6 +10609,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792631036 -->
+<!-- v1792631967 -->
 </body>
 </html>
