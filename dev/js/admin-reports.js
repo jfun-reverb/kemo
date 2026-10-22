@@ -121,11 +121,14 @@ async function openReportCreateModal() {
             ${missing > 0 ? '<div style="color:var(--muted)">그 밖에 ' + missing + '개 (지금 목록에 없어 이름을 못 보여줍니다)</div>' : ''}
           </div>
         </div>
-        <div class="form-group" style="margin-top:12px">
+        ${_reportCampExtMode()
+          // 🔴 새 동작: 리포트에는 외부 파일을 붙이지 않는다 — 담긴 캠페인에 붙은 것을 리포트가 끌어온다(조각 17)
+          ? '<div style="margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7">외부 결과 파일(포인테일)은 캠페인 진행현황 결과물 탭에서 캠페인에 붙입니다. 리포트는 담긴 캠페인에 붙은 파일을 함께 보여 줍니다.</div>'
+          : `<div class="form-group" style="margin-top:12px">
           <label class="form-label">외부 서비스 결과물 <span style="font-weight:400;color:var(--muted)">(선택 · 몇 개든 · 안 붙여도 됩니다)</span></label>
           <div id="reportSrcBlocks"></div>
           <button type="button" class="btn btn-ghost btn-xs" onclick="addSourceBlock()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
-        </div>
+        </div>`}
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="_reportCloseCreateModal()">취소</button>
@@ -358,12 +361,21 @@ async function openReport(reportId) {
   }
 
   // 외부(포인테일 등) — 첨부 목록과 참가자 행. 「붙인 시각」은 가장 늦게 붙인 것.
-  const sources = rep.sources || [];
+  //   🔴 새 동작(_reportCampExtMode — 개발서버)은 리포트 첨부가 아니라 **담긴 캠페인에 붙은 파일**을 끌어와 보기만 한다(조각 17).
+  //      운영은 리포트 첨부 그대로(공유 링크가 아직 살아 있다 — 출시 날 조각 18 과 같은 배포).
+  const campExtMode = _reportCampExtMode();
+  let sources, extStd, extFailed;
+  if (campExtMode) {
+    const ext = await loadReportCampaignExtRows(camps);
+    sources = ext.sources; extStd = ext.rows; extFailed = ext.failed;
+  } else {
+    sources = rep.sources || [];
+    const extRows = sources.length ? await fetchReportExtRows(sources.map(function(s){ return s.id; })) : [];
+    extFailed = (extRows === null);
+    const srcById = {}; sources.forEach(function(s){ srcById[s.id] = s; });
+    extStd = (extRows || []).map(function(r) { return _reportExtToRow(r, srcById[r.source_id]); });
+  }
   const extAttachedAt = sources.length ? sources.map(function(s){ return s.attached_at; }).sort().slice(-1)[0] : null;
-  const extRows = sources.length ? await fetchReportExtRows(sources.map(function(s){ return s.id; })) : [];
-  const extFailed = (extRows === null);
-  const srcById = {}; sources.forEach(function(s){ srcById[s.id] = s; });
-  const extStd = (extRows || []).map(function(r) { return _reportExtToRow(r, srcById[r.source_id]); });
   // 🔴 REVERB 행 뒤에 외부 행을 잇고 번호를 다시 매긴다 — 한 표에서 「구분」 열로만 갈린다.
   rows = rows.concat(extStd);
   rows.forEach(function(r, i){ r.no = i + 1; });
@@ -377,7 +389,8 @@ async function openReport(reportId) {
   // 표 최소 폭 = 「구분」 50 + 열 너비의 합. 숫자로 박아 두면 열이 늘 때 눌린다.
   const tableMinW = 50 + cols.reduce(function(a, c){ return a + (parseInt(c.w, 10) || 0); }, 0);
 
-  _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt, campaignIds: liveIds};
+  _openReport = {id: reportId, title: rep.title, rows: rows, cols: cols, reverbQueriedAt: reverbQueriedAt,
+                 extSources: sources, extFailed: extFailed, campaignIds: liveIds};
 
   pane.innerHTML = `
     <div class="admin-card">
@@ -404,13 +417,17 @@ async function openReport(reportId) {
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="exportReportExcel('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 엑셀 내려받기</button>
           <button class="btn btn-ghost btn-xs" onclick="openReportComposeModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">tune</span> 구성</button>
-          <button class="btn btn-ghost btn-xs" onclick="openShareSettings('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">share</span> 공유 설정</button>
+          ${campExtMode ? '' : `<button class="btn btn-ghost btn-xs" onclick="openShareSettings('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">share</span> 공유 설정</button>`}
           <button class="btn btn-ghost btn-xs" style="color:var(--pink)" onclick="openReportDeleteModal('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">delete</span> 삭제</button>
         </div>
       </div>
 
+      ${campExtMode ? `<div style="margin:12px 16px 0;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:6px">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:15px;color:var(--muted)">lock</span>
+        <span>관리자 내부용 리포트입니다 — 브랜드 페이지와 상관없습니다. 브랜드에게 보이는 결과물은 캠페인 진행현황 결과물 목록 탭의 「브랜드 공개 설정」에서 캠페인마다 정합니다.</span>
+      </div>` : ''}
       <div style="padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;line-height:2">
-        <strong>요약</strong> · 캠페인 ${camps.length}개 · 외부 첨부 ${sources.length}개 · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 결과물 ${resultN}
+        <strong>요약</strong> · 캠페인 ${camps.length}개 · ${campExtMode ? '외부 결과 파일 ' + sources.length + '개(담긴 캠페인에서 가져옴)' : '외부 첨부 ' + sources.length + '개'} · 인원 ${rows.length}명 (REVERB ${rows.length - extStd.length} · 외부 ${extStd.length}) · 구매 ${purchaseN} · 결과물 ${resultN}
         <a href="javascript:void(0)" onclick="openReportComposeModal('${esc(reportId)}')" style="margin-left:8px;font-size:12px">구성 보기·설정</a>
         ${users === null ? '<div style="color:var(--pink);font-size:12px">⚠️ 회원 정보를 불러오지 못해 이름·계정 칸이 「?」로 표시됩니다.</div>' : ''}
         ${extFailed ? '<div style="color:var(--pink);font-size:12px">⚠️ 외부 참가자 행을 불러오지 못했습니다 — 표에 외부 행이 빠져 있습니다.</div>' : ''}
@@ -430,7 +447,45 @@ async function openReport(reportId) {
           </tbody>
         </table>
       </div>
+      ${campExtMode ? '<div style="padding:10px 16px 14px;font-size:12px;color:var(--muted);line-height:1.7">표에는 리포트에 묶은 캠페인의 REVERB 결과물과 그 캠페인에 붙은 외부 결과물이 함께 보입니다. 외부 결과 파일은 캠페인 진행현황 결과물 탭에서 붙입니다(「구분」 열은 엑셀에도 늘 들어가며, 외부 줄은 엑셀에서 「외부 참가자」로 적습니다).</div>' : ''}
     </div>`;
+}
+
+// 🔴 출시 전 판정 한 곳 — 공유 설정 걷기·리포트 외부 첨부 걷기·캠페인 외부 줄 끌어오기(작업표 2026-10-19 조각 17)는
+//    개발서버(_brandAccountEnabled)에서만. 운영엔 546(get_campaign_ext_sources)·544 가 없고 공유 링크가 살아 있다.
+//    출시 날(조각 18 과 같은 배포) 이 판정만 걷으면 된다.
+function _reportCampExtMode() {
+  return (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+}
+
+// 담긴 캠페인마다 붙은 외부 결과 파일(546 get_campaign_ext_sources)을 끌어와 표준 행으로 바꾼다 — 화면·엑셀(조각 17-나) 공용.
+//   camps = [{id, campaign_no, title}] (지워진 캠페인 — id 없음 — 은 건너뛴다)
+//   반환 {sources, rows, failed}
+//     sources = 첨부 목록(+ campaign_id·campaign_no·campaign_title — 구성 창 표시용)
+//     rows    = 「제출한 줄만」(reportExtRowSubmitted) → _reportExtToRow(rules:'campaign' D8 · keepExtCampaign D9 — 캠페인 번호·이름은 외부 값)
+//     failed  = 캠페인 하나라도 조회 실패(null·함수 없음)면 true — 🔴 실패를 「외부 0명」으로 그리지 않는다(받은 캠페인 몫은 그대로 싣는다)
+//   ⚠️ 이 조회는 account_id(채널 계정)를 싣지 않는다(546 — 계정 ID 는 늘 빼는 열) → 외부 줄의 계정 칸은 빈다.
+async function loadReportCampaignExtRows(camps) {
+  const live = (camps || []).filter(function(c){ return c && c.id; });
+  if (!live.length) return {sources: [], rows: [], failed: false};
+  // 원격 호출이라 동시 2개까지만(운영 데이터베이스가 가장 작은 사양 — mapLimit 주석)
+  const res = await mapLimit(live, 2, async function(c){ return {camp: c, data: await fetchCampaignExtSources(c.id)}; });
+  const sources = [], rows = [];
+  let failed = false;
+  res.forEach(function(x) {
+    const d = x.data;
+    if (!d || d.missing || !Array.isArray(d.sources)) { failed = true; return; }
+    const srcById = {};
+    d.sources.forEach(function(s) {
+      const sv = Object.assign({}, s, {campaign_id: x.camp.id, campaign_no: x.camp.campaign_no || '', campaign_title: x.camp.title || ''});
+      srcById[s.id] = sv; sources.push(sv);
+    });
+    (d.ext_rows || []).filter(reportExtRowSubmitted).forEach(function(r) {
+      rows.push(_reportExtToRow(r, srcById[r.source_id], {rules: 'campaign', keepExtCampaign: true,
+        campaign: {campaign_no: x.camp.campaign_no || '', campaign_name: x.camp.title || ''}}));
+    });
+  });
+  return {sources: sources, rows: rows, failed: failed};
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -452,7 +507,7 @@ async function exportReportExcel(reportId) {
     if (typeof toast === 'function') toast('리포트를 먼저 열어 주세요');
     return;
   }
-  if (typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) { await openReportExcelColsModal(reportId); return; }
+  if (_reportCampExtMode()) { await openReportExcelColsModal(reportId); return; }   // 출시 전 판정 한 곳(조각 17-가와 같다)
   await _reportWriteExcel(reportId, null);
 }
 
@@ -488,6 +543,7 @@ async function openReportExcelColsModal(reportId) {
   const checked = def ? reportDefaultCheckedKeys(list, def.spec) : [];
   document.getElementById('reportExcelColsBody').innerHTML = `
     ${def ? '' : '<div style="color:var(--pink);font-size:12px;margin-bottom:8px">기본 열을 불러오지 못해 아무 열도 체크하지 않고 열었습니다. 넣을 열을 직접 골라 주세요.</div>'}
+    ${_openReport.extFailed ? '<div style="color:var(--pink);font-size:12px;margin-bottom:8px">⚠️ 일부 캠페인의 외부 결과물을 불러오지 못했습니다 — 내려받는 엑셀에도 그 줄이 빠집니다.</div>' : ''}
     <div class="form-group" style="margin:0"><label class="form-label">엑셀에 넣을 열</label>
       ${_reportExcelColGroupsHtml(list, checked)}
       <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7">계정 ID(로그인 이메일)는 고르지 않아도 늘 빼고 만듭니다. 고르지 않은 열은 엑셀에 들어가지 않습니다.</div></div>`;
@@ -982,6 +1038,27 @@ async function _reportComposeBodyHtml(reportId) {
       `removeCampaignFromReport('${esc(reportId)}','${esc(c.row_id)}')`,
       c.campaign_exists ? '' : '원본 캠페인이 지워졌습니다', !c.campaign_exists);
   }).join('');
+  // 🔴 새 동작: 외부 결과 파일은 담긴 캠페인에서 끌어온 것을 보기만 한다 — 붙이기·떼기 없음(조각 17)
+  if (_reportCampExtMode()) {
+    const ext = (_openReport && _openReport.id === reportId) ? _openReport : null;
+    const list = ext ? (ext.extSources || []) : [];
+    const items = list.map(function(sv) {
+      return `<span class="badge badge-gray" style="display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:8px" title="${esc((sv.file_name || '') + ' · ' + formatDateTime(sv.attached_at) + ' · ' + (sv.attached_by_name || ''))}">${esc(sv.ext_campaign_no)} ${esc(sv.ext_campaign_name)} · ${esc(String(sv.row_count))}명 <span style="color:var(--muted);margin-left:4px">(${esc(sv.campaign_no)})</span></span>`;
+    }).join('');
+    return `
+    <div class="form-group">
+      <label class="form-label">REVERB 캠페인 ${(rep.campaigns || []).length}개</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${camps}
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openAddCampaignsToReport('${esc(reportId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">add</span> 추가</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">× 로 빼면 그 캠페인의 결과물이 표에서 사라집니다. 마지막 한 개는 뺄 수 없습니다.</div>
+    </div>
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">외부 결과 파일 ${list.length}개 <span style="font-weight:400;color:var(--muted)">(담긴 캠페인에서 가져옴)</span></label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${items || '<span style="font-size:12px;color:var(--muted)">' + (ext && ext.extFailed ? '외부 결과 파일을 불러오지 못했습니다.' : '담긴 캠페인에 붙은 파일이 없습니다.') + '</span>'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">외부 결과 파일은 캠페인 진행현황 결과물 탭에서 붙이고 뗍니다. 괄호 안은 붙인 캠페인 번호입니다.</div>
+    </div>`;
+  }
   const srcs = (rep.sources || []).map(function(sv) {
     return chip(esc(sv.ext_campaign_no) + ' ' + esc(sv.ext_campaign_name) + ' · ' + sv.row_count + '명',
       `removeSourceFromReport('${esc(reportId)}','${esc(sv.id)}','${esc(sv.ext_campaign_no)}')`,
@@ -1189,6 +1266,7 @@ function openResetSharePw(reportId) {
 
 // 작업 26 ① — 공유가 켜진 리포트의 구성을 바꿀 때 경고 (더할 때도, 뺄 때도)
 async function _reportSharedGuard(reportId, what) {
+  if (_reportCampExtMode()) return true;   // 새 동작: 공유 설정을 걷었다(조각 17) — 옛 링크는 출시 날 조각 18 이 닫는다
   const st = await fetchReportShareStatus(reportId);
   if (!st || !st.enabled) return true;
   return window.confirm('이 리포트는 공유 중입니다.\n' + what + ' 브랜드가 보는 화면도 바로 바뀝니다. 계속할까요?');
@@ -1207,41 +1285,48 @@ function openReportHelpModal() {
     const h = (t) => `<div style="font-size:13px;font-weight:700;color:var(--ink);margin:18px 0 8px">${t}</div>`;
     const p = (t) => `<div style="font-size:12.5px;color:var(--ink);line-height:1.8;margin-bottom:4px">${t}</div>`;
     const warn = (t) => `<div style="font-size:12px;color:#8A5A00;background:#FFF4E5;border:1px solid #F5C77A;border-radius:8px;padding:8px 12px;line-height:1.7;margin:8px 0">${t}</div>`;
+    // 🔴 새 동작(조각 17 — 개발서버)이면 공유·리포트 외부 첨부 안내를 뺀다. 판정은 _reportCampExtMode 한 곳
+    const N = _reportCampExtMode();
     const steps = (arr) => `<ol style="margin:4px 0 4px 18px;padding:0;font-size:12.5px;color:var(--ink);line-height:1.9">${arr.map(x => '<li>' + x + '</li>').join('')}</ol>`;
     m.innerHTML = `
       <div class="modal" style="width:94vw;max-width:760px;border-radius:16px;margin:auto;max-height:88vh;overflow:hidden;display:flex;flex-direction:column">
         <div class="modal-header">
-          <div class="modal-title">리포트 관리 안내 — 만들기 · 구성 · 브랜드 공유</div>
+          <div class="modal-title">리포트 관리 안내 — 만들기 · 구성 · ${N ? '엑셀' : '브랜드 공유'}</div>
           <div class="modal-close" onclick="closeModal('reportHelpModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
         </div>
         <div class="modal-body" style="padding:4px 20px 20px;overflow-y:auto;flex:1;min-height:0">
 
           ${h('리포트가 무엇인가요')}
-          ${p('캠페인 여러 개의 결과물(영수증·큐텐/엣코스메 리뷰)을 <b>인플루언서 1명 = 1줄</b>로 모은 표입니다. 브랜드에 보고할 때 씁니다. 포인테일(스토어링크)에서 돌린 캠페인의 결과 엑셀도 같은 표에 붙일 수 있습니다.')}
+          ${p('캠페인 여러 개의 결과물(영수증·큐텐/엣코스메 리뷰)을 <b>인플루언서 1명 = 1줄</b>로 모은 표입니다. ' + (N ? '<b>관리자 내부용</b>입니다 — 브랜드 페이지와 상관없습니다. 담긴 캠페인에 붙은 포인테일(스토어링크) 결과도 같은 표에 함께 보입니다.' : '브랜드에 보고할 때 씁니다. 포인테일(스토어링크)에서 돌린 캠페인의 결과 엑셀도 같은 표에 붙일 수 있습니다.'))}
 
           ${h('① 만들기')}
           ${steps([
             '사이드바 「캠페인 관리」로 갑니다.',
             '표 왼쪽 체크박스로 리포트에 넣을 캠페인을 고릅니다(여러 개 가능).',
             '표 위 「리포트 만들기」를 누릅니다.',
-            '「리포트 제목」을 적고, 필요하면 아래 「외부 결과물 붙이기」에서 포인테일 엑셀을 함께 붙입니다.',
+            N ? '「리포트 제목」을 적습니다.' : '「리포트 제목」을 적고, 필요하면 아래 「외부 결과물 붙이기」에서 포인테일 엑셀을 함께 붙입니다.',
             '「리포트 만들기」를 누르면 만들어지고, 「리포트 관리」 목록에 나타납니다.'
           ])}
           ${p('목록에서 제목을 누르면 리포트가 열립니다. 표는 <b>열 때마다 REVERB 데이터를 새로 읽어</b> 최신 상태입니다. 포인테일 데이터는 파일을 붙인 시점 그대로입니다.')}
 
           ${h('② 구성 바꾸기 — 「구성」 버튼')}
           ${p('리포트 화면 위 「구성」을 누르면 무엇이 담겨 있는지 보이고 여기서 고칩니다.')}
-          ${steps([
+          ${N ? steps([
+            '<b>REVERB 캠페인</b> — 「추가」로 캠페인을 더하고, 항목 옆 ×로 뺍니다. 마지막 한 개는 뺄 수 없습니다(리포트를 지우세요).',
+            '<b>외부 결과 파일</b> — 담긴 캠페인에 붙은 포인테일 결과가 보이기만 합니다. 붙이고 떼는 것은 「캠페인 관리」 → 캠페인 진행현황 결과물 탭 「외부 결과 파일」에서 합니다.',
+            '제목은 제목 옆 연필 아이콘으로 고칩니다.'
+          ]) : steps([
             '<b>REVERB 캠페인</b> — 「추가」로 캠페인을 더하고, 항목 옆 ×로 뺍니다. 마지막 한 개는 뺄 수 없습니다(리포트를 지우세요).',
             '<b>외부 첨부 (포인테일)</b> — 「파일 붙이기」로 포인테일에서 내려받은 결과 엑셀을 붙입니다. 파일 이름에 있는 캠페인 번호가 자동으로 들어가고, 캠페인명은 직접 적습니다.',
             '같은 번호의 파일을 다시 붙이면 <b>그 파일이 새것으로 갱신</b>됩니다(이전 행 전부 교체). 결과가 늘어난 뒤 다시 붙이면 됩니다.',
             '제목은 제목 옆 연필 아이콘으로 고칩니다.'
           ])}
-          ${warn('포인테일 엑셀은 <b>원본 파일을 저장하지 않고</b> 읽은 내용만 저장합니다. 탭 이름(구매하기·텍스트 리뷰·포토 리뷰·@cosme)이 달라진 파일은 거부됩니다 — 그럴 때는 개발팀에 알려 주세요.')}
+          ${N ? '' : warn('포인테일 엑셀은 <b>원본 파일을 저장하지 않고</b> 읽은 내용만 저장합니다. 탭 이름(구매하기·텍스트 리뷰·포토 리뷰·@cosme)이 달라진 파일은 거부됩니다 — 그럴 때는 개발팀에 알려 주세요.')}
 
           ${h('③ 엑셀 내려받기')}
-          ${p('리포트 화면의 「엑셀 내려받기」 — 화면에 보이는 표 그대로 내려갑니다(관리자용은 파일 이름 끝에 <b>_관리자용</b>). 브랜드가 자기 화면에서 받는 엑셀은 브랜드에게 보이는 열만 담기고 이 표시가 없습니다.')}
+          ${p('리포트 화면의 「엑셀 내려받기」 — 화면에 보이는 표 그대로 내려갑니다(관리자용은 파일 이름 끝에 <b>_관리자용</b>).' + (N ? '' : ' 브랜드가 자기 화면에서 받는 엑셀은 브랜드에게 보이는 열만 담기고 이 표시가 없습니다.'))}
 
+          ${N ? h('④ 브랜드에게 보이는 결과물') + p('이 리포트는 브랜드에게 공유하지 않습니다. 브랜드 페이지에 보이는 결과물은 캠페인 진행현황 결과물 목록 탭의 「브랜드 공개 설정」에서 캠페인마다 정합니다.') : `
           ${h('④ 브랜드에 공유하기 — 「공유 설정」 버튼')}
           ${steps([
             '리포트 화면 위 「공유 설정」을 누릅니다.',
@@ -1251,15 +1336,15 @@ function openReportHelpModal() {
           ])}
           ${p('브랜드는 링크를 열어 비밀번호를 넣으면 표를 보고 엑셀도 받을 수 있습니다. 비밀번호를 잊었으면 「보기」로 다시 확인하고, 바꾸려면 「다시 정하기」 — 바꾸면 <b>브랜드에게 새 비밀번호를 다시 알려야</b> 합니다.')}
           ${warn('<b>브랜드 화면에서 가려지는 것</b> — 이름은 앞 두 글자만(예: 佐藤**), 로그인 이메일·계정 ID·PayPal 주소는 어떤 설정이어도 나가지 않습니다. 영수증 사진·주문번호·구매금액은 보입니다(개인정보처리방침 §3.1).')}
-          ${warn('<b>공유가 켜진 리포트의 구성을 바꾸면 브랜드가 보는 화면도 그 즉시 바뀝니다.</b> 캠페인을 더하면 브랜드가 그 캠페인 회원 정보를 새로 보게 되니, 바꾸기 전에 확인 창을 잘 읽어 주세요. 「링크 끄기」를 누르면 브랜드가 보던 화면이 그 순간 닫힙니다.')}
+          ${warn('<b>공유가 켜진 리포트의 구성을 바꾸면 브랜드가 보는 화면도 그 즉시 바뀝니다.</b> 캠페인을 더하면 브랜드가 그 캠페인 회원 정보를 새로 보게 되니, 바꾸기 전에 확인 창을 잘 읽어 주세요. 「링크 끄기」를 누르면 브랜드가 보던 화면이 그 순간 닫힙니다.')}`}
 
           ${h('⑤ 삭제')}
-          ${p('리포트 화면 위 「삭제」 → 제목을 그대로 입력하면 지워집니다. 공유 링크도 함께 사라집니다. 캠페인이나 결과물 원본은 지워지지 않습니다.')}
-          ${p('반대로 <b>캠페인을 삭제</b>하면 그 캠페인이 든 리포트에서 회원·결과물 줄이 사라집니다(캠페인 번호·제목은 남습니다). 공유 중인 리포트가 있으면 삭제 확인 창에 건수가 뜹니다.')}
+          ${p('리포트 화면 위 「삭제」 → 제목을 그대로 입력하면 지워집니다.' + (N ? '' : ' 공유 링크도 함께 사라집니다.') + ' 캠페인이나 결과물 원본은 지워지지 않습니다.')}
+          ${p('반대로 <b>캠페인을 삭제</b>하면 그 캠페인이 든 리포트에서 회원·결과물 줄이 사라집니다(캠페인 번호·제목은 남습니다).' + (N ? '' : ' 공유 중인 리포트가 있으면 삭제 확인 창에 건수가 뜹니다.'))}
 
           ${h('자주 묻는 것')}
           ${p('<b>표에 사람이 안 보여요</b> — 결과물을 하나도 내지 않은 응모자는 줄이 없습니다. 임시저장만 한 결과물도 안 보입니다.')}
-          ${p('<b>브랜드가 비밀번호를 틀렸다고 해요</b> — 10분에 10번 틀리면 잠깁니다. 10분 뒤 다시 시도하거나, 「공유 설정」에서 비밀번호를 「다시 정하기」로 새로 알려 주세요.')}
+          ${N ? '' : p('<b>브랜드가 비밀번호를 틀렸다고 해요</b> — 10분에 10번 틀리면 잠깁니다. 10분 뒤 다시 시도하거나, 「공유 설정」에서 비밀번호를 「다시 정하기」로 새로 알려 주세요.')}
           ${p('<b>「리포트 관리」 메뉴가 안 보여요</b> — 캠페인 매니저 등급은 이 화면을 쓸 수 없습니다. 최고 관리자에게 등급 조정을 요청하세요.')}
         </div>
       </div>`;
