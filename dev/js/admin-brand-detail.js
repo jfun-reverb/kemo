@@ -156,6 +156,8 @@ function _bdHeadHtml(b, o) {
       + '<span data-brand-name class="bd-title">' + esc(b.name || '') + '</span>'
       + '<span class="bd-no-chip">' + esc(b.brand_no || '') + '</span>'
       + '<span id="brandDetailStatusBadge">' + _bdStatusBadgeHtml(b.status) + '</span>'
+      // 결과물 열람 정지 배지 자리(제한 11) — 계정 상태 조회가 끝나면 bdSanctionSyncHead 가 채운다
+      + '<span id="brandDetailSuspendBadge"></span>'
       + '<div class="bd-head-actions">'
         // 🔴 삭제를 잠근 이유를 말한다 — 캠페인 수 조회 실패는 이 줄이 유일한 안내다(옛 페이지와 같다)
         + ((!o.countsKnown && o.isAdm) ? '<span class="bd-lock-note">일부 정보를 불러오지 못해 삭제를 잠갔습니다</span>' : '')
@@ -216,6 +218,7 @@ async function _bdLoadAccountStatus(brandId) {
   _brandDetailAccountStatus = st;
   renderBrandDetailSummaryLine();
   renderBrandPeopleTab();
+  if (typeof bdSanctionSyncHead === 'function') bdSanctionSyncHead();
 }
 
 // ── 「…」 메뉴 ──
@@ -679,6 +682,7 @@ async function bdReloadPeopleTab() {
   _brandDetailAccountStatus = res[1];
   renderBrandDetailSummaryLine();
   renderBrandPeopleTab();
+  if (typeof bdSanctionSyncHead === 'function') bdSanctionSyncHead();
   _bdContactRerenderIfOpen();   // 담당자 창이 열려 있으면 잠금·대표 표시를 새 상태로(쳐 둔 값은 그대로)
 }
 
@@ -1174,6 +1178,8 @@ async function bdAccountCreateSubmit() {
       }
       var cd = chk.data || {};
       if (cd.result === 'invalid_email') { _bdAcctBusy = false; _bdRenderCreateModal('이메일 형식이 올바르지 않습니다 — 「수정」으로 대표 담당자 이메일을 고친 뒤 다시 눌러 주십시오.'); return; }
+      // 이용 제한 중인 브랜드 계정 — 연결 요청 확인 대신 제한 안내(제한 11 · A12)
+      if (cd.restricted === true) { _bdAcctBusy = false; bdShowRestrictedAccount(a.email, cd); return; }
       if (cd.email_kind === 'influencer' || cd.email_kind === 'admin') { _bdAcctBusy = false; _bdRenderCreateRefused(a.email); return; }
       if (cd.email_kind === 'brand') {
         // 이미 다른 브랜드 계정 — 새 계정을 만들지 않고 연결 요청 확인(a03-01c)으로
@@ -1368,6 +1374,7 @@ async function bdLinkRequestSubmit() {
     return;
   }
   if (res.mailFailed) { a.requested = true; _bdRenderLinkModal(BD_LINK_MAIL_FAIL + ' [' + res.reason + ']'); bdReloadPeopleTab(); return; }
+  if (res.result === 'account_restricted') { bdShowRestrictedAccount(a.email, null); return; }   // 제한 11 · A12
   if (res.result === 'not_brand_account') {
     if (a.from === 'add') { a.fieldErr = BD_LINK_NOT_BRAND; _bdRenderLinkModal(null); }
     else _bdRenderLinkModal(BD_LINK_NOT_BRAND);
@@ -1394,6 +1401,7 @@ async function brandLinkRequestResend() {
   finally { _bdAcctBusy = false; }
   if (res.done) { _bdAfterAction(res.dev ? '연결 요청을 다시 보냈습니다. (개발서버 — 메일 대신 링크를 만들었습니다)' : '연결 요청을 다시 보냈습니다. 앞서 보낸 링크는 쓸 수 없게 됐습니다.'); return; }
   if (res.mailFailed) { _bdAfterAction('메일을 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + res.reason + ']', 'error'); return; }
+  if (res.result === 'account_restricted') { bdShowRestrictedAccount(lr.email, null); return; }
   var t = _bdLinkResultToast(res.result);
   _bdAfterAction(t ? t[0] : '연결 요청을 다시 보내지 못했습니다. 잠시 후 다시 시도해 주십시오. [' + String(res.result) + ']', t ? t[1] : 'error');
 }
