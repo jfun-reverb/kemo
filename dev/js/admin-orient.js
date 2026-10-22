@@ -55,7 +55,7 @@ let _orientActiveStatusTab = null;
 //    실제로 도달하지 않는다(그 값들은 리뷰어 폼의 sale.market 몫). 그래서 캠페인 채널
 //    코드 정정(atcosme→cosme, osPrefillChannels)의 영향을 받지 않는다. 도달하지 않을 뿐
 //    「안 쓰이는 표」는 아니므로, sd.channels 의 값 범위를 넓힐 땐 여기도 함께 봐야 한다.
-const OS_CH_LABEL = { instagram_feed: '인스타그램-피드', instagram_reels: '인스타그램-릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
+const OS_CH_LABEL = { instagram_feed: '인스타그램 피드', instagram_reels: '인스타그램 릴스', instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
 // 발급 모달의 시딩 채널 드롭다운 재료 — 🔴 위 OS_CH_LABEL(9종)을 쓰지 않는다. 그 표에는 서버가 거부하는
 //   값(instagram·qoo10·lips·atcosme)이 섞여 있어 「고를 수는 있는데 발급이 막히는」 화면이 된다.
 //   ⚠️ 같은 5종이 세 곳에 산다 — ①dev/sales/orient.html SEEDING_CHANNELS ②여기 ③마이그레이션 424 서버 검증.
@@ -255,7 +255,7 @@ function renderOrientStatusTabs(counts, totalAll) {
     const isOn = tab.code === _orientActiveStatusTab;
     const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
     return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setOrientStatusTab(this)">`
-      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+      + `${esc(tab.label)} <span class="tab-count">${n}</span></button>`;
   }).join('');
 }
 
@@ -278,7 +278,8 @@ function osExpireCell(s) {
 function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
-  return `<tr>
+  // 줄을 누르면 상세가 열린다(피그마 a04-06). 줄 안의 단추·메뉴는 event.stopPropagation 으로 이 동작을 막는다
+  return `<tr class="os-row" onclick="osOpenDetail('${esc(s.id)}')" style="cursor:pointer">
     <td style="font-weight:700;color:var(--ink);white-space:nowrap">${s.orient_no ? esc(s.orient_no) : '-'}</td>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
     <td>${osCardsSummary(s.data)}</td>
@@ -289,43 +290,61 @@ function osRowHtml(s) {
     <td style="white-space:nowrap">${osRowQuoteCell(s)}</td>
     <td style="text-align:center">${osRowMemoCell(s)}</td>
     <td style="white-space:nowrap">
-      ${(!osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
-      <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
-      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${esc(s.id)}')">상세</button>
-      <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
+      <button type="button" class="camp-more-btn" title="더 보기" aria-label="더 보기" aria-haspopup="menu" onclick="osToggleRowMenu(event,this,'${esc(s.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_horiz</span></button>
     </td>
   </tr>`;
 }
 
-// 목록 「메모」 칸 — 시트 단위 안 읽은 수 배지.
+// 목록 줄 「…」 메뉴 — 옛 줄 단추 넷(메일·링크 복사·상세·삭제)과 견적서 보기를 한 메뉴로(피그마 a04-06).
+//   다른 목록의 더보기 패턴(camp-more-menu)을 그대로 쓴다 — 열린 메뉴는 하나, 바깥을 누르면 닫힌다
+function osToggleRowMenu(e, btnEl, id) {
+  e.stopPropagation();
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  const s = _orientSheets.find(x => x.id === id);
+  if (!s) return;
+  const item = (icon, label, onclick, style) => `<div class="camp-more-item" role="menuitem" onclick="${onclick}"${style ? ` style="${style}"` : ''}>`
+    + `<span class="material-icons-round notranslate" translate="no" style="font-size:16px">${icon}</span>${label}</div>`;
+  const sid = esc(s.id);
+  const canMail = !osIsExpired(s) && !osTokenExpired(s) && s.status !== 'consumed';
+  const hasQuote = osQuoteState((s && s.data) || {}).kind === 'quote';
+  const menu = document.createElement('div');
+  menu.className = 'camp-more-menu';
+  menu.setAttribute('role', 'menu');
+  menu.innerHTML = item('description', '상세 보기', `osOpenDetail('${sid}')`)
+    + (canMail ? item('mail', '메일', `osReopenSendMail('${sid}')`) : '')
+    + item('link', '링크 복사', `osCopyLink('${sid}')`)
+    + (hasQuote ? item('request_quote', '견적서 보기', `osOpenQuoteDoc('${sid}')`) : '')
+    + item('delete', '삭제', `osOpenDelete('${sid}')`, 'color:#C41E3A');
+  // 메뉴 항목을 누르면 메뉴를 닫는다(동작은 각 함수가 한다)
+  menu.addEventListener('click', () => menu.remove());
+  document.body.appendChild(menu);
+  _positionMenuInViewport(menu, btnEl.getBoundingClientRect(), { placement: 'left-of' });
+  setTimeout(() => {
+    document.addEventListener('click', function _close(ev) {
+      if (!menu.isConnected || !menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', _close); }
+    });
+  }, 0);
+}
+
+// 목록 「메모」 칸 — 시트 단위 메모 수를 숫자로(피그마 a04-06).
 //   0이면 아무것도 안 그린다(늘 떠 있는 숫자는 눈에 안 들어온다).
+//   안 읽은 메모가 있으면 숫자를 분홍·굵게 + 옆에 작은 점 — 마우스를 올리면 개수가 나온다.
 //   집계는 카드 단위로 오므로 이 시트에 속한 것만 합산한다 —
 //   카드가 지워진 고아 메모도 그 시트 몫으로 잡힌다(집계가 카드 목록으로 안 거름).
 function osRowMemoCell(s) {
   const total = osSheetMemoCount(s.id);
+  if (!total) return '';
   const unread = osSheetUnreadCount(s.id);
-  // 메모가 있으면 아이콘이 진해지고, 안 읽은 게 있으면 아이콘 우측 위에 수가 붙는다.
-  //   숫자만 덩그러니 두면 그게 무엇의 수인지 알 수 없어 아이콘을 기준으로 삼는다.
-  const tip = total
-    ? `눌러서 메모 보기 — 내부 메모 ${total}개${unread ? ` · 아직 열어보지 않음 ${unread}개` : ''}`
-    : '내부 메모 없음';
-  // 메모가 있을 때만 누를 수 있다. 누르면 상세가 열리고, 안 읽은 메모가 있는 묶음은
-  //   그 안에서 자동으로 펼쳐진다(osOpenDetail).
-  const clickable = total > 0;
-  const tag = clickable ? 'button' : 'span';
-  const attrs = clickable
-    ? ` type="button" onclick="osOpenDetail('${esc(s.id)}')" style="cursor:pointer;border:0;background:transparent;padding:0;`
-    : ' style="';
-  // ⚠️ 스타일을 인라인으로 둔다 — 모달 안 메모 스타일은 상세 본문에 함께 끼워 넣는
-  //    <style> 안에만 있어서 목록에는 적용되지 않는다.
-  return `<${tag} title="${esc(tip)}"${attrs}position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px">`
-    + `<span class="material-icons-round notranslate" translate="no" style="font-size:19px;color:${total ? '#161618' : '#dcdce0'}">sticky_note_2</span>`
-    + (unread
-        ? `<span style="position:absolute;top:-3px;right:-5px;min-width:15px;height:15px;padding:0 4px;`
-          + `border-radius:999px;background:var(--pink,#E91E63);color:#fff;font-size:9.5px;font-weight:800;`
-          + `line-height:15px;text-align:center;box-sizing:border-box;box-shadow:0 0 0 1.5px #fff">${unread > 99 ? '99+' : unread}</span>`
-        : '')
-    + `</${tag}>`;
+  const tip = `눌러서 메모 보기 — 내부 메모 ${total}개${unread ? ` · 아직 열어보지 않음 ${unread}개` : ''}`;
+  // 누르면 상세가 열리고, 안 읽은 메모가 있는 묶음은 그 안에서 자동으로 펼쳐진다(osOpenDetail).
+  //   줄 클릭도 상세를 열므로 전파를 막아 두 번 열리지 않게 한다
+  // ⚠️ 스타일을 인라인으로 둔다 — 모달 안 메모 스타일은 상세 본문에 함께 끼워 넣는 <style> 안에만 있다
+  return `<button type="button" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="event.stopPropagation();osOpenDetail('${esc(s.id)}')"`
+    + ` style="cursor:pointer;border:0;background:transparent;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;font-size:13px;`
+    + `font-variant-numeric:tabular-nums;font-weight:${unread ? 800 : 400};color:${unread ? 'var(--pink,#E91E63)' : 'var(--ink)'}">`
+    + (total > 99 ? '99+' : total)
+    + (unread ? '<span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:var(--pink,#E91E63)"></span>' : '')
+    + '</button>';
 }
 
 // 그 시트에 달린 메모 총 개수(안 읽은 수가 아니라 전체 — 삭제 경고에 쓴다)
@@ -403,6 +422,7 @@ async function osOpenCreate(opts) {
   opts = opts || {};
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
+  osSetAppHint(false);   // 진입이 셋이라 열 때마다 「연결 안 함」 안내로 되돌린다
   document.querySelectorAll('input[name="osCreateFormType"]').forEach(r => { r.checked = false; });
   const chSel = document.getElementById('osCreateChannel');
   chSel.innerHTML = '<option value="">선택</option>' + OS_SEEDING_CHANNELS.map(c => `<option value="${c}">${esc(osChLabel(c))}</option>`).join('');
@@ -445,8 +465,17 @@ async function osOpenCreate(opts) {
     if (opts.appId) {
       await osOnBrandChange();
       document.getElementById('osCreateApp').value = opts.appId;
+      osSetAppHint(!!document.getElementById('osCreateApp').value);
     }
   }
+}
+
+// 「광고주 신청 연결」 칸 아래 안내 — 실제로 신청이 들어 있는지에 맞춘다(서베이 진입만 신청이 채워진다)
+function osSetAppHint(linked) {
+  const el = document.getElementById('osCreateAppHint');
+  if (el) el.textContent = linked
+    ? '브랜드 서베이 신청에서 들어와 이 신청이 연결됩니다. 연결은 바꿀 수 없습니다.'
+    : '신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.';
 }
 
 // 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
@@ -490,7 +519,8 @@ function osBrandShowList() {
   const input = document.getElementById('osCreateBrandInput');
   if (!input || input.disabled) return;   // 진입점 ②③ 잠긴 브랜드면 열지 않음
   document.getElementById('osCreateBrandList').classList.add('open');
-  _osRenderBrandList(input.value);
+  // 이미 고른 상태면 입력칸에 「이름 [번호]」가 들어 있어 그대로 검색하면 0건이 된다 — 그때는 전체 목록을 보인다
+  _osRenderBrandList(document.getElementById('osCreateBrand').value ? '' : input.value);
 }
 
 function osBrandInput() {
@@ -509,7 +539,7 @@ function _osRenderBrandList(query) {
   const q = (query || '').trim().toLowerCase();
   const matched = (_orientBrands || []).filter(b =>
     (typeof matchSearchTokens === 'function')
-      ? matchSearchTokens(q, [b.name, b.name_ja, b.name_en])
+      ? matchSearchTokens(q, [b.name, b.name_ja, b.name_en, b.brand_no])
       : (!q || (b.name || '').toLowerCase().includes(q)));
   if (!matched.length) {
     // 검색 결과 0건 → 바로 신규 등록으로 이어갈 수 있게 버튼 노출
@@ -540,7 +570,8 @@ function osSelectBrand(id, opts2) {
   const b = (_orientBrands || []).find(x => String(x.id) === String(id));
   document.getElementById('osCreateBrand').value = id || '';
   const input = document.getElementById('osCreateBrandInput');
-  if (input) input.value = b ? (b.name || b.name_ja || b.name_en || '-') : '';
+  // 고른 뒤에는 「하루담 [BR-2026-0041]」처럼 번호를 함께(피그마 a04-07a) — 같은 이름 브랜드를 가르는 단서
+  if (input) input.value = b ? ((b.name || b.name_ja || b.name_en || '-') + (b.brand_no ? ' [' + b.brand_no + ']' : '')) : '';
   const list = document.getElementById('osCreateBrandList');
   if (list) list.classList.remove('open');
   osRenderAcctNotice(id || null, 'osCreateAcctNotice');
@@ -647,8 +678,8 @@ async function osRenderAcctNotice(brandId, elId, result) {
   try { st = await fetchBrandAccountStatus(brandId); } catch (_e) { st = null; }
   if (seq !== _osAcctNoticeSeq) return;   // 그사이 다른 브랜드를 골랐다 — 버린다
   if (!st) {
-    el.innerHTML = '<div class="os-acct-notice is-error">브랜드 페이지 계정 상태를 확인하지 못했습니다. 발급은 할 수 있지만 메일을 받을 계정이 있는지 모릅니다.'
-      + ' <button type="button" class="btn btn-ghost btn-xs" onclick="osRenderAcctNotice(\'' + esc(brandId) + '\',\'' + elId + '\',' + (result ? 'true' : 'false') + ')">다시 확인</button></div>';
+    el.innerHTML = '<div class="os-acct-notice is-error"><span class="material-icons-round notranslate" translate="no">warning</span><div>브랜드 페이지 계정 상태를 확인하지 못했습니다. 발급은 할 수 있지만 메일을 받을 계정이 있는지 모릅니다.'
+      + ' <button type="button" class="btn btn-ghost btn-xs" onclick="osRenderAcctNotice(\'' + esc(brandId) + '\',\'' + elId + '\',' + (result ? 'true' : 'false') + ')">다시 확인</button></div></div>';
     return;
   }
   const ready = (Array.isArray(st.members) ? st.members : []).filter(m => m && m.password_set_at && m.email);
@@ -1405,8 +1436,8 @@ function osRowQuoteCell(s) {
   const st = osQuoteState((s && s.data) || {});
   if (st.kind === 'quote') {
     const q = st.quote;
-    return `<span style="font-weight:600;color:var(--ink)">${esc(osKrw(q.total_krw))}</span> <span style="font-size:11px;color:var(--muted)">${esc(String(q.revision || 1))}차</span>
-      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenQuoteDoc('${esc(s.id)}')">견적서</button>`;
+    // 목록은 「₩2,640,000」 표기(피그마 a04-06) — 상세·견적 화면의 「원」 표기(osKrw)는 그대로. 견적서 보기는 줄 「…」 메뉴로 옮겼다
+    return `<span style="font-weight:600;color:var(--ink)">₩${esc(Number(q.total_krw || 0).toLocaleString('ko-KR'))}</span> <span style="font-size:11px;color:var(--muted)">${esc(String(q.revision || 1))}차</span>`;
   }
   if (st.kind === 'error') {
     return `<span style="font-size:12px;color:#B45309" title="${esc(osQuoteErrorText(st.reason))}">견적 없음</span>`;
@@ -2404,7 +2435,7 @@ function ensureOrientModals() {
             <div id="osCreateAcctNotice"></div></div>
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input" disabled><option value="">연결 안 함</option></select>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
+            <div id="osCreateAppHint" style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
           <div class="form-group"><label class="form-label">모집 형식 <span style="color:var(--pink,#1A1A1A)">*</span></label>
             <div style="display:flex;gap:16px;flex-wrap:wrap;padding:4px 0">
               <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="radio" name="osCreateFormType" value="reviewer" onchange="osOnFormTypeChange()"> 리뷰어</label>
