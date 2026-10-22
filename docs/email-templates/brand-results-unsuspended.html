@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!--
+  Mail: 결과물 열람 정지 해제 알림 — 그 브랜드의 대표·멤버에게 (brand results view suspension lifted)
+  Figma: Admin [1차] a03-4 (a03-94 ④ 「정지 해제」 확인 — 「해제를 이메일로 알립니다」)
+  Trigger: 관리자 브랜드 상세 머리 「정지 해제」 성공 + 「해제를 이메일로 알립니다」 체크(기본 켬)
+           → Edge Function notify-brand-restriction (kind:'results_lift', ref_id = 해제한 정지 줄)
+  To:      그 브랜드의 대표·멤버 전원 중 이용 제한 중이 아닌 계정(R4·R5) — 1명당 1통. 받는 사람은 서버가 정한다
+  Lang:    KO
+
+  Placeholders:
+    {{recipient_name}}  호칭 — 「{계정 이름} 님」, 이름이 비면 「{브랜드명} 담당자님」
+    {{brand_name}}      브랜드명
+    {{blocked_items}}   다시 볼 수 있게 된 것(정지 때 막았던 것 — brand-results-suspended.html 과 같은 문구)
+    {{reason_label}}    해제한 정지의 사유 이름(🔴 이름표 사본 두 벌 — brand-account-restricted.html 머리말)
+    {{reason_note}}     해제한 정지의 사유 설명
+    {{brand_url}}       브랜드 페이지 주소(PUBLIC_BRAND_URL + /brand/ — 사양서 A9)
+
+  Note:
+    🔴 텍스트 판은 notify-brand-restriction/index.ts 안의 사본 — 함께 고친다.
+    브랜드 대상 메일이라 인플루언서 4줄 푸터 의무 없음.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#161618;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">결과물 열람 정지가 해제되었습니다</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{recipient_name}}</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#444;line-height:1.7">
+    「{{brand_name}}」 브랜드의 캠페인 결과물 열람 정지를 해제했습니다. 지금부터 브랜드 페이지에서 결과물을 다시 볼 수 있습니다.
+  </p>
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+    <div style="color:#888;font-size:11px;margin-bottom:4px;font-weight:700">다시 볼 수 있게 된 것</div>
+    <div style="font-weight:700;color:#161618;margin-bottom:14px">{{blocked_items}}</div>
+    <div style="color:#888;font-size:11px;margin-bottom:4px;font-weight:700">해제된 정지의 사유</div>
+    <div style="font-weight:700;color:#161618;margin-bottom:4px">{{reason_label}}</div>
+    <div style="color:#444;line-height:1.7">{{reason_note}}</div>
+  </div>
+  <p style="margin:0 0 22px;font-size:13px;color:#444;line-height:1.7">브랜드 페이지: <span style="font-family:monospace;font-size:12px;color:#555;word-break:break-all">{{brand_url}}</span></p>
+  <div style="border-top:1px solid #EAEAE4;padding-top:16px">
+    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">이 메일은 「{{brand_name}}」 브랜드에 연결된 계정 모두에게 보냈습니다.</p>
+    <p style="margin:0 0 4px;color:#888;font-size:12px;line-height:1.6">궁금한 점은 REVERB 운영팀 담당자에게 직접 문의해 주십시오. 이 메일은 발신 전용입니다.</p>
+    <p style="margin:12px 0 0;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+  </div>
+</div>

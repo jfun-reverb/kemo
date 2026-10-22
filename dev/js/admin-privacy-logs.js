@@ -15,7 +15,8 @@
 // · 조회 실패(null)는 오류 줄, 0건은 「기록이 없습니다」 — 섞지 않는다
 // ════════════════════════════════════════════════════════════════════
 
-// 종류 9개 — 552 brand_provision_logs.action 검사 제약과 같은 목록(배송 탭 기록 창 SHIP_LOG_ACTION_TEXT 는 그중 배송 넷)
+// 종류 11개 — brand_provision_logs.action 검사 제약과 같은 목록(552 아홉 + 이용 제한 작업표 제한 4 의 열람 정지·해제 둘)
+//   (배송 탭 기록 창 SHIP_LOG_ACTION_TEXT 는 그중 배송 넷)
 const PRIVACY_LOG_ACTION_TEXT = {
   shipping_deliver:  '배송 리스트 전달',
   shipping_auto_add: '배송 리스트 자동 추가(새로 승인)',
@@ -26,6 +27,8 @@ const PRIVACY_LOG_ACTION_TEXT = {
   publish_on:        '결과물 브랜드 공개 켬',
   publish_off:       '결과물 브랜드 공개 끔',
   publish_columns:   '결과물 공개 열 바꿈',
+  results_suspend:   '결과물 열람 정지',
+  results_unsuspend: '결과물 열람 정지 해제',
 };
 const PRIVACY_LOG_ACTOR_TEXT = { brand: '브랜드', admin: '운영팀', system: '자동' };
 const PRIVACY_LOG_PAGE = 50;
@@ -180,10 +183,13 @@ function _plColLabel(key) {
   const rc = (typeof REPORT_COLS !== 'undefined' && Array.isArray(REPORT_COLS)) ? REPORT_COLS.find(c => c.key === key) : null;
   return rc ? rc.label : key;
 }
-function _plColumnsText(cols) {
+// 열람 정지·해제 줄의 칸 = 막은 것(보인 칸이 아니다 — 제한 4 admin_suspend_brand_results 가 넣는 값). 리포트 열 이름과 섞이지 않게 종류로 가른다
+const PRIVACY_LOG_SUSPEND_COL_TEXT = { results: '결과물 표', excel: '결과물 엑셀', receipt: '영수증 사진', shipping: '배송 리스트' };
+function _plColumnsText(cols, action) {
   if (!Array.isArray(cols) || !cols.length) return '';
-  return cols.map(c => {
-    if (typeof c === 'string') return _plColLabel(c);
+  const suspendRow = action === 'results_suspend' || action === 'results_unsuspend';
+  return (suspendRow ? '막은 것: ' : '') + cols.map(c => {
+    if (typeof c === 'string') return suspendRow ? (PRIVACY_LOG_SUSPEND_COL_TEXT[c] || c) : _plColLabel(c);
     if (c && typeof c === 'object' && ('enabled_before' in c || 'enabled_after' in c)) {
       const n = a => Array.isArray(a) ? a.length : 0;
       return '공개 ' + (c.enabled_before ? '켬' : '끔') + ' → ' + (c.enabled_after ? '켬' : '끔') + ' · 열 ' + n(c.before) + '개 → ' + n(c.after) + '개';
@@ -220,7 +226,7 @@ function _plRenderRows() {
         + '<td style="white-space:nowrap">' + (esc(l.campaign_no || '') || '<span style="color:var(--muted)">—</span>') + '</td>'
         + '<td>' + esc(_plActorText(l)) + '</td>'
         + '<td>' + esc(PRIVACY_LOG_ACTION_TEXT[l.action] || l.action || '') + '</td>'
-        + '<td style="font-size:12px;color:var(--muted)">' + esc(_plColumnsText(l.columns)) + '</td>'
+        + '<td style="font-size:12px;color:var(--muted)">' + esc(_plColumnsText(l.columns, l.action)) + '</td>'
         + '<td style="text-align:right">' + btn + '</td></tr>'
         + '<tr class="pl-persons" data-log="' + esc(l.id) + '" style="display:none"><td colspan="7" style="background:var(--surface-container-low, #F7F7F8);font-size:12px;color:var(--muted)"></td></tr>';
     }).join('');
