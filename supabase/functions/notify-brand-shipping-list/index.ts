@@ -14,8 +14,8 @@
 //     | 401 Unauthorized · 403 Forbidden · 400 invalid_request · 500 server_error
 //
 // 🔴 호출자 판정 = 그 사람 토큰으로 has_permission('shipping.manage','write') — 배송 함수(557)와 같은 등급.
-// 🔴 받는 사람은 서버가 정한다 — service_claim_shipping_mail(561)이 _brand_mailable_accounts(557 — notify-orient-sheet
-//    resolveBrandAccountRecipients 의 사본)로 고른다. 화면이 넘긴 주소는 받지 않는다(요청 본문에서는 campaign_id 만).
+// 🔴 받는 사람은 서버가 정한다 — service_claim_shipping_mail(561)이 _brand_mailable_accounts(582 — 「연결 계정 전원」
+//    받는 사람의 단일 출처, 이용 제한 계정 제외)로 고른다. 화면이 넘긴 주소는 받지 않는다(요청 본문에서는 campaign_id 만).
 // 🔴 한 캠페인 한 번(결정 5) — 「선점 먼저」(mail-webhooks.md): 선점 → 발송 → 결과 보고(선점 시각 대조 — 561).
 //    1명 이상 보내면 「보냄」, 전원 실패·0명이면 선점을 되돌린다.
 // 🔴 두 겹 잠금 — ① 비밀값 SHIPPING_MAIL_TO_BRAND_ACCOUNTS === "1" **그리고** ② 개발 프로젝트에서 돌 때만 보낸다

@@ -26,6 +26,12 @@ paths:
   - "supabase/migrations/552_personal_data_logs.sql"
   - "supabase/migrations/553_personal_data_logs_retention.sql"
   - "supabase/migrations/559_brand_publish_provision_log.sql"
+  - "dev/js/admin-brand-sanction.js"
+  - "supabase/functions/notify-brand-restriction/**"
+  - "supabase/migrations/581_brand_restriction_tables.sql"
+  - "supabase/migrations/582_brand_restriction_gates.sql"
+  - "supabase/migrations/583_brand_results_suspension_gates.sql"
+  - "supabase/migrations/584_brand_restriction_admin_functions.sql"
 ---
 
 # 브랜드 계정·로그인 (CLAUDE.md 에서 옮겨 옴 — 2026-10-15)
@@ -63,3 +69,14 @@ paths:
 - **브랜드 초대 메일**(`notify-brand-invite`, 대표 브랜드 계정이 브라우저에서 부름 — CORS·공개 키 거부 없음 · 갈래(새 이메일·브랜드 계정·만들 수 없는 이메일)를 응답에 싣지 않는다 · 위 두 겹 잠금 스위치를 공유) · **새 이메일 초대 수락**(`brand-invite-accept`, 비로그인 공개 — CORS·공개 키 거부 없음·새 비밀값 없음 · 비밀번호 원문이 지나가므로 로그에 본문을 남기지 않는다) — 개발서버만, 운영 보류
 - **관리자 「연결 요청」 메일**(같은 `notify-brand-invite` 의 `invite_kind='owner_link'` 갈래 — 사양서 `docs/specs/2026-10-21-brand-link-request.md` 4-3): 관리자 화면이 `admin_request_brand_owner_link`(578) 성공 뒤 `request_id` 를 `invite_id` 로 넘겨 부른다. 🔴 **줄을 읽자마자 종류로 가른 뒤** 호출자 판정 — 멤버 초대 줄 = 현재 대표만 / 연결 요청 줄 = 호출자 토큰 `has_permission('brand.account_manage','write')`(선점 전·뒤 두 번). 섞으면 대표가 연결 요청을, 관리자가 멤버 초대를 보낼 수 있게 된다(교차 403 이 정상). 양식 `brand-link-request` 하나 — 받는 계정이 비밀번호를 정했든 안 정했든 **같은 메일·같은 링크**(`?link=…&kind=invite`, 화면이 가른다), 보낸 사람 「REVERB 운영팀」(관리자 실명 없음 — `inviter_name` 을 안 읽는다). 응답 모양·선점·두 겹 잠금은 멤버 초대와 같다(개발서버 응답은 `dev_mail{subject, text}` — `dev_link` 아님). 🔴 조회 칸에 `invite_kind` 가 있어 **577 이 없는 데이터베이스에 배포하면 멤버 초대 메일까지 500** — 운영은 577 뒤
 - **연결 요청 비밀번호 정하며 수락**(`brand-link-request-accept`, 비로그인 공개 — CORS·공개 키 거부 없음·새 비밀값 없음): 링크 판정이 `recipient:'existing_setpw'`(연결 요청 + 비밀번호 안 정한 기존 계정)일 때 화면이 부른다. `service_brand_link_request_setpw` → `auth.admin.updateUserById` → `service_brand_link_request_finalize`(580). 🔴 **계정 지우기 경로가 없다** — `brand-invite-accept` 의 반쪽 계정 정리(`deleteUser`)를 일부러 옮기지 않았다(원래 있던 계정). 응답 `{ok:true, email, brand_id}` \| `{ok:false, reason}`(형식 틀린 링크는 400). 🔴 580 이 없는 데이터베이스에 배포하면 모든 호출이 500 — 운영은 580 뒤
+
+#### 이용 제한·결과물 열람 정지 (마이그레이션 581~584 — 🔴 개발서버만, 운영은 브랜드 페이지 1차와 같은 날)
+> 사양서 `docs/specs/2026-10-21-brand-account-restriction.md`(「구현 결과」) · 작업표 `…-breakdown.md`. 현재 원본 번호 요약은 `CLAUDE.md` 「브랜드 계정·로그인·멤버 관리」 절.
+- 판정 한 곳씩(581): 계정 제한 `_brand_active_restriction_id(계정)`(일본 날짜 — 「날짜까지」는 그날 포함, 기간이 끝난 줄은 닫지 않고 판정에서만 빠진다) · 감싸개 `_brand_account_restricted` · 정지 `_brand_active_suspension(브랜드)` → `{id, include_shipping}`. 🔴 식을 다른 함수에 베끼지 않는다
+- 거부 방식: 브랜드 로그인 경로(`my_brand_role`·`_brand_caller_link_role` 을 부르는 전부)는 **오류** `account_restricted`(P0001) · 서비스 키·관리자·내부 본체는 **결과 값** `account_restricted` · 로그인 상태는 `state:'restricted'`(사유·기간을 싣지 않는다). 결과물은 `{ready:false, reason:'suspended'}`, 배송은 `suspended`, 관리자 배송 전달은 `results_suspended`. 🔴 정지 응답은 「내 브랜드」 확인 **뒤**에만(앞이면 남의 캠페인 정지 여부가 샌다)
+- 🔴 **연결 표를 직접 읽는 함수를 새로 만들면 제한 판정을 넣는다** — 582 머리말에 2026-10-22 전수(데이터베이스 29·서버 함수 5)
+- 서버 함수: `brand-campaign-results` 는 데이터베이스 오류 `account_restricted` 를 `{success:false, reason:'account_restricted'}` 로 넘긴다(그 밖 오류는 지금처럼 500) · `brand-link-request-accept` 는 `account_restricted` 를 그대로 넘긴다(사전 검사에서 걸리면 비밀번호를 안 쓴다) · `notify-orient-sheet` 받는 사람은 `service_brand_mailable_accounts`(582)
+- 브랜드 화면 공통 입구 `handleBrandAccountRestricted`(brand-core.js) — 원격 호출 오류 글자(`isBrandRestrictedError`)와 서버 함수 응답 `reason` 둘을 본다 → `data-screen="restricted"`(bw01-13 — 문의처 「REVERB 운영팀 담당자에게 직접」, 정지 안내는 조항 번호 없는 일반 문구). ⚠️ 입구를 안 거치는 호출 셋(오리엔시트 사진 올리기·내 계정 줄 조회·큐텐 불러오기)은 일반 실패 뒤 **다음 동작 때** 안내로 간다(받아들임)
+- 관리자(`admin-brand-sanction.js` — 브랜드 상세 계정 줄 「…」·머리 「…」): 제한 걸기·기간 바꾸기·해제 / 정지 걸기·해제 · 성공 뒤 메일 `sendBrandSanctionMail(kind, ref_id)` — 🔴 기간 바꾸기 메일은 **결과의 새 `restriction_id`** 로(옛 줄 번호면 `not_eligible`) · 메일 실패는 동작을 무르지 않고 안내만 · 버튼 표시는 `can_restrict` 하나 · 날짜 칸은 연도 네 자리 화면 검사(브라우저 날짜 칸에 숫자를 이어 치면 여섯 자리 연도가 들어가고 서버는 먼 미래 날짜를 받는다 — 화면에서 막음) · 「열람 정지」 배지는 캠페인 관리 목록·진행현황 머리 두 자리(`fetchBrandResultsSuspendedMap`)
+- 메일 함수 `notify-brand-restriction` — 상세는 `CLAUDE.md` 「이용 제한·열람 정지 알림 메일」 줄. 응답 `{sent:true, count, failed_count}` / 개발 프로젝트 `{sent:true, count, dev_mail}` / `{sent:false, reason}` — `disabled`(잠금 꺼짐, 선점 안 함)·`forbidden`·`not_found`·`not_eligible`(조용히 넘김)·`already_claimed`·`no_recipient`·`send_failed`
+- 🔴 `merge_brands`(584)는 흡수되는 원본이 정지 중이면 `source_results_suspended` — 정지 줄은 브랜드 번호에 묶여 병합으로 옮겨 가지 않기 때문(R8)
