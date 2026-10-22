@@ -2761,7 +2761,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 요약 + 표 한 스크롤 영역(D-23 ① · 피그마 a10-08b) — 요약은 스크롤을 따라 밀려 올라가고(저절로 재생되는 움직임 없음),
    다 올라가면 한 줄 요약이 위에 붙는다. 🔴 카드·표 칸은 스크롤 상자를 만들면 안 된다(overflow:hidden·auto 면 표 머리 sticky 가 그 안에 갇힌다 → clip/visible) */
 .cs-hist-scroll{flex:1;min-height:0;overflow:auto;position:relative;--cs-line-h:0px}
-.cs-hist-scroll .admin-card{flex:none;display:block;overflow:clip}
+.cs-hist-scroll .admin-card{flex:none;display:block;overflow:clip;min-height:calc(100% - var(--cs-line-h))}
+/* ↑ 최소 높이 — 짧은 목록도 요약 카드가 끝까지 밀려 올라가 한 줄 요약이 붙을 만큼 내릴 거리를 만든다(표 카드가 스크롤 영역 높이만큼은 차지) */
 .cs-hist-scroll .admin-table-wrap{overflow:visible}
 .cs-hist-scroll .data-table th{top:var(--cs-line-h)}
 .cs-summary-line{position:sticky;top:0;z-index:8;margin-bottom:calc(-1 * var(--cs-line-h));display:flex;align-items:center;flex-wrap:wrap;gap:6px 0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 14px;font-size:12.5px;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.06);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
