@@ -18,7 +18,9 @@
 // 요청:  POST { link_id, password, terms_version }                       (로그인 토큰 없음)
 // 응답:  200 { ok:true, email, brand_id }
 //        200 { ok:false, reason: 'invalid_link' | 'owner_exists' | 'already_member' | 'password_already_set'
-//                              | 'terms_version_required' | 'password_rejected' | 'failed' }
+//                              | 'terms_version_required' | 'account_restricted' | 'password_rejected' | 'failed' }
+//        · account_restricted = 받는 계정이 이용 제한 중(사양서 docs/specs/2026-10-21-brand-account-restriction.md A5).
+//          사전 검사(②)에서 걸리면 비밀번호를 저장하지 않는다 · 마무리(④)에서 걸려도 그대로 넘긴다(「링크 무효」로 바꾸지 않는다)
 //        400 { ok:false, reason:'invalid_request' }    입력 형식 불량(본문 이상·약관 판 길이 초과)
 //        500 { ok:false, reason:'server_error' }
 //        · failed = 비밀번호를 저장한 뒤 마무리에서 예상 밖 거부. 화면 안내 「처리하지 못했습니다. 메일의 링크를 다시 열어 주십시오」
@@ -42,6 +44,7 @@
 // 배포 (개발만 — 운영은 브랜드 페이지 묶음과 함께):
 //   supabase functions deploy brand-link-request-accept --use-api --project-ref qysmxtipobomefudyixw
 //   🔴 배포는 service_brand_link_request_setpw·…_finalize 가 있는 데이터베이스에서만(작업표 연결 4 적용 뒤)
+//   account_restricted 갈래는 이용 제한 작업표 제한 2 적용 뒤에야 실제로 온다(그 전에 배포해도 해는 없다)
 // ══════════════════════════════════════════════════════════════════
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -53,7 +56,8 @@ const MAX_PASSWORD_BYTES = 72; // bcrypt 상한 — 넘으면 로그인 체계�
 const MAX_TERMS_LEN = 50;
 
 // 사전 검사·마무리 함수가 돌려주는 거부 중 화면에 그대로 넘기는 것
-const PASS_THROUGH = new Set(["invalid_link", "owner_exists", "already_member", "password_already_set", "terms_version_required"]);
+// account_restricted — 받는 계정이 이용 제한 중(이용 제한 작업표 제한 5 · stale 5). 「링크 무효」로 바꾸지 않는다(화면이 bw01-13 으로)
+const PASS_THROUGH = new Set(["invalid_link", "owner_exists", "already_member", "password_already_set", "terms_version_required", "account_restricted"]);
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

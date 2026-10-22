@@ -41,7 +41,9 @@
 //      운영에 이 함수가 먼저 배포돼도(다른 이유로 배포하는 순간) 운영 발급 메일이 「받는 사람 없음」이 되지 않게 하려는 것이다
 //      — 운영 데이터베이스에는 브랜드 계정이 없다. 출시 때 ①운영 비밀값을 넣고 ②아래 isStagingProject() 조건을 걷어 운영에 다시 배포한다.
 //   켜지면:
-//     · 받는 사람 = 그 시트 브랜드(활성)에 활성 연결된 계정 중 비밀번호를 정한 계정 전원(대표 먼저). 화면이 넘긴 to_email 은 무시한다
+//     · 받는 사람 = 그 시트 브랜드(활성)에 활성 연결된 계정 중 비밀번호를 정한 계정 전원(대표 먼저) — 이용 제한 중인 계정은 뺀다.
+//       판정은 데이터베이스 service_brand_mailable_accounts 한 곳(이용 제한 작업표 제한 5 — 옛 직접 조회 사본은 걷었다).
+//       🔴 배포는 그 함수가 있는 데이터베이스에서만(제한 2 적용 뒤) — 없으면 브랜드 계정 갈래 발급 메일이 전부 500. 화면이 넘긴 to_email 은 무시한다
 //       (남기면 받는 사람 고르는 칸을 없앤 것이 서버에서 다시 열린다). 신청서 이메일 갈래도 쓰지 않는다
 //     · 1명당 1통(받는 사람끼리 주소가 안 보이게) · 호칭 「{계정 이름}님」(이름이 비면 「{브랜드명} 담당자님」 — 결정 12)
 //     · 링크 = PUBLIC_BRAND_URL + '/brand/?orient=' + 시트 번호(브랜드 페이지가 로그인 뒤 그 시트를 연다). 양식 orient-sheet-invite-brand
@@ -181,32 +183,21 @@ async function resolveRecipient(
   return { email, name: name || String(data?.name || "").trim() };
 }
 
-// 받는 사람 = 시트 브랜드에 활성 연결 + 비밀번호를 정한 계정 전원(대표 먼저, 같은 주소는 한 번).
-//   브랜드가 보관 상태면 0명(브랜드 페이지에서도 그 브랜드는 안 보인다 — my_brand_role 530 과 같은 「활성 연결 + 활성 브랜드」).
+// 받는 사람 = 데이터베이스 규칙 service_brand_mailable_accounts(이용 제한 작업표 제한 2 — 557 _brand_mailable_accounts 의
+//   서비스 키 감싸개)가 정한다: 활성 브랜드 · 활성 연결 · 비밀번호 정함 · 이용 제한 중 아님 · 대표 먼저 · 같은 주소는 한 번.
+//   🔴 이 함수 안에 규칙을 다시 베끼지 않는다(옛 사본은 제한 5 에서 걷었다 — 판정식 한 곳, 사양서 R4).
 async function resolveBrandAccountRecipients(
   sb: ReturnType<typeof createClient>,
   brandId: string,
-  brandStatus: string | null,
 ): Promise<{ email: string; name: string }[]> {
-  if (brandStatus !== "active") return [];
-  const { data, error } = await sb
-    .from("brand_account_links")
-    .select("role, created_at, brand_accounts(email, name, password_set_at)")
-    .eq("brand_id", brandId)
-    .eq("status", "active")
-    .order("created_at", { ascending: true });
+  const { data, error } = await sb.rpc("service_brand_mailable_accounts", { p_brand_id: brandId });
   if (error) throw error;
-  const rows = (data || []) as Array<Record<string, any>>;
-  rows.sort((a, b) => (a.role === "owner" ? 0 : 1) - (b.role === "owner" ? 0 : 1));
-  const seen = new Set<string>();
+  const rows = (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
   const out: { email: string; name: string }[] = [];
   for (const r of rows) {
-    const acct = r.brand_accounts;
-    if (!acct || !acct.password_set_at) continue;
-    const email = String(acct.email || "").trim().toLowerCase();
-    if (!email || seen.has(email)) continue;
-    seen.add(email);
-    out.push({ email, name: String(acct.name || "").trim() });
+    const email = String(r?.email || "").trim().toLowerCase();
+    if (!email) continue;
+    out.push({ email, name: String(r?.name || "").trim() });
   }
   return out;
 }
@@ -216,7 +207,7 @@ async function sendToBrandAccounts(
   sb: ReturnType<typeof createClient>,
   sheet: Record<string, any>,
 ): Promise<Response> {
-  const recipients = await resolveBrandAccountRecipients(sb, sheet.brand_id, sheet.brands?.status ?? null);
+  const recipients = await resolveBrandAccountRecipients(sb, sheet.brand_id);
   if (!recipients.length) {
     // 받을 계정이 없다 — 보내지 않고, 나중에 계정이 설정을 마쳐도 다시 보내지 않는다(16-5 8번). 단계 전진도 없다
     console.warn("[notify-orient-sheet] no brand account recipient", { orient_sheet_id: sheet.id });
