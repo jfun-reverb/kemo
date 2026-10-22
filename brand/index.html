@@ -7067,13 +7067,30 @@ function _reportKindKeyOf(col) {
   const m = /_(acct|url|at)$/.exec(col.key);
   return m ? 'ch_*_' + m[1] : null;
 }
+// ── 외부 줄에 값이 없는 열(사양서 16-5 15번 ④ ⓓ, 2026-10-22) — 화면 판정은 **여기 한 곳** ──
+//   = 이름(한자)·후리가나·구매기간·구매일 + 큐텐·엣코스메가 아닌 채널 열 전부(LIPS·SNS 넷·기타 — 계정·결과물·업로드 날짜)
+//     + 기본 열 값의 종류 열쇠(REPORT_KIND_KEYS — 그 채널 열들을 가리킨다)
+//   · 기본 열(기준 데이터 전체·브랜드 상세)에는 넣을 수 없다 → 공개를 처음 켤 때 꺼져 있다(ⓓ-1)
+//   · 외부 결과 파일이 붙은 캠페인의 공개 설정에서는 잠긴다(ⓓ-3 — 판정·무시는 서버, 화면은 회색으로 그릴 뿐)
+//   🔴 서버(공개 설정 저장·브랜드 결과물 응답)도 같은 규칙이다 — 바꾸면 함께. 채널이 늘면 대장(REPORT_CHANNELS)만 고치면 따라온다.
+const REPORT_EXT_EMPTY_FIXED_KEYS = ['name_kanji', 'name_kana', 'purchase_period', 'purchase_date'];
+function reportIsExtEmptyKey(key) {
+  if (typeof key !== 'string') return false;
+  if (REPORT_EXT_EMPTY_FIXED_KEYS.indexOf(key) !== -1 || REPORT_KIND_KEYS.indexOf(key) !== -1) return true;
+  const m = /^ch_([a-z0-9]+)_(acct|url|at)$/.exec(key);
+  if (!m) return false;
+  const ch = REPORT_CHANNELS.find(function(c){ return c.code === m[1]; });
+  return !(ch && ch.always);   // 큐텐·엣코스메만 빠진다 — 대장에 없는 코드(기타 포함)는 ⓓ
+}
+
 // 처음 켤 때 체크할 열쇠 — cols 는 reportColumnsFor(rows), spec 은 서버가 고른 기본 열(브랜드 → 전체).
 //   spec 이 배열이 아니면(아직 안 정함) 아무것도 체크하지 않는다 — 관리자가 직접 고른다.
+//   🔴 ⓓ 열은 기본 열에 남아 있어도(2026-10-22 이전에 저장한 값) 체크하지 않는다
 function reportDefaultCheckedKeys(cols, spec) {
   if (!Array.isArray(spec)) return [];
   const out = [];
   (cols || []).forEach(function(c) {
-    if (!c || c.key === 'account_id') return;
+    if (!c || c.key === 'account_id' || reportIsExtEmptyKey(c.key)) return;
     const k = _reportKindKeyOf(c) || c.key;
     if (spec.indexOf(k) !== -1 && out.indexOf(c.key) === -1) out.push(c.key);
   });
@@ -10642,6 +10659,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792649434 -->
+<!-- v1792655810 -->
 </body>
 </html>
