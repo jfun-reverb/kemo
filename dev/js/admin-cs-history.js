@@ -14,7 +14,7 @@ let _csHistLazy = null;
 let _csHistSeq = 0;          // 기간을 빠르게 바꿀 때 늦게 온 옛 응답이 새 결과를 덮지 않게
 let _csHistMemoFailed = false;
 const _csHistSort = { col: null, dir: null };   // 머리 정렬(D-23) — 해제면 받은 순서(최근 접수 먼저)
-const CS_HIST_FOLD_AT = 40;   // 표를 이만큼(px) 넘게 내리면 요약을 한 줄로 접는다(D-23) — 펴는 건 맨 위(0)에서만
+const CS_HIST_FOLD_AT = 40;   // 표를 이만큼(px) 넘게 내리면 요약을 한 줄로 접는다(D-23) — 펴는 건 맨 위에서 위로 굴릴 때
 
 // 분류 — 앱 건은 캠페인 모집 형식(서비스 문의는 「서비스」), 수기 건은 등록 값
 function csCaseKind(r) {
@@ -68,30 +68,42 @@ async function loadCsHistoryPane() {
 
 // ── 요약 자동 접힘(D-23 · 피그마 a10-08b) — 단추 없이 표 스크롤에만 반응 ──────────
 //   펼친 카드와 접힌 한 줄을 둘 다 그려 두고 클래스(cs-sum-folded)로 보이기만 바꾼다
-//   40px 초과 → 접음 / 0 → 폄 / 그 사이는 그대로(경계에서 떨지 않게)
+//   접기 = 표를 40px 넘게 내림 / 펴기 = 맨 위에서 위로 한 번 더 굴림(또는 스크롤 막대를 맨 위로)
+//   🔴 「맨 위(0)에 닿으면 폄」으로 두면, 짧은 목록은 접는 순간 표가 길어져 스크롤이 0 으로 당겨지고 곧바로 다시 펴진다
+//      — 그래서 접은 직후 잠깐(CS_HIST_FOLD_SETTLE_MS) 생기는 0 은 무시하고, 펴기는 사람의 위로 굴림으로만 한다
+const CS_HIST_FOLD_SETTLE_MS = 400;   // 접힘 전환(0.2초) 동안 높이가 바뀌며 생기는 스크롤 당김을 넉넉히 덮는다
+let _csHistFoldedAt = 0;
+
 function _csHistBindFold() {
-  const wrap = $('csHistTbody') && $('csHistTbody').closest('.admin-table-wrap');
+  const wrap = _csHistWrap();
   if (!wrap || wrap.dataset.csFold) return;
   wrap.dataset.csFold = '1';
   wrap.addEventListener('scroll', _csHistSyncFold, { passive: true });
+  wrap.addEventListener('wheel', e => {
+    if (e.deltaY < 0 && wrap.scrollTop <= 0) _csHistUnfold();
+  }, { passive: true });
+}
+
+function _csHistWrap() {
+  return $('csHistTbody') && $('csHistTbody').closest('.admin-table-wrap');
+}
+
+function _csHistUnfold() {
+  const sum = $('csHistSummary');
+  if (sum && sum.classList.contains('cs-sum-folded')) _csHistSetFolded(sum, false);
 }
 
 function _csHistSyncFold() {
   const sum = $('csHistSummary');
-  const wrap = $('csHistTbody') && $('csHistTbody').closest('.admin-table-wrap');
+  const wrap = _csHistWrap();
   if (!sum || !wrap) return;
-  const folded = sum.classList.contains('cs-sum-folded');
-  if (folded) {
-    if (wrap.scrollTop <= 0) _csHistSetFolded(sum, false);
+  if (sum.classList.contains('cs-sum-folded')) {
+    // 스크롤 막대를 끌어 맨 위로 올린 경우 — 접은 직후의 당김(자동)은 빼고
+    if (wrap.scrollTop <= 0 && Date.now() - _csHistFoldedAt > CS_HIST_FOLD_SETTLE_MS) _csHistUnfold();
     return;
   }
-  const cards = sum.querySelector('.cs-summary');
-  const line = sum.querySelector('.cs-summary-line');
-  if (!cards || !line || wrap.scrollTop <= CS_HIST_FOLD_AT) return;
-  // 접으면 표가 그만큼 길어진다 — 그 뒤에도 내릴 거리가 남을 때만 접는다(안 그러면 스크롤이 0 으로 당겨져 다시 펴진다)
-  //   접힌 줄은 창이 좁으면 두 줄로 넘어가므로 실제 글 높이(+ 위아래 여백·테두리 20)로 잰다
-  const gain = cards.offsetHeight - Math.max(40, line.scrollHeight + 20);
-  if (wrap.scrollHeight - wrap.clientHeight - gain <= CS_HIST_FOLD_AT) return;
+  if (!sum.querySelector('.cs-summary-line') || wrap.scrollTop <= CS_HIST_FOLD_AT) return;
+  _csHistFoldedAt = Date.now();
   _csHistSetFolded(sum, true);
 }
 
@@ -191,7 +203,7 @@ function renderCsHistoryTable() {
     pageSize: CS_HIST_PAGE_SIZE,
     emptyHtml: `<tr><td colspan="${CS_HIST_COLS}" style="text-align:center;color:var(--muted);padding:40px">조건에 맞는 CS 건이 없습니다</td></tr>`
   });
-  _csHistSyncFold();   // 목록이 줄어 스크롤이 맨 위로 당겨졌으면 다시 편다
+  _csHistSyncFold();   // 목록이 줄어 스크롤이 맨 위로 당겨졌으면 다시 편다(접은 직후는 제외)
 }
 
 // 문의 요약 — 원문 / 한국어 번역 한 줄씩 줄여서(D-12). 고친 요약이면 「수정됨」
