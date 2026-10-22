@@ -460,6 +460,8 @@ async function runShipDeliver() {
       toast(reason === 'no_account' ? '이 브랜드에 비밀번호를 정한 계정이 없어 전달할 수 없습니다.'
           : reason === 'campaign_deleted' ? '삭제된 캠페인이라 전달할 수 없습니다.'
           : reason === 'not_gifting' ? '시딩형 캠페인만 전달할 수 있습니다.'
+          // 「배송 리스트 포함」 결과물 열람 정지 중 — 서버가 전달·메일·제공 기록을 모두 막는다(이용 제한 사양서 R7 · 작업표 제한 13-a)
+          : reason === 'results_suspended' ? '이 브랜드는 배송 리스트까지 열람이 정지되어 전달할 수 없습니다. 정지를 풀거나 배송 미포함으로 다시 걸어 주십시오.'
           : '전달하지 못했습니다.', 'error');
     } else if (res.delivered_now) {
       toast('배송 리스트를 전달했습니다.');
