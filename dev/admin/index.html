@@ -2299,12 +2299,15 @@
         <!-- CS 이력 관리(작업표 2-1 · 피그마 1차 a10-08) — 사이드바 항목 없음, 메시지 제목 줄 단추로 들어온다 -->
         <div id="adminPane-cs-history" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <button type="button" class="btn btn-ghost btn-xs" onclick="switchAdminPane('messages')" style="display:inline-flex;align-items:center;gap:2px;margin-bottom:6px;color:var(--muted)">
-              <span class="material-icons-round notranslate" translate="no" style="font-size:15px">arrow_back</span> 메시지
-            </button>
+            <!-- 제목 줄 한 줄(D-23 ④) — 「← 메시지」 오른쪽에 제목, 오른쪽 끝에 「+ 수기 등록」 -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px">
-              <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--ink)">
-                <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--accent)">table_chart</span> CS 이력 관리
+              <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                <button type="button" class="btn btn-ghost btn-xs" onclick="switchAdminPane('messages')" style="display:inline-flex;align-items:center;gap:2px;color:var(--muted)">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">arrow_back</span> 메시지
+                </button>
+                <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;color:var(--ink)">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--accent)">table_chart</span> CS 이력 관리
+                </div>
               </div>
               <button type="button" id="btnCsManualAdd" class="btn btn-primary btn-sm" onclick="openCsManualModal(null)" style="display:inline-flex;align-items:center;gap:4px">
                 <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span> 수기 등록
@@ -2351,7 +2354,7 @@
                 </div>
               </div>
             </div>
-            <div id="csHistSummary" class="cs-summary"></div>
+            <div id="csHistSummary" class="cs-summary-wrap"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -2362,9 +2365,10 @@
             </div>
             <div class="admin-table-wrap">
               <table class="data-table cs-hist-table">
-                <thead><tr>
-                  <th>번호</th><th>접수일시</th><th>출처</th><th>분류</th><th>캠페인</th><th>회원</th><th>이메일</th>
-                  <th>항목</th><th>문의 요약</th><th>진행현황</th><th>담당자</th><th>같은 대화</th><th>메모</th>
+                <!-- 정렬(D-23): 클릭은 머리 칸 전체에 건다 — 화살표 글자에만 걸면 정렬 뒤 ▲ 한 글자로 줄어 빗나간다(_settleSortTh 주석) -->
+                <thead id="csHistHead"><tr>
+                  <th class="cs-sort-th" onclick="toggleCsHistSort('no')">번호 <span class="sort-arrows" data-sort="cshist-no">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('received')">접수일시 <span class="sort-arrows" data-sort="cshist-received">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('source')">출처 <span class="sort-arrows" data-sort="cshist-source">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('kind')">분류 <span class="sort-arrows" data-sort="cshist-kind">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('campaign')">캠페인 <span class="sort-arrows" data-sort="cshist-campaign">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('member')">회원 <span class="sort-arrows" data-sort="cshist-member">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('email')">이메일 <span class="sort-arrows" data-sort="cshist-email">▲▼</span></th>
+                  <th class="cs-sort-th" onclick="toggleCsHistSort('category')">항목 <span class="sort-arrows" data-sort="cshist-category">▲▼</span></th><th>문의 요약</th><th class="cs-sort-th" onclick="toggleCsHistSort('status')">진행현황 <span class="sort-arrows" data-sort="cshist-status">▲▼</span></th><th class="cs-sort-th" onclick="toggleCsHistSort('owner')">담당자 <span class="sort-arrows" data-sort="cshist-owner">▲▼</span></th><th>같은 대화</th><th>메모</th>
                 </tr></thead>
                 <tbody id="csHistTbody"></tbody>
               </table>
