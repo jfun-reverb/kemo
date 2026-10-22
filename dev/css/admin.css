@@ -2869,6 +2869,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-more-wrap{position:relative}
 .bd-more-btn{padding-left:8px;padding-right:8px}
 .bd-more-menu{position:absolute;right:0;top:calc(100% + 4px);min-width:150px}
+/* 줄 「…」 — 표 스크롤 영역에 잘리지 않게 화면 기준(위치는 _positionMenuInViewport 가 정한다) */
+.bd-row-more .bd-more-menu{position:fixed;right:auto}
 .bd-summary{font-size:12px;color:var(--muted);line-height:1.6}
 .bd-tabs{margin-top:8px;margin-bottom:-12px}
 .brand-detail-dirty-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle}

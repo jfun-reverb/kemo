@@ -79,6 +79,8 @@ function bdRowMoreToggle(e, menuId) {
   menu.style.display = '';
   var btn = menu.previousElementSibling;
   if (btn) btn.setAttribute('aria-expanded', 'true');
+  // 표 스크롤 영역에 잘리지 않게 화면 기준으로 띄운다(맨 아래 줄이면 위로) — 캠페인 목록 더보기와 같은 도우미
+  if (btn && typeof _positionMenuInViewport === 'function') _positionMenuInViewport(menu, btn.getBoundingClientRect(), {placement: 'left-of'});
   _bdRowMoreOpenId = menuId;
   setTimeout(function() {
     document.addEventListener('click', function _close(ev) {

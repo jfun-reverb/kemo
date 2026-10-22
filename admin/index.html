@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792634725';
+  var CURRENT_BUILD = 'v1792635283';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3430,6 +3430,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-more-wrap{position:relative}
 .bd-more-btn{padding-left:8px;padding-right:8px}
 .bd-more-menu{position:absolute;right:0;top:calc(100% + 4px);min-width:150px}
+/* 줄 「…」 — 표 스크롤 영역에 잘리지 않게 화면 기준(위치는 _positionMenuInViewport 가 정한다) */
+.bd-row-more .bd-more-menu{position:fixed;right:auto}
 .bd-summary{font-size:12px;color:var(--muted);line-height:1.6}
 .bd-tabs{margin-top:8px;margin-bottom:-12px}
 .brand-detail-dirty-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle}
@@ -3622,7 +3624,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-22 11:05 · 897dc16</span>
+          <span class="admin-build-text">2026-10-22 11:14 · 42e1b3c</span>
         </div>
       </div>
     </aside>
@@ -33669,6 +33671,8 @@ function bdRowMoreToggle(e, menuId) {
   menu.style.display = '';
   var btn = menu.previousElementSibling;
   if (btn) btn.setAttribute('aria-expanded', 'true');
+  // 표 스크롤 영역에 잘리지 않게 화면 기준으로 띄운다(맨 아래 줄이면 위로) — 캠페인 목록 더보기와 같은 도우미
+  if (btn && typeof _positionMenuInViewport === 'function') _positionMenuInViewport(menu, btn.getBoundingClientRect(), {placement: 'left-of'});
   _bdRowMoreOpenId = menuId;
   setTimeout(function() {
     document.addEventListener('click', function _close(ev) {
