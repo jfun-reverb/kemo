@@ -318,7 +318,12 @@ function _bdInfoPrevFromBrand(b, publish) {
   if (publish && typeof publish === 'object') p.publish_default = Array.isArray(publish.brand_spec) ? publish.brand_spec.slice() : null;
   return p;
 }
-function _bdSpecKey(v) { return Array.isArray(v) ? JSON.stringify(v.slice().sort()) : 'null'; }
+// ⓓ 열쇠(외부 줄에 값이 없는 열)는 빼고 비교한다 — 고르기 칸이 그 열을 안 그려, 옛 저장값에 남은 ⓓ 열쇠 때문에 「바뀜」으로 읽히지 않게
+function _bdSpecKey(v) {
+  if (!Array.isArray(v)) return 'null';
+  const kept = (typeof reportIsExtEmptyKey === 'function') ? v.filter(function(k){ return !reportIsExtEmptyKey(k); }) : v.slice();
+  return JSON.stringify(kept.sort());
+}
 
 // 공개 기본 열 칸을 그린다(data 를 넘기면 다시 받지 않는다). 받은 뒤 그 칸만 떠날 때 확인 기준값에 더한다
 function _bdLoadPublishBox(brandId, data) {
