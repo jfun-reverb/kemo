@@ -2905,6 +2905,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 /* 이용 제한(제한 10 — admin-brand-sanction.js) — 계정 칸 아래 칩·설명 한 줄 */
 .bd-restrict-badge{margin-top:6px}
+/* 결과물 열람 정지(제한 11) — 머리 상태 배지 옆 칩 · 설명 · 「정지 해제」 */
+.bd-suspend-head{display:inline-flex;align-items:center;gap:8px;margin-left:4px}
+.bd-suspend-head .bd-sub{margin:0}
 .bd-chip{display:inline-block;font-size:11px;font-weight:600;line-height:1.5;padding:2px 9px;border-radius:999px;background:#F0F0F0;color:#555;white-space:nowrap}
 .bd-chip.is-owner{background:var(--ink);color:#fff}
 .bd-chip.is-owner-pending{background:var(--accent-tint);color:var(--accent-deep)}
