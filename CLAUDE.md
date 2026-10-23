@@ -113,6 +113,7 @@
 ### 캠페인 관리
 
 - 캠페인 삭제 복구·번호 매기기(🔴 복제는 원본의 `brand_id`·`source_application_id` 를 둘 다 이어받는다)·등록/편집 폼·브랜드 변경 확인 창·가이드 칸 이름 판정(🔴 형식만 보고 바꾸면 기존 리뷰어형 제목이 한꺼번에 바뀐다)·미리보기·목록 「결과물 현황」 열(🔴 방문형 현장 사진도 `kind='receipt'`)·상태 6단계·노출 토글(신규 폼 안내 문구와 저장 상태를 같이 고친다)·상태 전이·마감일 연장 확인 — 상세 `.claude/rules/campaign-admin.md`
+- 기록용 캠페인(588~591 — 개발서버만): 등록 폼 체크 + 확인 모달 · 편집 폼은 잠금 표시만(`saveCampaignEdit` 는 이 칸을 안 보낸다) · 기록용 원본 복제만 고르는 창 · 목록 「기록용」 꼬리표·필터 · 🔴 브랜드 페이지 문장은 `_brandAccountEnabled()` 일 때만(출시 날 걷는다) · 🔴 운영 순서 588 → 589 → 590 → 591 → 코드(등록·복제가 이 칸을 늘 보내 칸 없는 서버에서는 일반 등록까지 실패) — 상세 `.claude/rules/campaign-admin.md`
 - 캠페인 리치 텍스트 편집기 이미지(⚠️ 정화·편집기 형식·CSS **세 곳이 한 세트** · `image-compress.js` 는 관리자 빌드에도 · 본문에서 빼도 저장소 파일은 남는다 — 복제본이 가리킨다) — 상세 `.claude/rules/rich-editor-images.md`
 
 ### 신청·결과물 관리
@@ -171,6 +172,7 @@
   - 채번: `campaign_no`, `legacy_no`(콤마 누적), `brand_id` FK, `source_application_id` FK
   - `reward_note` 는 지급 조건·정산 시점 등 자유 텍스트
   - 홍보 메일: `first_active_at timestamptz NULL` — 처음 active 가 된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`) 자동 기록·불변 (마이그레이션 140)
+  - 기록용(588 — 개발서버만, 운영은 사양서 배포 순서 ①): `is_record_only boolean NOT NULL DEFAULT false` — 인플루언서 모집 없이 외부 결과물만 붙이는 캠페인. 🔴 **만든 뒤 불변** — 트리거가 로그인 요청의 변경을 `record_only_locked` 로 거부(SQL 편집기·서비스 키만 통과) · 오프라인 행사와 함께 못 켠다(제약 `campaigns_record_only_not_event`) · 응모는 관리자도 거부(`check_application_deadline` 588) · 🔴 **인플루언서 비노출** — 조회 정책(589)·화면(`visibleCamps`·`openCampaign`)·홍보 메일(590)·조치 경고(591)가 뺀다 · **브랜드 응답에 이 칸을 싣지 않는다**(547·565·587·557 은 칸을 골라 싣는다 — 행 통째(`to_jsonb(c)`)로 바꾸면 샌다) · 변경 이력 화이트리스트에 일부러 안 넣음. 판정 `isRecordOnlyCampaign`·꼬리표 `recordOnlyBadgeHtml`(shared.js) · 작업표 `docs/specs/2026-10-23-record-only-campaign-breakdown.md`
   - 동시 저장 방어(마이그레이션 275): `version integer NOT NULL DEFAULT 1` — 나중 저장이 앞 저장을 조용히 덮는 것을 막는다. `campaigns_bump_version()` 트리거가 **제외 6개**(`version`·`updated_at`·`view_count`·`applied_count`·`order_index`·`first_active_at`) 외 변경 시에만 +1(새 컬럼은 자동 보호). 편집 저장은 `updateCampaign(id, updates, expectedVersion)` 의 `.eq('version', …)` → 0행이면 충돌 안내. ⚠️ **코드보다 마이그레이션을 먼저**(반대면 자동 마감 실패). ⚠️ 자동 전이(`autoOpen/Close/EndCampaigns`)도 version 을 올리므로 캐시를 `.select('version')` 으로 갱신 — 안 하면 **가짜 충돌**
   - 오리엔시트 발행 보조(마이그레이션 197): `proxy_purchase boolean NOT NULL DEFAULT false`(가구매 — 🔴 철거됨: 화면·메일·서버 판정 함수 넷(정산 후보·인증 성공 숫자·제출 관문·오리엔시트 연결 — 현재 원본 564)은 이 칸을 안 본다. 결과 공유 본체 `_results_payload_core` 는 565 가 응답 키를 뺀다 — 🔴 565 는 545 뒤에만(운영엔 545 가 아직 없다). 칸·변경 이력 화이트리스트는 남긴다 — 사양서 `docs/specs/2026-10-20-proxy-purchase-removal.md`) + `emergency_publish_reason`/`emergency_published_by`/`emergency_published_at`
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
@@ -384,7 +386,7 @@
 - **보관 3개월**(522 · 개인정보처리방침 「자동 수집 3개월」 근거) — 매일 `identity_at` 기준으로 쌍을 비운다. 탈퇴 확정 회원은 520 이 즉시
 
 ### RLS·인증·세션
-- 캠페인 SELECT 공개, 나머지는 본인 or 관리자만
+- 캠페인 SELECT 공개 — 🔴 단 589 부터 관리자가 아니면 기록용(`is_record_only`) 행을 못 받는다(`campaigns_select_public` = `USING (is_record_only = false OR (SELECT public.is_admin()))`, 개발서버만 · 운영은 588 바로 뒤). 정의자 권한 함수(브랜드 응답·홍보 메일·공유 리포트·응모 트리거)와 서비스 키는 그대로 본다 — 비관리자가 캠페인을 읽는 새 자리를 만들면 기록용이 빠져 있다는 전제로. 나머지는 본인 or 관리자만
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()`: admins 에서 auth.uid() 조회(search_path 고정)
 - 트리거: auth.users 생성 시 influencers 자동 생성
 - 세션 만료: `retryWithRefresh()` 로 갱신 후 1회 재시도
