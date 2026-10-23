@@ -64,7 +64,7 @@ const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 var _campListPublishStates;   // 브랜드 공개 여부 {id:bool} · null = 조회 실패 · undefined = 아직 안 받음(조각 10)
 var _campListSuspendedMap;    // 브랜드 결과물 열람 정지 {brand_id:true} · null = 조회 실패 · undefined = 아직 안 받음(이용 제한 12)
 function updateCampViewResetBtn() {
-  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null || !!($('campPublishFilter')?.value);
+  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null || !!($('campPublishFilter')?.value) || !!($('campRecordOnlyFilter')?.value);
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
   const hasSort = !!adminCampSortKey;
   const btn = $('btnCampViewReset');
@@ -81,6 +81,7 @@ function resetCampFilters() {
 function resetCampView() {
   resetMultiFilter('campTypeMulti', '전체 타입');
   const _pf = $('campPublishFilter'); if (_pf) _pf.value = '';
+  const _rf = $('campRecordOnlyFilter'); if (_rf) _rf.value = '';
   _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   adminCampSortKey = ''; adminCampSortDir = '';
@@ -311,7 +312,7 @@ function updateCampTableHead() {
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th style="width:64px;min-width:64px;text-align:center" title="캠페인 노출 토글 (OFF 시 인플 화면 비노출)">노출</th>
+      <th style="width:64px;min-width:64px;text-align:center" title="${(typeof _brandAccountEnabled === 'function' && _brandAccountEnabled()) ? '캠페인 노출 토글 — OFF 시 인플루언서·브랜드 화면 비노출(기록용 캠페인은 브랜드 화면만)' : '캠페인 노출 토글 — OFF 시 인플루언서 화면 비노출(기록용 캠페인은 원래 비노출)'}">노출</th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>기간 <span class="sort-arrows" data-sort="period" onclick="toggleCampSort('period')" title="모집 시작일 기준">${adminCampSortKey==='period'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>선정기간 <span class="sort-arrows" data-sort="selection" onclick="toggleCampSort('selection')" title="선정 시작일 기준">${adminCampSortKey==='selection'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -463,7 +464,9 @@ async function loadAdminCampaigns(useCache) {
   if (_dtbl) _dtbl.classList.toggle('deleted-mode', _isDelTab);
 
   // 「삭제됨」 탭 — 보관 캠페인(deleted_at NOT NULL) 전용 렌더. 활성 목록의 필터·집계·정렬·lazy 로직과 분리.
-  if (_campActiveStatusTab === 'deleted') { renderDeletedCampsPane(); return; }
+  // 기록용 필터(조각 11)는 활성 목록 전용 — 「삭제됨」 탭 렌더는 이 필터를 안 따르므로 숨긴다
+  const _roGroup = $('campRecordOnlyFilterGroup'); if (_roGroup) _roGroup.style.display = _isDelTab ? 'none' : '';
+  if (_campActiveStatusTab === 'deleted') { updateCampViewResetBtn(); renderDeletedCampsPane(); return; }
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
@@ -478,6 +481,10 @@ async function loadAdminCampaigns(useCache) {
     camps = camps.filter(c => matchSearchTokens(searchVal,
       [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
+
+  // 기록용 필터(조각 11) — 「전체」·「기록용만」·「기록용 제외」. 상태 탭과 겹쳐 건다
+  const _roVal = $('campRecordOnlyFilter')?.value || '';
+  if (_roVal) camps = camps.filter(c => isRecordOnlyCampaign(c) === (_roVal === 'only'));
 
   updateCampViewResetBtn();
 
@@ -547,7 +554,7 @@ async function loadAdminCampaigns(useCache) {
   }
 
   // 필터/검색/정렬 중에는 순서 변경 비활성화
-  const isFiltered = searchVal || typeVals.length > 0 || _campActiveStatusTab !== null || !!adminCampSortKey;
+  const isFiltered = searchVal || typeVals.length > 0 || _campActiveStatusTab !== null || !!adminCampSortKey || !!_roVal;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
   // 상태 배지 — closed 는 submission_end 경과 여부로 「모집마감」/「종료」 자동 구분 (shared.js campaignStatusLabelKey)
@@ -606,7 +613,7 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--dark-pink);cursor:pointer;display:block;word-break:break-word;line-height:1.4;flex:1" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)" title="진행현황 보기 (신청자·요약)">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
-            ${(_campListPublishStates || (_campListSuspendedMap && c.brand_id && _campListSuspendedMap[c.brand_id] === true)) ? `<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${_campListPublishStates ? brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`) : ''}${_campListSuspendedMap && c.brand_id ? brandSuspendBadgeHtml(_campListSuspendedMap[c.brand_id] === true) : ''}</div>` : ''}
+            ${(_campListPublishStates || isRecordOnlyCampaign(c) || (_campListSuspendedMap && c.brand_id && _campListSuspendedMap[c.brand_id] === true)) ? `<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">${recordOnlyBadgeHtml(c)}${_campListPublishStates ? brandPublishBadgeHtml(_campListPublishStates[c.id] === true, `openCampApplicants('${c.id}')`) : ''}${_campListSuspendedMap && c.brand_id ? brandSuspendBadgeHtml(_campListSuspendedMap[c.brand_id] === true) : ''}</div>` : ''}
           </div>
         </div>
       </td>
@@ -1199,6 +1206,8 @@ async function openEditCampaign(campId) {
   // 행사 여부로 그려진다. 나중에 같은 값으로 다시 세팅돼도 결과는 같다(멱등).
   const _emEl = $('editCampEventMode');
   if (_emEl) _emEl.checked = !!camp.event_mode;
+  // 기록용 여부 — 잠긴 체크로 보여 주기만(피그마 a05-07b). 「저장 안 한 변경」 기준값보다 먼저 채운다
+  renderCampRecordOnlyBox('edit', isRecordOnlyCampaign(camp));
   // camp 를 직접 넘긴다 — 구매 기간 입력칸을 보일지는 「저장된 두 기간이 다른가」로
   // 갈리는데, 그 판정 원본(_editCampOriginal)은 아래에서 한참 뒤에 담긴다.
   applyDeadlineFieldsVisibility('edit', rtVal, camp);
@@ -2767,6 +2776,7 @@ async function saveCampaignEdit() {
     const title = gv('editCampTitle').trim();
     const brandId = $('editCampBrandId')?.value || '';
     if (!title || !brandId) { toast('캠페인명과 브랜드는 필수입니다','error'); return; }
+    if ($('editCampRecordOnly')?.checked && $('editCampEventMode')?.checked) { toast(CAMP_RECORD_ONLY_EVENT_MSG, 'error'); return; }
     const sourceAppId = $('editCampSourceAppId')?.value || null;
     const brand = gv('editCampBrand').trim();
     // 브랜드명 일본어/영문 — 마스터(brands)에서 복사. brand_id 연결 캠페인은 173 트리거가 이후 동기화.
@@ -2989,6 +2999,8 @@ async function saveCampaignEdit() {
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
       reward_note: gv('editCampRewardNote') || null,
+      // 🔴 is_record_only 는 일부러 넣지 않는다 — 등록 뒤 바꿀 수 없는 값이라(588 트리거가 record_only_locked 로 거부)
+      //    같은 값이라도 보내지 않는다. 편집 폼의 체크는 표시용 잠금이다.
       // 오프라인 행사(방문 예약) — 마이그레이션 280. 초대 번호는 별도 표라 저장 뒤 따로 넣는다.
       event_mode: !!$('editCampEventMode')?.checked,
       is_invite_only: !!$('editCampInviteOnly')?.checked,
@@ -3223,6 +3235,22 @@ async function duplicateCampaign(campId) {
     const camps = await fetchCampaigns();
     const src = camps.find(c=>c.id===campId);
     if (!src) { toast('캠페인을 찾을 수 없습니다','error'); return; }
+    // 기록용 원본만 무엇으로 복제할지 묻는다(S3) — 복제는 폼을 거치지 않고 바로 저장되므로 삽입 전에 정해야 한다.
+    //   일반 원본은 지금처럼 묻지 않고 일반으로 복제한다.
+    let copyRecordOnly = false;
+    if (isRecordOnlyCampaign(src)) {
+      const pick = await showCampChoiceModal({
+        title: '어떤 캠페인으로 복제할까요?',
+        body: `「${src.title}」은 기록용 캠페인입니다.\n복제본은 등록한 뒤에 기록용 여부를 바꿀 수 없습니다.`,
+        buttons: [
+          { label: '취소', value: null },
+          { label: '일반 캠페인으로 복제', value: 'normal' },
+          { label: '기록용으로 복제', value: 'record', primary: true },
+        ],
+      });
+      if (!pick) return;
+      copyRecordOnly = pick === 'record';
+    }
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, brand_ko: src.brand_ko || null,
@@ -3267,6 +3295,8 @@ async function duplicateCampaign(campId) {
       //   아무것도 안 막고 조용히 빠졌다. 시간대는 캠페인마다 다르므로 복제하지 않는다.
       event_mode: !!src.event_mode,
       is_invite_only: !!src.is_invite_only,
+      // 기록용 여부 — 위 고르는 창의 결과(588 — 삽입 때만 정할 수 있다). 기록용 원본은 행사일 수 없어(제약) 행사 칸과 안 겹친다
+      is_record_only: copyRecordOnly,
       // 🔴 접수 방식(마이그레이션 376)도 이어받는다 — 안 넣으면 선정형 캠페인의
       //   복제본이 **아무 경고 없이 선착순형**이 된다. 기본값이 선착순형이라
       //   제약에도 안 걸리고 화면에도 표시가 없다(바로 위 행사 설정이 통째로
@@ -3295,7 +3325,7 @@ async function duplicateCampaign(campId) {
     await insertCampaign(copy);
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
-    toast('캠페인이 복제되었습니다 (준비 상태)','success');
+    toast(copyRecordOnly ? '기록용 캠페인으로 복제되었습니다 (준비 상태)' : '캠페인이 복제되었습니다 (준비 상태)','success');
   } catch(e) {
     toast('복제 오류: ' + friendlyError(e.message),'error');
   }
@@ -4615,6 +4645,8 @@ async function addCampaign() {
   if (!ch && !((typeof isEventModeForm === 'function') && isEventModeForm('new'))) {
     toast('채널을 1개 이상 선택해주세요','error'); return;
   }
+  const _recordOnly = !!$('newCampRecordOnly')?.checked;
+  if (_recordOnly && $('newCampEventMode')?.checked) { toast(CAMP_RECORD_ONLY_EVENT_MSG, 'error'); return; }
 
   // 리뷰어형 제품 금액 미입력 확인 (막지 않음). 오리엔 발행은 이 칸을 자동으로 안 채우므로
   //   담당자가 직접 넣어야 한다 — 빠뜨리면 페이백 안내·정산 등록이 조용히 사라진다.
@@ -4630,6 +4662,8 @@ async function addCampaign() {
     if (!_goOn) return;
   }
   if (!await confirmMonitorWithoutPrice(recruitType, $('newCampProductPrice')?.value)) return;
+  // 기록용 확인(a05-08) — 「취소」면 폼으로 돌아가 입력을 그대로 둔다. 오리엔시트 「이 카드로 발행」도 이 함수를 지난다
+  if (_recordOnly && !await confirmRecordOnlyRegister(title)) return;
 
   // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
   // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
@@ -4684,6 +4718,8 @@ async function addCampaign() {
     // 별도 표(event_invites)에 들어가므로, 캠페인 저장이 끝난 뒤 따로 넣는다.
     event_mode: !!$('newCampEventMode')?.checked,
     is_invite_only: !!$('newCampInviteOnly')?.checked,
+    // 기록용(마이그레이션 588) — 삽입 때만 정한다. 그 뒤 변경은 서버 트리거가 record_only_locked 로 거부한다
+    is_record_only: _recordOnly,
     // 접수 방식(마이그레이션 376) — 행사 그리고 비공개일 때만 선정형이 나간다.
     event_selection_mode: (typeof campSelectionModeForSave === 'function')
       ? campSelectionModeForSave('new') : 'first_come',
@@ -6418,7 +6454,7 @@ async function onCampVisibilityToggle(prefix) {
     //   ⚠️ 이 전이(expired)는 **심사중 응모를 전원 자동 낙첨**시킨다(마이그레이션 176).
     //   예전 문구는 「화면에서 사라진다」만 말해, 사람이 떨어진다는 사실은 알리지 않았다.
     //   상태 드롭다운의 「종료」와 결과가 같으므로 같은 내용을 알린다.
-    var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
+    var ok = confirm(campVisibilityOffConfirmText(!!$('editCampRecordOnly')?.checked));
     if (!ok) return;
     // 노출 끄기는 status='expired' 로 가는 길이라 심사중 응모가 전원 낙첨된다 — 상태
     //   드롭다운의 「노출종료」와 결과가 같으므로 같은 확인을 거친다.
@@ -6460,7 +6496,7 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
   if (!campId) return;
   var willTurnOff = currentStatus !== 'expired';
   if (willTurnOff) {
-    var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
+    var ok = confirm(campVisibilityOffConfirmText(_campIsRecordOnlyById(campId)));
     if (!ok) return;
     // 편집 폼 토글과 같은 결과(status='expired') — 같은 확인을 거친다.
     if (!await confirmCampaignEndMassReject(campId, 'expired')) return;
@@ -6489,13 +6525,154 @@ function _resetNewCampVisibilityToggle() {
 
 // 신규 등록 폼 제목 아래 한 줄. 스위치 상태에 따라 **실제 저장 결과**를 말한다.
 //   ⚠️ 이 문구와 addCampaign 의 status 결정이 어긋나면 화면이 거짓말을 한다 — 함께 고칠 것.
+//   기록용 체크(#newCampRecordOnly)도 함께 본다(작업표 2026-10-23 S5) — 둘 중 하나가 바뀌면 다시 부른다.
+//   🔴 브랜드 페이지 문장은 _brandAccountEnabled()(개발서버)일 때만 — 운영에는 브랜드 페이지가 아직 없다(S15, 출시 날 걷는다).
 function setCampVisibilitySub(isOn) {
   const el = $('newCampVisibilitySub');
   if (!el) return;
+  const recordOnly = !!$('newCampRecordOnly')?.checked;
+  const brandOn = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+  if (recordOnly) {
+    el.textContent = isOn
+      ? (brandOn ? '등록 후 브랜드 페이지에 보입니다 (인플루언서에게는 보이지 않습니다)' : '기록용 캠페인은 인플루언서에게 보이지 않습니다')
+      : (brandOn ? '「준비」 상태로 저장되어 브랜드 페이지에도 보이지 않습니다. 나중에 목록에서 공개할 수 있습니다'
+                 : '「준비」 상태로 저장됩니다. 나중에 목록에서 공개할 수 있습니다');
+    return;
+  }
   el.textContent = isOn
     ? '등록 후 바로 인플루언서에게 공개됩니다'
     : '「준비」 상태로 저장되어 인플루언서에게 보이지 않습니다. 나중에 목록에서 공개할 수 있습니다';
 }
+
+// ══════════════════════════════════════
+// 기록용 캠페인 — 등록·편집 폼 상자 · 확인 모달(작업표 2026-10-23 조각 10)
+// ══════════════════════════════════════
+//   인플루언서 모집 없이 외부 결과물만 붙이는 캠페인. 등록 때만 고르고 그 뒤에는 서버 트리거가 바꾸지 못하게 막는다.
+//   🔴 브랜드 페이지·외부 결과 파일 문장은 _brandAccountEnabled() 일 때만(S15 — 운영엔 둘 다 아직 없다. 출시 날 걷는다).
+
+// 상자 설명 문구. prefix 'new' = 등록 폼(체크 상태와 무관하게 같은 안내) / 'edit' = 편집 폼(잠긴 값에 따라)
+function campRecordOnlyDescText(prefix, on) {
+  const brandOn = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+  if (prefix === 'edit') {
+    if (!on) return '일반 캠페인입니다 — 등록한 뒤에는 기록용으로 바꿀 수 없습니다';
+    return '이 캠페인은 기록용으로 등록되어 바꿀 수 없습니다. 인플루언서 앱·메일 어디에도 나오지 않습니다.'
+      + (brandOn ? ' 브랜드 페이지에는 일반 캠페인처럼 보입니다. 외부 결과 파일은 진행현황 결과물 탭에서 붙입니다.' : '');
+  }
+  return '다른 서비스(포인테일 등)로 진행한 캠페인의 결과를 붙이기 위한 캠페인입니다. '
+    + '인플루언서 앱·응모·홍보 메일·인플루언서 일일 메일 어디에도 나오지 않습니다. '
+    + (brandOn ? '브랜드 페이지에는 일반 캠페인처럼 보입니다. ' : '')
+    + '등록한 뒤에는 일반 캠페인으로 바꿀 수 없습니다.';
+}
+
+// 상자 그리기 — 체크·색·설명을 한 번에 맞춘다
+function renderCampRecordOnlyBox(prefix, on) {
+  const cb = $(prefix + 'CampRecordOnly');
+  if (cb) cb.checked = !!on;
+  const box = $(prefix + 'CampRecordOnlyBox');
+  if (box) box.classList.toggle('on', !!on);
+  const desc = $(prefix + 'CampRecordOnlyDesc');
+  if (desc) desc.textContent = campRecordOnlyDescText(prefix, !!on);
+  // 편집 폼 노출 힌트도 기록용에 맞춘다(고정 문구라 innerHTML — 사용자 값 없음)
+  if (prefix === 'edit') { const h = document.querySelector('#editCampVisibilityHint > div'); if (h) h.innerHTML = campVisibilityOffHintText(!!on); }
+}
+
+// 등록 폼 체크 변경 — 상자 색과 노출 안내 문구(S5)를 함께 다시 그린다
+function onCampRecordOnlyToggle() {
+  const on = !!$('newCampRecordOnly')?.checked;
+  renderCampRecordOnlyBox('new', on);
+  setCampVisibilitySub(!!$('newCampVisibilityToggle')?.classList.contains('is-on'));
+}
+
+// 등록 폼 초기화(switchAdminPane('add-campaign') 에서 노출 스위치보다 먼저 부른다 — 노출 문구가 이 체크를 읽는다)
+function resetNewCampRecordOnly() {
+  renderCampRecordOnlyBox('new', false);
+}
+
+// 버튼 여러 개 중 하나를 고르는 확인 모달 — 동적 생성. 고른 버튼의 value, 취소·ESC·바깥 클릭이면 null.
+//   opts = { title, body, buttons:[{label, value, primary}] } — buttons 의 맨 앞이 「취소」(value null) 자리다.
+//   ⚠️ ESC 는 ui.js 전역 처리기가 closeModal 만 해서 이 약속이 안 풀린다 — 그래서 캡처 단계에서 먼저 받아 끊는다.
+//   z-index 615 — confirmModal(610) 위·sensitiveChangeModal(620) 아래. 등록·복제 흐름에서 이 창 뒤에 다른 창이 뜨지 않는다.
+function showCampChoiceModal(opts) {
+  return new Promise(resolve => {
+    const old = document.getElementById('campChoiceModal');
+    if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay open';
+    ov.id = 'campChoiceModal';
+    ov.style.zIndex = '615';
+    const btns = (opts.buttons || []).map((b, i) =>
+      `<button type="button" class="btn ${b.primary ? 'btn-primary' : 'btn-ghost'}" data-idx="${i}">${esc(b.label)}</button>`).join('');
+    ov.innerHTML = `<div class="modal" style="max-width:460px;border-radius:24px;margin:auto" role="dialog" aria-modal="true" aria-labelledby="campChoiceModalTitle">
+      <div class="modal-body" style="padding:28px 24px 22px">
+        <div id="campChoiceModalTitle" style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:8px">${esc(opts.title || '')}</div>
+        <div style="font-size:14px;color:var(--ink);line-height:1.7;white-space:pre-line">${esc(opts.body || '')}</div>
+        <div style="display:flex;gap:8px;margin-top:22px;justify-content:flex-end;flex-wrap:wrap">${btns}</div>
+      </div>
+    </div>`;
+    let done = false;
+    const finish = v => {
+      if (done) return;
+      done = true;
+      document.removeEventListener('keydown', onKey, true);
+      ov.remove();
+      resolve(v);
+    };
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      finish(null);
+    };
+    ov.addEventListener('click', e => {
+      if (e.target === ov) { finish(null); return; }
+      const btn = e.target.closest('button[data-idx]');
+      if (btn) finish(opts.buttons[Number(btn.dataset.idx)].value);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+    const primary = ov.querySelector('.btn-primary');
+    if (primary) primary.focus();
+  });
+}
+
+// 기록용 등록 확인(피그마 a05-08) — 체크가 꺼져 있으면 묻지 않는다
+async function confirmRecordOnlyRegister(title) {
+  const v = await showCampChoiceModal({
+    title: '기록용 캠페인으로 등록하시겠습니까?',
+    body: `「${title}」은 인플루언서에게 보이지 않는 기록용 캠페인으로 등록됩니다. 등록한 뒤에는 일반 캠페인으로 바꿀 수 없습니다 — 인플루언서 모집이 필요하면 새 캠페인을 등록해 주십시오.`,
+    buttons: [
+      { label: '취소', value: null },
+      { label: '기록용으로 등록', value: 'ok', primary: true },
+    ],
+  });
+  return v === 'ok';
+}
+
+// 노출 끄기 확인 문구 — 편집 폼 토글·목록 빠른 토글 두 곳이 같이 쓴다(편집 힌트는 campVisibilityOffHintText).
+//   기록용은 인플루언서에게 원래 안 보이므로 「즉시 사라집니다」를 바꾼다. 브랜드 문장은 _brandAccountEnabled() 일 때만(S15).
+//   ⚠️ 심사중 응모 낙첨 확인(confirmCampaignEndMassReject)은 따로 뜨고 손대지 않는다 — 기록용은 응모가 0이라 안 뜬다.
+function campVisibilityOffConfirmText(recordOnly) {
+  const brandOn = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+  const line = !recordOnly
+    ? '인플루언서 화면에서 이 캠페인이 즉시 사라집니다.'
+    : (brandOn ? '브랜드 페이지에서도 보이지 않게 됩니다.' : '기록용 캠페인은 인플루언서에게 원래 보이지 않습니다.');
+  return '「캠페인 노출」을 OFF 합니다.\n\n' + line + '\n계속할까요?';
+}
+function campVisibilityOffHintText(recordOnly) {
+  const brandOn = (typeof _brandAccountEnabled === 'function') && _brandAccountEnabled();
+  if (!recordOnly) return '힌트: 이 스위치를 끄면 인플루언서 화면에서 <strong>즉시 사라집니다</strong>. 다시 켜면 기간에 맞는 상태로 돌아옵니다.';
+  return brandOn
+    ? '힌트: 이 스위치를 끄면 브랜드 페이지에서도 <strong>보이지 않게 됩니다</strong>. 다시 켜면 기간에 맞는 상태로 돌아옵니다.'
+    : '힌트: 기록용 캠페인은 인플루언서에게 원래 보이지 않습니다. 이 스위치는 「노출종료」 상태만 바꿉니다.';
+}
+// 캠페인 아이디로 기록용 여부 — 목록 캐시(allCampaigns, ADMIN_LIST_COLUMNS 에 is_record_only)에서 찾는다. 못 찾으면 일반 문구
+function _campIsRecordOnlyById(campId) {
+  const c = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(x => x.id === campId) : null;
+  return isRecordOnlyCampaign(c);
+}
+
+// 기록용 + 오프라인 행사 조합 막기(S4) — 서버 검사 제약 campaigns_record_only_not_event 의 화면 짝
+const CAMP_RECORD_ONLY_EVENT_MSG = '기록용 캠페인은 오프라인 행사로 만들 수 없습니다.';
 
 // 힌트 말풍선 — 스위치를 끄면 무슨 일이 생기는지 **처음 한 번만** 알린다.
 //   ⚠️ 기억은 이 브라우저에만 남는다(localStorage). 다른 PC·시크릿 창에서는 다시 뜬다 —
