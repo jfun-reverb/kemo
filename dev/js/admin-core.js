@@ -153,6 +153,9 @@ function friendlyError(msg) {
   if (s.includes('source_results_suspended')) return '결과물 열람 정지 중인 브랜드라 병합할 수 없습니다. 브랜드 상세에서 정지를 먼저 해제해 주세요. [ERR_SOURCE_RESULTS_SUSPENDED]';
   // 마이그레이션 576 — 담당자 칸 직접 저장 거부(트리거 trg_brands_guard_direct_contacts). 아래 permission denied 보다 먼저
   if (s.includes('brand_contacts_direct_write')) return '담당자는 「담당자」 탭에서 한 줄씩 저장합니다. 화면을 새로고침해 주십시오. [ERR_BRAND_CONTACTS_DIRECT_WRITE]';
+  // 마이그레이션 588 — 기록용 캠페인. 트리거 거부·검사 제약 이름. ⚠️ 아래 일반 check constraint 규칙보다 먼저
+  if (s.includes('record_only_locked')) return '기록용 여부는 등록한 뒤 바꿀 수 없습니다. [ERR_RECORD_ONLY_LOCKED]';
+  if (s.includes('campaigns_record_only_not_event')) return '기록용 캠페인은 오프라인 행사로 만들 수 없습니다. [ERR_RECORD_ONLY_EVENT]';
   // 마이그레이션 555 — CS 「미분류(과거)」 항목 잠금(트리거 trg_lookup_cs_legacy_lock)
   if (s.includes('cs_legacy_locked')) return '「미분류(과거)」 항목은 바꾸거나 지울 수 없습니다. [ERR_CS_LEGACY_LOCKED]';
   if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
@@ -313,6 +316,9 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // 기록용 체크는 꺼진 채로 — 노출 안내 문구가 이 체크를 읽으므로 바로 아래 노출 스위치 초기화보다 **먼저**
+    //   (안 끄면 직전 등록의 체크가 남아 관계없는 캠페인이 기록용으로 저장된다. 확인 모달이 막긴 하지만 문구가 먼저 틀린다)
+    if (typeof resetNewCampRecordOnly === 'function') resetNewCampRecordOnly();
     // 캠페인 노출 토글 초기값 ON (기본)
     if (typeof _resetNewCampVisibilityToggle === 'function') _resetNewCampVisibilityToggle();
     // 모집 타입 기본값: 리뷰어(monitor)
