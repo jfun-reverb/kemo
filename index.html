@@ -4961,6 +4961,23 @@ function isInviteOnlyCampaign(camp) {
   return !!(camp && camp.is_invite_only === true);
 }
 
+// 기록용 캠페인인가 — 인플루언서 모집 없이 외부 결과 파일만 붙이는 캠페인(칸 is_record_only).
+//   인플루언서 화면(목록·상세)에서 빼고, 관리자 화면은 꼬리표·필터로 가른다.
+//   ⚠️ 화면 단계 판정이다. 실제로 감추는 것은 서버 캠페인 조회 정책(관리자가 아니면 행을 안 받는다)이고,
+//      응모는 마감 가드(check_application_deadline)가 거부한다.
+//   ⚠️ 관리자 캠페인 목록은 칸을 골라 받는다(storage.js ADMIN_LIST_COLUMNS) — 거기서 빠지면 늘 거짓이다.
+function isRecordOnlyCampaign(camp) {
+  return !!(camp && camp.is_record_only === true);
+}
+
+// 관리자 화면의 「기록용」 꼬리표 — 기록용이면 회색 알약, 아니면 빈 글자.
+//   캠페인 관리 목록과 운영 현황 일정 뷰가 같이 쓴다(그래서 admin.js 가 아니라 여기 둔다).
+//   ⚠️ 「비공개」 낱말은 쓰지 않는다 — 초대 전용 행사 배지(admin.js eventCampBadges)가 이미 그 이름이다.
+function recordOnlyBadgeHtml(camp) {
+  if (!isRecordOnlyCampaign(camp)) return '';
+  return '<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap" title="인플루언서 모집 없이 외부 결과물만 붙이는 캠페인입니다 — 인플루언서 화면에는 보이지 않습니다">기록용</span>';
+}
+
 // 예약 타임 시작까지 남은 시간이 취소 마감(2시간)을 넘겼는가.
 //   ⚠️ 화면 표시(취소 버튼 비활성)용 **안내**일 뿐이다. 실제 판정은 서버가 일본 시각
 //      기준으로 한다(283 cancel_event_ticket) — 기기 시각은 믿지 않는다.
@@ -8426,6 +8443,10 @@ const ADMIN_LIST_COLUMNS = [
   //   버튼이 눌린 뒤 조회를 하면 그 비동기 때문에 사용자 제스처가 끊겨 브라우저가
   //   새 탭을 차단한다(실측). 목록 조회 때 함께 받아 두면 동기로 열 수 있다.
   'event_group_id',
+  // 기록용 캠페인(인플루언서 모집 없음) — 목록의 「기록용」 꼬리표·필터가 isRecordOnlyCampaign 으로 이 값을 본다.
+  //   ⚠️ 여기서 빠지면 값이 undefined 라 꼬리표·필터가 **오류 없이 조용히 사라진다**.
+  //   🔴 칸이 없는 데이터베이스에서는 이 목록 조회가 통째로 실패한다 — 칸 마이그레이션을 먼저 넣는다.
+  'is_record_only',
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
@@ -18222,9 +18243,12 @@ async function loadCampaigns() {
 //     ⚠️ 이건 **화면 단계 필터**다. 캠페인 자체는 브라우저로 내려오므로 이것만으로는
 //        내용이 완전히 감춰지지 않는다. 예약을 실제로 막는 것은 서버의 초대 번호
 //        재검증이다(마이그레이션 283 reserve_event_ticket). 사양서 §2-6 의 세 겹 중 첫 겹.
+//   is_record_only = 기록용(인플루언서 모집 없음) — 초대 전용과 같은 네 곳에서 뺀다.
+//     ⚠️ 관리자가 아니면 서버 조회 정책이 행 자체를 안 준다. 이 줄은 관리자 세션으로 회원 화면을 볼 때의 몫이다.
 function visibleCamps(camps) {
   return camps.filter(c =>
     !(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(c)) &&
+    !(typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(c)) &&
     (c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended'));
 }
 
@@ -19789,7 +19813,16 @@ function campaignSubmissionLabelText(camp) {
 
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
-  if (!camp) return;
+  if (!camp) {
+    // 못 찾은 캠페인 — 기록용(서버가 행을 안 준다)·보관 삭제·없는 번호. 예전에는 그냥 끝나 빈 화면이 남았다.
+    //   비공개 캠페인과 같은 안내를 띄우고 목록으로 보낸다(이유는 드러내지 않는다).
+    //   ⚠️ 목록 조회 자체가 실패했으면 띄우지 않는다 — 「못 불러왔습니다」를 「공개되지 않았습니다」로 바꿔 말하게 된다.
+    //   ⚠️ 이동을 먼저 하고, 떠날 때 확인에서 막히면(false) 안내를 띄우지 않는다 — 화면은 그대로인데 안내만 뜨게 된다.
+    if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) return;
+    if (typeof navigate === 'function' && navigate('campaigns') === false) return;
+    if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
+    return;
+  }
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
   //   준비중(draft)·노출종료(expired)는 목록에 안 나오지만 해시(#detail-{id})로 직접 열 수 있었고,
@@ -19825,6 +19858,13 @@ async function openCampaign(id) {
   if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage' && !_isPreview) {
     if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     if (typeof navigate === 'function') navigate('campaigns');
+    return;
+  }
+  // 기록용 캠페인 — 관리자 세션으로 회원 화면을 볼 때만 여기까지 온다(관리자가 아니면 서버가 행을 안 준다).
+  //   ⚠️ 응모이력 예외는 두지 않는다 — 기록용에는 응모가 없다. 미리보기는 위 가드와 같이 통과.
+  if (typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(camp) && !_isPreview) {
+    if (typeof navigate === 'function' && navigate('campaigns') === false) return;   // 순서는 위 「못 찾음」 갈래와 같은 이유
+    if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     return;
   }
 

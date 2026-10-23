@@ -348,6 +348,15 @@
                   <option value="off">공개 꺼짐</option>
                 </select>
               </div>
+              <!-- 기록용 필터(기록용 캠페인 조각 11) — 「삭제됨」 탭에서는 loadAdminCampaigns 가 숨긴다 -->
+              <div class="admin-filter-group" id="campRecordOnlyFilterGroup">
+                <label>기록용</label>
+                <select id="campRecordOnlyFilter" class="admin-filter" style="width:auto" onchange="filterAdminCampaigns()">
+                  <option value="">전체</option>
+                  <option value="only">기록용만</option>
+                  <option value="exclude">기록용 제외</option>
+                </select>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
                 <div style="display:flex;gap:6px;align-items:center">
@@ -431,6 +440,15 @@
               </div>
             </div>
             <input type="hidden" id="editCampId">
+
+            <!-- 기록용 여부 — 편집에서는 잠금 표시만(피그마 a05-07b). 저장 payload 에 넣지 않는다(saveCampaignEdit). -->
+            <div class="record-only-box is-locked" id="editCampRecordOnlyBox">
+              <label class="record-only-main">
+                <input type="checkbox" id="editCampRecordOnly" disabled>
+                <span>기록용 캠페인 (인플루언서 모집 없음)</span>
+              </label>
+              <div class="record-only-desc" id="editCampRecordOnlyDesc"></div>
+            </div>
 
             <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
             <div class="event-mode-box">
@@ -917,6 +935,16 @@
             </div>
             <!-- 스위치 상태에 따라 문구가 바뀐다(setCampVisibilitySub) — 켜짐이면 바로 공개, 꺼짐이면 준비 상태 -->
             <div class="product-form-sub" id="newCampVisibilitySub">등록 후 바로 인플루언서에게 공개됩니다</div>
+
+            <!-- 기록용 캠페인(인플루언서 모집 없음) — 작업표 2026-10-23 조각 10 · 피그마 a05-07.
+                 등록 때만 고른다(서버 트리거가 등록 뒤 변경을 거부). 설명 문구는 renderCampRecordOnlyBox 가 채운다. -->
+            <div class="record-only-box" id="newCampRecordOnlyBox">
+              <label class="record-only-main">
+                <input type="checkbox" id="newCampRecordOnly" onchange="onCampRecordOnlyToggle()">
+                <span>기록용 캠페인 (인플루언서 모집 없음)</span>
+              </label>
+              <div class="record-only-desc" id="newCampRecordOnlyDesc"></div>
+            </div>
 
             <!-- 오프라인 행사(방문 예약) 설정 — 마이그레이션 280~283 / 사양서 2026-07-30 -->
             <div class="event-mode-box">

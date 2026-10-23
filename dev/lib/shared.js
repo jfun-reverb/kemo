@@ -1888,6 +1888,23 @@ function isInviteOnlyCampaign(camp) {
   return !!(camp && camp.is_invite_only === true);
 }
 
+// 기록용 캠페인인가 — 인플루언서 모집 없이 외부 결과 파일만 붙이는 캠페인(칸 is_record_only).
+//   인플루언서 화면(목록·상세)에서 빼고, 관리자 화면은 꼬리표·필터로 가른다.
+//   ⚠️ 화면 단계 판정이다. 실제로 감추는 것은 서버 캠페인 조회 정책(관리자가 아니면 행을 안 받는다)이고,
+//      응모는 마감 가드(check_application_deadline)가 거부한다.
+//   ⚠️ 관리자 캠페인 목록은 칸을 골라 받는다(storage.js ADMIN_LIST_COLUMNS) — 거기서 빠지면 늘 거짓이다.
+function isRecordOnlyCampaign(camp) {
+  return !!(camp && camp.is_record_only === true);
+}
+
+// 관리자 화면의 「기록용」 꼬리표 — 기록용이면 회색 알약, 아니면 빈 글자.
+//   캠페인 관리 목록과 운영 현황 일정 뷰가 같이 쓴다(그래서 admin.js 가 아니라 여기 둔다).
+//   ⚠️ 「비공개」 낱말은 쓰지 않는다 — 초대 전용 행사 배지(admin.js eventCampBadges)가 이미 그 이름이다.
+function recordOnlyBadgeHtml(camp) {
+  if (!isRecordOnlyCampaign(camp)) return '';
+  return '<span style="background:var(--surface-container-low);color:var(--muted);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap" title="인플루언서 모집 없이 외부 결과물만 붙이는 캠페인입니다 — 인플루언서 화면에는 보이지 않습니다">기록용</span>';
+}
+
 // 예약 타임 시작까지 남은 시간이 취소 마감(2시간)을 넘겼는가.
 //   ⚠️ 화면 표시(취소 버튼 비활성)용 **안내**일 뿐이다. 실제 판정은 서버가 일본 시각
 //      기준으로 한다(283 cancel_event_ticket) — 기기 시각은 믿지 않는다.

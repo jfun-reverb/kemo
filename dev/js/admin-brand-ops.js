@@ -41,7 +41,11 @@ function brandOpsAlertReasonLines(b) {
   var reasons = (b.alert_reasons || []).slice().sort(function(a, c) {
     return BRAND_OPS_REASON_ORDER.indexOf(a) - BRAND_OPS_REASON_ORDER.indexOf(c);
   });
-  var rate = (b.recruit_rate != null) ? Number(b.recruit_rate).toFixed(0) : '—';
+  // 경고 줄의 모집률은 경고 재료와 같은 집합(기록용 캠페인 제외)으로 센 서버 칸 alert_recruit_rate 를 쓴다.
+  //   카드의 큰 모집률 숫자(recruit_rate)는 기록용까지 센 값이라 둘이 다를 수 있다.
+  //   ⚠️ 칸이 없는 서버(그 마이그레이션 전)면 recruit_rate 로 — 칸이 있는데 null(정원 0)이면 그대로 「—」.
+  var rateSrc = Object.prototype.hasOwnProperty.call(b, 'alert_recruit_rate') ? b.alert_recruit_rate : b.recruit_rate;
+  var rate = (rateSrc != null) ? Number(rateSrc).toFixed(0) : '—';
   var lines = [];
   reasons.forEach(function(code) {
     if (code === 'recruit_low_deadline_near') {
@@ -881,8 +885,10 @@ function ganttAlertLine(code, a) {
 //   ⚠️ stats 인자는 이제 안 쓴다 — 서버가 인증 성공까지 세어 돌려주기 때문. 호출부를 안 건드리려고 남겼다.
 //   🔴 조회 실패(null)면 경고를 **아예 안 그린다** — 없는 근거로 그리는 것보다 안 그리는 쪽을 택했다.
 //      교체 전에는 재료가 둘이라 하나가 실패해도 나머지 쪽 경고는 떴다(사양서 §3-6 ① 의 명시적 예외).
+//   기록용 캠페인은 경고를 안 그린다 — 서버(434 get_campaign_action_alerts)가 이미 빼므로 이 줄은 이중 안전망이다.
 function ganttCampaignAlert(c, stats) {
   if (!c || !_brandOpsActionAlerts) return null;
+  if (typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(c)) return null;
   var a = _brandOpsActionAlerts[c.id];
   if (!a || !a.level) return null;
   var lines = (a.codes || []).map(function(code) { return ganttAlertLine(code, a); }).filter(Boolean);
@@ -907,6 +913,7 @@ var GANTT_QUICK_CHIPS = [
   { code: 'deadline7',   label: '마감 7일 이내', needStats: false },
   { code: 'submitShort', label: '제출 미달',     needStats: true },
   { code: 'certShort',   label: '인증 미달',     needStats: true },
+  { code: 'record_only', label: '기록용',        needStats: false },   // 인플루언서 모집 없이 외부 결과물만 붙이는 캠페인
 ];
 function ganttQuickNeedsStats(code) { var d = GANTT_QUICK_CHIPS.find(function(x){ return x.code === code; }); return !!(d && d.needStats); }
 
@@ -1160,6 +1167,7 @@ function setGanttQuick(code) {
 function ganttQuickMatch(code, c, stats) {
   if (!code) return true;
   if (code === 'alert') return !!ganttCampaignAlert(c, stats);
+  if (code === 'record_only') return typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(c);
   if (code === 'deadline7') {
     if (GANTT_ENDED_STATUSES.indexOf(c.status) >= 0 || !c.deadline) return false;
     var t = ganttTodayYmd();
@@ -1365,6 +1373,7 @@ function renderScheduleRow(c, range, stats) {
     +       '<div class="gantt-title-text">'
     +         '<div class="gantt-title-line">'
     +           '<a href="#" class="camp-link ellip" title="' + esc(title) + '" data-camp-title="' + esc(title) + '" onclick="openCampApplicants(\'' + idJs + '\', this.dataset.campTitle, \'brand-ops-schedule\');return false">' + esc(title) + '</a>'
+    +           (typeof recordOnlyBadgeHtml === 'function' ? recordOnlyBadgeHtml(c) : '')   // 기록용 꼬리표(shared.js — 캠페인 관리 목록과 같은 모양)
     +         '</div>'
     +         '<div class="sub ellip" title="' + esc(subLine) + '">' + esc(c.campaign_no || '') + (subLine ? ' · ' + esc(subLine) : '') + '</div>'
     +       '</div>'
