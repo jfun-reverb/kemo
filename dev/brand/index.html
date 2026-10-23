@@ -407,6 +407,18 @@
     <div class="brand-switcher" id="brandSwitcherHost"><span class="brand-switcher-name" data-brand-current-name></span></div>
     <nav class="brand-menu" data-brand-menu aria-label="페이지"></nav>
     <div class="brand-side-bottom">
+      <!-- 「도움말」 단추 + 위로 펼치는 메뉴 (brand-help.js · 피그마 bw03-05·05a) — 메뉴 내용은 서랍과 같은 함수가 채운다 -->
+      <div class="brand-help">
+        <button type="button" class="brand-help-btn" data-brand-help-toggle aria-expanded="false" aria-haspopup="true">
+          <span class="material-icons-round notranslate" translate="no" aria-hidden="true">help_outline</span>
+          <span>도움말</span>
+          <span class="brand-help-dot" hidden></span>
+          <span class="brand-sr brand-help-dot-sr" hidden>새 공지가 있습니다</span>
+        </button>
+        <div class="brand-help-pop" data-brand-help-pop role="group" aria-label="도움말" hidden>
+          <div class="brand-help-menu" data-brand-help-menu></div>
+        </div>
+      </div>
       <a class="brand-me" href="#mypage" data-brand-nav="mypage" id="brandMyPageLink">
         <span class="brand-me-avatar" aria-hidden="true"><span class="brand-dot" hidden></span></span>
         <span class="brand-me-text"><span class="brand-me-name" data-brand-user-name></span><span class="brand-me-sub">마이페이지</span></span>
@@ -454,6 +466,12 @@
         <span class="material-icons-round notranslate" translate="no" aria-hidden="true">logout</span>
         <span>로그아웃</span>
       </button>
+      <!-- 「도움말」 묶음 — 좌측 메뉴의 펼친 메뉴와 같은 내용(brand-help.js) -->
+      <div class="brand-drawer-line"></div>
+      <div class="brand-drawer-help" role="group" aria-label="도움말">
+        <p class="brand-drawer-help-title">도움말 <span class="brand-help-dot brand-help-dot-inline" hidden></span></p>
+        <div class="brand-help-menu" data-brand-help-menu></div>
+      </div>
     </div>
   </div>
 </div>
@@ -507,6 +525,7 @@
 <script src="../js/brand-login.js"></script>
 <script src="../js/brand-invite.js"></script>
 <script src="../js/brand-shell.js"></script>
+<script src="../js/brand-help.js"></script>
 <script src="../js/brand-info.js"></script>
 <script src="../js/brand-orient.js"></script>
 <script src="../js/brand-orient-form.js"></script>

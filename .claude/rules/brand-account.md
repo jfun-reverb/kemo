@@ -70,6 +70,13 @@ paths:
 - **관리자 「연결 요청」 메일**(같은 `notify-brand-invite` 의 `invite_kind='owner_link'` 갈래 — 사양서 `docs/specs/2026-10-21-brand-link-request.md` 4-3): 관리자 화면이 `admin_request_brand_owner_link`(578) 성공 뒤 `request_id` 를 `invite_id` 로 넘겨 부른다. 🔴 **줄을 읽자마자 종류로 가른 뒤** 호출자 판정 — 멤버 초대 줄 = 현재 대표만 / 연결 요청 줄 = 호출자 토큰 `has_permission('brand.account_manage','write')`(선점 전·뒤 두 번). 섞으면 대표가 연결 요청을, 관리자가 멤버 초대를 보낼 수 있게 된다(교차 403 이 정상). 양식 `brand-link-request` 하나 — 받는 계정이 비밀번호를 정했든 안 정했든 **같은 메일·같은 링크**(`?link=…&kind=invite`, 화면이 가른다), 보낸 사람 「REVERB 운영팀」(관리자 실명 없음 — `inviter_name` 을 안 읽는다). 응답 모양·선점·두 겹 잠금은 멤버 초대와 같다(개발서버 응답은 `dev_mail{subject, text}` — `dev_link` 아님). 🔴 조회 칸에 `invite_kind` 가 있어 **577 이 없는 데이터베이스에 배포하면 멤버 초대 메일까지 500** — 운영은 577 뒤
 - **연결 요청 비밀번호 정하며 수락**(`brand-link-request-accept`, 비로그인 공개 — CORS·공개 키 거부 없음·새 비밀값 없음): 링크 판정이 `recipient:'existing_setpw'`(연결 요청 + 비밀번호 안 정한 기존 계정)일 때 화면이 부른다. `service_brand_link_request_setpw` → `auth.admin.updateUserById` → `service_brand_link_request_finalize`(580). 🔴 **계정 지우기 경로가 없다** — `brand-invite-accept` 의 반쪽 계정 정리(`deleteUser`)를 일부러 옮기지 않았다(원래 있던 계정). 응답 `{ok:true, email, brand_id}` \| `{ok:false, reason}`(형식 틀린 링크는 400). 🔴 580 이 없는 데이터베이스에 배포하면 모든 호출이 500 — 운영은 580 뒤
 
+#### 「도움말」 메뉴·브랜드 공지 (`dev/js/brand-help.js` — 🔴 개발서버만, 데이터는 593 + 공지 읽기 함수)
+- 요약 `get_my_brand_notice_summary` 는 **`setBrandSessionFromState` 한 곳**에서 다시 받는다(로그인·새로고침 복원·판정 다시 받기가 모두 지난다 — 브랜드 바꾸기는 안 지난다, 공지는 계정 단위). 로그아웃(`setBrandSessionFromState(null)`)·세션 끊김에 비우고 차례 번호 `_brandNoticeSeq` 로 늦은 응답을 버린다. 조회 실패 `null` 은 점 없음(오류는 공지 모달 안에서만)
+- 🔴 **점이 둘이다** — 새 초대 `.brand-dot`(`refreshInviteDot` 이 문서 전체를 켜고 끈다) / 새 공지 `.brand-help-dot`(`renderBrandHelp`). 모바일 ≡ 단추의 점·`aria-label` 은 「초대 또는 공지」를 **`refreshInviteDot` 한 곳**에서 정한다 — 따로 쓰면 나중에 도는 쪽이 이긴다
+- 공지 본문 정화 `brandNoticeSanitize` 는 관리자 `sanitizeRich`(shared.js) 허용 목록의 **사본**(img 제외) — 한쪽을 바꾸면 함께
+- 메뉴 내용은 좌측 팝오버와 서랍이 같은 함수(`_brandHelpMenuHtml`)를 쓴다 — id 를 넣지 않는다. 운영팀 연락처는 상수 `BRAND_HELP_CONTACT` 한 곳(피그마 값 — 브랜드 메일 꼬리와 다름, 기획 확인 대기)
+- 오리엔시트 작성 창(`.bof-modal` — 캡처 단계 키 처리)이 열려 있으면 도움말 팝오버를 열지 않는다. 공지 모달은 `.brand-modal` 이라 그 창의 키 처리가 물러선다
+
 #### 이용 제한·결과물 열람 정지 (마이그레이션 581~584 — 🔴 개발서버만, 운영은 브랜드 페이지 1차와 같은 날)
 > 사양서 `docs/specs/2026-10-21-brand-account-restriction.md`(「구현 결과」) · 작업표 `…-breakdown.md`. 현재 원본 번호 요약은 `CLAUDE.md` 「브랜드 계정·로그인·멤버 관리」 절.
 - 판정 한 곳씩(581): 계정 제한 `_brand_active_restriction_id(계정)`(일본 날짜 — 「날짜까지」는 그날 포함, 기간이 끝난 줄은 닫지 않고 판정에서만 빠진다) · 감싸개 `_brand_account_restricted` · 정지 `_brand_active_suspension(브랜드)` → `{id, include_shipping}`. 🔴 식을 다른 함수에 베끼지 않는다
