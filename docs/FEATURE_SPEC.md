@@ -360,6 +360,7 @@
 | participation_steps | jsonb     | 참여방법 스냅샷 (§18)                       |
 | caution_set_id | uuid FK        | `caution_sets.id` ON DELETE SET NULL (migration 069, 주의사항 번들 원본 참조 — §38) |
 | caution_items | jsonb NOT NULL DEFAULT '[]' | 주의사항 항목 스냅샷 (migration 069 — 캠페인 저장 시 번들에서 복사, 번들 수정해도 기존 캠페인 영향 없음) |
+| is_record_only | boolean NOT NULL DEFAULT false | 기록용 캠페인(인플루언서 모집 없이 외부 결과물만 붙임, migration 588 — 2026-10-23 개발서버 적용, 운영은 아직 · 운영에는 브랜드 페이지보다 먼저 나간다(사양서 배포 순서 ①)). 만든 뒤 바꿀 수 없다(트리거 `trg_campaigns_record_only_lock` — 로그인 세션이면 `record_only_locked`, SQL 편집기·서비스 키만 예외) · 오프라인 행사(`event_mode`)와 함께 켤 수 없다(`campaigns_record_only_not_event`) · 응모는 관리자도 거부(`check_application_deadline` 588 — `recruit_not_open … (record_only)`). 화면 숨김·조회 정책은 뒤 조각(작업표 `docs/specs/2026-10-23-record-only-campaign-breakdown.md`) |
 | view_count    | integer         | 조회수 (상세 페이지 열 때 +1)               |
 | status        | text            | 상태 (draft/scheduled/active/paused/closed) |
 | created_at    | timestamptz     | 생성일                                      |
