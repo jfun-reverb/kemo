@@ -3231,6 +3231,8 @@ async function saveCampaignEdit() {
 // ════════════════════════════════════════════════════════════════════
 
 async function duplicateCampaign(campId) {
+  // 더보기 메뉴를 먼저 닫는다 — 기록용 원본이면 고르는 창이 뜨는데, 메뉴가 그 창 위에 남는다(openEditCampaign 과 같은 한 줄)
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
   try {
     const camps = await fetchCampaigns();
     const src = camps.find(c=>c.id===campId);

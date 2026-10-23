@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792725125';
+  var CURRENT_BUILD = 'v1792725514';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3686,7 +3686,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 12:12 · 652b18c</span>
+          <span class="admin-build-text">2026-10-23 12:18 · 1ab9a46</span>
         </div>
       </div>
     </aside>
@@ -67451,6 +67451,8 @@ async function saveCampaignEdit() {
 // ════════════════════════════════════════════════════════════════════
 
 async function duplicateCampaign(campId) {
+  // 더보기 메뉴를 먼저 닫는다 — 기록용 원본이면 고르는 창이 뜨는데, 메뉴가 그 창 위에 남는다(openEditCampaign 과 같은 한 줄)
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
   try {
     const camps = await fetchCampaigns();
     const src = camps.find(c=>c.id===campId);
