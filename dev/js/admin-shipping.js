@@ -150,8 +150,9 @@ function _shipRowHtml(r, d) {
         + (d.delivered_at ? '<div style="font-size:10px;color:var(--muted)">브랜드에는 주소 가림</div>' : '')
       : (r.status !== 'shipped' && r.due_on ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">기한 ' + esc(formatDate(r.due_on)) + '</div>' : ''));
   const canEdit = d.can_write && !d.deleted && !cancelled;
+  // 피그마 a05-09 — 줄 끝은 파란 글자 링크 모양
   const act = canEdit
-    ? '<button type="button" class="btn btn-ghost btn-xs" onclick="openShipEditModal(' + jsStr(r.application_id) + ')">' + (r.tracking_no ? '수정' : '입력') + '</button>'
+    ? '<button type="button" style="background:none;border:none;padding:4px 2px;font-size:12px;color:#2563EB;cursor:pointer" onclick="openShipEditModal(' + jsStr(r.application_id) + ')">' + (r.tracking_no ? '수정' : '입력') + '</button>'
     : '';
   return '<tr data-app="' + esc(r.application_id) + '" style="' + dim + '">'
     + '<td style="' + dim + '">' + (r.row_no != null ? esc(String(r.row_no)) : '—') + '</td>'
@@ -167,6 +168,13 @@ function _shipRowHtml(r, d) {
     + '<td style="white-space:nowrap">' + by + '</td>'
     + '<td style="white-space:nowrap">' + act + '</td>'
     + '</tr>';
+}
+
+// 이름 뒤 주격 조사 — 끝 글자가 한글이면 받침으로 「이」/「가」, 아니면 「이(가)」
+function _shipSubjectParticle(name) {
+  const code = String(name || '').trim().slice(-1).charCodeAt(0);
+  if (!(code >= 0xAC00 && code <= 0xD7A3)) return '이(가)';
+  return ((code - 0xAC00) % 28) ? '이' : '가';
 }
 
 function _shipRowMatchesTab(r) {
@@ -233,8 +241,10 @@ function renderCampShipping() {
     }
   } else {
     const ps = d.provision_summary || {};
-    const parts = ['브랜드에 전달 완료(' + esc(formatDateTime(d.delivered_at)) + ', 전달한 사람: ' + esc(d.delivered_by_name || '운영팀') + ')'];
-    parts.push('브랜드 열람 ' + (ps.view_count || 0) + '회' + (ps.last_viewed_at ? '(마지막 ' + esc(formatDateTime(ps.last_viewed_at)) + ')' : ''));
+    // 피그마 a05-09a — 「2026/10/13 15:20 박매니저가 브랜드에 전달했습니다 · 브랜드 열람 4회 · 엑셀 내려받기 1회(…)」
+    const byName = d.delivered_by_name || '운영팀';
+    const parts = [esc(formatDateTime(d.delivered_at)) + ' ' + esc(byName) + _shipSubjectParticle(byName) + ' 브랜드에 전달했습니다'];
+    parts.push('브랜드 열람 ' + (ps.view_count || 0) + '회');
     parts.push('엑셀 내려받기 ' + (ps.excel_count || 0) + '회' + (ps.last_excel_at ? '(' + esc(formatDateTime(ps.last_excel_at)) + (ps.last_excel_by ? ' ' + esc(ps.last_excel_by) : '') + ')' : ''));
     // D26 — 기록 모달(사람 목록)은 최고 관리자만
     const logLink = isSuper
@@ -396,7 +406,7 @@ async function saveShipEdit(clear) {
     } else {
       closeModal('shipEditModal');
       const saved = (res.saved || [])[0];
-      toast(saved && saved.cleared ? '송장을 지웠습니다. 「발송 전」으로 돌아갔습니다.' : '송장을 저장했습니다.');
+      toast(saved && saved.cleared ? '송장을 지웠습니다. 「발송 전」으로 돌아갔습니다.' : '송장번호를 저장했습니다.');
     }
     await refreshPane('camp-applicants');
   } catch (e) {
@@ -411,7 +421,7 @@ async function saveShipEdit(clear) {
 function openShipDeliverModal() {
   const d = _shipCtx && _shipCtx.data;
   if (!d || d.success === false || d.delivered_at || !d.can_write) return;
-  if ((d.account_count || 0) === 0) { toast('이 브랜드에 비밀번호를 정한 계정이 없어 전달할 수 없습니다.', 'error'); return; }
+  if ((d.account_count || 0) === 0) { toast('브랜드 페이지 계정이 없어 전달할 수 없습니다.', 'error'); return; }
   const camp = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(function (c) { return c.id === _shipCtx.campaignId; }) : null;
   const brand = (camp && (camp.brand_ko || camp.brand)) || '';
   const n = ((d.counts && d.counts.total) || 0) - ((d.counts && d.counts.cancelled) || 0);
@@ -429,7 +439,7 @@ function openShipDeliverModal() {
       · 전달한 뒤 승인하는 분은 자동으로 추가됩니다.<br>
       · 선정이 취소된 분은 「취소됨」으로 남고 주소·전화번호는 가려집니다.<br>
       · 누가 언제 전달했는지, 브랜드가 언제 열고 내려받았는지 기록이 남습니다.<br>
-      · 계정 ${d.account_count}명에게 알림 메일이 갑니다. <b style="color:var(--ink)">전달은 되돌릴 수 없습니다.</b>${productNote}
+      · ${brand ? '「' + esc(brand) + '」 ' : ''}계정 ${d.account_count}명에게 알림 메일이 갑니다. <b style="color:var(--ink)">전달은 되돌릴 수 없습니다.</b>${productNote}
     </div>`;
   m.querySelector('.ship-modal-foot').innerHTML =
     '<button type="button" class="btn btn-ghost" onclick="closeModal(\'shipDeliverModal\')">취소</button>'
@@ -452,19 +462,26 @@ async function runShipDeliver() {
   if (!campId || _shipBusy) return;
   _shipBusy = true;
   const btn = $('shipDeliverBtn'); if (btn) btn.disabled = true;
+  // 피그마 a05-90a — 연결·서버 오류는 모달을 닫지 않고 다시 누르게 한다
+  const RETRY_MSG = '전달하지 못했습니다. 잠시 뒤 다시 시도해 주십시오.';
   try {
     const res = await deliverShippingList(campId);
+    const reason = res && res.ok === false ? res.reason : null;
+    const known = reason === 'not_found' || reason === 'no_account' || reason === 'campaign_deleted' || reason === 'not_gifting' || reason === 'results_suspended';
+    if (!res || (res.ok === false && !known)) {
+      toast(RETRY_MSG, 'error');
+      return;
+    }
     closeModal('shipDeliverModal');
-    if (!res || res.ok === false) {
-      const reason = res && res.reason;
-      toast(reason === 'no_account' ? '이 브랜드에 비밀번호를 정한 계정이 없어 전달할 수 없습니다.'
+    if (res.ok === false) {
+      toast(reason === 'no_account' ? '브랜드 페이지 계정이 없어 전달할 수 없습니다.'
           : reason === 'campaign_deleted' ? '삭제된 캠페인이라 전달할 수 없습니다.'
           : reason === 'not_gifting' ? '시딩형 캠페인만 전달할 수 있습니다.'
+          : reason === 'not_found' ? '캠페인을 찾지 못했습니다.'
           // 「배송 리스트 포함」 결과물 열람 정지 중 — 서버가 전달·메일·제공 기록을 모두 막는다(이용 제한 사양서 R7 · 작업표 제한 13-a)
-          : reason === 'results_suspended' ? '이 브랜드는 배송 리스트까지 열람이 정지되어 전달할 수 없습니다. 정지를 풀거나 배송 미포함으로 다시 걸어 주십시오.'
-          : '전달하지 못했습니다.', 'error');
+          : '이 브랜드는 배송 리스트까지 열람이 정지되어 전달할 수 없습니다. 정지를 풀거나 배송 미포함으로 다시 걸어 주십시오.', 'error');
     } else if (res.delivered_now) {
-      toast('배송 리스트를 전달했습니다.');
+      toast('배송 리스트를 브랜드에 전달했습니다.');
       // 두 관리자가 동시에 눌러도 delivered_now:true 는 서버가 한 번만 준다 — 메일도 한 번
       sendShippingDeliveredMail(campId).then(_shipMailToast);
     } else {
@@ -472,10 +489,11 @@ async function runShipDeliver() {
     }
     await refreshPane('camp-applicants');
   } catch (e) {
-    closeModal('shipDeliverModal');
-    toast(friendlyError(e && e.message), 'error');
+    // 권한 거부는 다시 눌러도 같으니 그 이유를 그대로 보인다
+    toast(e && e.code === '42501' ? friendlyError(e.message) : RETRY_MSG, 'error');
   } finally {
     _shipBusy = false;
+    const b = $('shipDeliverBtn'); if (b) b.disabled = false;
   }
 }
 
