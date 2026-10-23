@@ -160,7 +160,14 @@ async function loadCampApplicants() {
 
   const slots = camp?.slots || 0;
   const remaining = Math.max(slots - allApproved, 0);
-  $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
+  // 머리 줄 「선정 {승인} / {모집 인원}명」(피그마 a05-06) — 승인은 REVERB 만(감사용·외부 제외). remaining 은 아래 승인 버튼 비활성에 쓴다
+  //   ⚠️ 행사 캠페인은 종전 표기 그대로 — 선착순 행사는 「선정」이 아니라 예약이고, 정원도 시간대 합계라 slots 와 다를 수 있다
+  //   ⚠️ 모집 인원이 0(미입력)이면 「/ 0명」 대신 승인 수만
+  if (_campDetailIsEvent) {
+    $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
+  } else {
+    $('campApplicantsSlots').textContent = slots > 0 ? `선정 ${allApproved} / ${slots}명` : `선정 ${allApproved}명`;
+  }
 
   // (2026-07-23) 카드 제목·건수 줄 제거 — 상태 탭이 이름과 건수를 함께 보여준다
 
@@ -1059,38 +1066,41 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   if ((typeof isEventCampaign === 'function') && isEventCampaign(camp)) return campOpsEventStatusCard(camp);
   const slots = stats.slots || 0;
   const approved = stats.approved || 0;
-  const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
   // 제출 인플 = 승인 신청 중 결과물 제출한 distinct 신청 (미니카드 정의와 동일)
   const approvedIdSet = new Set(allApps.filter(a => a.status === 'approved').map(a => a.id));
-  // ⚠️ 결과물 조회 실패(null)면 아래 두 막대는 「—」 — 0% 로 그리면 실패가 「아무도 안 냄」으로 보인다(전수조사 3차 ③-5)
+  // ⚠️ 결과물 조회 실패(null)면 아래 두 막대는 「불러오지 못함」 — 0 으로 그리면 실패가 「아무도 안 냄」으로 보인다(전수조사 3차 ③-5)
   const delivKnown = Array.isArray(allDelivs);
   const submittedInf = delivKnown ? new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size : null;
-  // 3번째 진행바: 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
+  // 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
   const certSuccess = !delivKnown ? null : ((typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0);
   // 외부 결과 파일의 제출한 줄(사양서 16-5 15번 ③ — 줄 하나 = 한 명 = 결과물 한 건)을 제출·인증 성공의 분자·분모에 더한다.
-  //   모집현황 막대는 REVERB 만 센다(⑦) — 외부는 그 줄 끝 「· 외부 N명」(#campOpsExtCount, campExtFillCount 가 채움)
+  //   모집현황 줄은 REVERB 만 센다(⑦) — 외부는 그 줄 끝 「· 외부 N명」(#campOpsExtCount, campExtFillCount 가 채움)
   //   ⚠️ 외부 데이터가 실패·없음이면 0 을 더한다(외부 없이 그린다 — REVERB 숫자를 막지 않는다)
+  //   ⚠️ 인증 성공 분모는 모집 인원 + 외부(#2315 규칙) — 피그마 그림의 숫자와 다른 점은 사용자 확인 중이라 바꾸지 않는다
   const ext = _campDelivExtRows(camp);
   const extSubmitted = ext.length;
   const extSuccess = ext.filter(r => _campDelivExtCert(r) === 'success').length;
-  const subNum = delivKnown ? submittedInf + extSubmitted : null;
   const subDen = approved + extSubmitted;
-  const submitPctAll = (delivKnown && subDen > 0) ? Math.round(subNum / subDen * 100) : null;
-  const certNum = delivKnown ? certSuccess + extSuccess : null;
   const certDen = slots + extSubmitted;
-  const certPct = (delivKnown && certDen > 0) ? Math.round(certNum / certDen * 100) : null;
   const extCountHtml = '<span id="campOpsExtCount" style="display:none" title="캠페인에 붙인 외부 결과 파일의 참가자 수 — 브랜드 페이지 응모·참여 숫자에 더해진다"></span>';
+  // 피그마 a05-06: 모집현황은 글자 한 줄, 그 아래 단색 막대 둘(퍼센트·단계별 색 없음 — 운영 현황 공용 brandOpsRateBar 를 쓰지 않는다)
   return `<div class="camp-ops-card" id="campOpsStatusCard">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
-    ${brandOpsRateBar('모집현황', recruitPct, approved, slots, extCountHtml)}
+    <div class="camp-ops-recruit-line">모집현황 — 신청 ${stats.total}명 · 승인 ${approved}명 · 심사중 ${stats.pending}명${extCountHtml}</div>
     ${_campDetailShipOn ? '<div id="campOpsShipBar"></div>' : ''}
-    ${delivKnown ? brandOpsRateBar('결과물 제출', submitPctAll, subNum, subDen) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
-    ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certNum, certDen) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
-    <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-      <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
-      <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
-      <span>심사중 <strong style="color:#f59e0b">${stats.pending}</strong>명</span>
-    </div>
+    ${delivKnown ? campOpsCountBar('결과물 제출', submittedInf + extSubmitted, subDen) : campOpsCountBar('결과물 제출 (불러오지 못함)', null, null)}
+    ${delivKnown ? campOpsCountBar('인증 성공', certSuccess + extSuccess, certDen) : campOpsCountBar('인증 성공 (불러오지 못함)', null, null)}
+  </div>`;
+}
+
+// 진행현황 「모집 · 결과물 현황」 카드 전용 막대 — 이름 + 굵은 「x / y」 + 보라 단색 막대(피그마 a05-06).
+//   num 이 null 이면 숫자 없이 빈 막대(불러오지 못함). 분모 0 이면 「x / 0」 + 빈 막대.
+function campOpsCountBar(label, num, den) {
+  const known = num !== null && num !== undefined;
+  const pct = (known && den > 0) ? Math.min(100, Math.max(0, num / den * 100)) : 0;
+  return `<div class="camp-ops-count-bar">
+    <div class="camp-ops-count-bar-head"><span>${esc(label)}</span>${known ? `<strong>${num} / ${den}</strong>` : ''}</div>
+    <div class="camp-ops-count-bar-track"><div style="width:${pct}%"></div></div>
   </div>`;
 }
 
