@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792720863';
+  var CURRENT_BUILD = 'v1792721006';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -802,6 +802,9 @@ input.admin-filter{padding-right:8px}
 .camp-ops-summary:empty{display:none;margin:0}
 .camp-ops-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:14px 16px;min-width:0}
 .camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
+/* 모집현황 막대 이름표 끝 「· 외부 N명」 — 글자는 campExtFillCount(admin-camp-ext.js)가 「외부 N명」으로 채우고 구분점만 여기서 */
+#campOpsExtCount::before{content:'· '}
+#campOpsExtCount{margin-left:4px}
 .camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
 .camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
 .camp-ops-row .v{color:var(--ink);font-weight:600;word-break:break-word}
@@ -3664,7 +3667,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 11:01 · bb35cfd</span>
+          <span class="admin-build-text">2026-10-23 11:03 · 9fae082</span>
         </div>
       </div>
     </aside>
@@ -4999,6 +5002,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <tbody id="campDelivBody"></tbody>
             </table>
             </div>
+            <!-- 외부 줄이 있을 때만 보인다(renderCampDelivTab — 조각 나 · 피그마 a05-06) -->
+            <div id="campDelivExtNote" style="display:none;padding:8px 16px 12px;font-size:11px;color:var(--muted)">외부 줄은 이름이 없어 「외부 · 회원번호」로 보입니다. 미션 상태 「완료」 → 인증성공, 「미완료」 → 인증샷 제출중. 검수·대리 등록은 없습니다.</div>
           </div>
           <!-- 예약 현황 탭 — 행사 캠페인 전용. 예전에는 별도 화면(#adminPane-event-tickets)이었는데
                같은 캠페인을 두 화면에서 봐야 했다. **복사가 아니라 옮겼다** — 두 벌로 두면
@@ -35110,14 +35115,15 @@ function renderBrandOpsCards() {
   grid.innerHTML = list.map(renderBrandOpsCard).join('');
 }
 
-function brandOpsRateBar(label, rate, approved, total) {
+// afterHtml(선택) — 이름표 같은 줄 끝에 붙일 **이미 안전한** HTML(진행현황 「외부 N명」 — 부르는 쪽이 고정 문자열만 넘긴다)
+function brandOpsRateBar(label, rate, approved, total, afterHtml) {
   // rate 가 NULL(분모 0)이면 "—"
   var hasData = rate !== null && rate !== undefined;
   var pct = hasData ? Math.min(100, Math.max(0, Number(rate))) : 0;
   var valText = hasData ? (Number(rate).toFixed(0) + '%') : '—';
   var sub = (total !== undefined && total !== null) ? ('(' + (approved||0) + '/' + (total||0) + ')') : '';
   return '<div style="margin-top:6px">'
-    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + (afterHtml || '') + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
     + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)') + '"></div></div>'
     + '</div>';
 }
@@ -47698,6 +47704,9 @@ async function loadCampApplicants() {
     _campDetailTab = 'applicants';   // 행사가 아닌 캠페인에 예약 탭이 남아 있으면 빈 화면이 된다
   }
   renderCampDetailTabs(total, delivTotal, ticketTotal);
+  // 외부 줄이 늦게 오면 campExtRowsChanged 가 이 재료로 결과물 표·탭 숫자·현황 카드를 다시 그린다(조각 나)
+  _campDelivCtx = { camp, allDelivs, allApps, users: _users, delivFetched,
+    stats: { total, approved: allApproved, pending: allPending, slots }, appCount: total, ticketTotal };
 }
 
 // 「되돌리기」 — 「미승인」과 같은 이유로 행사에서는 서버가 막는다. 눌러서 실패해 보고
@@ -48143,6 +48152,8 @@ function toggleCampDelivSort(col) { _cycleSort(_campDelivSort, col); loadCampApp
 function renderCampDelivTab(camp, allDelivs, allApps, users) {
   const tbody = $('campDelivBody');
   if (!tbody) return 0;
+  const note = $('campDelivExtNote');
+  if (note) note.style.display = 'none';
   if (!camp) { tbody.innerHTML = ''; return 0; }
   const campMap = new Map([[camp.id, camp]]);
   const infMap = {};
@@ -48160,8 +48171,10 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
     // 이미 로드해 둔 인플루언서 목록으로 신청→회원을 이어 채운다. 추가 조회 없음.
     if (!g.influencer) g.influencer = infMap[userIdByApp[g.application_id]] || null;
   });
+  // 외부 결과 파일의 제출한 줄(조각 나 — 사양서 16-5 15번 ③). 같은 사람이 양쪽에 있어도 합치지 않는다(두 줄).
+  let extList = _campDelivExtRows(camp);
 
-  const totalAllGroups = list.length;   // 어떤 필터도 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
+  const totalAllGroups = list.length + extList.length;   // 어떤 필터도 적용 전 — 상단 「결과물 목록」 탭 숫자와 일치시킨다
 
   // 검색(인플루언서 이름·메일·SNS)과 검수 상태는 인증 상태 탭보다 먼저 적용해,
   // 탭 건수가 「지금 검색한 결과 안에서의 분포」를 보여주게 한다(신청자 탭과 같은 규칙).
@@ -48171,61 +48184,178 @@ function renderCampDelivTab(camp, allDelivs, allApps, users) {
       const u = g.influencer || {};
       return matchSearchTokens(searchQ, [u.name, u.name_kanji, u.name_kana, u.email, u.ig, u.x, u.tiktok, u.youtube]);
     });
+    // 외부 줄은 이름이 없다 — 「외부」·「회원」·회원번호에 걸린다
+    extList = extList.filter(r => matchSearchTokens(searchQ, ['외부', '회원', String(r._member_no || '')]));
   }
   const reviewFilter = $('campDelivReviewFilter')?.value || '';
-  if (reviewFilter) list = list.filter(g => campDelivReviewState(g) === reviewFilter);
+  if (reviewFilter) {
+    list = list.filter(g => campDelivReviewState(g) === reviewFilter);
+    extList = [];   // 외부 줄에는 검수가 없다 — 검수 상태를 고르면 숨긴다
+  }
   // 인증 성공일 기간 — 인증 상태 탭 건수를 세기 **전에** 적용해, 탭 숫자와 목록이 안 어긋나게 한다
   setupCampDelivCertRange();
   if (_campDelivCertFrom || _campDelivCertTo) {
-    list = list.filter(g => {
-      const c = delivLocalDate(certSuccessAt(g));
+    const inRange = (at) => {
+      const c = delivLocalDate(at);
       if (!c) return false;  // 아직 인증 성공이 아닌 건은 날짜가 없어 기간 지정 시 제외
       if (_campDelivCertFrom && c < _campDelivCertFrom) return false;
       if (_campDelivCertTo && c > _campDelivCertTo) return false;
       return true;
-    });
+    };
+    list = list.filter(g => inRange(certSuccessAt(g)));
+    extList = extList.filter(r => inRange(_campDelivExtCertAt(r)));
   }
 
   const counts = { success: 0, submitting: 0, none: 0, excluded: 0 };
   list.forEach(g => { const s = computeCertStatus(g); if (counts[s] != null) counts[s]++; });
+  extList.forEach(r => { counts[_campDelivExtCert(r)]++; });   // 외부는 인증성공·인증샷 제출중에만(제출한 줄만 싣는다)
   renderCampDelivCertTabs(counts);
 
-  if (_campDelivCertTab) list = list.filter(g => computeCertStatus(g) === _campDelivCertTab);
+  if (_campDelivCertTab) {
+    list = list.filter(g => computeCertStatus(g) === _campDelivCertTab);
+    extList = extList.filter(r => _campDelivExtCert(r) === _campDelivCertTab);
+  }
+  // REVERB 그룹과 외부 줄을 한 목록으로 — 날짜 열 정렬은 함께 섞고, 이름 정렬에선 외부 줄을 뒤로
+  const items = list.map(g => ({ g })).concat(extList.map(r => ({ ext: r })));
+  const certAtOf = (it) => it.ext ? _campDelivExtCertAt(it.ext) : (certSuccessAt(it.g) || '');
+  const submittedOf = (it) => it.ext ? (it.ext._latest_at || '') : (it.g.latest_submitted_at || '');
+  // 날짜 비교 — REVERB·외부 모두 timestamptz 지만 표기 형식이 다를 수 있어 시각으로 맞춘다(빈 값은 가장 이른 값)
+  const timeOf = (v) => { const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? -Infinity : t; };
+  const cmpTime = (a, b) => { const ta = timeOf(a), tb = timeOf(b); return ta === tb ? 0 : (ta < tb ? -1 : 1); };
   // 열 제목 정렬 — 없으면 기본(최근 제출 순, 미제출은 뒤로)
   if (_campDelivSort.col === 'name') {
     const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
-    list.sort((a, b) => {
-      return compareInfluencerName(influencerSortName(a.influencer), influencerSortName(b.influencer), _d);
+    items.sort((a, b) => {
+      // 외부 줄은 이름이 없다 — 방향 무관 뒤로(외부끼리는 앞 순서 그대로)
+      if (a.ext || b.ext) return (a.ext ? 1 : 0) - (b.ext ? 1 : 0);
+      return compareInfluencerName(influencerSortName(a.g.influencer), influencerSortName(b.g.influencer), _d);
     });
   } else if (_campDelivSort.col === 'cert_at') {
     // ⚠️ 인증 성공 전인 건은 날짜가 없다. **방향과 무관하게 뒤로** — 결과물 관리와 같은 규약이고,
     //    이 열은 빈 칸이 절반을 넘어 오름차순에서 앞을 다 채우면 아무것도 못 보게 된다.
     const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
-    list.sort((a, b) => {
-      const av = certSuccessAt(a) || '', bv = certSuccessAt(b) || '';
+    items.sort((a, b) => {
+      const av = certAtOf(a), bv = certAtOf(b);
       if (!av && !bv) return 0;
       if (!av) return 1;
       if (!bv) return -1;
-      return av.localeCompare(bv) * _d;
+      return cmpTime(av, bv) * _d;
     });
   } else if (_campDelivSort.col === 'submitted') {
     const _d = _campDelivSort.dir === 'desc' ? -1 : 1;
-    list.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * _d);
+    items.sort((a, b) => cmpTime(submittedOf(a), submittedOf(b)) * _d);
   } else {
     // 최근 제출 순(미제출은 뒤로)
-    list.sort((a, b) => (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || ''));
+    items.sort((a, b) => cmpTime(submittedOf(b), submittedOf(a)));
   }
   _applySortArrows('campDelivHead', _campDelivSort);
 
-  tbody.innerHTML = list.length
-    ? list.map(g => renderDelivAppRow(g, { compact: true })).join('')
+  tbody.innerHTML = items.length
+    ? items.map(it => it.ext ? renderCampDelivExtRow(it.ext) : renderDelivAppRow(it.g, { compact: true })).join('')
     : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px">${
         (_campDelivCertFrom || _campDelivCertTo)
           ? '이 기간에 인증 성공한 건이 없습니다.<br><span style="font-size:12px">인증 성공일은 인증이 끝난 건에만 있어, 진행 중인 건은 기간을 지정하면 빠집니다.</span>'
           : '해당하는 결과물이 없습니다'
       }</td></tr>`;
+  if (note) note.style.display = extList.length ? '' : 'none';
   hydrateDeliverableMedia(tbody);   // 비공개 통 영수증(548) 서명
   return totalAllGroups;
+}
+
+// ── 진행현황 결과물 표의 외부 줄(조각 나 · 피그마 a05-06 · 사양서 16-5 15번 ③⑤⑦) ─────────
+//   외부 줄은 admin-camp-ext.js 가 받아 둔 _campExt.data 를 읽기만 한다 — 줄 만들기는
+//   reportExtRowSubmitted + _reportExtToRow(rules:'campaign')(report-rows.js) 한 곳(사본 금지).
+//   ⚠️ 외부 조회 실패(null)·546 없음({missing:true})·다른 캠페인 데이터면 [] — 외부 없이 그린다(표를 막지 않는다).
+//   ⚠️ 필터·정렬을 누를 때마다 loadCampApplicants → loadCampExtSources 가 _campExt.data 를 null 로 비우고 다시 받는다.
+//      그 사이(조회 중)에는 같은 캠페인의 마지막 성공 줄(_campDelivExtLast)을 쓴다 — 안 그러면 누를 때마다 외부 줄·숫자가
+//      사라졌다 나타난다. 조회가 끝나 실패(null)로 확정되면 campExtRowsChanged 가 보관값을 지운다(실패를 옛 줄로 꾸미지 않는다).
+let _campDelivExtLast = null;   // { campaignId, data }
+function _campDelivExtRows(camp) {
+  if (!camp || typeof _campExt === 'undefined' || !_campExt) return [];
+  let d = _campExt.data;
+  if (d && !d.missing && _campExt.campaignId === camp.id && Array.isArray(d.ext_rows)) {
+    _campDelivExtLast = { campaignId: camp.id, data: d };
+  } else if (!d && _campDelivExtLast && _campDelivExtLast.campaignId === camp.id) {
+    d = _campDelivExtLast.data;   // 조회 중 — 마지막 성공값
+  } else {
+    return [];
+  }
+  if (typeof reportExtRowSubmitted !== 'function' || typeof _reportExtToRow !== 'function') return [];
+  const srcById = {};
+  (Array.isArray(d.sources) ? d.sources : []).forEach(s => { srcById[s.id] = s; });
+  return d.ext_rows.filter(reportExtRowSubmitted).map(r => {
+    const row = _reportExtToRow(r, srcById[r.source_id], { rules: 'campaign', campaign: { campaign_no: camp.campaign_no || '', campaign_name: camp.title || '' } });
+    row._review_kind = r.review_kind || '';
+    // 최근 제출 = 영수증·큐텐·엣코스메 날짜 중 가장 늦은 것
+    let latest = '', latestT = -Infinity;
+    [row.receipt_uploaded_at, row.ch_qoo10_at, row.ch_cosme_at].forEach(v => {
+      const t = v ? new Date(v).getTime() : NaN;
+      if (!isNaN(t) && t > latestT) { latestT = t; latest = v; }
+    });
+    row._latest_at = latest;
+    return row;
+  });
+}
+
+// 외부 줄의 인증 상태 탭 갈래 — 「인증성공」(미션 「완료」)만 success, 그 밖은 인증샷 제출중
+//   (_reportExtToRow 가 「미완료」 → 「인증샷 제출중」, 그 밖 미션 상태는 원문으로 준다 — 원문도 제출중 갈래로 센다)
+function _campDelivExtCert(r) { return r && r.status === '인증성공' ? 'success' : 'submitting'; }
+// 외부 줄의 인증 성공일 — 인증성공 줄의 최근 제출일(외부 파일에 인증일이 따로 없다)
+function _campDelivExtCertAt(r) { return _campDelivExtCert(r) === 'success' ? (r._latest_at || '') : ''; }
+
+// 외부 줄 1행 — 칸 구성은 renderDelivAppRow(compact) 8열과 같다. 이름·채널은 없고, 검수·대리 등록이 없어 처리 칸은 「—」
+function renderCampDelivExtRow(r) {
+  const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
+  const success = _campDelivExtCert(r) === 'success';
+  const badge = `<span class="badge ${success ? 'badge-green' : 'badge-gold'}" style="${st}">${esc(r.status || '인증샷 제출중')}</span>`;
+  const muted = '<span style="color:var(--muted)">—</span>';
+  // 주소 칸은 여러 개가 줄바꿈으로 올 수 있다 — 열 수 있는 것만 링크(report-rows.js reportIsLinkable)
+  const links = (v, label) => {
+    const list = String(v || '').split(/\r?\n/).map(u => u.trim()).filter(Boolean);
+    if (!list.length) return '';
+    return list.map((u, i) => {
+      const text = esc(label + (list.length > 1 ? ' ' + (i + 1) : ''));
+      return (typeof reportIsLinkable === 'function' && reportIsLinkable(u))
+        ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text;
+    }).join(' · ');
+  };
+  const kindTxt = r._review_kind === 'photo' ? ' (사진)' : (r._review_kind === 'text' ? ' (글)' : '');
+  const results = [links(r.ch_qoo10_url, '큐텐 리뷰' + kindTxt), links(r.ch_cosme_url, '엣코스메 리뷰' + kindTxt)].filter(Boolean);
+  // ⚠️ Number('') 가 0 이라 빈 값을 먼저 거른다(「¥0」 방지)
+  const amt = (r.amount === '' || r.amount === null || r.amount === undefined || !Number.isFinite(Number(r.amount)))
+    ? muted : `<div style="font-weight:600">¥${Number(r.amount).toLocaleString('ja-JP')}</div>`;
+  const certAt = _campDelivExtCertAt(r);
+  return `<tr data-ext-source="${esc(r._source_id || '')}">
+    <td><div style="font-size:13px;white-space:nowrap">외부 · 회원 ${esc(r._member_no || '')}</div></td>
+    <td style="white-space:nowrap">${badge}</td>
+    <td style="white-space:nowrap;font-size:12px">${certAt ? esc(formatDate(certAt)) : muted}</td>
+    <td class="deliv-col-receipt" style="font-size:12px">${links(r.receipt_url, '보기') || muted}</td>
+    <td class="deliv-col-receipt-amount" style="white-space:nowrap;font-size:12px;text-align:right">${amt}</td>
+    <td class="deliv-col-result" style="font-size:12px">${results.length ? results.join('<br>') : muted}</td>
+    <td class="deliv-col-submitted">${r._latest_at ? `<span style="font-size:12px">${esc(formatDate(r._latest_at))}</span>` : muted}</td>
+    <td class="deliv-col-action">${muted}</td>
+  </tr>`;
+}
+
+// 외부 데이터가 늦게 오거나 바뀌면(파일 붙이기·업데이트·떼기) 다시 그린다 — admin-camp-ext.js 의
+//   loadCampExtSources 가 끝에서 부른다(kemo-45 와의 약속). 다시 조회하지 않고 마지막 loadCampApplicants 재료로 그린다.
+//   지금 보고 있는 캠페인이 아니면 아무것도 안 한다.
+let _campDelivCtx = null;
+function campExtRowsChanged() {
+  // 조회가 끝났다 — 실패(null)·546 없음이면 마지막 성공값을 버린다(아래 그리기가 외부 없이 그린다)
+  if (typeof _campExt !== 'undefined' && _campExt && (!_campExt.data || _campExt.data.missing)
+      && _campDelivExtLast && _campDelivExtLast.campaignId === _campExt.campaignId) _campDelivExtLast = null;
+  const c = _campDelivCtx;
+  if (!c || !c.camp || c.camp.id !== currentCampApplicantId) return;
+  const delivTotal = renderCampDelivTab(c.camp, c.allDelivs, c.allApps, c.users);
+  renderCampDetailTabs(c.appCount, delivTotal, c.ticketTotal);
+  // 현황 카드만 바꿔 끼운다(renderCampOpsSummary 를 다시 부르면 비용 카드 조회가 또 돈다). 행사 카드에는 외부 숫자가 없다.
+  const card = $('campOpsStatusCard');
+  if (card && !_campDetailIsEvent) {
+    card.outerHTML = campOpsStatusCard(c.camp, c.allApps, c.delivFetched, c.stats);
+    if (typeof campExtFillCount === 'function') campExtFillCount();
+    if (typeof campShipFillSummaryBar === 'function') campShipFillSummaryBar();
+  }
 }
 
 // 신청 1건의 검수 진행 상태 — 「검수 상태」 드롭다운 판정용.
@@ -48353,17 +48483,27 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   // ⚠️ 결과물 조회 실패(null)면 아래 두 막대는 「—」 — 0% 로 그리면 실패가 「아무도 안 냄」으로 보인다(전수조사 3차 ③-5)
   const delivKnown = Array.isArray(allDelivs);
   const submittedInf = delivKnown ? new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size : null;
-  const submitPct = (delivKnown && approved > 0) ? Math.round(submittedInf / approved * 100) : null;
   // 3번째 진행바: 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
   const certSuccess = !delivKnown ? null : ((typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0);
-  const certPct = (delivKnown && slots > 0) ? Math.round(certSuccess / slots * 100) : null;
-  return `<div class="camp-ops-card">
+  // 외부 결과 파일의 제출한 줄(사양서 16-5 15번 ③ — 줄 하나 = 한 명 = 결과물 한 건)을 제출·인증 성공의 분자·분모에 더한다.
+  //   모집현황 막대는 REVERB 만 센다(⑦) — 외부는 그 줄 끝 「· 외부 N명」(#campOpsExtCount, campExtFillCount 가 채움)
+  //   ⚠️ 외부 데이터가 실패·없음이면 0 을 더한다(외부 없이 그린다 — REVERB 숫자를 막지 않는다)
+  const ext = _campDelivExtRows(camp);
+  const extSubmitted = ext.length;
+  const extSuccess = ext.filter(r => _campDelivExtCert(r) === 'success').length;
+  const subNum = delivKnown ? submittedInf + extSubmitted : null;
+  const subDen = approved + extSubmitted;
+  const submitPctAll = (delivKnown && subDen > 0) ? Math.round(subNum / subDen * 100) : null;
+  const certNum = delivKnown ? certSuccess + extSuccess : null;
+  const certDen = slots + extSubmitted;
+  const certPct = (delivKnown && certDen > 0) ? Math.round(certNum / certDen * 100) : null;
+  const extCountHtml = '<span id="campOpsExtCount" style="display:none" title="캠페인에 붙인 외부 결과 파일의 참가자 수 — 브랜드 페이지 응모·참여 숫자에 더해진다"></span>';
+  return `<div class="camp-ops-card" id="campOpsStatusCard">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
-    ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
-    <div id="campOpsExtCount" style="display:none;margin:-4px 0 6px;font-size:11px;color:var(--muted);text-align:right" title="캠페인에 붙인 외부 결과 파일의 참가자 수 — 브랜드 페이지 응모·참여 숫자에 더해진다"></div>
+    ${brandOpsRateBar('모집현황', recruitPct, approved, slots, extCountHtml)}
     ${_campDetailShipOn ? '<div id="campOpsShipBar"></div>' : ''}
-    ${delivKnown ? brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
-    ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certSuccess, slots) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
+    ${delivKnown ? brandOpsRateBar('결과물 제출', submitPctAll, subNum, subDen) : brandOpsRateBar('결과물 제출 (불러오지 못함)', null)}
+    ${delivKnown ? brandOpsRateBar('인증 성공', certPct, certNum, certDen) : brandOpsRateBar('인증 성공 (불러오지 못함)', null)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
       <span>승인 <strong style="color:var(--green)">${approved}</strong>명</span>
