@@ -500,3 +500,21 @@
   - 브랜드 카드 하루담 경고 줄은 아직 「모집률 3%」(기록용 정원 포함, 칸 없음 → 대신 값)다. 조각 4 뒤에 다시 본다.
   - ⚠️ 로그아웃·회원 상태와 일본어 모드 문구는 아직 안 봤다(조각 2와 함께 마지막에).
 - **reverb-reviewer**: 두 번 다 GO. 남긴 주의 하나 — 세션 중 새로 공개된 캠페인을 목록 갱신(최대 10초) 전에 상세 주소로 열면, 예전엔 무반응이던 것이 이제 「공개되지 않았습니다」로 뜬다(빈도 낮음, 받아들임).
+
+### 조각 10·11 (kemo-af — 2026-10-23, 데이터베이스 변경 없음 · 개발서버)
+
+- **#2327**(병합 — 588 dev 병합·개발 DB 적용 뒤) + 후속 메뉴 닫기 한 줄(이 문서를 고친 병합 요청)
+- 등록 폼(`dev/admin/index.html` `#newCampRecordOnlyBox`): 노출 안내 줄 아래·오프라인 행사 상자 위. 켜면 `.record-only-box.on`(`--accent-tint` 바탕 · `--accent` 테두리 — 피그마 연보라 대신 관리자 토큰 그대로). 설명은 `campRecordOnlyDescText`, 그리기는 `renderCampRecordOnlyBox`(admin.js)
+  - 초기화: `admin-core.js` add-campaign 블록에서 `resetNewCampRecordOnly()` 를 노출 스위치 초기화 **앞**에(노출 안내가 체크를 읽는다). 「저장 안 한 변경」 기준값은 그 뒤에 떠서 새 체크가 잡힌다
+  - `addCampaign`: 채널 검사 뒤 행사 조합 막기(S4) → 브랜드 바뀜 확인 → 제품 금액 0 확인(S10) → **기록용 확인 모달(a05-08)** → 오리엔시트 일본어 게이트 순. 삽입 payload 에 `is_record_only` 를 **항상** 싣는다(🔴 운영 순서 ③ — 588 먼저)
+  - 오리엔시트 「이 카드로 발행」은 `switchAdminPane('add-campaign')` 로 초기화한 뒤 채우고 체크를 건드리지 않는다 — 코드 변경 없음(작업표 예상대로)
+- 노출 안내(`setCampVisibilitySub`): 노출 스위치 + 기록용 체크 두 축, S5 표 네 칸 그대로. 🔴 브랜드 문장은 `_brandAccountEnabled()` 일 때만(S15) — 등록 설명·편집 설명·끄기 확인·편집 힌트·노출 열 안내 모두 같은 규칙
+- 편집 폼(`#editCampRecordOnlyBox.is-locked`, 체크 `disabled`): `openEditCampaign` 이 행사 체크 바로 뒤에서 채운다(기준값 캡처보다 앞). 일반이면 「일반 캠페인입니다 — 등록한 뒤에는 기록용으로 바꿀 수 없습니다」(S16). `saveCampaignEdit` 는 `is_record_only` 를 안 보낸다(주석 명시) · 행사 조합 막기는 편집 저장에도 있다
+- 노출 끄기 확인: 편집 폼 토글은 편집 체크로, 목록 빠른 토글은 `allCampaigns` 캐시(`_campIsRecordOnlyById`)로 판정해 `campVisibilityOffConfirmText` 한 곳에서 문구를 고른다. 편집 힌트는 `campVisibilityOffHintText`(편집 상자 그릴 때 바꿈). 심사중 낙첨 확인은 손대지 않음
+- 모달: 동적 헬퍼 `showCampChoiceModal`(z-index 615 · ESC 는 캡처 단계에서 받아 ui.js 전역 처리기와 안 겹침 · 바깥 클릭 = 취소). 등록 확인 `confirmRecordOnlyRegister`, 복제(S3) 고르는 창 셋 다 이것
+- `friendlyError`(admin-core.js): `record_only_locked`·`campaigns_record_only_not_event` — 일반 check constraint 규칙보다 앞
+- 목록(조각 11): 배지 줄 조건에 `isRecordOnlyCampaign(c)` 를 더해 **운영(브랜드 공개 조회 없음)에서도** 「기록용」이 따로 보인다. 필터 `#campRecordOnlyFilter`(「브랜드 공개」 옆) — `updateCampViewResetBtn`·`resetCampView`·`isFiltered`(순서 변경 막기)에 넣고 「삭제됨」 탭에서는 그룹을 숨긴다(그 탭에서도 초기화 단추 갱신 — 리뷰 지적 반영). 노출 열 머리 `title` 두 판(S15)
+- **개발서버 눈 확인**(admin@kemo.jp, 마우스로): 목록 배지·필터(「기록용만」 1건 → 「보기 초기화」로 풀림) · 복제 고르는 창(ESC 취소, 건수 그대로) · 편집 잠금·설명·힌트 · 등록 체크 → 연보라 + 안내 줄 · 행사 조합 안내 · 금액 0 확인 뒤 a05-08 모달(「취소」 = 입력 유지, 「기록용으로 등록」 = 저장 → DB `is_record_only=true`) · 재진입 시 체크 꺼짐. 끄기 확인·일반 편집 설명·노출 열 안내는 브라우저 기본 확인창이라 함수 값으로만 대조. ⚠️ 운영 판(브랜드 문장 없는 문구)은 개발서버에서 볼 수 없어 함수 분기만 확인
+  - 발견 1건 → 후속 수정: 더보기 「복제」를 누르면 메뉴가 고르는 창 위에 남았다 → `duplicateCampaign` 맨 앞에서 메뉴를 닫는다
+- **시험 캠페인**(개발 DB — 행 삭제 목록에 넣음): B0046-C008 「zz-기록용 등록 시험」(`590921b3-0789-480d-963e-eda30c53aa47`, 기록용 · active · 제품 금액 0)
+- **reverb-reviewer**: Critical 0 · Warning 3(배포 순서 — 병합 요청에 명시 / 삭제됨 탭 초기화 단추 — 수정 / 모달이 열린 채 화면이 바뀌는 경우 — 실사용 경로 없음)
