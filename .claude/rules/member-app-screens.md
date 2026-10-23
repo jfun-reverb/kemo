@@ -16,7 +16,8 @@ paths:
 ---
 
 # 회원 앱 화면 (CLAUDE.md 인플루언서 기능 절에서 옮겨 옴 — 2026-10-01 조각 D′)
-- **캠페인 목록**: 채널·모집유형 필터. 노출 대상은 active + scheduled + closed(노출 ON)
+- **캠페인 목록**: 채널·모집유형 필터. 노출 대상은 active + scheduled + closed(노출 ON). 🔴 **거르는 곳은 `visibleCamps`(campaign.js) 한 곳**(건수·채널 칩·목록·홈 넷이 부른다) — 초대 전용과 **기록용 캠페인**(588)을 뺀다. 기록용은 서버 조회 정책(589)도 관리자가 아니면 행을 안 준다
+- **상세 직접 진입 차단**(`openCampaign`): `draft`·`expired`·**기록용**·**목록에 없는 캠페인**(보관 삭제 포함)은 「このキャンペーンは現在公開されていません」("이 캠페인은 현재 공개되지 않았습니다") + 목록으로. 미리보기(`preview-mode`)만 통과. 새 갈래(기록용·못 찾음)는 **이동을 먼저** 하고 떠날 때 확인에서 막히면 안내를 안 띄운다 · 목록 조회 실패(`_campaignsLoadFailed`)면 아무것도 안 한다
 - **캠페인 카드 배지**: 좌상단 `募集中`(active), 우상단 `NEW`(7일 이내), 제목 위 `締切間近`(deadline<5일 또는 잔여 slots≤30%), 콘텐츠 종류 아래 모집타입 pill + `{applied}/{slots}名` 슬롯 카운트, 이미지 좌하단 첫 채널+`+N`
 - **캠페인 목록 탭별 주소**: `#campaigns`·`#campaigns-reviewer`·`-gifting`·`-visit`. 판정은 `isCampaignsHash`·`campPageTypeFromHash`(campaign.js) **두 함수로만** — `'campaigns'` 와 정확히 같은지로 판정하는 자리를 새로 만들면 탭 주소에서 빈 화면. 탭 클릭은 `pushState`(메타 픽셀이 페이지뷰 1건으로 셈), 같은 탭 재클릭은 무동작. 🔴 `loadCampaignsPage(목표 주소)` — 부르기 전 `location.hash` 를 읽지 말 것. 사양서 `docs/specs/2026-09-30-campaign-list-tab-url.md`
 - **상세 뒤로 단추 = 온 곳으로**: 출처(`_detailFrom` 응모이력/홈/목록+탭)와 단추 이름은 `openCampaign()` **한 곳에서 떠 있던 화면으로** 정한다(상세 안 재호출은 유지). ⚠️ 이름표는 초대 게이트 갈래보다 **앞**에서 붙인다. `history.back()` 금지(직접 진입이면 사이트를 떠난다)
