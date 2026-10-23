@@ -78,7 +78,7 @@ ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
 # ⚠️ image-compress.js 는 storage.js 의 uploadMessageAttachment 가 부른다. 이 목록에 없던
 #    동안 관리자 화면에서 메시지에 이미지를 첨부하면 **함수가 없어 반드시 실패**했다
 #    (2026-08-12 발견 — 정의 0개 / 호출 1개). 캠페인 이미지 축소에도 쓴다.
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-cs-common.js" "js/admin-cs-history.js" "js/admin-cs-panel.js" "js/admin-ad-tracking.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-brand-detail.js" "js/admin-brand-sanction.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/report-rows.js" "js/report-parsers.js" "js/admin-reports.js" "js/admin-brand-publish.js" "js/admin-camp-ext.js" "js/admin-shipping.js" "js/admin-privacy-logs.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/image-compress.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-cs-common.js" "js/admin-cs-history.js" "js/admin-cs-panel.js" "js/admin-ad-tracking.js" "js/admin-orient.js" "js/admin-brand.js" "js/admin-brand-detail.js" "js/admin-brand-sanction.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-roadmap.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin-permissions.js" "js/admin-settlements.js" "js/admin-outbound.js" "js/admin-event.js" "js/admin-campaign-dirty.js" "js/report-rows.js" "js/report-parsers.js" "js/admin-reports.js" "js/admin-brand-publish.js" "js/admin-camp-ext.js" "js/admin-shipping.js" "js/shipping-excel-core.js" "js/admin-shipping-excel.js" "js/admin-privacy-logs.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
@@ -205,7 +205,7 @@ fi
 #    storage.js·ui.js 는 싣지 않는다 — 자립형 화면(admin-setpw.html·event-scan.html·report.html 과 같은 줄).
 # ══════════════════════════════════════
 BRAND_CSS_FILES=("css/brand.css")
-BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-invite.js" "js/brand-shell.js" "js/brand-info.js" "js/brand-orient.js" "js/brand-orient-form.js" "js/report-rows.js" "js/brand-campaigns.js" "js/brand-campaign-results.js" "js/brand-shipping.js" "js/brand-shipping-excel.js" "js/brand-members.js" "js/brand-mypage.js" "js/brand-app.js")
+BRAND_JS_FILES=("lib/supabase.js" "js/brand-core.js" "js/brand-login.js" "js/brand-invite.js" "js/brand-shell.js" "js/brand-info.js" "js/brand-orient.js" "js/brand-orient-form.js" "js/report-rows.js" "js/brand-campaigns.js" "js/brand-campaign-results.js" "js/brand-shipping.js" "js/shipping-excel-core.js" "js/brand-shipping-excel.js" "js/brand-members.js" "js/brand-mypage.js" "js/brand-app.js")
 if [ -f brand/index.html ]; then
   mkdir -p ../brand
   : > "$BUILD_TMP/brand.css"

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792736149';
+  var CURRENT_BUILD = 'v1792737120';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3686,7 +3686,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 15:15 · e628c3f</span>
+          <span class="admin-build-text">2026-10-23 15:32 · 1204275</span>
         </div>
       </div>
     </aside>
@@ -63380,7 +63380,7 @@ async function detachCampExtSource(sourceId) {
 //   · 줄 상태·기한·「새로 추가」·탈퇴 표시는 서버가 정한다(_shipping_rows_payload) — 화면은 그대로 그린다
 //   · 송장 형식(D6)은 화면에서도 검사하되 최종 판정은 서버(_shipping_check_row)
 //   · 송장 지우기(D1) = tracking_no:null 로 저장 — 택배사·발송일도 함께 비워진다
-//   · 관리자 엑셀은 1차에 두지 않는다(D10)
+//   · 관리자 엑셀은 주소·전화 없는 「송장 양식」 내려받기 + 올리기만(D10 의 이유 유지 — admin-shipping-excel.js, 전달 뒤에만)
 //   · 「전달·열람 기록」 모달은 최고 관리자만(D26) — 초록 요약 줄은 배송 권한이 있는 모두
 //   🔴 탭·단추·조회는 _brandAccountEnabled()(개발서버)일 때만 — 운영엔 554·557 이 없다. 판정은 campShippingTabOn() 한 곳
 // ════════════════════════════════════════════════════════════════════
@@ -63595,6 +63595,7 @@ function renderCampShipping() {
     actions = '<button type="button" class="btn btn-primary btn-sm" style="flex-shrink:0" ' + (noAccount ? 'disabled title="비밀번호를 정한 브랜드 계정이 없습니다"' : 'onclick="openShipDeliverModal()"') + '>'
       + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">send</span> 배송 리스트 전달</button>';
   }
+  if (typeof shipXlAdminButtonsHtml === 'function') actions += shipXlAdminButtonsHtml(d);   // 전달 뒤 송장 양식·엑셀 올리기(admin-shipping-excel.js)
 
   let banner = '';
   if (d.deleted) {
@@ -63934,6 +63935,511 @@ async function toggleShipLogPersons(btn, logId) {
   if (!persons) { cell.textContent = '사람 목록을 불러오지 못했습니다.'; return; }
   cell.dataset.loaded = '1';
   cell.textContent = persons.length ? persons.map(function (p) { return p.name || '(이름 없음)'; }).join(' · ') : '사람 목록이 비어 있습니다.';
+}
+
+// 배송 리스트 엑셀 — 브랜드·관리자 공용 순수 함수(화면·전역 상태·바로 실행되는 줄 없음)
+//   브랜드 빌드(brand-shipping-excel.js 앞) · 관리자 빌드(admin-shipping-excel.js 앞) 둘 다 싣는다
+//   🔴 빌드가 이어붙이기라 전역이 하나다 — 이 파일의 최상위 이름은 모두 SHIPXL_ / shipXl 머리말(겹치면 그 앱 전체가 문법 오류로 안 뜬다)
+//   🔴 송장 형식 정규식·ExcelJS 로더·이름 표시는 받는 쪽이 넘긴다(사본을 더 만들지 않는다)
+//   🔴 파일·칸 값을 콘솔·오류 기록에 싣지 않는다(결정 3 — 관리자 앱은 오류 수집이 붙어 있다)
+//   작업표 docs/specs/2026-10-19-brand-seeding-shipping-list-breakdown.md 조각 S6 · 결정 D1·D3·D7·D8·D21
+
+const SHIPXL_MAX_BYTES = 5 * 1024 * 1024;   // D7
+const SHIPXL_MAX_ROWS = 2000;               // D7 — 서버 저장 함수 상한과 같다
+const SHIPXL_OTHER_LABEL = '기타';
+// D3 열 순서·머리글 이름 단일 소스 — key 는 올리기에서 찾는 칸. 내려받기·올리기가 같은 목록을 쓴다
+//   pii: 우편번호·주소·전화 — 관리자 「송장 양식」에는 넣지 않는다
+const SHIPXL_HEADS = [
+  { key: 'row_no', label: '줄 번호', w: 9 },
+  { key: 'name', label: '이름(한자)', w: 16 },
+  { key: 'kana', label: '이름(가나)', w: 18 },
+  { key: 'zip', label: '우편번호', w: 11, text: true, pii: true },
+  { key: 'addr', label: '주소', w: 44, pii: true },
+  { key: 'phone', label: '전화번호', w: 16, text: true, pii: true },
+  { key: 'status', label: '상태', w: 16 },
+  { key: 'carrier', label: '택배사', w: 16 },
+  { key: 'other', label: '택배사 이름(기타일 때)', w: 22 },
+  { key: 'tracking', label: '송장번호', w: 22, text: true },
+  { key: 'shipped_on', label: '발송일', w: 12, text: true }
+];
+// 파일 읽기 오류 코드 → 받는 쪽이 문구로 바꾼다
+//   not_xlsx · too_big · too_many · read_fail · no_head · no_notice · other_campaign
+
+function shipXlStatusText(r) {
+  if (r.status === 'shipped') return '발송함';
+  if (r.status === 'overdue') return '발송 전 · 기한 지남';
+  if (r.status === 'cancelled') return '취소됨';
+  return '발송 전';
+}
+// 내려받기 「택배사」 두 칸 — 목록에 있는 택배사는 이름, 「기타」 직접 입력·목록에서 꺼진 택배사는 「기타」 + 이름(결정 8 — 그대로 다시 올려도 반영되게)
+function shipXlCarrierCells(r) {
+  if (r.carrier_code && r.carrier_active !== false) return [r.carrier_name || '', ''];
+  const name = r.carrier_code ? (r.carrier_name || '') : (r.carrier_other || '');
+  return name ? [SHIPXL_OTHER_LABEL, name] : ['', ''];
+}
+// 글자 비교용 — 전각·반각·띄어쓰기·대소문자 차이를 없앤다
+function shipXlNorm(s) { return String(s == null ? '' : s).normalize('NFKC').replace(/\s+/g, '').toLowerCase(); }
+function shipXlPad2(n) { return String(n).padStart(2, '0'); }
+function shipXlDateYmd(dt) {   // 엑셀 날짜 칸은 그날 0시(UTC)로 읽힌다
+  return dt.getUTCFullYear() + '-' + shipXlPad2(dt.getUTCMonth() + 1) + '-' + shipXlPad2(dt.getUTCDate());
+}
+// 칸 값 → 글자
+function shipXlCellText(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return shipXlDateYmd(v);
+  if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 0 }) : String(v);
+  if (typeof v === 'object') {
+    if (Array.isArray(v.richText)) return v.richText.map(t => t.text || '').join('');
+    if ('result' in v) return shipXlCellText(v.result);   // 수식 칸 — 계산된 값
+    if ('text' in v) return shipXlCellText(v.text);       // 링크 칸
+    return '';
+  }
+  return String(v);
+}
+// 발송일 칸 → 'YYYY-MM-DD' | '' (빈칸) | null (형식 오류)
+function shipXlParseDate(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (v && typeof v === 'object' && !(v instanceof Date) && 'result' in v) return shipXlParseDate(v.result);
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return null;
+    return shipXlDateYmd(v);
+  }
+  if (typeof v === 'number') {   // 날짜 일련번호(1900 기준)
+    if (v < 20000 || v > 80000) return null;
+    return shipXlDateYmd(new Date(Math.round((v - 25569) * 86400000)));
+  }
+  const s = shipXlCellText(v).normalize('NFKC').trim();
+  if (!s) return '';
+  const mt = s.match(/^(\d{4})\s*[-\/.年]\s*(\d{1,2})\s*[-\/.月]\s*(\d{1,2})\s*日?$/);
+  if (!mt) return null;
+  const y = Number(mt[1]), m = Number(mt[2]), d = Number(mt[3]);
+  const chk = new Date(Date.UTC(y, m - 1, d));
+  if (chk.getUTCFullYear() !== y || chk.getUTCMonth() !== m - 1 || chk.getUTCDate() !== d) return null;
+  return shipXlDateYmd(chk);
+}
+// 맨 위 안내 줄 — 올리기는 이 「캠페인 번호」로 다른 캠페인 파일을 거른다(D21). 🔴 문장을 바꾸면 shipXlReadFile 의 정규식도 본다
+function shipXlNoticeText(campaignNo, forAdmin) {
+  if (forAdmin) {
+    return '캠페인 번호 ' + campaignNo + ' · 운영팀 송장 입력용 양식입니다(우편번호·주소·전화번호는 넣지 않았습니다). ' +
+      '송장을 올릴 때는 이 줄과 「줄 번호」 칸을 지우거나 고치지 마십시오.';
+  }
+  return '캠페인 번호 ' + campaignNo + ' · 이 파일의 이름·주소·전화번호는 제품 배송에만 쓰고, 배송이 끝나면 이 파일을 지워 주십시오(이용약관 제8조). ' +
+    '송장을 올릴 때는 이 줄과 「줄 번호」 칸을 지우거나 고치지 마십시오.';
+}
+
+// 파일 → { error:코드 } | { rows:[{ excelRow, rowNoText, carrier, other, tracking, date }] }
+//   loadExcel: ExcelJS 를 불러오는 함수(Promise) — 각 앱 것
+async function shipXlReadFile(file, campaignNo, loadExcel) {
+  if (!/\.xlsx$/i.test(file.name || '')) return { error: 'not_xlsx' };
+  if (file.size > SHIPXL_MAX_BYTES) return { error: 'too_big' };
+  let wb;
+  try {
+    await loadExcel();
+    wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+  } catch (e) { return { error: 'read_fail' }; }
+  // 머리글 줄 찾기 — 첫 시트부터, 위쪽 10줄 안에서 「줄 번호」·「송장번호」가 함께 있는 줄
+  //   (관리자 양식은 맨 위에 「사내용」 줄이 하나 더 붙어 머리글이 3행이다 — 그래도 찾는다)
+  for (const ws of wb.worksheets) {
+    let headRow = 0, cols = null;
+    for (let i = 1; i <= Math.min(10, ws.rowCount); i++) {
+      const map = {};
+      ws.getRow(i).eachCell({ includeEmpty: false }, (cell, col) => {
+        const h = shipXlNorm(shipXlCellText(cell.value));
+        if (h === shipXlNorm('줄 번호')) map.row_no = map.row_no || col;
+        else if (h === shipXlNorm('택배사')) map.carrier = map.carrier || col;
+        else if (h.indexOf(shipXlNorm('택배사 이름')) === 0) map.other = map.other || col;
+        else if (h === shipXlNorm('송장번호')) map.tracking = map.tracking || col;
+        else if (h === shipXlNorm('발송일')) map.shipped_on = map.shipped_on || col;
+      });
+      if (map.row_no && map.tracking) { headRow = i; cols = map; break; }
+    }
+    if (!headRow) continue;
+    if (!cols.carrier) return { error: 'no_head' };
+    // 다른 캠페인 판별(D21) — 머리글 위 안내 줄의 캠페인 번호
+    if (headRow < 2) return { error: 'no_notice' };
+    let notice = '';
+    for (let i = 1; i < headRow; i++) ws.getRow(i).eachCell({ includeEmpty: false }, cell => { notice += ' ' + shipXlCellText(cell.value); });
+    const mt = notice.normalize('NFKC').match(/캠페인\s*번호\s*([A-Za-z0-9-]+)/);
+    if (!mt) return { error: 'no_notice' };
+    if (mt[1].toUpperCase() !== String(campaignNo).toUpperCase()) return { error: 'other_campaign' };
+    const rows = [];
+    for (let i = headRow + 1; i <= ws.rowCount; i++) {
+      const row = ws.getRow(i);
+      const raw = k => (cols[k] ? row.getCell(cols[k]).value : null);
+      const rec = {
+        excelRow: i,
+        rowNoText: shipXlCellText(raw('row_no')).normalize('NFKC').trim(),
+        carrier: shipXlCellText(raw('carrier')).normalize('NFKC').trim(),
+        other: shipXlCellText(raw('other')).normalize('NFKC').trim(),
+        tracking: shipXlCellText(raw('tracking')).normalize('NFKC').trim(),
+        date: shipXlParseDate(raw('shipped_on'))
+      };
+      if (!rec.rowNoText && !rec.carrier && !rec.other && !rec.tracking && rec.date === '') continue;   // 빈 줄
+      rows.push(rec);
+      if (rows.length > SHIPXL_MAX_ROWS) return { error: 'too_many' };
+    }
+    return { rows };
+  }
+  return { error: 'no_head' };
+}
+
+// 파일 줄 × 새로 받은 리스트 → 미리 보기 분류
+//   새로 등록(송장 없던 줄) · 바뀜(이전 번호) · 그대로 · 반영 안 됨 — 반영은 앞의 둘만
+//   opts: { trackingRe(송장 형식 — 받는 쪽 사본), nameOf(줄 → 표시 이름) }
+//   반영할 줄은 저장 값 대신 { rowNo, name, prev, tracking, carrierName, cur, save:{carrier_code, carrier_other, tracking_no, shipped_on} } —
+//   줄 열쇠(브랜드 row_no / 관리자 application_id)와 버전은 받는 쪽이 cur 에서 붙인다
+function shipXlPlan(fileRows, list, opts) {
+  const nameOf = opts.nameOf;
+  const byNo = new Map((Array.isArray(list.rows) ? list.rows : []).filter(r => r.row_no != null).map(r => [Number(r.row_no), r]));
+  const carriers = Array.isArray(list.carriers) ? list.carriers : [];
+  const plan = { add: [], change: [], same: [], skip: [] };
+  const seen = new Set();
+  const skip = (rec, cur, reason) => plan.skip.push({ rowNo: rec.rowNoText || '', excelRow: rec.excelRow, name: cur ? nameOf(cur) : '', reason });
+  fileRows.forEach(rec => {
+    if (!rec.rowNoText) { skip(rec, null, 'no_row'); return; }
+    if (!/^\d{1,9}$/.test(rec.rowNoText)) { skip(rec, null, 'format_row'); return; }
+    const no = Number(rec.rowNoText);
+    if (seen.has(no)) { skip(rec, byNo.get(no), 'duplicate'); return; }
+    seen.add(no);
+    const cur = byNo.get(no);
+    if (!cur) { skip(rec, null, 'no_row'); return; }
+    const curTrack = cur.tracking_no || '';
+    const curCarrierName = cur.carrier_name || cur.carrier_other || '';
+    // 파일 택배사 → 저장할 값(목록 코드 또는 「기타」 이름) · 비교용 이름
+    const isOther = shipXlNorm(rec.carrier) === shipXlNorm(SHIPXL_OTHER_LABEL);
+    const fileCarrierName = isOther ? rec.other : rec.carrier;
+    const hit = !isOther && rec.carrier ? carriers.find(c => shipXlNorm(c.name) === shipXlNorm(rec.carrier)) : null;
+    // 1) 아무것도 없는 줄 — 그대로
+    if (!rec.tracking && !curTrack && !fileCarrierName) { plan.same.push(no); return; }
+    // 2) 송장·택배사가 지금과 같고 발송일이 비었거나 같다 — 그대로(꺼진 택배사·「기타」도 이름으로 비교 — 결정 8)
+    if (rec.tracking && rec.tracking === curTrack && shipXlNorm(fileCarrierName) === shipXlNorm(curCarrierName) &&
+        (rec.date === '' || rec.date === (cur.shipped_on ? String(cur.shipped_on).slice(0, 10) : ''))) { plan.same.push(no); return; }
+    if (cur.status === 'cancelled') { skip(rec, cur, 'cancelled'); return; }
+    if (!rec.tracking) { skip(rec, cur, curTrack ? 'blank' : 'no_tracking'); return; }        // D1 — 빈칸은 지우기가 아니다
+    if (!opts.trackingRe.test(rec.tracking)) { skip(rec, cur, 'format_tracking'); return; }
+    if (rec.date === null) { skip(rec, cur, 'format_date'); return; }
+    if (!hit && !(isOther && rec.other && rec.other.length <= 50)) { skip(rec, cur, 'carrier'); return; }
+    const item = {
+      rowNo: no, name: nameOf(cur), prev: curTrack, tracking: rec.tracking,
+      carrierName: hit ? hit.name : rec.other,
+      cur: cur,   // 버전·줄 열쇠는 파일이 아니라 방금 받은 리스트의 이 줄에서
+      save: {
+        carrier_code: hit ? hit.code : null, carrier_other: hit ? null : rec.other,
+        // 발송일 빈칸 — 「바뀜」은 지금 발송일을 그대로, 「새로 등록」은 서버가 오늘(일본 날짜)
+        tracking_no: rec.tracking, shipped_on: rec.date || (curTrack && cur.shipped_on ? String(cur.shipped_on).slice(0, 10) : null)
+      }
+    };
+    (curTrack ? plan.change : plan.add).push(item);
+  });
+  return plan;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 시딩형 「배송 리스트」 탭 — 송장 양식 내려받기 · 엑셀로 송장 올리기(관리자)
+//   피그마 Admin 1차 a05-09a(전달 뒤) — 「엑셀로 송장 올리기」는 브랜드 bw05-03(→ 03a → 결과)과 같은 단계
+//   결정(2026-10-23 기획 kemo-7d 경유 사용자 결정): 내려받기는 우편번호·주소·전화를 뺀 「송장 양식」만(D10 의 이유 유지) ·
+//     빈 송장은 반영 안 함(D1 — 지우기는 줄 모달 「송장 지우기」) · 전달 뒤에만 · 종료 캠페인도 관리자는 허용 ·
+//     「바뀜」 줄에 지금 값을 누가·언제 넣었는지 표시(오래된 파일이 브랜드가 방금 고친 송장을 덮는 것을 반영 전에 보게)
+//   파일 읽기·분류는 공용 shipping-excel-core.js(브랜드와 한 벌) · 저장은 557 admin_save_shipping_rows(줄 열쇠 = 응모 번호 + 버전)
+//   🔴 올린 파일은 브라우저 안에서만 읽는다 — 서버로 보내는 것은 응모 번호·택배사·송장·발송일뿐. 파일·칸 값을 콘솔·오류 기록에 싣지 않는다
+//   🔴 버전은 파일이 아니라 올리는 순간 새로 받은 admin_get_campaign_shipping 에서(화면 보관 _shipCtx 를 쓰지 않는다)
+//   🔴 송장 양식 내려받기는 관리자 엑셀 관문 _excelInternalGate 를 지난다(이름이 들어 있다 — 개발서버 기록 + 「사내용」 첫 줄)
+//   단추는 admin-shipping.js renderCampShipping 이 shipXlAdminButtonsHtml(d) 로 그린다
+// ════════════════════════════════════════════════════════════════════
+
+var _shipXlModal = null;     // { campId, campaignNo, step:'pick'|'reading'|'preview'|'applying'|'result', plan, result, error }
+var _shipXlDlBusy = false;
+
+const SHIP_XL_READ_MSG = {
+  not_xlsx: '.xlsx 파일만 올릴 수 있습니다. CSV 는 받지 않습니다.',
+  too_big: '파일이 5MB 를 넘습니다. 송장 양식에서 송장 칸만 채워 올려 주세요.',
+  too_many: '줄이 2,000줄을 넘습니다. 내려받은 송장 양식을 그대로 써 주세요.',
+  read_fail: '파일을 읽지 못했습니다. 「송장 양식 내려받기」로 받은 .xlsx 파일인지 확인해 주세요.',
+  no_head: '「줄 번호」·「택배사」·「송장번호」 머리글을 찾지 못했습니다. 「송장 양식 내려받기」로 받은 파일을 써 주세요.',
+  no_notice: '맨 위 안내 줄(캠페인 번호)이 없습니다. 내려받은 양식의 안내 줄을 지우지 말고 써 주세요.',
+  other_campaign: '다른 캠페인의 파일입니다. 이 캠페인에서 내려받은 양식을 올려 주세요.'
+};
+// 반영 안 됨 이유 — 미리 보기(공용 분류) · 결과(서버 skipped.reason) 공용
+const SHIP_XL_SKIP_TEXT = {
+  cancelled: '선정 취소된 분',
+  blank: '송장 빈칸 — 지우려면 줄의 「수정」 → 「송장 지우기」',
+  no_tracking: '송장번호 없음',
+  no_row: '없는 줄',
+  carrier: '택배사 이름 확인(목록 이름 또는 「기타」 + 이름)',
+  format_tracking: '형식 오류 — 송장번호는 영문·숫자·하이픈·띄어쓰기 4~40자',
+  format_date: '형식 오류 — 발송일(예: 2026-10-20)',
+  format_row: '형식 오류 — 줄 번호',
+  duplicate: '같은 줄 번호가 두 번',
+  // 서버 skipped.reason(557)
+  not_found: '없는 줄',
+  version_conflict: '그사이 다른 곳에서 먼저 바뀜 — 목록을 확인한 뒤 다시 올려 주세요',
+  invalid_tracking: '형식 오류 — 송장번호',
+  carrier_required: '택배사 이름 확인',
+  invalid_carrier: '택배사 이름 확인(목록에서 꺼진 택배사이거나 「기타」 이름이 50자 초과)',
+  invalid_shipped_on: '형식 오류 — 발송일(오늘부터 30일 뒤까지)'
+};
+
+function _shipXlName(r) { return r.withdrawn ? '탈퇴한 회원' : (r.name || ''); }   // D25
+function _shipXlYmd(dt) { return dt.getFullYear() + String(dt.getMonth() + 1).padStart(2, '0') + String(dt.getDate()).padStart(2, '0'); }
+
+// ── 탭 머리 단추 — 전달 뒤 · 쓰기 권한 · 삭제 아님(줄 「수정」 단추와 같은 재료). 종료 캠페인도 그린다
+function shipXlAdminButtonsHtml(d) {
+  if (!d || d.success === false || !d.delivered_at || !d.can_write || d.deleted) return '';
+  if (!Array.isArray(d.rows) || !d.rows.length) return '';
+  return '<button type="button" class="btn btn-ghost btn-sm" style="flex-shrink:0"' + (_shipXlDlBusy ? ' disabled' : '') + ' onclick="downloadShipXlTemplate()" title="줄 번호·이름·택배사·송장번호·발송일만 든 양식(주소·전화번호 없음)">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">download</span> ' + (_shipXlDlBusy ? '양식 만드는 중…' : '송장 양식 내려받기') + '</button>'
+    + '<button type="button" class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openShipXlUpload()">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">upload_file</span> 엑셀로 송장 올리기</button>';
+}
+
+// ── 송장 양식 내려받기 — 누를 때 새로 받는다. 우편번호·주소·전화번호 열은 넣지 않는다
+async function downloadShipXlTemplate() {
+  const campId = _shipCtx && _shipCtx.campaignId;
+  if (!campId || _shipXlDlBusy) return;
+  _shipXlDlBusy = true;
+  renderCampShipping();
+  try {
+    const [, d] = await Promise.all([loadExcelJS(), fetchCampaignShipping(campId)]);
+    if (!d || d.success === false || !d.campaign_no) throw new Error('shipping');
+    if (!d.delivered_at) { toast('전달한 뒤에만 송장 양식을 내려받을 수 있습니다.', 'error'); return; }
+    const heads = SHIPXL_HEADS.filter(h => !h.pii);
+    const rows = Array.isArray(d.rows) ? d.rows.filter(r => r.row_no != null) : [];
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('송장 양식');
+    ws.getCell('A1').value = shipXlNoticeText(d.campaign_no, true);
+    ws.getCell('A1').font = { color: { argb: 'FF71717A' } };
+    ws.addRow(heads.map(h => h.label)).font = { bold: true };   // 2행(관문이 「사내용」 줄을 끼우면 3행)
+    rows.forEach(r => {
+      const car = shipXlCarrierCells(r);
+      const vals = {
+        row_no: r.row_no, name: _shipXlName(r), kana: r.withdrawn ? '' : (r.name_kana || ''),
+        status: shipXlStatusText(r), carrier: car[0], other: car[1],
+        tracking: r.tracking_no || '', shipped_on: r.shipped_on ? String(r.shipped_on).slice(0, 10) : ''
+      };
+      ws.addRow(heads.map(h => vals[h.key]));
+    });
+    // 송장·발송일은 글자 칸 — 엑셀이 앞 0 을 지우거나 긴 숫자를 지수로 바꾸지 않게
+    heads.forEach((h, i) => {
+      const col = ws.getColumn(i + 1);
+      col.width = h.w;
+      if (h.text) col.numFmt = '@';
+    });
+    if (!(await _excelInternalGate(wb, '엑셀 · 배송 송장 양식', rows.length, { campaign_no: d.campaign_no }))) return;
+    const buf = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const camp = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns.find(c => c.id === campId) : null;
+    const p = String((camp && (camp.product_ko || camp.product)) || d.campaign_no).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 40) || d.campaign_no;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '송장양식_' + p + '_' + _shipXlYmd(new Date()) + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    toast('송장 양식을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.', 'error');
+  } finally {
+    _shipXlDlBusy = false;
+    if (_shipCtx && _shipCtx.campaignId === campId) renderCampShipping();
+  }
+}
+
+// ── 올리기 모달(고르기 → 읽는 중 → 반영 전 확인 → 반영 중 → 결과)
+function openShipXlUpload() {
+  const d = _shipCtx && _shipCtx.data;
+  if (!d || !d.delivered_at || !d.can_write || d.deleted || _shipXlModal) return;
+  _shipXlModal = { campId: _shipCtx.campaignId, campaignNo: d.campaign_no, step: 'pick', plan: null, result: null, error: '' };
+  _shipEnsureModal('shipXlModal', '엑셀로 송장 올리기', 720);
+  _shipXlRender();
+  openModal('shipXlModal');
+}
+
+function closeShipXlUpload() {
+  const m = _shipXlModal;
+  if (m && (m.step === 'reading' || m.step === 'applying')) return;   // 도는 중에는 닫지 않는다
+  _shipXlModal = null;
+  if (document.getElementById('shipXlModal')) closeModal('shipXlModal');
+}
+// ESC — 공용 처리기(ui.js)는 그냥 closeModal 로 닫는다. 도는 중이면 그보다 먼저(붙잡는 단계) 막고, 아니면 상태도 함께 비운다
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' || !_shipXlModal) return;
+  const el = document.getElementById('shipXlModal');
+  if (!el || !el.classList.contains('open')) return;
+  e.stopImmediatePropagation();
+  closeShipXlUpload();
+}, true);
+
+function _shipXlPickFile() {
+  const inp = document.getElementById('shipXlFile');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+function _shipXlOnFile(inp) {
+  const f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  inp.value = '';   // 같은 파일을 다시 골라도 change 가 오게
+  _shipXlRead(f);
+}
+
+async function _shipXlRead(file) {
+  const m = _shipXlModal;
+  if (!m || m.step === 'reading' || m.step === 'applying') return;
+  m.step = 'reading'; m.error = ''; m.plan = null;
+  _shipXlRender();
+  let err = '';
+  try {
+    // 줄마다 버전은 지금 새로 받은 리스트에서 — 파일 읽기와 함께
+    const d = await fetchCampaignShipping(m.campId);
+    if (!d || d.success === false || !d.campaign_no) err = '배송 리스트를 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+    else if (d.deleted) err = '삭제된(보관 중인) 캠페인입니다. 송장을 넣을 수 없습니다.';
+    else if (!d.can_write) err = '송장을 넣을 권한이 없습니다.';
+    else {
+      const parsed = await shipXlReadFile(file, d.campaign_no, loadExcelJS);
+      if (parsed.error) err = SHIP_XL_READ_MSG[parsed.error] || SHIP_XL_READ_MSG.read_fail;
+      else m.plan = shipXlPlan(parsed.rows, d, { trackingRe: SHIP_TRACKING_RE, nameOf: _shipXlName });
+    }
+  } catch (e) { err = SHIP_XL_READ_MSG.read_fail; }
+  if (_shipXlModal !== m) return;
+  m.step = err ? 'pick' : 'preview';
+  m.error = err;
+  _shipXlRender();
+}
+
+async function _shipXlApply() {
+  const m = _shipXlModal;
+  if (!m || m.step !== 'preview' || !m.plan) return;
+  // 모달을 연 뒤 다른 캠페인으로 옮겼으면 반영하지 않는다
+  if (currentCampApplicantId !== m.campId) { m.step = 'result'; closeShipXlUpload(); toast('다른 캠페인으로 옮겨 반영하지 않았습니다.', 'error'); return; }
+  const items = m.plan.add.concat(m.plan.change);
+  if (!items.length) return;
+  m.step = 'applying';
+  _shipXlRender();
+  let res = null, failMsg = '';
+  try {
+    res = await saveShippingRows(m.campId, items.map(it => Object.assign({
+      application_id: it.cur.application_id,
+      expected_version: it.cur.version == null ? null : it.cur.version
+    }, it.save)));
+  } catch (e) {
+    res = null;
+    failMsg = (e && e.code === '42501') ? friendlyError(e.message) : '';
+  }
+  if (_shipXlModal !== m) return;
+  if (!res) { m.step = 'preview'; _shipXlRender(); toast(failMsg || '반영하지 못했습니다. 잠시 뒤 다시 시도해 주세요.', 'error'); return; }
+  if (res.ok === false) {
+    m.step = 'result'; closeShipXlUpload();
+    toast(res.reason === 'not_gifting' ? '시딩형 캠페인이 아닙니다.' : '캠페인을 찾지 못했습니다.', 'error');
+    await refreshPane('camp-applicants');
+    return;
+  }
+  const saved = Array.isArray(res.saved) ? res.saved : [];
+  const skipped = Array.isArray(res.skipped) ? res.skipped : [];
+  await refreshPane('camp-applicants');
+  if (_shipXlModal !== m) return;
+  if (!skipped.length) {
+    m.step = 'result'; closeShipXlUpload();
+    toast(saved.length + '줄을 반영했습니다.');
+    return;
+  }
+  // 반영되지 않은 줄 — 서버는 응모 번호로 돌려준다 → 보낸 줄에서 줄 번호·이름을 다시 찾는다
+  const byApp = new Map(items.map(it => [String(it.cur.application_id), it]));
+  m.result = {
+    saved: saved.length,
+    skipped: skipped.map(s => {
+      const it = byApp.get(String(s.application_id));
+      return { rowNo: it ? it.rowNo : '', name: it ? it.name : '', reason: s.reason };
+    })
+  };
+  m.step = 'result';
+  _shipXlRender();
+}
+
+// 「바뀜」 줄 — 지금 값을 누가·언제 넣었는지(결정 Q6)
+function _shipXlCurBy(cur) {
+  if (!cur || !cur.updated_by_kind) return '';
+  const who = (cur.updated_by_kind === 'brand' ? '브랜드' : '운영팀') + (cur.updated_by_name ? ' ' + cur.updated_by_name : '');
+  return who + (cur.updated_at ? ' · ' + formatDateTime(cur.updated_at) : '');
+}
+
+function _shipXlSkipTable(list) {
+  return '<div class="admin-table-wrap" style="max-height:220px;overflow:auto"><table class="data-table"><thead><tr><th style="width:70px">줄 번호</th><th>이름</th><th>이유</th></tr></thead><tbody>'
+    + list.map(s => '<tr><td>' + (esc(String(s.rowNo || '')) || '—') + (s.excelRow && !s.rowNo ? '<div style="font-size:10px;color:var(--muted)">엑셀 ' + s.excelRow + '행</div>' : '') + '</td>'
+      + '<td>' + (esc(s.name) || '—') + '</td><td>' + esc(SHIP_XL_SKIP_TEXT[s.reason] || '반영 안 됨') + '</td></tr>').join('')
+    + '</tbody></table></div>';
+}
+
+function _shipXlCountBox(label, n, tone) {
+  const color = tone === 'warn' ? '#C2410C' : tone === 'alert' ? '#B91C1C' : 'var(--ink)';
+  const bg = tone === 'warn' ? '#FFF7ED' : tone === 'alert' ? '#FEF2F2' : 'var(--surface-container-low, #F7F7F8)';
+  return '<div style="flex:1;padding:10px 12px;border-radius:10px;background:' + bg + '"><div style="font-size:11px;color:var(--muted)">' + label + '</div>'
+    + '<div style="font-size:18px;font-weight:700;color:' + color + '">' + n + '</div></div>';
+}
+
+function _shipXlRender() {
+  const m = _shipXlModal;
+  const el = document.getElementById('shipXlModal');
+  if (!m || !el) return;
+  const body = el.querySelector('.ship-modal-body');
+  const foot = el.querySelector('.ship-modal-foot');
+  const title = el.querySelector('.ship-modal-title');
+  const closeX = el.querySelector('.modal-close-btn');
+  const busy = m.step === 'reading' || m.step === 'applying';
+  if (closeX) { closeX.setAttribute('onclick', 'closeShipXlUpload()'); closeX.disabled = busy; }
+  const fileInput = '<input type="file" id="shipXlFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onchange="_shipXlOnFile(this)">';
+  const btn = (onclick, label, primary, dis) => '<button type="button" class="btn ' + (primary ? 'btn-primary' : 'btn-ghost') + '"' + (dis ? ' disabled' : '') + ' onclick="' + onclick + '">' + label + '</button>';
+  if (m.step === 'pick' || m.step === 'reading') {
+    title.textContent = '엑셀로 송장 올리기';
+    const reading = m.step === 'reading';
+    body.innerHTML =
+      '<ol style="margin:0 0 12px;padding:12px 14px 12px 32px;border-radius:10px;background:var(--surface-container-low, #F7F7F8);font-size:13px;line-height:1.8;color:var(--ink)">'
+      + '<li>「송장 양식 내려받기」로 받은 파일에서 「택배사」·「송장번호」(필요하면 「발송일」) 칸만 채웁니다. 브랜드가 브랜드 페이지에서 내려받은 배송 리스트 엑셀도 올릴 수 있습니다.</li>'
+      + '<li>목록에 없는 택배사는 「택배사」 칸에 「기타」, 옆 「택배사 이름(기타일 때)」 칸에 이름을 적습니다.</li>'
+      + '<li>줄은 「줄 번호」로 맞춥니다. 정렬하거나 줄을 지워도 되지만, 맨 위 안내 줄과 「줄 번호」 칸은 그대로 두세요.</li>'
+      + '</ol>'
+      + '<div style="font-size:12px;color:var(--muted);line-height:1.7">송장 칸이 빈 줄은 반영하지 않습니다(송장을 지우려면 줄의 「수정」 → 「송장 지우기」). .xlsx 만 · 5MB · 2,000줄까지. 파일은 이 화면에서만 읽고 서버에 올리지 않습니다 — 택배사·송장번호·발송일만 저장합니다.</div>'
+      + (m.error ? '<div role="alert" style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#FEF2F2;color:#B91C1C;font-size:12px">' + esc(m.error) + '</div>' : '')
+      + (reading ? '<div role="status" aria-live="polite" style="margin-top:12px;font-size:12px;color:var(--muted)"><span class="spinner"></span> 파일을 읽는 중…</div>' : '')
+      + fileInput;
+    foot.innerHTML = btn('closeShipXlUpload()', '취소', false, reading) + btn('_shipXlPickFile()', reading ? '읽는 중…' : '파일 고르기', true, reading);
+    return;
+  }
+  if (m.step === 'preview' || m.step === 'applying') {
+    title.textContent = '반영 전 확인';
+    const p = m.plan;
+    const n = p.add.length + p.change.length;
+    const applying = m.step === 'applying';
+    const items = p.add.map(it => Object.assign({ kind: 'add' }, it)).concat(p.change.map(it => Object.assign({ kind: 'change' }, it)))
+      .sort((a, b) => a.rowNo - b.rowNo);
+    const badge = (kind) => kind === 'change'
+      ? '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;background:#FFF7ED;color:#C2410C">바뀜</span>'
+      : '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;background:#EEF2FF;color:#4338CA">새로 등록</span>';
+    body.innerHTML =
+      '<div style="display:flex;gap:8px;margin-bottom:14px">'
+      + _shipXlCountBox('새로 등록', p.add.length) + _shipXlCountBox('바뀜', p.change.length, p.change.length ? 'warn' : '')
+      + _shipXlCountBox('그대로', p.same.length) + _shipXlCountBox('반영 안 됨', p.skip.length, p.skip.length ? 'alert' : '')
+      + '</div>'
+      + (p.change.length ? '<div style="margin-bottom:10px;font-size:12px;color:#C2410C">「바뀜」 줄은 지금 저장된 송장을 덮어씁니다. 「지금 값」에서 누가 언제 넣었는지 확인한 뒤 반영해 주세요.</div>' : '')
+      + (items.length
+        ? '<div style="font-size:13px;font-weight:700;margin-bottom:6px">반영할 줄 ' + n + '</div>'
+          + '<div class="admin-table-wrap" style="max-height:280px;overflow:auto"><table class="data-table"><thead><tr><th style="width:70px">줄 번호</th><th>이름</th><th>택배사</th><th>송장번호</th><th>지금 값</th></tr></thead><tbody>'
+          + items.map(it => '<tr><td>' + it.rowNo + '</td><td>' + esc(it.name) + ' ' + badge(it.kind) + '</td>'
+              + '<td>' + esc(it.carrierName) + '</td>'
+              + '<td style="font-family:monospace">' + (it.kind === 'change' && it.prev !== it.tracking ? '<s style="color:var(--muted)">' + esc(it.prev) + '</s> → ' : '') + esc(it.tracking) + '</td>'
+              + '<td style="font-size:11px;color:var(--muted)">' + (it.kind === 'change' ? (esc(_shipXlCurBy(it.cur)) || '—') : '—') + '</td></tr>').join('')
+          + '</tbody></table></div>'
+        : '<div style="padding:16px;text-align:center;font-size:13px;color:var(--muted)">반영할 줄이 없습니다. 바뀐 송장이 없거나 모두 「반영 안 됨」입니다.</div>')
+      + (p.skip.length ? '<div style="font-size:13px;font-weight:700;margin:14px 0 6px">반영 안 됨 ' + p.skip.length + ' — 이 줄은 건너뜁니다</div>' + _shipXlSkipTable(p.skip) : '')
+      + (applying ? '<div role="status" aria-live="polite" style="margin-top:12px;font-size:12px;color:var(--muted)"><span class="spinner"></span> 반영하는 중…</div>' : '')
+      + fileInput;
+    foot.innerHTML = btn('_shipXlPickFile()', '다른 파일 고르기', false, applying) + btn('closeShipXlUpload()', '취소', false, applying)
+      + btn('_shipXlApply()', applying ? '반영하는 중…' : n + '줄 반영하기', true, applying || !n);
+    return;
+  }
+  if (m.step === 'result') {
+    title.textContent = '반영 결과';
+    const r = m.result;
+    body.innerHTML = '<div style="font-size:13px;margin-bottom:12px">' + r.saved + '줄을 반영했습니다. 아래 ' + r.skipped.length + '줄은 반영되지 않았습니다 — 표에서 확인해 주세요.</div>'
+      + '<div style="font-size:13px;font-weight:700;margin-bottom:6px">반영되지 않은 줄 ' + r.skipped.length + '</div>' + _shipXlSkipTable(r.skipped);
+    foot.innerHTML = btn('closeShipXlUpload()', '닫기', true, false);
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════

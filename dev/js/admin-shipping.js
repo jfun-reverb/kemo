@@ -8,7 +8,7 @@
 //   · 줄 상태·기한·「새로 추가」·탈퇴 표시는 서버가 정한다(_shipping_rows_payload) — 화면은 그대로 그린다
 //   · 송장 형식(D6)은 화면에서도 검사하되 최종 판정은 서버(_shipping_check_row)
 //   · 송장 지우기(D1) = tracking_no:null 로 저장 — 택배사·발송일도 함께 비워진다
-//   · 관리자 엑셀은 1차에 두지 않는다(D10)
+//   · 관리자 엑셀은 주소·전화 없는 「송장 양식」 내려받기 + 올리기만(D10 의 이유 유지 — admin-shipping-excel.js, 전달 뒤에만)
 //   · 「전달·열람 기록」 모달은 최고 관리자만(D26) — 초록 요약 줄은 배송 권한이 있는 모두
 //   🔴 탭·단추·조회는 _brandAccountEnabled()(개발서버)일 때만 — 운영엔 554·557 이 없다. 판정은 campShippingTabOn() 한 곳
 // ════════════════════════════════════════════════════════════════════
@@ -223,6 +223,7 @@ function renderCampShipping() {
     actions = '<button type="button" class="btn btn-primary btn-sm" style="flex-shrink:0" ' + (noAccount ? 'disabled title="비밀번호를 정한 브랜드 계정이 없습니다"' : 'onclick="openShipDeliverModal()"') + '>'
       + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">send</span> 배송 리스트 전달</button>';
   }
+  if (typeof shipXlAdminButtonsHtml === 'function') actions += shipXlAdminButtonsHtml(d);   // 전달 뒤 송장 양식·엑셀 올리기(admin-shipping-excel.js)
 
   let banner = '';
   if (d.deleted) {
