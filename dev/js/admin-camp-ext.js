@@ -142,12 +142,12 @@ function openCampExtAttachModal(sourceId) {
   wrap.className = 'modal-overlay open';
   wrap.innerHTML = `
     <div class="modal" style="max-width:520px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
-      <div class="modal-header"><div class="modal-title">외부 결과 파일 붙이기</div>
+      <div class="modal-header"><div class="modal-title">${src ? '외부 결과 파일 업데이트' : '외부 결과 파일 붙이기'}</div>
         <button class="modal-close" onclick="closeCampExtAttachModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" id="campExtAttachBody" style="overflow-y:auto"></div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeCampExtAttachModal()">닫기</button>
-        <button class="btn btn-primary" id="btnCampExtSubmit" onclick="submitCampExtAttach()" disabled>붙이기</button>
+        <button class="btn btn-primary" id="btnCampExtSubmit" onclick="submitCampExtAttach()" disabled>${src ? '업데이트' : '붙이기'}</button>
       </div>
     </div>`;
   (document.getElementById('page-admin') || document.body).appendChild(wrap);
@@ -309,7 +309,7 @@ async function submitCampExtAttach() {
     await refreshPane('camp-applicants');
   } catch (e) {
     toast('저장하지 못했습니다 — ' + ((e && e.message) || e), 'error');
-    if (btn) { btn.textContent = '붙이기'; _campExtSyncSubmit(); }
+    if (btn) { btn.textContent = f.sourceId ? '업데이트' : '붙이기'; _campExtSyncSubmit(); }
   }
 }
 async function detachCampExtSource(sourceId) {
