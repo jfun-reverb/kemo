@@ -59,7 +59,9 @@ const ADMIN_NOTICE_CAT_LABEL = {
 // 배지에 이름이 이미 쓰여 있어 색으로 종류를 구분할 필요가 없다.
 // ⚠️ 「주의」도 같은 색이라 목록을 훑을 때 위험 공지가 눈에 띄지 않는다 —
 //    구분이 필요해지면 warning 만 var(--red-l)/var(--red-d) 로 되돌리면 된다.
-const NOTICE_LABEL_STYLE = 'background:var(--accent-tint);color:var(--accent-deep)';
+// ⚠️ --accent-tint·--accent-deep 은 #page-admin 안에서만 정의돼(admin.css) 그 밖에 붙는 모달(보기·미읽음 팝업)에서는 비어
+//    꼬리표가 무색이 된다 — 같은 값을 대체값으로 둔다
+const NOTICE_LABEL_STYLE = 'background:var(--accent-tint,#EDEDF8);color:var(--accent-deep,#4F4AB5)';
 const ADMIN_NOTICE_CAT_STYLE = {
   system_update: NOTICE_LABEL_STYLE,
   release: NOTICE_LABEL_STYLE,
