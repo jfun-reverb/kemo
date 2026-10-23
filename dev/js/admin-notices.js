@@ -241,7 +241,7 @@ function renderAdminNotices() {
     const winNote = winState ? ` <span style="font-size:10px;color:var(--muted);white-space:nowrap">${winState === 'before' ? '노출 전' : '노출 끝'}</span>` : '';
     const audCell = audOn ? `<td style="white-space:nowrap">${adminNoticeAudiencePill(n)}${winNote}</td>` : '';
     return `<tr data-id="${esc(n.id)}" style="cursor:pointer;${showUnread?'background:#FFFBEF':''}" onclick="openAdminNoticeView(this.dataset.id)">
-      <td>${unreadDot}${readCellInner}</td>
+      <td style="white-space:nowrap">${unreadDot}${readCellInner}</td>
       <td>${adminNoticeStatusPill(n.status)}</td>
       ${audCell}
       <td>${adminNoticeKindPill(n)}</td>
