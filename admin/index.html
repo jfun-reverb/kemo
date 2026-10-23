@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792737120';
+  var CURRENT_BUILD = 'v1792737319';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3585,6 +3585,12 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 .bd-savebar-text{flex:1;font-size:12.5px;color:var(--ink)}
 .bd-conflict-table td{vertical-align:top;font-size:12.5px;word-break:break-all}
 
+/* 배송 리스트 줄 끝 「입력」·「수정」 — 파란 글자 링크(피그마 a05-09) · 키보드 포커스 테두리 */
+.ship-link-btn{background:none;border:none;padding:4px 2px;font-size:12px;color:#2563EB;cursor:pointer;border-radius:4px}
+.ship-link-btn:hover{text-decoration:underline}
+.ship-link-btn:focus-visible{outline:2px solid #2563EB;outline-offset:2px}
+.ship-row-cancelled td{color:var(--muted)}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -3686,7 +3692,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 15:32 · 1204275</span>
+          <span class="admin-build-text">2026-10-23 15:35 · 7f7450d</span>
         </div>
       </div>
     </aside>
@@ -63504,8 +63510,8 @@ function _shipRowHtml(r, d) {
     ? '<span class="link-cell" onclick="openInfluencerModal(' + jsStr(r.influencer_id) + ')">' + esc(name) + '</span>'
     : esc(name);
   const isNew = r.is_new ? ' <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:#EEF2FF;color:#4338CA">새로 추가</span>' : '';
-  // 주소·전화 — 취소 줄은 서버가 비운다 · 권한이 없으면 서버가 비운다(선결 Q2)
-  const masked = d.pii_masked && !cancelled;
+  // 주소·전화 — 권한이 없으면 서버가 비운다(선결 Q2) · 취소 줄은 관리자에게는 보이고 브랜드에는 비운다(592) · 탈퇴 표시 줄은 비운다
+  const masked = d.pii_masked && !r.withdrawn;
   const hidden = '<span style="font-size:11px;color:var(--muted)">' + (masked ? '열람 권한 없음' : '—') + '</span>';
   const zip = r.postal_code ? esc(r.postal_code) : (masked ? hidden : '—');
   const addr = r.address ? '<div style="max-width:240px;white-space:normal;word-break:break-all">' + esc(r.address) + '</div>' : (masked ? hidden : '—');
@@ -63513,20 +63519,28 @@ function _shipRowHtml(r, d) {
   const carrier = r.carrier_name
     ? esc(r.carrier_name) + (r.carrier_active === false ? ' <span style="font-size:10px;color:var(--muted)">(목록에서 끔)</span>' : '')
     : '—';
-  const by = r.updated_by_kind
-    ? '<div>' + (r.updated_by_kind === 'brand' ? '브랜드' : '운영팀') + '</div><div style="font-size:11px;color:var(--muted)">' + esc(r.updated_by_name || '') + '</div>'
-    : '—';
+  // 피그마 a05-09a — 취소 줄은 「입력한 사람」 칸에 「{월/일} 본인 취소 · 브랜드에는 주소 가림」
+  //   풀린 날 cancelled_on 은 592 서버 칸(YYYY-MM-DD) — 좁은 칸이라 월/일만. 칸이 없는 서버면 날짜 없이
+  let by;
+  if (cancelled) {
+    const on = (typeof r.cancelled_on === 'string' && r.cancelled_on.length >= 10) ? r.cancelled_on.slice(5, 7) + '/' + r.cancelled_on.slice(8, 10) + ' ' : '';
+    by = '<div style="font-size:11px;white-space:normal;max-width:150px">' + esc(on + _shipCancelText(r)) + '</div>'
+      + (r.cancel_reason ? '<div title="' + esc(r.cancel_reason) + '" style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">「' + esc(r.cancel_reason) + '」</div>' : '')
+      + (d.delivered_at ? '<div style="font-size:11px">브랜드에는 주소 가림</div>' : '');
+  } else {
+    by = r.updated_by_kind
+      ? '<div>' + (r.updated_by_kind === 'brand' ? '브랜드' : '운영팀') + '</div><div style="font-size:11px;color:var(--muted)">' + esc(r.updated_by_name || '') + '</div>'
+      : '—';
+  }
   const statusCell = _shipStatusBadge(r)
-    + (cancelled ? '<div style="font-size:10px;color:var(--muted);margin-top:3px;max-width:150px;white-space:normal">' + esc(_shipCancelText(r)) + '</div>'
-        + (r.cancel_reason ? '<div title="' + esc(r.cancel_reason) + '" style="font-size:10px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">「' + esc(r.cancel_reason) + '」</div>' : '')
-        + (d.delivered_at ? '<div style="font-size:10px;color:var(--muted)">브랜드에는 주소 가림</div>' : '')
-      : (r.status !== 'shipped' && r.due_on ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">기한 ' + esc(formatDate(r.due_on)) + '</div>' : ''));
+    + (!cancelled && r.status !== 'shipped' && r.due_on ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">기한 ' + esc(formatDate(r.due_on)) + '</div>' : '');
   const canEdit = d.can_write && !d.deleted && !cancelled;
-  // 피그마 a05-09 — 줄 끝은 파란 글자 링크 모양
+  // 피그마 a05-09 — 줄 끝은 파란 글자 링크 모양(ship-link-btn, admin.css)
   const act = canEdit
-    ? '<button type="button" style="background:none;border:none;padding:4px 2px;font-size:12px;color:#2563EB;cursor:pointer" onclick="openShipEditModal(' + jsStr(r.application_id) + ')">' + (r.tracking_no ? '수정' : '입력') + '</button>'
+    ? '<button type="button" class="ship-link-btn" onclick="openShipEditModal(' + jsStr(r.application_id) + ')">' + (r.tracking_no ? '수정' : '입력') + '</button>'
     : '';
-  return '<tr data-app="' + esc(r.application_id) + '" style="' + dim + '">'
+  // 취소 줄은 칸마다 흐리게(피그마 a05-09a) — 표 칸 글자색이 줄 색을 덮어 줄에만 주면 안 흐려진다
+  return '<tr data-app="' + esc(r.application_id) + '"' + (cancelled ? ' class="ship-row-cancelled"' : '') + ' style="' + dim + '">'
     + '<td style="' + dim + '">' + (r.row_no != null ? esc(String(r.row_no)) : '—') + '</td>'
     + '<td><div>' + nameHtml + isNew + (sns ? ' <span style="font-size:11px;color:var(--muted)">(' + esc(sns) + ')</span>' : '') + '</div>'
       + (r.name_kana ? '<div style="font-size:11px;color:var(--muted)">' + esc(r.name_kana) + '</div>' : '') + '</td>'
@@ -63537,7 +63551,7 @@ function _shipRowHtml(r, d) {
     + '<td style="white-space:nowrap;font-family:monospace">' + (r.tracking_no ? esc(r.tracking_no) : '—') + '</td>'
     + '<td style="white-space:nowrap">' + (r.shipped_on ? esc(formatDate(r.shipped_on)) : '—') + '</td>'
     + '<td>' + statusCell + '</td>'
-    + '<td style="white-space:nowrap">' + by + '</td>'
+    + '<td' + (cancelled ? '' : ' style="white-space:nowrap"') + '>' + by + '</td>'
     + '<td style="white-space:nowrap">' + act + '</td>'
     + '</tr>';
 }
@@ -63637,7 +63651,7 @@ function renderCampShipping() {
     : '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:32px">'
         + (rows.length ? '이 상태의 줄이 없습니다' : (delivered ? '리스트에 든 분이 없습니다' : '아직 승인된 분이 없습니다')) + '</td></tr>';
   const foot = delivered
-    ? '관리자 표에는 SNS 계정과 취소 이유가 함께 보이지만 브랜드 화면에는 이름·우편번호·주소·전화번호만 보입니다. 운영팀이 넣은 송장도 브랜드 화면에 바로 보입니다.'
+    ? '관리자 표에는 SNS 계정·취소 이유와 취소된 분의 주소·전화번호가 함께 보이지만 브랜드 화면에는 이름·우편번호·주소·전화번호만 보입니다(취소된 분은 이름만). 운영팀이 넣은 송장도 브랜드 화면에 바로 보입니다.'
     : '전달 전에는 이 표가 관리자에게만 보입니다. 배송지는 응모할 때 확인한 주소입니다(그 뒤 마이페이지에서 바꾼 주소가 아닙니다).';
 
   card.innerHTML =
