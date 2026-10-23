@@ -1496,7 +1496,7 @@ async function exportCampaignDeliverables(campId) {
     link.click();
     setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
 
-    toast('엑셀 다운로드 완료 (' + groupList.length + '건)');
+    toast('엑셀 다운로드 완료 (' + groupList.length + '건' + (extRows.length ? ' + 외부 참가자 ' + extRows.length + '건' : '') + ')');
   } catch(e) {
     console.error('[exportCampaignDeliverables]', e);
     toast('엑셀 생성 실패: ' + (e.message || String(e)), 'error');
@@ -1788,7 +1788,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   link.download = fname;
   link.click();
   setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
-  toast('엑셀 다운로드 완료 (' + groupList.length + '건, 채널 ' + N + '개)');
+  toast('엑셀 다운로드 완료 (' + groupList.length + '건' + (extRows.length ? ' + 외부 참가자 ' + extRows.length + '건' : '') + ', 채널 ' + N + '개)');
 }
 
 // 사양 2 PR 3 단계 b — 다중 엑셀의 「리뷰 · {채널 조합}」 그룹 시트 빌더.

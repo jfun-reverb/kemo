@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792721957';
+  var CURRENT_BUILD = 'v1792722009';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3673,7 +3673,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 11:19 · 4cd731b</span>
+          <span class="admin-build-text">2026-10-23 11:20 · cd30a00</span>
         </div>
       </div>
     </aside>
@@ -45914,7 +45914,7 @@ async function exportCampaignDeliverables(campId) {
     link.click();
     setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
 
-    toast('엑셀 다운로드 완료 (' + groupList.length + '건)');
+    toast('엑셀 다운로드 완료 (' + groupList.length + '건' + (extRows.length ? ' + 외부 참가자 ' + extRows.length + '건' : '') + ')');
   } catch(e) {
     console.error('[exportCampaignDeliverables]', e);
     toast('엑셀 생성 실패: ' + (e.message || String(e)), 'error');
@@ -46206,7 +46206,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   link.download = fname;
   link.click();
   setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
-  toast('엑셀 다운로드 완료 (' + groupList.length + '건, 채널 ' + N + '개)');
+  toast('엑셀 다운로드 완료 (' + groupList.length + '건' + (extRows.length ? ' + 외부 참가자 ' + extRows.length + '건' : '') + ', 채널 ' + N + '개)');
 }
 
 // 사양 2 PR 3 단계 b — 다중 엑셀의 「리뷰 · {채널 조합}」 그룹 시트 빌더.
