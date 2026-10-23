@@ -74,18 +74,18 @@ function _shipUpdateTabCount() {
   btn.classList.toggle('zero-count', n === 0);
 }
 
-// 요약 카드 「배송(발송함)」 막대 — 발송함 ÷ 받는 사람(취소 제외). 받는 사람 0이면 「—」(피그마 a05-09)
+// 요약 카드 「배송(발송함)」 막대 — 발송함 ÷ 받는 사람(취소 제외). 받는 사람 0이면 「0 / 0」 + 빈 막대
 //   카드(campOpsStatusCard)가 자리(#campOpsShipBar)를 먼저 그리고, 조회가 끝나면 여기서 채운다(둘 중 늦게 온 쪽이 그린다)
+//   모양은 같은 카드의 다른 막대와 같은 campOpsCountBar(admin-applications.js — 보라 단색 · 굵은 x / y · 퍼센트 없음, 피그마 a05-06)
 function campShipFillSummaryBar() {
   const el = $('campOpsShipBar');
   if (!el) return;
   if (!_shipCtx || _shipCtx.campaignId !== currentCampApplicantId || _shipCtx.data === undefined) { el.innerHTML = ''; return; }
   const d = _shipCtx.data;
-  if (!d || d.success === false || !d.counts) { el.innerHTML = brandOpsRateBar('배송(발송함) (불러오지 못함)', null); return; }
+  if (!d || d.success === false || !d.counts) { el.innerHTML = campOpsCountBar('배송(발송함) (불러오지 못함)', null, null); return; }
   const c = d.counts;
   const recv = (c.total || 0) - (c.cancelled || 0);
-  const pct = recv > 0 ? Math.round((c.shipped || 0) / recv * 100) : null;
-  el.innerHTML = brandOpsRateBar('배송(발송함)', pct, c.shipped || 0, recv);
+  el.innerHTML = campOpsCountBar('배송(발송함)', c.shipped || 0, recv);
 }
 
 function _shipStatusBadge(r) {
