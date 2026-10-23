@@ -468,3 +468,35 @@
 
 ## 구현 결과
 (개발 세션이 조각마다 채운다)
+
+### 조각 6·7·8 (kemo-45 — 2026-10-23, 데이터베이스 변경 없음 · 개발서버)
+
+- **조각 6 — #2324**(병합 `ed2fb130`, 588 개발 DB 적용 신호 뒤)
+  - `shared.js`: `isRecordOnlyCampaign(camp)` · `recordOnlyBadgeHtml(camp)`(회색 알약 「기록용」, 아니면 빈 글자, 툴팁 「인플루언서 화면에는 보이지 않습니다」) — 모양은 초대 전용 「비공개」 배지와 같은 변수(`--surface-container-low`·`--muted`).
+  - `storage.js`: `ADMIN_LIST_COLUMNS` 에 `is_record_only`.
+- **조각 7·8 — #2326**(병합 `652b18c3`)
+  - 인플루언서 목록: `visibleCamps` 에서 기록용을 뺐다. 부르는 곳은 넷이다(`campaign.js` — 건수·채널 칩 `updateStats` · 목록 `renderCampaignGrid` · 홈 `renderCampaigns` · 홈 필터 `applyHomeFilter`).
+  - 상세 — 기록용: `openCampaign` 은 draft/expired 가드 바로 뒤에서 기록용을 막는다.
+    - 조회수 증가·메타 픽셀보다 앞이다.
+    - 미리보기만 통과한다. 응모이력 예외는 없다.
+  - 상세 — 못 찾음(S11): 「공개되지 않았습니다」 안내와 함께 목록으로 보낸다. 목록 조회 실패(`_campaignsLoadFailed`)면 아무것도 하지 않는다.
+  - 🔴 **안내 순서**: 새 갈래 둘(못 찾음·기록용)은 `navigate('campaigns')` 를 **먼저** 부르고, `false`(떠날 때 확인에서 취소)면 안내를 띄우지 않는다 — 리뷰 지적. 옛 draft/expired 갈래는 손대지 않아 아직 「안내 → 이동」 순서다.
+  - 일정 뷰
+    - 이름 줄(`gantt-title-line`)에 `recordOnlyBadgeHtml(c)` 를 붙였다.
+    - `GANTT_QUICK_CHIPS` 에 `record_only`(`needStats:false` — 결과물 집계 전에도 동작)를 넣고 판정은 `ganttQuickMatch` 에 두었다.
+    - `ganttCampaignAlert` 맨 앞에서 기록용이면 `null`(이중 안전망).
+  - 브랜드 카드 경고 줄(`brandOpsAlertReasonLines`): 🔴 **칸 유무로 가른다**(`hasOwnProperty('alert_recruit_rate')`).
+    - 칸이 있으면 그 값이다(null 이면 「—」).
+    - 칸이 없는 서버면 `recruit_rate` 를 쓴다.
+    - `??` 를 쓰면 칸은 있는데 null(정원 0)일 때 `recruit_rate` 로 되돌아가 틀린 숫자가 나온다.
+  - `FEATURE_SPEC.md` §76 — 다른 조각도 같은 절에 덧붙인다.
+- **시험 캠페인**(개발 DB, SQL — 지우지 않음): B0046-C007 「zz-기록용 시험 수분 크림」(`b78c0269-eb74-4eb1-9f18-97d590282479`).
+  - 브랜드 「zz-묶음2 시험 하루담」 · 리뷰어형 · Qoo10 · active · 정원 10 · 마감 11/20 · 제출 마감 12/10 · 제품 금액 3,000.
+- **개발서버 눈 확인**(관리자 admin@kemo.jp 세션, 마우스로)
+  - 인플루언서 목록에 카드가 없다.
+  - `#detail-<번호>`·없는 번호 모두 안내가 뜨고 `#campaigns` 로 간다.
+  - 미리보기는 상세가 열린다.
+  - 일정 뷰: 꼬리표가 보이고, 칩을 켜면 1줄·끄면 12줄이다. 경고 꼬리표는 없다.
+  - 브랜드 카드 하루담 경고 줄은 아직 「모집률 3%」(기록용 정원 포함, 칸 없음 → 대신 값)다. 조각 4 뒤에 다시 본다.
+  - ⚠️ 로그아웃·회원 상태와 일본어 모드 문구는 아직 안 봤다(조각 2와 함께 마지막에).
+- **reverb-reviewer**: 두 번 다 GO. 남긴 주의 하나 — 세션 중 새로 공개된 캠페인을 목록 갱신(최대 10초) 전에 상세 주소로 열면, 예전엔 무반응이던 것이 이제 「공개되지 않았습니다」로 뜬다(빈도 낮음, 받아들임).
