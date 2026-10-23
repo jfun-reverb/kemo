@@ -91,11 +91,13 @@ function _brandSessionFromState(state, preferBrandId) {
 }
 
 function setBrandSessionFromState(state, opts) {
-  if (!state) { brandSession = null; return; }
+  if (!state) { brandSession = null; if (typeof resetBrandHelp === 'function') resetBrandHelp(); return; }
   const prevBrand = getCurrentBrandId();
   brandSession = _brandSessionFromState(state, opts && opts.preferBrandId);
   renderBrandShellChrome();
   if (prevBrand && prevBrand !== brandSession.currentBrandId) _emitBrandChanged();
+  // 공지 요약(brand-help.js) — 로그인 직후·새로고침 복원·판정 다시 받기가 모두 여기를 지난다. 브랜드 바꾸기(switchBrand)는 안 지난다(공지는 계정 단위)
+  if (typeof refreshBrandNoticeSummary === 'function') refreshBrandNoticeSummary();
 }
 
 // ── 로그인 시간 만료 뒤 「보던 화면」(bw01-91 ⑦) — 세션 저장소에 { hash, email } 한 벌.
@@ -251,11 +253,19 @@ function renderBrandShellChrome() {
 }
 
 // 빨간 점 — 새 초대(new_invite_dot). 마이페이지 화면 안에는 그리지 않는다(조각 7 이 들어올 때 끈다).
+//   🔴 모바일 ≡ 단추의 점·이름만은 「새 초대 또는 새 공지」(서랍에 도움말이 들어 있다) — 여기 한 곳에서 정한다(따로 쓰면 나중 것이 이긴다).
+//      도움말 점은 다른 클래스(.brand-help-dot — brand-help.js)라 이 함수가 건드리지 않는다
 function refreshInviteDot() {
   const on = !!(brandSession && brandSession.newInviteDot);
+  const notice = typeof brandHelpHasUnread === 'function' && brandHelpHasUnread();
   document.querySelectorAll('.brand-dot, .brand-dot-sr').forEach(el => { el.hidden = !on; });
   const menuBtn = document.getElementById('brandTopbarMenuBtn');
-  if (menuBtn) menuBtn.setAttribute('aria-label', on ? '메뉴 열기 (새 초대가 있습니다)' : '메뉴 열기');
+  if (menuBtn) {
+    const dot = menuBtn.querySelector('.brand-dot');
+    if (dot) dot.hidden = !(on || notice);
+    menuBtn.setAttribute('aria-label', on && notice ? '메뉴 열기 (새 초대와 새 공지가 있습니다)'
+      : on ? '메뉴 열기 (새 초대가 있습니다)' : notice ? '메뉴 열기 (새 공지가 있습니다)' : '메뉴 열기');
+  }
 }
 
 function _brandMenuHtml(active) {
@@ -343,6 +353,7 @@ async function brandLogout() {
 function initBrandShell() {
   document.querySelectorAll('[data-brand-menu]').forEach(el => { el.innerHTML = _brandMenuHtml(''); });
   initBrandPicker();
+  if (typeof initBrandHelp === 'function') initBrandHelp();
   // 메뉴 이동 — 사람이 눌렀을 때만 활동으로 센다(마이페이지는 세지 않는다 — S0-4).
   //   지금 페이지를 다시 누르면 해시가 안 바뀌어 화면 전환이 없으므로 서랍은 여기서 닫는다.
   document.getElementById('brandShell').addEventListener('click', (e) => {
@@ -460,6 +471,7 @@ function openBrandPickerPop() {
   const pop = document.getElementById('brandPickerPop');
   const btn = document.getElementById('brandSwitcherBtn');
   if (!pop || !btn) return;
+  if (typeof closeBrandHelpMenu === 'function') closeBrandHelpMenu(false);   // 같은 좌측 메뉴 안의 도움말 메뉴와 겹치지 않게
   pop.dataset.ready = '';
   _renderPickerPop('');                 // 다시 열면 검색어는 비어 있다
   pop.hidden = false;

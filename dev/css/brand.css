@@ -1362,3 +1362,107 @@ select.bs-in { padding-right: 28px; background-image: linear-gradient(45deg, tra
 .bsx-table .bs-badge { font-size: 11px; padding: 2px 7px; }
 .bsx-prev { color: var(--b-faint); }
 .bsx-sub { font-size: 11px; color: var(--b-faint); }
+
+/* ── 「도움말」 단추·펼친 메뉴·공지 모달 (brand-help.js · 피그마 bw03-05·05a·06) */
+.brand-help { position: relative; align-self: flex-start; }
+.brand-help-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 8px 12px 8px 10px;
+  border: 0; background: none; border-radius: var(--b-radius);
+  font-family: inherit; font-size: 13px; font-weight: 500; color: var(--b-ink); cursor: pointer;
+}
+.brand-help-btn .material-icons-round { font-size: 18px; color: var(--b-muted); }
+.brand-help-btn:hover, .brand-help-btn[aria-expanded="true"] { background: #e5e5eb; }
+.brand-help-btn:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; }
+.brand-help-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--b-dot); flex-shrink: 0; }
+.brand-side.is-help-open { z-index: 40; }   /* 펼친 메뉴가 본문 위로(서랍 45·모달 50 보다 아래) */
+.brand-help-pop {
+  position: absolute; left: calc(100% + 16px); bottom: -14px; z-index: 36;
+  width: 300px;
+  background: var(--b-surface);
+  border: 1px solid var(--b-line); border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+  padding: 8px 8px 10px;
+}
+.brand-help-menu { display: flex; flex-direction: column; gap: 2px; }
+.brand-help-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 44px; padding: 9px 10px;
+  border: 0; background: none; border-radius: var(--b-radius);
+  font-family: inherit; font-size: 13px; font-weight: 500; color: var(--b-ink);
+  text-align: left; cursor: pointer;
+}
+.brand-help-item .material-icons-round { font-size: 18px; color: var(--b-muted); }
+.brand-help-item:hover { background: #f7f7fa; }
+.brand-help-item:focus-visible { outline: 2px solid var(--b-info); outline-offset: -2px; }
+.brand-help-item-label { flex: 1; min-width: 0; }
+.brand-help-new {
+  flex-shrink: 0; padding: 2px 7px; border-radius: 100px;
+  background: #ffebeb; color: #db2626; font-size: 10px; font-weight: 600;
+}
+.brand-help-latest {
+  margin: -2px 0 0; padding: 0 10px 6px 38px;
+  font-size: 11px; color: var(--b-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.brand-help-line { height: 1px; background: var(--b-line); margin: 2px 0; }
+.brand-help-contact { padding: 8px 10px 0; display: flex; flex-direction: column; gap: 3px; }
+.brand-help-contact p { margin: 0; font-size: 12px; color: var(--b-ink); }
+.brand-help-contact .brand-help-contact-title { font-weight: 600; color: var(--b-muted); }
+.brand-help-contact .brand-help-corp { font-size: 11px; color: var(--b-faint); }
+/* 모바일 서랍의 도움말 묶음 — 같은 메뉴를 펼친 채로 */
+.brand-drawer-help { padding: 4px 0 0; }
+.brand-drawer-help-title { margin: 0; padding: 8px 12px 4px; font-size: 12px; font-weight: 600; color: var(--b-muted); display: flex; align-items: center; gap: 6px; }
+.brand-drawer-help .brand-help-item { font-size: 15px; padding: 12px; gap: 12px; }
+.brand-drawer-help .brand-help-item .material-icons-round { font-size: 20px; }
+.brand-drawer-help .brand-help-latest { padding-left: 44px; font-size: 12px; }
+.brand-drawer-help .brand-help-contact { padding: 8px 12px 0; }
+
+/* 공지 모달(bw03-06) */
+.brand-modal-box.brand-notice-box {
+  width: 640px; max-height: calc(100vh - 32px);
+  padding: 26px 28px 22px; gap: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
+}
+.brand-notice-top { display: flex; align-items: center; justify-content: space-between; }
+.brand-notice-top h2 { font-size: 18px; }
+.brand-notice-close {
+  width: 44px; height: 44px; margin: -12px -12px -12px 0;
+  border: 0; background: none; cursor: pointer; color: var(--b-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand-notice-close .material-icons-round { font-size: 20px; }
+.brand-notice-close:focus-visible, .brand-notice-head:focus-visible { outline: 2px solid var(--b-info); outline-offset: 2px; border-radius: 6px; }
+.brand-notice-list { overflow-y: auto; min-height: 0; }
+.brand-notice-row { border-bottom: 1px solid var(--b-line); padding: 4px 0; }
+.brand-notice-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 44px; padding: 8px 0;
+  border: 0; background: none; cursor: pointer; text-align: left; font-family: inherit;
+}
+.brand-notice-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--b-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-notice-title.is-new { font-weight: 700; }
+.brand-notice-head[aria-expanded="true"] .brand-notice-title { font-weight: 700; white-space: normal; }
+.brand-notice-date { flex-shrink: 0; font-size: 12px; color: var(--b-faint); }
+.brand-notice-tag { flex-shrink: 0; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 600; background: #ededfa; color: #6154bd; }
+.brand-notice-tag.is-terms { background: #fff4e6; color: #d96b00; }
+.brand-notice-tag.is-outage { background: var(--b-error-bg); color: var(--b-danger); }
+.brand-notice-new { flex-shrink: 0; padding: 2px 7px; border-radius: 100px; background: #ffebeb; color: #db2626; font-size: 10px; font-weight: 600; }
+.brand-notice-body {
+  margin: 0 0 10px; padding: 10px 12px;
+  background: var(--b-soft); border-radius: var(--b-radius);
+  font-size: 13px; color: var(--b-ink); line-height: 1.6; word-break: break-word;
+}
+.brand-modal-box .brand-notice-body p { margin: 0 0 6px; font-size: 13px; color: var(--b-ink); white-space: normal; line-height: 1.6; }
+.brand-modal-box .brand-notice-body p:last-child { margin-bottom: 0; }
+.brand-modal-box .brand-notice-body h2, .brand-notice-body h3, .brand-notice-body h4 { margin: 8px 0 4px; font-size: 14px; }
+.brand-notice-body ul, .brand-notice-body ol { margin: 4px 0; padding-left: 20px; }
+.brand-notice-body a { color: #2663eb; }
+.brand-notice-body blockquote { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--b-line); color: var(--b-muted); }
+.brand-modal-box .brand-notice-state { padding: 24px 0; text-align: center; font-size: 13px; color: var(--b-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.brand-notice-state p { margin: 0; }
+.brand-modal-box .brand-notice-foot { font-size: 11px; color: var(--b-faint); }
+@media (max-width: 600px) {
+  .brand-modal-box.brand-notice-box { padding: 20px 16px 18px; }
+  .brand-notice-date { display: none; }
+}
