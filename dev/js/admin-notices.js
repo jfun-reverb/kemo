@@ -76,6 +76,50 @@ function adminNoticeCatPill(cat) {
   return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;${style}">${esc(ADMIN_NOTICE_CAT_LABEL[cat]||cat)}</span>`;
 }
 
+// ── 보일 곳(관리자 / 브랜드 페이지) — 사양서 2026-07-15-brand-portal.md §16-8 표 3번 · 피그마 a11 · 마이그레이션 593 ──
+// 🔴 출시 잠금: 보일 곳 칩·거르기·열은 _brandAccountEnabled()(개발서버)일 때만 — 운영 admin_notices 에는 새 칸이 없다.
+//    관리자 공지 저장은 새 칸을 보내지 않는다. 출시 날 _noticeAudienceOn() 판정을 걷는다.
+function _noticeAudienceOn() {
+  return typeof _brandAccountEnabled === 'function' && _brandAccountEnabled();
+}
+// 관리자가 읽을 공지인가 — audience 가 없거나(운영처럼 칸이 없는 서버 포함) 'admin' 이면 참.
+// 🔴 미읽음을 세는 자리(사이드바 배지·로그인 팝업·대시보드 카드·목록 「미읽음만」·읽음 칸·자동 읽음)는 모두 이 판정 하나를 쓴다.
+//    조회(fetchAdminNotices)에서 거르지 않는다 — 목록은 브랜드 공지도 보여야 하고 캐시를 대시보드와 같이 쓴다
+function isAdminAudienceNotice(n) {
+  return !n || !n.audience || n.audience === 'admin';
+}
+const ADMIN_NOTICE_BRAND_KIND_LABEL = { terms: '약관', maintenance: '점검', outage: '장애', info: '안내' };
+
+function adminNoticeAudiencePill(n) {
+  return isAdminAudienceNotice(n)
+    ? '<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--surface-dim);color:var(--ink)">관리자</span>'
+    : `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;${NOTICE_LABEL_STYLE}">브랜드 페이지</span>`;
+}
+
+// 카테고리 칸 꼬리표 — 브랜드 페이지 공지는 카테고리 대신 종류 이름
+function adminNoticeKindPill(n) {
+  if (isAdminAudienceNotice(n)) return adminNoticeCatPill(n.category);
+  const label = ADMIN_NOTICE_BRAND_KIND_LABEL[n.brand_kind];
+  if (!label) return '<span style="font-size:11px;color:var(--muted)">—</span>';
+  return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;${NOTICE_LABEL_STYLE}">${esc(label)}</span>`;
+}
+
+// 게시된 브랜드 공지의 「도움말」 보일 기간 밖 표시 — 'before' | 'after' | null (기기 시각 기준, 표시용)
+function adminNoticeHelpWindowState(n) {
+  if (isAdminAudienceNotice(n) || n.status !== 'published') return null;
+  const now = Date.now();
+  const from = n.help_show_from ? new Date(n.help_show_from).getTime() : NaN;
+  const until = n.help_show_until ? new Date(n.help_show_until).getTime() : NaN;
+  if (!isNaN(from) && now < from) return 'before';
+  if (!isNaN(until) && now > until) return 'after';
+  return null;
+}
+
+// 날짜·시각 입력 칸 값 — 값이 없으면 빈칸(csToLocalInput(null) 은 「지금」을 돌려주므로 감싼다)
+function _noticeToLocalInput(iso) {
+  return iso ? csToLocalInput(iso) : '';
+}
+
 // migration 071: 게시 상태 pill (draft/published)
 function adminNoticeStatusPill(status) {
   if (status === 'published') {
@@ -94,7 +138,7 @@ async function loadAdminNotices() {
 function refreshAdminNoticeBadge() {
   const badge = $('adminNoticesBadge');
   if (!badge) return;
-  const unread = (_adminNoticesCache || []).filter(n => n.status === 'published' && !n.is_read).length;
+  const unread = (_adminNoticesCache || []).filter(n => isAdminAudienceNotice(n) && n.status === 'published' && !n.is_read).length;
   if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.style.display = ''; }
   else badge.style.display = 'none';
 }
@@ -138,6 +182,7 @@ function setAdminNoticeCatTab(btn) {
 function openNoticesUnread() {
   _adminNoticeCatTab = '';
   const st = document.getElementById('adminNoticeStatusFilter'); if (st) st.value = 'all';
+  const au = document.getElementById('adminNoticeAudienceFilter'); if (au) au.value = 'all';
   const sch = document.getElementById('adminNoticeSearch'); if (sch) sch.value = '';
   const un = document.getElementById('adminNoticeUnreadFilter'); if (un) un.checked = true;
   if (typeof navAdminPaneReload === 'function') navAdminPaneReload('admin-notices');
@@ -151,27 +196,37 @@ function renderAdminNotices() {
   const status = $('adminNoticeStatusFilter')?.value || 'all';
   const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
   const unreadOnly = $('adminNoticeUnreadFilter')?.checked;
+  const audOn = _noticeAudienceOn();
+  _syncNoticeAudienceListUi(audOn);
+  const aud = audOn ? ($('adminNoticeAudienceFilter')?.value || 'all') : 'all';
   let list = (_adminNoticesCache || []).slice();
   if (status !== 'all') list = list.filter(n => (n.status || 'draft') === status);
+  if (aud === 'admin') list = list.filter(n => isAdminAudienceNotice(n));
+  else if (aud === 'brand') list = list.filter(n => !isAdminAudienceNotice(n));
   if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
-  // 미읽음만 = 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
-  if (unreadOnly) list = list.filter(n => n.status === 'published' && !n.is_read);
+  // 미읽음만 = 관리자 공지 + 게시됨 + 안 읽음 (사이드바 배지 정의와 동일)
+  if (unreadOnly) list = list.filter(n => isAdminAudienceNotice(n) && n.status === 'published' && !n.is_read);
   // 카테고리 탭 건수 = 자기 필터(카테고리)를 뺀 나머지 필터만 적용한 집계 → 탭을 눌러도 다른 탭 숫자가 안 변한다
   // ⚠️ 세는 열쇠와 거르는 열쇠가 같아야 한다(`n.category` 그대로) — 빈 값에 기본 카테고리를 씌워 세면
   //    그 행은 「일반」 숫자에는 들어가고 「일반」 탭 목록에는 안 나온다. DB 는 4종 NOT NULL(마이그레이션 063).
   const catCounts = {};
   list.forEach(n => { const k = n.category; if (k) catCounts[k] = (catCounts[k] || 0) + 1; });
   renderAdminNoticeCatTabs(catCounts, list.length);
-  if (cat !== '') list = list.filter(n => n.category === cat);
+  // 보일 곳 「브랜드 페이지」 거르기에서는 카테고리 탭이 전부 0건이라 탭 줄을 감추고 탭 거르기도 쓰지 않는다
+  const catBar = $('adminNoticeCatTabBar');
+  if (catBar) catBar.style.display = aud === 'brand' ? 'none' : '';
+  if (cat !== '' && aud !== 'brand') list = list.filter(n => n.category === cat);
   const total = $('adminNoticeTotal');
   if (total) total.textContent = `${list.length}건`;
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = (n) => isSuper || n.created_by === currentUser?.id;
   body.innerHTML = list.length ? list.map(n => {
     const isPub = n.status === 'published';
-    const showUnread = isPub && !n.is_read;
+    const isAdm = isAdminAudienceNotice(n);
+    // 브랜드 페이지 공지는 관리자가 읽을 공지가 아니라 읽음 칸 「—」·강조 없음
+    const showUnread = isAdm && isPub && !n.is_read;
     const unreadDot = showUnread ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#C62828;margin-right:4px;vertical-align:middle"></span>` : '';
-    const readCellInner = !isPub
+    const readCellInner = (!isPub || !isAdm)
       ? '<span style="font-size:11px;color:var(--muted)">—</span>'
       : (n.is_read
           ? '<span style="font-size:11px;color:var(--muted)">읽음</span>'
@@ -180,16 +235,35 @@ function renderAdminNotices() {
     const dateStr = isPub
       ? (n.published_at ? formatDateTime(n.published_at) : (n.created_at ? formatDateTime(n.created_at) : ''))
       : (n.created_at ? `<span style="color:#999">— · ${formatDateTime(n.created_at)} 작성</span>` : '');
+    const winState = adminNoticeHelpWindowState(n);
+    const winNote = winState ? ` <span style="font-size:10px;color:var(--muted);white-space:nowrap">${winState === 'before' ? '노출 전' : '노출 끝'}</span>` : '';
+    const audCell = audOn ? `<td style="white-space:nowrap">${adminNoticeAudiencePill(n)}${winNote}</td>` : '';
     return `<tr data-id="${esc(n.id)}" style="cursor:pointer;${showUnread?'background:#FFFBEF':''}" onclick="openAdminNoticeView(this.dataset.id)">
       <td>${unreadDot}${readCellInner}</td>
       <td>${adminNoticeStatusPill(n.status)}</td>
-      <td>${adminNoticeCatPill(n.category)}</td>
-      <td style="font-weight:${n.is_read?'400':'600'};color:var(--ink)">${pinIcon}${esc(n.title)}</td>
+      ${audCell}
+      <td>${adminNoticeKindPill(n)}</td>
+      <td style="font-weight:${(isAdm && !n.is_read)?'600':'400'};color:var(--ink)">${pinIcon}${esc(n.title)}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(n.created_by_name || '—')}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${dateStr}</td>
       <td>${canEdit(n) ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openAdminNoticeEdit(this.closest('tr').dataset.id)"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">공지 없음</td></tr>';
+  }).join('') : `<tr><td colspan="${document.querySelectorAll('#adminNoticeTable thead th').length || 7}" style="text-align:center;color:var(--muted);padding:24px">공지 없음</td></tr>`;
+}
+
+// 목록의 보일 곳 부품(머리 부제·거르기·「보일 곳」 열 머리) — 판정이 참일 때만.
+// 열 머리는 HTML 에 두지 않고 여기서 한 번 끼워 넣는다 → 운영 HTML 은 7열 그대로, 빈 줄 칸 수는 머리 칸을 세서 맞춘다
+function _syncNoticeAudienceListUi(on) {
+  const sub = $('adminNoticeBrandSub'); if (sub) sub.style.display = on ? '' : 'none';
+  const fg = $('adminNoticeAudienceFilterGroup'); if (fg) fg.style.display = on ? '' : 'none';
+  if (!on || $('adminNoticeAudienceTh')) return;
+  const statusTh = $('adminNoticeStatusTh');
+  if (!statusTh) return;
+  const th = document.createElement('th');
+  th.id = 'adminNoticeAudienceTh';
+  th.style.width = '130px';
+  th.textContent = '보일 곳';
+  statusTh.after(th);
 }
 
 // 보기 모달. 자동 읽음 처리는 published 공지에만. 푸터 버튼은 권한·상태별 분기.
@@ -198,11 +272,15 @@ async function openAdminNoticeView(id) {
   if (!n) return;
   _adminNoticeCurrent = n;
   const isPub = n.status === 'published';
+  const isAdm = isAdminAudienceNotice(n);
   $('adminNoticeViewTitle').innerHTML = esc(n.title);
   const dateBlock = isPub
     ? (n.published_at ? `<span>${formatDateTime(n.published_at)} 게시</span>` : '')
     : `<span style="color:#999">${n.created_at?formatDateTime(n.created_at)+' 작성':''}</span>`;
-  $('adminNoticeViewMeta').innerHTML = `${adminNoticeStatusPill(n.status)}${adminNoticeCatPill(n.category)}<span>${esc(n.created_by_name || '—')}</span>${dateBlock}${n.is_pinned?'<span style="color:var(--pink);font-weight:700;display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">push_pin</span>상단 고정</span>':''}`;
+  // 브랜드 페이지 공지 — 보일 곳 꼬리표 + 종류 + 「도움말」 보일 기간을 그대로
+  const audBlock = _noticeAudienceOn() ? adminNoticeAudiencePill(n) : '';
+  const helpBlock = isAdm ? '' : `<span>「도움말」 노출 ${n.help_show_from ? formatDateTime(n.help_show_from) : '—'} ~ ${n.help_show_until ? formatDateTime(n.help_show_until) : '—'}</span>`;
+  $('adminNoticeViewMeta').innerHTML = `${adminNoticeStatusPill(n.status)}${audBlock}${adminNoticeKindPill(n)}${helpBlock}<span>${esc(n.created_by_name || '—')}</span>${dateBlock}${n.is_pinned?'<span style="color:var(--pink);font-weight:700;display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">push_pin</span>상단 고정</span>':''}`;
   const bodyEl = $('adminNoticeViewBody');
   renderNoticeBodyRich(bodyEl, n.body_html || '');
   // 푸터: 작성자/super 만 표시
@@ -219,7 +297,8 @@ async function openAdminNoticeView(id) {
     if (unpubBtn) unpubBtn.style.display = canEdit && isPub ? '' : 'none';
   }
   openModal('adminNoticeViewModal');
-  if (isPub && !n.is_read) {
+  // 자동 읽음은 관리자 공지만 — 브랜드 페이지 공지는 upsert_admin_notice_read 를 부르지 않는다
+  if (isAdm && isPub && !n.is_read) {
     try {
       await markAdminNoticeRead(id);
       n.is_read = true;
@@ -242,7 +321,10 @@ function onEditAdminNoticeFromView() {
 async function onPublishFromView() {
   if (!_adminNoticeCurrent) return;
   const id = _adminNoticeCurrent.id;
-  if (!confirm('이 공지를 지금 게시할까요? 모든 관리자에게 미읽음으로 노출됩니다.')) return;
+  const pubMsg = isAdminAudienceNotice(_adminNoticeCurrent)
+    ? '이 공지를 지금 게시할까요? 모든 관리자에게 미읽음으로 노출됩니다.'
+    : '이 공지를 지금 게시할까요? 브랜드 페이지의 모든 브랜드 계정에 보입니다.';
+  if (!confirm(pubMsg)) return;
   const name = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
   try {
     await publishAdminNotice(id, name);
@@ -277,6 +359,13 @@ function openAdminNoticeEdit(id) {
   $('anEditTitle').value = n?.title || '';
   $('anEditCategory').value = n?.category || 'system_update';
   $('anEditPinned').checked = !!(n?.is_pinned);
+  // 보일 곳 — 새 공지에서만 고른다(저장된 공지는 잠금: 관리자 공지 저장에 새 칸을 보내지 않기 위해)
+  _adminNoticeEditAudience = (n && !isAdminAudienceNotice(n)) ? 'brand' : 'admin';
+  _adminNoticeEditKind = n?.brand_kind || '';
+  _adminNoticeEditAudienceLocked = !!n;
+  $('anEditHelpFrom').value = _noticeToLocalInput(n?.help_show_from);
+  $('anEditHelpUntil').value = _noticeToLocalInput(n?.help_show_until);
+  _syncNoticeEditAudienceUi();
   const delBtn = $('btnDeleteAdminNotice');
   if (delBtn) delBtn.style.display = n ? '' : 'none';
   // 푸터 버튼 분기:
@@ -317,6 +406,45 @@ function openAdminNoticeEdit(id) {
     }
     toggleNoticeHtmlMode();
   }, 0);
+}
+
+var _adminNoticeEditAudience = 'admin';
+var _adminNoticeEditKind = '';
+var _adminNoticeEditAudienceLocked = false;
+
+function setNoticeEditAudience(aud) {
+  if (_adminNoticeEditAudienceLocked) return;
+  _adminNoticeEditAudience = aud === 'brand' ? 'brand' : 'admin';
+  _syncNoticeEditAudienceUi();
+}
+function setNoticeEditKind(kind) {
+  _adminNoticeEditKind = ADMIN_NOTICE_BRAND_KIND_LABEL[kind] ? kind : '';
+  _syncNoticeEditAudienceUi();
+}
+// 작성 모달 — 보일 곳에 따라 칸을 바꾼다. 관리자: 카테고리·상단 고정 / 브랜드 페이지: 종류·보일 기간·안내
+function _syncNoticeEditAudienceUi() {
+  const on = _noticeAudienceOn();
+  const isBrand = on && _adminNoticeEditAudience === 'brand';
+  const wrap = $('anEditAudienceWrap'); if (wrap) wrap.style.display = on ? '' : 'none';
+  document.querySelectorAll('#anEditAudienceWrap [data-aud]').forEach(b => {
+    const isOn = b.dataset.aud === _adminNoticeEditAudience;
+    b.classList.toggle('on', isOn);
+    b.setAttribute('aria-pressed', String(isOn));
+    b.disabled = _adminNoticeEditAudienceLocked && !isOn;
+  });
+  const lock = $('anEditAudienceLockNote'); if (lock) lock.style.display = _adminNoticeEditAudienceLocked ? '' : 'none';
+  const kindWrap = $('anEditBrandKindWrap'); if (kindWrap) kindWrap.style.display = isBrand ? '' : 'none';
+  document.querySelectorAll('#anEditBrandKindWrap [data-kind]').forEach(b => {
+    const isOn = b.dataset.kind === _adminNoticeEditKind;
+    b.classList.toggle('on', isOn);
+    b.setAttribute('aria-pressed', String(isOn));
+  });
+  const helpWrap = $('anEditHelpWrap'); if (helpWrap) helpWrap.style.display = isBrand ? '' : 'none';
+  const cat = $('anEditCategory'); if (cat) cat.style.display = isBrand ? 'none' : '';
+  const row = $('anEditTitleRow'); if (row) row.style.gridTemplateColumns = isBrand ? '1fr' : '1fr 140px';
+  const pin = $('anEditPinnedLabel'); if (pin) pin.style.display = isBrand ? 'none' : '';
+  // 브랜드 갈래는 칸이 늘어 모달 본문을 스크롤로 — 관리자 갈래(운영 포함)는 지금처럼 overflow:hidden 그대로
+  const body = $('adminNoticeEditBody'); if (body) body.style.overflowY = isBrand ? 'auto' : 'hidden';
 }
 
 function toggleNoticeHtmlMode() {
@@ -361,6 +489,18 @@ async function onSaveAdminNotice(mode) {
   const category = $('anEditCategory')?.value || 'general';
   const is_pinned = !!$('anEditPinned')?.checked;
   if (!title) { toast('제목을 입력해주세요', 'error'); return; }
+  // 브랜드 페이지 공지 — 판정이 참이고 보일 곳이 브랜드일 때만 새 칸을 읽고 보낸다(숨은 칸 값은 읽지 않는다).
+  // 종류·기간은 데이터베이스 묶음 제약(593)보다 먼저 여기서 검사해 데이터베이스 오류 문구가 그대로 뜨지 않게 한다
+  const isBrand = _noticeAudienceOn() && _adminNoticeEditAudience === 'brand';
+  let brandFields = null;
+  if (isBrand) {
+    if (!ADMIN_NOTICE_BRAND_KIND_LABEL[_adminNoticeEditKind]) { toast('종류(약관·점검·장애·안내)를 골라 주세요', 'error'); return; }
+    const help_show_from = csFromLocalInput($('anEditHelpFrom')?.value);
+    const help_show_until = csFromLocalInput($('anEditHelpUntil')?.value);
+    if (!help_show_from || !help_show_until) { toast('「도움말」 보일 기간의 시작과 끝을 모두 넣어 주세요', 'error'); return; }
+    if (new Date(help_show_until) <= new Date(help_show_from)) { toast('보일 기간의 끝은 시작보다 뒤여야 합니다', 'error'); return; }
+    brandFields = { brand_kind: _adminNoticeEditKind, help_show_from, help_show_until };
+  }
   let body_html = '';
   const isHtmlMode = !!$('anEditHtmlMode')?.checked;
   if (isHtmlMode) {
@@ -383,7 +523,10 @@ async function onSaveAdminNotice(mode) {
   const safeMode = mode || 'draft';
   try {
     if (_adminNoticeCurrent) {
-      const patch = {title, body_html, category, is_pinned, updated_by_name: name};
+      // 브랜드 공지 수정은 category·is_pinned 를 보내지 않는다(묶음 제약 admin_notices_audience_shape)
+      const patch = brandFields
+        ? {title, body_html, ...brandFields, updated_by_name: name}
+        : {title, body_html, category, is_pinned, updated_by_name: name};
       if (safeMode === 'publish' || safeMode === 'keep_published') patch.status = 'published';
       else if (safeMode === 'revert_draft') patch.status = 'draft';
       // 'draft' 모드 (draft 편집): status 유지
@@ -395,7 +538,10 @@ async function onSaveAdminNotice(mode) {
       toast(okMsg, 'success');
     } else {
       const wantPublish = safeMode === 'publish';
-      await insertAdminNotice({title, body_html, category, is_pinned, created_by_name: name, status: wantPublish ? 'published' : 'draft'});
+      const base = {title, body_html, created_by_name: name, status: wantPublish ? 'published' : 'draft'};
+      await insertAdminNotice(brandFields
+        ? {...base, audience: 'brand', ...brandFields}
+        : {...base, category, is_pinned});
       toast(wantPublish ? '게시되었습니다' : '초안 저장되었습니다', 'success');
     }
     closeModal('adminNoticeEditModal');
@@ -406,7 +552,10 @@ async function onSaveAdminNotice(mode) {
 
 async function onDeleteAdminNotice() {
   if (!_adminNoticeCurrent) return;
-  if (!confirm('공지를 삭제할까요? 모든 관리자의 읽음 이력도 함께 삭제됩니다.')) return;
+  const delMsg = isAdminAudienceNotice(_adminNoticeCurrent)
+    ? '공지를 삭제할까요? 모든 관리자의 읽음 이력도 함께 삭제됩니다.'
+    : '브랜드 페이지 공지를 삭제할까요? 브랜드 페이지에서도 사라집니다.';
+  if (!confirm(delMsg)) return;
   try {
     await deleteAdminNotice(_adminNoticeCurrent.id);
     toast('삭제되었습니다');
@@ -421,7 +570,8 @@ function renderDashboardNotices() {
   const body = $('dashboardNoticesBody');
   if (!card || !body) return;
   const grid = $('dashTopGrid');
-  const list = (_adminNoticesCache || []).filter(n => n.status === 'published').slice(0, 3);
+  // 브랜드 페이지 공지는 관리자 대시보드에 안 보인다 — 0건 판정(no-notices)보다 앞에서 거른다
+  const list = (_adminNoticesCache || []).filter(n => isAdminAudienceNotice(n) && n.status === 'published').slice(0, 3);
   // 공지가 없으면 왼쪽 칸이 비므로 KPI 가 전체 폭을 쓰도록 1단으로 전환
   if (!list.length) { card.style.display = 'none'; if (grid) grid.classList.add('no-notices'); return; }
   card.style.display = '';
@@ -439,7 +589,7 @@ function renderDashboardNotices() {
 // 로그인 직후 미읽음 공지 팝업 — published 미읽음만
 async function showAdminUnreadNoticesIfAny() {
   if (!Array.isArray(_adminNoticesCache) || _adminNoticesCache.length === 0) return;
-  const unread = _adminNoticesCache.filter(n => n.status === 'published' && !n.is_read);
+  const unread = _adminNoticesCache.filter(n => isAdminAudienceNotice(n) && n.status === 'published' && !n.is_read);
   if (unread.length === 0) return;
   const countEl = $('adminNoticeUnreadCount');
   if (countEl) countEl.textContent = `${unread.length}건`;
