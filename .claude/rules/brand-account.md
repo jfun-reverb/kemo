@@ -74,7 +74,7 @@ paths:
 - 요약 `get_my_brand_notice_summary` 는 **`setBrandSessionFromState` 한 곳**에서 다시 받는다(로그인·새로고침 복원·판정 다시 받기가 모두 지난다 — 브랜드 바꾸기는 안 지난다, 공지는 계정 단위). 로그아웃(`setBrandSessionFromState(null)`)·세션 끊김에 비우고 차례 번호 `_brandNoticeSeq` 로 늦은 응답을 버린다. 조회 실패 `null` 은 점 없음(오류는 공지 모달 안에서만)
 - 🔴 **점이 둘이다** — 새 초대 `.brand-dot`(`refreshInviteDot` 이 문서 전체를 켜고 끈다) / 새 공지 `.brand-help-dot`(`renderBrandHelp`). 모바일 ≡ 단추의 점·`aria-label` 은 「초대 또는 공지」를 **`refreshInviteDot` 한 곳**에서 정한다 — 따로 쓰면 나중에 도는 쪽이 이긴다
 - 공지 본문 정화 `brandNoticeSanitize` 는 관리자 `sanitizeRich`(shared.js) 허용 목록의 **사본**(img 제외) — 한쪽을 바꾸면 함께
-- 메뉴 내용은 좌측 팝오버와 서랍이 같은 함수(`_brandHelpMenuHtml`)를 쓴다 — id 를 넣지 않는다. 운영팀 연락처는 상수 `BRAND_HELP_CONTACT` 한 곳(피그마 값 — 브랜드 메일 꼬리와 다름, 기획 확인 대기)
+- 메뉴 내용은 좌측 팝오버와 서랍이 같은 함수(`_brandHelpMenuHtml`)를 쓴다 — id 를 넣지 않는다. 운영팀 연락처는 상수 `BRAND_HELP_CONTACT` 한 곳(값은 사용자 보류 — 지금은 「운영팀 연락처 (준비 중)」 한 줄, 정해지면 이 상수만)
 - 오리엔시트 작성 창(`.bof-modal` — 캡처 단계 키 처리)이 열려 있으면 도움말 팝오버를 열지 않는다. 공지 모달은 `.brand-modal` 이라 그 창의 키 처리가 물러선다
 
 #### 이용 제한·결과물 열람 정지 (마이그레이션 581~584 — 🔴 개발서버만, 운영은 브랜드 페이지 1차와 같은 날)

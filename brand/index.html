@@ -4206,8 +4206,9 @@ const BRAND_NOTICE_KIND = {
   outage: { label: '장애', cls: 'is-outage' },
   info: { label: '안내', cls: 'is-info' }
 };
-// 운영팀 문의 — 피그마 bw03-05a 값 그대로(브랜드 메일 꼬리는 KakaoTalk·TEL 이라 다르다 — 기획 확인 대기)
-const BRAND_HELP_CONTACT = { kakao: 'byhyunho7', email: 'ceo@jfun.co.kr', corp: '주식회사 제이펀 · © JFUN Corp.' };
+// 운영팀 문의 — 🔴 연락처는 사용자 보류(2026-10-23 「우선 보류 — 임의 텍스트」) — 정해지면 이 상수만 고친다.
+//   lines = 연락처 줄들(지금은 자리 표시 한 줄). 피그마 bw03-05a 의 KakaoTalk·이메일 값은 일부러 뺐다
+const BRAND_HELP_CONTACT = { lines: ['운영팀 연락처 (준비 중)'], corp: '주식회사 제이펀 · © JFUN Corp.' };
 
 // 공지 요약 — undefined(아직 안 받음) · null(실패) · {latest, unread_count}
 let _brandNoticeSummary;
@@ -4268,8 +4269,7 @@ function _brandHelpMenuHtml() {
     '<div class="brand-help-line" aria-hidden="true"></div>' +
     '<div class="brand-help-contact">' +
       '<p class="brand-help-contact-title">운영팀 문의</p>' +
-      '<p>KakaoTalk ' + brandEsc(BRAND_HELP_CONTACT.kakao) + '</p>' +
-      '<p>' + brandEsc(BRAND_HELP_CONTACT.email) + '</p>' +
+      BRAND_HELP_CONTACT.lines.map(t => '<p>' + brandEsc(t) + '</p>').join('') +
       '<p class="brand-help-corp">' + brandEsc(BRAND_HELP_CONTACT.corp) + '</p>' +
     '</div>';
 }
@@ -11130,6 +11130,6 @@ async function bootBrand() {
 bootBrand();
 
 </script>
-<!-- v1792747683 -->
+<!-- v1792747725 -->
 </body>
 </html>
