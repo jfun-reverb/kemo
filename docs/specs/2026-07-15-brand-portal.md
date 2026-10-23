@@ -1048,3 +1048,13 @@
   - 시험 공지 3건(조각 2 가 남긴 1건 포함) 삭제 — 남은 `[시험]` 공지 0건. 삭제는 화면 단추가 브라우저 기본 확인 창(`confirm`)을 띄워 크롬 연결이 멈추므로 같은 관리자 권한의 삭제 요청으로 했다
 - 남은 것(다음 작업): 브랜드 계정이 공지를 읽는 길(조회 정책·함수)과 브랜드용 읽음 기록 표 · 브랜드 페이지 「도움말」 화면(bw03-05·06)
 - ⚠️ 눈에 띈 작은 것(기록만): 목록 「읽음」 칸이 좁아 관리자 미읽음 줄의 「● 미읽음」이 두 줄로 꺾인다(보일 곳 열이 늘어 폭이 줄었다)
+
+### 구현 결과 — 브랜드 계정이 공지를 보는 길 bw03-05·05a·06 조각 1 데이터베이스 (2026-10-23, 개발서버만)
+- 마이그레이션 **594** `594_brand_notice_read_path.sql` (593 위)
+  - 표 `brand_notice_seen`(auth_id, notice_id, seen_at) 기본 키 둘 — 🔴 공지마다 한 줄. 처음 계약(「마지막으로 연 시각 하나」)은 `published_at` 이 관리자 PC 시계로 찍히고 다시 게시해도 처음 시각이 남아 점이 영영 안 켜질 수 있어 바꿨다. 공지·브랜드 계정이 지워지면 함께 지워짐 · 직접 접근 없음
+  - 판정 한 곳 둘(실행 권한 postgres 만): `_brand_visible_notices()` = 브랜드·게시됨·`help_show_from <= now()`(시작 전은 안 보임 · 기간 끝난 것은 목록에 남음) · `_brand_notice_caller()` = 브랜드 계정(`brand_accounts` 행 — 526 `get_my_account_kind` 와 같은 식) 아님 `forbidden` · 이용 제한 `account_restricted` · 활성 연결(+ 활성 브랜드) 없음 → 빈 결과
+  - 공개 셋(`authenticated` 만): `get_my_brand_notice_summary()` → `{latest:{id,title,brand_kind,published_at}|null, unread_count}`(기간 안 = `now() <= help_show_until`) · `get_my_brand_notices()` → `[{id,title,body_html,brand_kind,published_at,is_new}]` 최신순 · `mark_my_brand_notices_seen()` 인자 없음
+- 개발 DB: 계약 변경 전 판을 한 번 돌린 뒤 그 표·함수를 지우고 이 판을 다시 실행 — 기록 표 594 세 줄(첫 실행 · 정정 메모 · 다시 실행)
+- 되돌리는 시험(DO 블록 끝 예외로 취소): 처음 요약 = 최신 기간 안 공지·안 읽음 2 · 목록 = 기간 안 둘 + 끝난 것 하나(시작 전·초안·관리자 공지 없음, 이름 칸 없음) · 본 기록 3줄 → 안 읽음 0 · 다시 눌러도 오류 없음 · 내용만 고친 저장 → 0 그대로 · 새 공지 → 1 · 게시 취소 → 목록에서 빠짐 · 활성 연결 없음 → 빈 결과 · 이용 제한 → 셋 다 `account_restricted` · 인플루언서 → 셋 다 `forbidden` · 공지 삭제 → 본 기록도 삭제. 실행 권한: 공개 셋 `anon` 거짓·`authenticated` 참, 맨 앞 `=X/` 없음 · 내부 둘 postgres 만 · 표 직접 조회 불가
+- 화면(kemo-45)은 브랜드 화면 `brand-*.js` 에서 직접 부른다 — `storage.js` 변경 없음
+- 범위 밖: 약관 판 보관 링크 · 특정 브랜드만 공지
