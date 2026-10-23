@@ -360,7 +360,7 @@
 | participation_steps | jsonb     | 참여방법 스냅샷 (§18)                       |
 | caution_set_id | uuid FK        | `caution_sets.id` ON DELETE SET NULL (migration 069, 주의사항 번들 원본 참조 — §38) |
 | caution_items | jsonb NOT NULL DEFAULT '[]' | 주의사항 항목 스냅샷 (migration 069 — 캠페인 저장 시 번들에서 복사, 번들 수정해도 기존 캠페인 영향 없음) |
-| is_record_only | boolean NOT NULL DEFAULT false | 기록용 캠페인(인플루언서 모집 없이 외부 결과물만 붙임, migration 588 — 2026-10-23 개발서버 적용, 운영은 아직 · 운영에는 브랜드 페이지보다 먼저 나간다(사양서 배포 순서 ①)). 만든 뒤 바꿀 수 없다(트리거 `trg_campaigns_record_only_lock` — 로그인 세션이면 `record_only_locked`, SQL 편집기·서비스 키만 예외) · 오프라인 행사(`event_mode`)와 함께 켤 수 없다(`campaigns_record_only_not_event`) · 응모는 관리자도 거부(`check_application_deadline` 588 — `recruit_not_open … (record_only)`). 화면 숨김·조회 정책은 뒤 조각(작업표 `docs/specs/2026-10-23-record-only-campaign-breakdown.md`) |
+| is_record_only | boolean NOT NULL DEFAULT false | 기록용 캠페인(인플루언서 모집 없이 외부 결과물만 붙임, migration 588 — 2026-10-23 개발서버 적용, 운영은 아직 · 운영에는 브랜드 페이지보다 먼저 나간다(사양서 배포 순서 ①)). 불변 트리거 `trg_campaigns_record_only_lock` · 제약 `campaigns_record_only_not_event` · 조회 정책 589 — 상세 §76 |
 | view_count    | integer         | 조회수 (상세 페이지 열 때 +1)               |
 | status        | text            | 상태 (draft/scheduled/active/paused/closed) |
 | created_at    | timestamptz     | 생성일                                      |
@@ -2495,6 +2495,8 @@ SELECT
 ## 76. 기록용 캠페인 — 인플루언서 화면 숨김 · 운영 현황 일정 뷰 · 관리자 등록·목록 — 2026-10-23 (조각 6·7·8·10·11, 칸 `campaigns.is_record_only` 마이그레이션 뒤 · 운영은 사양서 배포 순서 ①)
 
 - 작업표 `docs/specs/2026-10-23-record-only-campaign-breakdown.md`. 기록용 캠페인 = 인플루언서 모집 없이 다른 서비스로 진행한 결과(외부 결과 파일)만 붙이는 캠페인. 등록 폼·편집 잠금·복제·캠페인 관리 목록은 조각 10·11, 서버(칸·조회 정책·응모 거부·홍보 메일·조치 경고)는 조각 1~5
+- 서버 기반(조각 1 — 마이그레이션 588): 칸 `campaigns.is_record_only`(기본 false). 만든 뒤 바꿀 수 없다 — 로그인 세션이 값을 바꾸면 「기록용 여부는 등록한 뒤 바꿀 수 없습니다」(`record_only_locked`, 관리자 화면 포함), SQL 편집기·서비스 키만 예외. 오프라인 행사와 함께 켤 수 없다(제약 `campaigns_record_only_not_event`). 응모는 관리자도 거부 — 회원 화면은 기존 문구 「このキャンペーンは現在応募を受け付けていません」("이 캠페인은 현재 응모를 받지 않습니다")(`recruit_not_open`, 기록용이라는 이유는 안 보인다)
+- 캠페인 조회 정책(조각 2 — 마이그레이션 589): 관리자가 아니면(비로그인·회원·브랜드 계정) 캠페인 표를 직접 읽어도 기록용 행이 안 온다. 브랜드 페이지·홍보 메일·공유 리포트·응모 차단은 정의자 권한 함수라 그대로 본다
 - 공용 판정(조각 6): `isRecordOnlyCampaign(camp)` · 관리자 꼬리표 `recordOnlyBadgeHtml(camp)`(회색 「기록용」, 아니면 빈 글자 — 「비공개」 낱말은 초대 전용 행사 배지라 안 쓴다) — 둘 다 `shared.js`. 관리자 캠페인 목록 조회 칸(`ADMIN_LIST_COLUMNS`)에 `is_record_only`
 - 인플루언서 화면(조각 7): 관리자가 아니면 서버 조회 정책이 행을 안 준다. 화면도 이중으로 뺀다 — 홈·목록 탭 넷·채널 칩·건수(`visibleCamps`, 초대 전용과 같은 자리), 상세 주소(`#detail-<번호>`)로 들어오면 「このキャンペーンは現在公開されていません」("이 캠페인은 현재 공개되지 않았습니다") 안내 뒤 목록으로. 관리자 미리보기는 통과
 - 못 찾은 캠페인(기록용·보관 삭제·없는 번호): 예전에는 아무 일 없이 빈 화면이 남았다 → 같은 안내 + 목록 이동. 바뀌는 길: 상세 주소 직접 입력·응모이력의 보관 삭제 캠페인 카드·활동관리 뒤로가기. 목록 조회 자체가 실패했으면, 또 떠날 때 확인에서 이동을 그만두면 안내를 띄우지 않는다
