@@ -54,7 +54,7 @@
 - `recordCautionHistory(...)` / `fetchCautionHistory(...)` — 변경 감사 RPC (1323~1371)
 
 ### 관리자 공지
-- `fetchAdminNotices(...)` / `fetchUnreadAdminNotices()` / `insertAdminNotice(...)` / `updateAdminNotice(...)` / `publishAdminNotice(...)` / `unpublishAdminNotice(...)` / `deleteAdminNotice(...)` / `markAdminNoticeRead(...)` (1373~1481)
+- `fetchAdminNotices(...)` / `insertAdminNotice(...)` / `updateAdminNotice(...)` / `publishAdminNotice(...)` / `unpublishAdminNotice(...)` / `deleteAdminNotice(...)` / `markAdminNoticeRead(...)` (1373~1481)
 
 ### 광고주 신청
 - `fetchBrands(...)` / `fetchBrandById(...)` / `updateBrand(...)` / `insertBrand(...)` (1484~1530)

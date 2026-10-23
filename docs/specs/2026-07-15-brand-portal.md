@@ -1026,3 +1026,11 @@
 9. (2026-10-15) 브랜드 공개 기본 열의 처음 값 — 16-5 17번. 값은 정했다(2026-10-23 — 포인테일과 겹치는 열 12개). 남은 일: 운영 반영 때 운영 기준 데이터 「브랜드 공개 기본 열」 탭에 그 12열을 저장(그 전에 LIPS 외부 파일이 와서 17번 LIPS 조건이 적용됐으면 LIPS 결과물·업로드 날짜까지)
 10. (2026-10-15) 16-3 9번 개인정보 이용 안내 — 설정 메일(`brand-account-setup.html`)·연결 안내(`brand-link-notice.html` — 🔁 16-8 로 「브랜드 연결 요청」 양식이 된다. 이 양식을 바꿀지 새로 만들지는 개발이 정한다) 두 양식에 **초안**으로 들어가 있다(양식 주석 「16-3 9번 초안 — /약관확인 뒤 확정」). 1번 `/약관확인` 때 문구를 확정하고 양식 동기화 뒤 함수를 다시 배포한다 · 같은 판단에서 `brand_invites`(계정 없는 사람의 이메일)·「마지막 접속」(이용 기록) 보관 기간도 정한다 · 새 이메일 초대 메일(`brand-invite-new.html`)의 **용도 안내 문단**(피그마 bw01-97 「[용도 안내 문단 — 약관 확인 뒤 채운다]」)도 이때 채운다 — 지금은 비어 있다(양식 주석, 2026-10-16)
 
+
+### 구현 결과 — 관리자 공지 「보일 곳」 칸 a11 조각 1 데이터베이스 (2026-10-23, 개발서버만)
+- 마이그레이션 **593** `593_admin_notices_audience.sql` — `admin_notices` 에 `audience`(admin 기본 | brand)·`brand_kind`(terms·maintenance·outage·info)·`help_show_from`·`help_show_until` + 묶음 제약 `admin_notices_audience_shape`(관리자 = 분류 4종 필수·새 칸 비움 / 브랜드 = 분류 비움·종류·기간 필수·끝 > 시작·고정 안 함). `category` 의 NOT NULL 만 풀고 063 의 4종 검사는 그대로. 기존 행은 전부 admin
+- 개발 DB 적용 확인: 기록 표 593 줄 · 되돌리는 시험 9건(브랜드 정상·관리자 정상 통과 / 브랜드+분류·기간 거꾸로·고정·관리자 분류 없음·종류 이상값·분류 이상값·관리자+종류 거부)
+- `storage.js`: `fetchAdminNotices(filters.audience)` 거르기(넘길 때만 — 운영엔 칸이 없다) · `insertAdminNotice` 는 `data.audience==='brand'` 일 때만 새 칸을 보낸다(분류 비우고 고정 끔) · `updateAdminNotice` 는 patch 그대로(보일 곳을 바꿀 땐 짝 칸을 함께) · 부르는 곳이 없던 `fetchUnreadAdminNotices` 삭제
+- 그대로 둔 것(다음 작업): 조회 정책 `admin_notices_select`(관리자만)·읽음 표 `admin_notice_reads` — 🔴 브랜드 계정의 읽음 기록은 그 표에 섞지 않고 따로 둔다(그 표 정책이 관리자 전제)
+- ⚠️ 화면 몫: 옛 관리자 편집기가 브랜드 행을 저장하면 `category` 를 보내 묶음 제약에 걸린다 — 브랜드일 때 `category`·`is_pinned` 를 안 보내게
+- 운영: 브랜드 페이지 1차 출시 묶음과 함께(593 먼저, 화면 나중)
