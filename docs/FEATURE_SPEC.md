@@ -1393,6 +1393,7 @@ rejected: any stage → rejected 로 분기 가능 (reviewing 이후 어느 단�
 - `admin_notices`: category/title/body_html/pin/created_by/* + **`status text NOT NULL DEFAULT 'draft' CHECK (draft|published)`·`published_at timestamptz`·`published_by uuid`·`published_by_name text` (migration 071)**
 - `admin_notice_reads`: 관리자별 읽음 기록 UNIQUE(admin_id, notice_id)
 - **보일 곳(migration 593, 2026-10-23 — 개발서버만)**: `audience`(admin 기본 | brand — 브랜드 페이지 공지, 모든 브랜드 모든 계정)·`brand_kind`(약관·점검·장애·안내)·`help_show_from`/`help_show_until`(브랜드 「도움말」 최근 공지 줄 기간). 묶음 제약: 관리자 = 분류 필수·새 칸 비움 / 브랜드 = 분류 비움·종류·기간 필수·고정 불가. 브랜드 계정이 읽는 길은 다음 작업
+  - **관리자 화면(피그마 a11, 개발서버만 — `_brandAccountEnabled()`)**: 목록 「보일 곳」 거르기·열(브랜드 줄 보라 꼬리표, 게시된 브랜드 공지가 기간 밖이면 「노출 전」/「노출 끝」) · 카테고리 칸에 브랜드는 종류 이름 · 「브랜드 페이지」 거르기에선 카테고리 탭 줄 숨김. 작성 모달 맨 위 보일 곳 두 칩(저장한 공지는 잠금) — 브랜드면 카테고리·상단 고정 대신 종류 칩 넷 + 보일 기간(날짜+시각) + 안내 세 줄, 종류·기간 필수·끝>시작(초안 포함). 브랜드 공지는 관리자 미읽음이 아니다 — 판정 `isAdminAudienceNotice` 하나로 배지·로그인 팝업·대시보드 카드·「미읽음만」·읽음 칸·자동 읽음에서 뺀다. 운영(판정 거짓)은 화면·저장 요청이 그대로
 - RPC: `upsert_admin_notice_read(p_notice_id)` — 한 건씩 read_at 기록
 - **RLS SELECT (071 변경)**: `published OR is_super_admin() OR created_by=auth.uid()` — draft는 작성자 본인 + super_admin 만 조회 가능
 

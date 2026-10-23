@@ -3028,7 +3028,7 @@
         <div id="adminPane-admin-notices" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">공지사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(관리자 전용)</span></div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">공지사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(관리자 전용)<span id="adminNoticeBrandSub" style="display:none"> — 브랜드 페이지 공지도 여기서 씁니다</span></span></div>
               <button class="btn btn-primary btn-xs" id="btnNewAdminNotice" onclick="openAdminNoticeEdit(null)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">add</span> 새 공지 작성</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
@@ -3038,6 +3038,15 @@
                   <option value="all">전체</option>
                   <option value="published">게시</option>
                   <option value="draft">초안</option>
+                </select>
+              </div>
+              <!-- 보일 곳 거르기 — 브랜드 페이지 공지(개발서버만, _brandAccountEnabled). 운영에서는 숨김 -->
+              <div class="admin-filter-group" id="adminNoticeAudienceFilterGroup" style="display:none">
+                <label>보일 곳</label>
+                <select id="adminNoticeAudienceFilter" class="admin-filter" onchange="renderAdminNotices()">
+                  <option value="all">전체</option>
+                  <option value="admin">관리자</option>
+                  <option value="brand">브랜드 페이지</option>
                 </select>
               </div>
               <div class="admin-filter-group">
@@ -3064,7 +3073,7 @@
             </div>
             <div class="admin-table-wrap">
               <table class="data-table" id="adminNoticeTable">
-                <thead><tr><th style="width:60px">읽음</th><th style="width:80px">게시</th><th style="width:130px">카테고리</th><th>제목</th><th style="width:120px">작성자</th><th style="width:140px">게시일</th><th style="width:140px">수정</th></tr></thead>
+                <thead><tr><th style="width:60px">읽음</th><th style="width:80px" id="adminNoticeStatusTh">게시</th><th style="width:130px">카테고리</th><th>제목</th><th style="width:120px">작성자</th><th style="width:140px">게시일</th><th style="width:140px">수정</th></tr></thead>
                 <tbody id="adminNoticeBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">로드 중...</td></tr></tbody>
               </table>
             </div>
@@ -3392,8 +3401,26 @@
       <div class="modal-title" id="adminNoticeEditTitle">공지 작성</div>
       <div class="modal-close" onclick="closeModal('adminNoticeEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
-    <div class="modal-body" style="padding:20px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
-      <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:12px">
+    <div class="modal-body" id="adminNoticeEditBody" style="padding:20px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
+      <!-- 보일 곳 + 브랜드 페이지 종류 — 개발서버만(_brandAccountEnabled). 운영에서는 숨김이라 지금 칸 그대로 -->
+      <div id="anEditAudienceWrap" style="display:none;margin-bottom:12px;flex-shrink:0">
+        <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">보일 곳</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button type="button" class="gantt-chip" data-aud="admin" onclick="setNoticeEditAudience('admin')">관리자</button>
+          <button type="button" class="gantt-chip" data-aud="brand" onclick="setNoticeEditAudience('brand')">브랜드 페이지</button>
+          <span id="anEditAudienceLockNote" style="display:none;font-size:11px;color:var(--muted)">보일 곳은 저장한 뒤 바꿀 수 없습니다</span>
+        </div>
+      </div>
+      <div id="anEditBrandKindWrap" style="display:none;margin-bottom:12px;flex-shrink:0">
+        <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">종류 (브랜드 페이지)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="gantt-chip" data-kind="terms" onclick="setNoticeEditKind('terms')">약관</button>
+          <button type="button" class="gantt-chip" data-kind="maintenance" onclick="setNoticeEditKind('maintenance')">점검</button>
+          <button type="button" class="gantt-chip" data-kind="outage" onclick="setNoticeEditKind('outage')">장애</button>
+          <button type="button" class="gantt-chip" data-kind="info" onclick="setNoticeEditKind('info')">안내</button>
+        </div>
+      </div>
+      <div id="anEditTitleRow" style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:12px">
         <input type="text" id="anEditTitle" class="form-input" placeholder="제목" style="font-size:13px;padding:8px 10px">
         <select id="anEditCategory" class="form-input" style="font-size:12px;padding:8px 10px">
           <option value="system_update">시스템 업데이트</option>
@@ -3403,12 +3430,22 @@
         </select>
       </div>
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-        <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditPinned"> 상단 고정</label>
+        <label id="anEditPinnedLabel" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditPinned"> 상단 고정</label>
         <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditHtmlMode" onchange="toggleNoticeHtmlMode()"> HTML 소스로 입력/편집</label>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">노션·문서에서 복사해 그대로 붙여넣으면 제목·굵게·목록·링크 서식이 유지됩니다. 편집 중 보이는 모습이 게시 후와 동일합니다(HTML 소스 입력 불필요).</div>
       <div id="anEditBodyQuill" style="background:#fff"></div>
       <textarea id="anEditBodyRaw" style="display:none;width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:none" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
+      <!-- 브랜드 페이지 공지만 — 「도움말」 메뉴 최근 공지 줄에 보일 기간 + 안내 -->
+      <div id="anEditHelpWrap" style="display:none;margin-top:12px;flex-shrink:0">
+        <div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">「도움말」 메뉴 최근 공지 줄에 보일 기간</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="datetime-local" id="anEditHelpFrom" class="form-input" style="font-size:12px;padding:7px 10px;width:auto" aria-label="보일 기간 시작">
+          <span style="color:var(--muted)">~</span>
+          <input type="datetime-local" id="anEditHelpUntil" class="form-input" style="font-size:12px;padding:7px 10px;width:auto" aria-label="보일 기간 끝">
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px">· 브랜드 페이지 공지는 모든 브랜드의 모든 계정에 보입니다(특정 브랜드만 고르기는 없음).<br>· 기간이 끝나도 「도움말」 → 「공지사항」 목록에는 남습니다.<br>· 약관 개정 공지는 이메일 통지와 함께 보냅니다(이용약관 제4조 2항 — 메일은 따로 보낸다).</div>
+      </div>
     </div>
     <div id="adminNoticeEditFooter" style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--line);justify-content:flex-end;align-items:center;flex-shrink:0">
       <span id="adminNoticeEditStatusPill" style="margin-right:auto"></span>
