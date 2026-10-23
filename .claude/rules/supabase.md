@@ -62,7 +62,7 @@ paths:
 - **초기 로드 시 URL에서 즉시 navigate 금지** (Supabase SDK의 비동기 세션 확립 전 URL hash 소실 위험)
 
 ## RLS 주의사항
-- campaigns: SELECT 공개, CUD는 관리자만
+- campaigns: SELECT 공개 — **단 기록용 캠페인(`is_record_only`)은 관리자만**(589 `USING (is_record_only = false OR (SELECT public.is_admin()))`), CUD는 관리자만. ⚠️ 비로그인이 `is_admin()` 실행 권한을 가져야 정책이 산다(없으면 로그아웃 목록이 통째 실패)
 - influencers: 본인 데이터만 SELECT/UPDATE, 관리자는 전체 SELECT
 - applications: 본인 INSERT/SELECT, 관리자는 전체 접근
 - `is_admin()`: admins 테이블에서 auth.uid() 조회 (JWT email 하드코딩 금지)

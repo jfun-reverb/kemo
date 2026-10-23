@@ -20,7 +20,7 @@ globs: "dev/**/*.js,dev/**/*.html,supabase/**/*.sql"
 ## Supabase / RLS
 - anon key는 공개 전제 (클라이언트 노출 OK) → **RLS가 유일한 방어선**
 - service_role key는 절대 클라이언트 코드/repo에 노출 금지
-- RLS 정책 필수: campaigns SELECT 공개, 나머지는 본인/관리자만
+- RLS 정책 필수: campaigns SELECT 공개(기록용 캠페인은 관리자만 — 589), 나머지는 본인/관리자만
 - 새 테이블 추가 시 RLS 정책 필수
 - innerHTML에 DB 데이터 삽입 시 반드시 `esc()` 함수 사용
 
