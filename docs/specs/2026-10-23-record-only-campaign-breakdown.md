@@ -539,3 +539,77 @@
   - 발견 1건 → 후속 수정: 더보기 「복제」를 누르면 메뉴가 고르는 창 위에 남았다 → `duplicateCampaign` 맨 앞에서 메뉴를 닫는다
 - **시험 캠페인**(개발 DB — 행 삭제 목록에 넣음): B0046-C008 「zz-기록용 등록 시험」(`590921b3-0789-480d-963e-eda30c53aa47`, 기록용 · active · 제품 금액 0)
 - **reverb-reviewer**: Critical 0 · Warning 3(배포 순서 — 병합 요청에 명시 / 삭제됨 탭 초기화 단추 — 수정 / 모달이 열린 채 화면이 바뀌는 경우 — 실사용 경로 없음)
+
+### 조각 1~5·13 (kemo-cd — 2026-10-23, 개발서버 · 운영은 브랜드 페이지 1차와 같은 때)
+
+- **조각 1 — #2325 · 588**(`588_campaign_record_only.sql`): 칸 `campaigns.is_record_only boolean NOT NULL DEFAULT false` · 트리거 `trg_campaigns_record_only_lock`(함수 `_campaigns_record_only_lock`, 호출자 권한, 실행 권한 `{postgres, service_role}`) · 제약 `campaigns_record_only_not_event` · `check_application_deadline` 326 → 588(보관 삭제 검사 뒤·관리자 통과 앞에 기록용 거부 `recruit_not_open: … (record_only)`)
+  - 되돌리는 시험(명령줄, 로그인 흉내, 끝에서 취소): 로그인 없음 바꾸기 통과 / 관리자 바꾸기 `record_only_locked` / 같은 값 + 제목 저장 통과 / 관리자·회원 응모 `recruit_not_open (record_only)` / 기록용 + 행사 제약 위반
+- **조각 2 — #2329 · 589**(`589_campaigns_select_hide_record_only.sql`): `campaigns_select_public` → `USING (is_record_only = false OR (SELECT public.is_admin()))`
+  - 착수 전 두 서버 조회: `is_admin` 에 `anon=X` 있음(개발은 PUBLIC 도 남음, 운영은 없음) · 조회 정책 하나
+  - 비관리자 조회 자리 세 형태 재집계(파일 머리말): 서버 함수 91개 모두 정의자 권한, 호출자 권한 함수·뷰·다른 표 정책 0 · 회원 앱은 `fetchCampaigns`(storage.js:144) 하나 · 서버 함수 5곳은 서비스 키
+  - 시험(역할 바꿔 직접 조회): 기록용 행 비로그인 0 · 회원 0 · 브랜드 계정 0 · 관리자 1
+- **조각 3·5 — #2331 · 590 + `notify-campaign-promo-digest`**: 471 두 함수 본문 복사 + 신규·마감 임박 네 자리에 `AND c.is_record_only = false`(`CREATE OR REPLACE` 만) · 시험 발송 조회에 `.eq("is_record_only", false)` · 서버 함수 개발 프로젝트 배포(발송 시험 없음)
+  - 시험: 기록용이면 관리자 요약 풀 신규 목록에서 빠지고 같은 거래에서 일반으로 바꾸면 들어옴 · 실행 권한 `{postgres, service_role}` 그대로
+  - ⚠️ 590 은 데이터베이스 전문 에이전트 검토 전에 개발 DB 에 먼저 넣었다(사후 검토 「고칠 것 없음」)
+- **조각 4 — #2333 · 591**: `get_campaign_action_alerts` 434 → 591(대상에서 기록용 제외) · `get_brand_ops_overview` 259 → 591(경고 재료 d3·d1·가장 이른 마감·판정 정원·모집률만 기록용 제외 + 맨 끝 새 칸 `alert_recruit_rate`, 표시 칸 그대로). 반환 칸이 늘어 `DROP` 후 `CREATE` — 권한 `{postgres, service_role, authenticated}` 다시 걸기
+  - 시험(관리자 흉내, B0046 브랜드): 경고 기록용 0 / 같은 조건 일반 1 / 기록용→일반이면 1 · `slots_total` 100 그대로, `alert_recruit_rate` 4.3 vs 3.8, `d3_count` 1 vs 2
+- **CLAUDE.md**: 「현재 원본 번호」 줄을 588(응모 차단)·590(홍보 메일)·591(브랜드 카드·조치 경고)로 고침
+- **시험 캠페인**: 개발 DB B0046-C007 「zz-기록용 시험 수분 크림」은 다른 세션이 만든 것 — 이 세션의 시험은 모두 거래 취소로 흔적 없음
+
+#### 조각 13 운영 실행표 (2026-10-23 준비 — 실행 안 함. 사용자 결정: 브랜드 페이지 1차와 같은 때)
+
+**⓪ 운영 조회 결과(2026-10-23, 읽기만 — 실행 당일 다시 돌린다)**
+
+| 항목 | 운영 | 판정 |
+|---|---|---|
+| `check_application_deadline` | 326 본문(`[326]` 있음 · `(record_only)` 없음) | 베이스 일치 |
+| `get_promo_digest_targets`·`_campaign_pool` | 471 본문(`_promo_next_send_date` 있음 · 기록용 없음) | 일치 |
+| `get_campaign_action_alerts` | 434 본문 | 일치 |
+| `get_brand_ops_overview` | 259 본문(`[259]` 있음 · `alert_recruit_rate` 없음) | 일치 |
+| 권한 `get_brand_ops_overview` | `{postgres, service_role, authenticated}` | 개발과 같음 → 591 권한 줄 그대로 |
+| 권한 `get_campaign_action_alerts` | `{postgres, authenticated, service_role}` | 개발과 같음 |
+| 권한 홍보 메일 두 함수 | `{postgres, service_role}` | 375 유지 |
+| `is_admin` | `anon=X` 있음 | 589 전제 충족 |
+| `is_record_only` 칸 · 조회 정책 | 칸 없음 · `USING (true)` 하나 | 588·589 전 |
+| 기록 표 | 마이그레이션 줄 572 하나 | — |
+| 외부 파일이 붙은 리포트 | 10개 — 캠페인 줄 없음 **0** · 캠페인이 전부 지워짐 **0** | 직전 작업표 조각 16 선행 조건 없음 |
+
+판별 조회(파일 대신 여기 남긴다):
+```sql
+WITH f AS (SELECT p.proname, p.proacl::text acl, pg_get_functiondef(p.oid) def FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname IN ('check_application_deadline','get_promo_digest_targets','get_promo_digest_campaign_pool','get_campaign_action_alerts','get_brand_ops_overview'))
+SELECT proname, acl,
+  (def LIKE '%[326]%') has326, (def LIKE '%_promo_next_send_date%') has471, (def LIKE '%NULLIF(c.brand_en%') has434, (def LIKE '%[259]%') has259,
+  (def LIKE '%is_record_only%' OR def LIKE '%(record_only)%' OR def LIKE '%alert_recruit_rate%') has_record_only
+FROM f;
+SELECT count(*) FROM public.campaign_reports r
+ WHERE EXISTS (SELECT 1 FROM public.campaign_report_sources s WHERE s.report_id=r.id)
+   AND NOT EXISTS (SELECT 1 FROM public.campaign_report_campaigns rc WHERE rc.report_id=r.id AND rc.campaign_id IS NOT NULL);
+```
+
+**① 데이터베이스 — 파일 하나씩, 순서 고정(시작 시각을 적어 둔다)**
+
+| 순서 | 파일 | 실행 전 | 실행 뒤 |
+|---|---|---|---|
+| 1 | `588_campaign_record_only.sql` | 칸 없음 · 응모 차단 326 | 기록 표 588 · 칸·트리거·제약 · 함수 본문 `(record_only)` · 기록용 0건 |
+| 2 | `589_campaigns_select_hide_record_only.sql` | 1 끝 · `is_admin` `anon=X` | 기록 표 589 · 정책 식 · 로그아웃 목록 장수 직전과 같음(브라우저) |
+| 3 | `590_promo_digest_exclude_record_only.sql` | 1 끝 | 기록 표 590 · 두 함수 본문 `is_record_only` · 권한 `{postgres, service_role}` 그대로 |
+| 4 | `591_action_alerts_exclude_record_only.sql` | 1 끝 · 두 경고 함수 권한 조회 | 기록 표 591 · `alert_recruit_rate` 칸 · 권한 ⓪ 과 같음 · 운영 현황 화면 열림 |
+
+끝: `SELECT kind, key, file_name, applied_at FROM public.migration_ledger WHERE applied_at >= '<시작 시각>+09' ORDER BY id;` → 588·589·590·591 네 줄. 기록용 0건이라 이 시점까지 운영 동작은 그대로.
+
+**② 서버 함수** `supabase functions deploy notify-campaign-promo-digest --project-ref nrwtujmlbktxjgdwlpjj` — 588 뒤에만, 발송 시험 없음. 다음 정기 발송 뒤 `campaign_promo_digest_runs` 그날 줄만 본다.
+
+**③ 코드** — 브랜드 페이지 1차와 같은 배포(사용자 결정, 골라 담기 안 함). 참고로 남기는 골라 담기 시험(origin/main 위, 임시 브랜치 — 지웠다):
+- 조각 6(fc34fdc0)·588(2e6cdc78)·조각 7·8(f527d038)·589(7567a566): 빌드 산출물·`FEATURE_SPEC.md` 충돌만
+- 조각 10·11(bf55f106): 원본 소스 충돌 5곳 — 모두 개발 전용 코드의 「옆 줄」
+  1. `dev/js/admin-core.js` `friendlyError` — 기록용 두 줄이 브랜드 계정·열람 정지·담당자·CS 문구 사이
+  2. `dev/admin/index.html` 캠페인 목록 필터 — 기록용 필터가 「브랜드 공개」 필터(`#campPublishFilterGroup`) 바로 뒤
+  3. `dev/js/admin.js` 보기 초기화 단추 판정 `hasFilter` — `campPublishFilter` 와 한 줄
+  4. `dev/js/admin.js` `resetCampView` — `campPublishFilter` 초기화 줄 옆
+  5. `dev/js/admin.js` 배지 줄 조건 — `_campListPublishStates`·`_campListSuspendedMap`(브랜드 공개·열람 정지)과 한 식
+- 3c91eaf6·0fc1c750·40c4f57f 는 bf55f106 뒤라 시험하지 못했다
+
+**④ 운영 시험 캠페인** — 관리자 화면에서 `zz-기록용 운영 시험`(모집 중) 등록 → 로그아웃·회원 목록에 없음 · `#detail-<번호>` 진입 시 「このキャンペーンは現在公開されていません」("이 캠페인은 현재 공개되지 않았습니다") 뒤 목록 · 관리자 목록 「기록용」 꼬리표 → 확인 뒤 행 삭제(보관 삭제 → 최고 관리자가 「삭제됨」 탭에서 완전삭제)
+
+**롤백**(2회차 순서): 화면 10·11 → 6~8 → 서버 함수 옛 판 → 591(434·259 블록 재실행 + 259 뒤 `service_role` 부여) → 590(471 블록) → 589(`USING (true)`) → 588(트리거·제약 → 326 블록 → 칸은 맨 끝). 시작 전 기록용 0건 확인.
