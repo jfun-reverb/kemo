@@ -200,6 +200,10 @@ const ADMIN_LIST_COLUMNS = [
   //   버튼이 눌린 뒤 조회를 하면 그 비동기 때문에 사용자 제스처가 끊겨 브라우저가
   //   새 탭을 차단한다(실측). 목록 조회 때 함께 받아 두면 동기로 열 수 있다.
   'event_group_id',
+  // 기록용 캠페인(인플루언서 모집 없음) — 목록의 「기록용」 꼬리표·필터가 isRecordOnlyCampaign 으로 이 값을 본다.
+  //   ⚠️ 여기서 빠지면 값이 undefined 라 꼬리표·필터가 **오류 없이 조용히 사라진다**.
+  //   🔴 칸이 없는 데이터베이스에서는 이 목록 조회가 통째로 실패한다 — 칸 마이그레이션을 먼저 넣는다.
+  'is_record_only',
 ].join(',');
 
 async function fetchCampaignsForAdminList() {
