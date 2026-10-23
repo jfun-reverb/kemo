@@ -161,7 +161,8 @@ function _shipRowHtml(r, d) {
   const act = canEdit
     ? '<button type="button" class="ship-link-btn" onclick="openShipEditModal(' + jsStr(r.application_id) + ')">' + (r.tracking_no ? '수정' : '입력') + '</button>'
     : '';
-  return '<tr data-app="' + esc(r.application_id) + '" style="' + dim + '">'
+  // 취소 줄은 칸마다 흐리게(피그마 a05-09a) — 표 칸 글자색이 줄 색을 덮어 줄에만 주면 안 흐려진다
+  return '<tr data-app="' + esc(r.application_id) + '"' + (cancelled ? ' class="ship-row-cancelled"' : '') + ' style="' + dim + '">'
     + '<td style="' + dim + '">' + (r.row_no != null ? esc(String(r.row_no)) : '—') + '</td>'
     + '<td><div>' + nameHtml + isNew + (sns ? ' <span style="font-size:11px;color:var(--muted)">(' + esc(sns) + ')</span>' : '') + '</div>'
       + (r.name_kana ? '<div style="font-size:11px;color:var(--muted)">' + esc(r.name_kana) + '</div>' : '') + '</td>'
