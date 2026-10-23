@@ -774,6 +774,7 @@ Deno.serve(async (req: Request) => {
         .from("campaigns")
         .select("id, campaign_no, title, brand, brand_ko, recruit_type, deadline, slots, reward, product_price, reward_note, img1")
         .eq("status", "active")
+        .eq("is_record_only", false)   // 기록용 캠페인 제외(마이그레이션 588 뒤에 배포 — 칸이 없으면 이 조회가 실패한다)
         .order("deadline", { ascending: true })
         .limit(5);
       if (campError) throw new Error(`campaigns lookup: ${campError.message}`);
