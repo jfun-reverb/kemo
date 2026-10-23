@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792737319';
+  var CURRENT_BUILD = 'v1792745298';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3692,7 +3692,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 15:35 · 7f7450d</span>
+          <span class="admin-build-text">2026-10-23 17:48 · 9b05d5f</span>
         </div>
       </div>
     </aside>
@@ -14674,6 +14674,7 @@ async function fetchCampaignChangeHistory(campaignId) {
 // 공지 목록 + 본인 읽음 여부 (migration 071: status·published_at 추가)
 //   filters.category : 'all' | 'system_update' | 'release' | 'warning' | 'general'
 //   filters.status   : 'all' | 'draft' | 'published'
+//   filters.audience : 'all'(기본) | 'admin' | 'brand' — 보일 곳(593, 개발서버만). 운영엔 칸이 없으니 브랜드 계정 기능이 켜진 화면만 넘긴다
 //   정렬: 핀 우선 → 핀일자 → published_at(없으면 created_at)
 async function fetchAdminNotices(filters) {
   if (!db) return [];
@@ -14684,6 +14685,7 @@ async function fetchAdminNotices(filters) {
       let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
       if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      if (filters?.audience && filters.audience !== 'all') q = q.eq('audience', filters.audience);
       return q.order('is_pinned', {ascending: false})
         .order('pinned_at', {ascending: false, nullsFirst: false})
         .order('published_at', {ascending: false, nullsFirst: false})
@@ -14698,13 +14700,9 @@ async function fetchAdminNotices(filters) {
   } catch(e) { console.error('[fetchAdminNotices]', e); return []; }
 }
 
-// published 미읽음만 — 사이드바 배지·로그인 팝업·대시보드 카드 공용
-async function fetchUnreadAdminNotices() {
-  const all = await fetchAdminNotices();
-  return all.filter(n => n.status === 'published' && !n.is_read);
-}
-
 // 신규 생성 — status는 'draft'(기본) 또는 'published'(즉시 게시)
+//   data.audience === 'brand' 일 때만 보일 곳 칸(593)을 보낸다 — brand_kind·help_show_from·help_show_until 필수,
+//   category 는 비우고 고정 안 함(묶음 제약 admin_notices_audience_shape). 관리자 공지는 새 칸을 안 보내 칸 없는 운영에서도 산다
 async function insertAdminNotice(data) {
   if (!db) throw new Error('DB 미연결');
   const uid = (await db.auth.getUser()).data?.user?.id;
@@ -14725,6 +14723,15 @@ async function insertAdminNotice(data) {
     updated_by: uid || null,
     updated_by_name: data.created_by_name || null,
   };
+  if (data.audience === 'brand') {
+    payload.audience = 'brand';
+    payload.category = null;
+    payload.is_pinned = false;
+    payload.pinned_at = null;
+    payload.brand_kind = data.brand_kind || null;
+    payload.help_show_from = data.help_show_from || null;
+    payload.help_show_until = data.help_show_until || null;
+  }
   await retryWithRefresh(async () => {
     const {error} = await db.from('admin_notices').insert(payload);
     if (error) throw error;
@@ -14732,6 +14739,8 @@ async function insertAdminNotice(data) {
 }
 
 // 부분 갱신.
+//   보일 곳 칸(593 — audience·brand_kind·help_show_from·help_show_until)은 patch 에 든 것만 그대로 보낸다.
+//   보일 곳을 바꿀 때는 묶음 제약에 맞게 짝 칸(category·is_pinned 포함)을 함께 넣을 것
 //   patch.status === 'published' 가 들어오고 기존 published_at이 NULL이면
 //   published_at/published_by 를 자동 세팅 (최초 게시).
 //   재게시 시(이미 published_at 존재) 시각 갱신 안 함 — 미읽음 리셋 방지 정책.

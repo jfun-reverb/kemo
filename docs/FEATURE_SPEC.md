@@ -1392,6 +1392,7 @@ rejected: any stage → rejected 로 분기 가능 (reviewing 이후 어느 단�
 ### 27.2 DB (§5.7 / §5.8)
 - `admin_notices`: category/title/body_html/pin/created_by/* + **`status text NOT NULL DEFAULT 'draft' CHECK (draft|published)`·`published_at timestamptz`·`published_by uuid`·`published_by_name text` (migration 071)**
 - `admin_notice_reads`: 관리자별 읽음 기록 UNIQUE(admin_id, notice_id)
+- **보일 곳(migration 593, 2026-10-23 — 개발서버만)**: `audience`(admin 기본 | brand — 브랜드 페이지 공지, 모든 브랜드 모든 계정)·`brand_kind`(약관·점검·장애·안내)·`help_show_from`/`help_show_until`(브랜드 「도움말」 최근 공지 줄 기간). 묶음 제약: 관리자 = 분류 필수·새 칸 비움 / 브랜드 = 분류 비움·종류·기간 필수·고정 불가. 브랜드 계정이 읽는 길은 다음 작업
 - RPC: `upsert_admin_notice_read(p_notice_id)` — 한 건씩 read_at 기록
 - **RLS SELECT (071 변경)**: `published OR is_super_admin() OR created_by=auth.uid()` — draft는 작성자 본인 + super_admin 만 조회 가능
 
