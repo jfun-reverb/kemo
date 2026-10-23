@@ -93,9 +93,12 @@ async function loadCampaigns() {
 //     ⚠️ 이건 **화면 단계 필터**다. 캠페인 자체는 브라우저로 내려오므로 이것만으로는
 //        내용이 완전히 감춰지지 않는다. 예약을 실제로 막는 것은 서버의 초대 번호
 //        재검증이다(마이그레이션 283 reserve_event_ticket). 사양서 §2-6 의 세 겹 중 첫 겹.
+//   is_record_only = 기록용(인플루언서 모집 없음) — 초대 전용과 같은 네 곳에서 뺀다.
+//     ⚠️ 관리자가 아니면 서버 조회 정책이 행 자체를 안 준다. 이 줄은 관리자 세션으로 회원 화면을 볼 때의 몫이다.
 function visibleCamps(camps) {
   return camps.filter(c =>
     !(typeof isInviteOnlyCampaign === 'function' && isInviteOnlyCampaign(c)) &&
+    !(typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(c)) &&
     (c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended'));
 }
 

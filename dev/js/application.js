@@ -19,7 +19,16 @@ function campaignSubmissionLabelText(camp) {
 
 async function openCampaign(id) {
   const camp = allCampaigns.find(c=>c.id===id) || demoCampaignsForDisplay().find(c=>c.id===id);
-  if (!camp) return;
+  if (!camp) {
+    // 못 찾은 캠페인 — 기록용(서버가 행을 안 준다)·보관 삭제·없는 번호. 예전에는 그냥 끝나 빈 화면이 남았다.
+    //   비공개 캠페인과 같은 안내를 띄우고 목록으로 보낸다(이유는 드러내지 않는다).
+    //   ⚠️ 목록 조회 자체가 실패했으면 띄우지 않는다 — 「못 불러왔습니다」를 「공개되지 않았습니다」로 바꿔 말하게 된다.
+    //   ⚠️ 이동을 먼저 하고, 떠날 때 확인에서 막히면(false) 안내를 띄우지 않는다 — 화면은 그대로인데 안내만 뜨게 된다.
+    if (typeof _campaignsLoadFailed !== 'undefined' && _campaignsLoadFailed) return;
+    if (typeof navigate === 'function' && navigate('campaigns') === false) return;
+    if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
+    return;
+  }
 
   // 비공개 캠페인 진입 가드 (사양서 2026-07-29 §설계 5-(8)-1)
   //   준비중(draft)·노출종료(expired)는 목록에 안 나오지만 해시(#detail-{id})로 직접 열 수 있었고,
@@ -55,6 +64,13 @@ async function openCampaign(id) {
   if ((camp.status === 'draft' || camp.status === 'expired') && _detailFrom !== 'mypage' && !_isPreview) {
     if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     if (typeof navigate === 'function') navigate('campaigns');
+    return;
+  }
+  // 기록용 캠페인 — 관리자 세션으로 회원 화면을 볼 때만 여기까지 온다(관리자가 아니면 서버가 행을 안 준다).
+  //   ⚠️ 응모이력 예외는 두지 않는다 — 기록용에는 응모가 없다. 미리보기는 위 가드와 같이 통과.
+  if (typeof isRecordOnlyCampaign === 'function' && isRecordOnlyCampaign(camp) && !_isPreview) {
+    if (typeof navigate === 'function' && navigate('campaigns') === false) return;   // 순서는 위 「못 찾음」 갈래와 같은 이유
+    if (typeof toast === 'function') toast(t('detail.notPublic'), 'error');
     return;
   }
 
