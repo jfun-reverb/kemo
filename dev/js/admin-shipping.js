@@ -500,7 +500,7 @@ async function runShipDeliver() {
 // ── 전달·열람 기록(a05-11 — 최고 관리자만, D5·D26) ─────────────────
 const SHIP_LOG_ACTION_TEXT = {
   shipping_deliver:  '배송 리스트 전달',
-  shipping_auto_add: '새로 승인된 분 자동 추가',
+  shipping_auto_add: '새로 승인된 분 추가',
   shipping_view:     '배송 리스트 열람',
   shipping_excel:    '엑셀 내려받기',
 };
@@ -516,7 +516,7 @@ async function openShipLogModal() {
   const m = _shipEnsureModal('shipLogModal', '전달·열람 기록' + (camp && camp.title ? ' — ' + camp.title : ''), 640);
   const body = m.querySelector('.ship-modal-body');
   body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
-  m.querySelector('.ship-modal-foot').innerHTML = '<button type="button" class="btn btn-primary" onclick="closeModal(\'shipLogModal\')">닫기</button>';
+  m.querySelector('.ship-modal-foot').innerHTML = '<button type="button" class="btn btn-primary btn-sm" onclick="closeModal(\'shipLogModal\')">닫기</button>';
   openModal('shipLogModal');
   // 같은 캠페인의 결과물 열람 기록도 같은 표에 있다 — 종류마다 서버에서 걸러 받아(결과물 기록에 밀려 잘리지 않게) 합친 뒤 최근 50줄
   const parts = await Promise.all(Object.keys(SHIP_LOG_ACTION_TEXT).map(function (a) {
@@ -531,7 +531,10 @@ async function openShipLogModal() {
     return (l.actor_kind === 'brand' ? '브랜드 ' : '운영팀 ') + (l.actor_name || '');
   };
   const tr = rows.map(function (l) {
-    const what = SHIP_LOG_ACTION_TEXT[l.action] + (l.person_count ? ' (' + l.person_count + '명)' : '');
+    // 자동 추가는 「새로 승인된 N명 추가」(피그마 a05-11) — 나머지는 「무엇 (N명)」
+    const what = (l.action === 'shipping_auto_add' && l.person_count)
+      ? '새로 승인된 ' + l.person_count + '명 추가'
+      : SHIP_LOG_ACTION_TEXT[l.action] + (l.person_count ? ' (' + l.person_count + '명)' : '');
     const btn = l.person_count ? '<button type="button" class="btn btn-ghost btn-xs" onclick="toggleShipLogPersons(this, ' + jsStr(l.id) + ')">사람 보기</button>' : '';
     return '<tr><td style="white-space:nowrap">' + esc(formatDateTime(l.at)) + '</td><td>' + esc(who(l)) + '</td><td>' + esc(what) + '</td><td style="text-align:right">' + btn + '</td></tr>'
       + '<tr class="ship-log-persons" data-log="' + esc(l.id) + '" style="display:none"><td colspan="4" style="background:var(--surface-container-low, #F7F7F8);font-size:12px;color:var(--muted)"></td></tr>';

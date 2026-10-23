@@ -86,7 +86,7 @@ async function renderLookupsTable() {
   { const note = $('lookupTableNote');
     if (note) {
       const NOTES = {
-        shipping_carrier: '배송 리스트의 택배사 고르기 목록입니다. 끄면 새로 고를 때만 안 보이고, 이미 저장된 송장의 택배사 이름은 그대로입니다. 목록에 없는 곳은 「기타」로 이름을 직접 적습니다.',
+        shipping_carrier: '배송 리스트의 택배사 고르기 목록입니다. 운영팀이 늘리고 줄입니다. 끄면 새로 고를 때만 안 보이고, 이미 저장된 줄은 그대로입니다(엑셀 내려받기에는 「기타」 + 이름).',
         cs_category: 'CS 건을 완료할 때 고르는 항목입니다. 끄면 새로 고를 때만 안 보이고, 이미 완료된 건의 항목은 그대로입니다. 「미분류(과거)」는 옛 문의를 옮겨 올 때만 쓰는 항목이라 바꾸거나 끌 수 없습니다.'
       };
       note.textContent = NOTES[_currentLookupKind] || '';
@@ -121,6 +121,8 @@ async function renderLookupsTable() {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
+  // 택배사 탭은 머리 제목에 건수(피그마 a05-14 「택배사 7개」)
+  if (title && _currentLookupKind === 'shipping_carrier') title.textContent = LOOKUP_KIND_LABEL_KO.shipping_carrier + ' ' + rows.length + '개';
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>`;
     return;
@@ -159,7 +161,7 @@ async function renderLookupsTable() {
       ${rtCell}
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        ${locked ? '' : `<button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>`}
+        ${locked ? '' : `<button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>${r.kind === 'shipping_carrier' ? '수정' : '편집'}</button>`}
         ${LOOKUP_KINDS_NO_DELETE.includes(r.kind) ? '' : `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>`}
       </td>`}
     </tr>`;
@@ -548,7 +550,7 @@ function openLookupEditModal(row) {
   if (_currentLookupKind === 'caution') { openCsetEditModal(row); return; }
   if (_currentLookupKind === 'ng_set') { openNgSetEditModal(row); return; }
   if (isLockedLookupRow(row)) { toast('「미분류(과거)」는 바꿀 수 없습니다','error'); return; }
-  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
+  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + (row.kind === 'shipping_carrier' ? ' 수정' : ' 편집');
   $('lookupEditId').value = row.id;
   $('lookupEditKind').value = row.kind;
   $('lookupNameKo').value = row.name_ko || '';

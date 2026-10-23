@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1792736084';
+  var CURRENT_BUILD = 'v1792736149';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -3686,7 +3686,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
         <div class="admin-build-info" id="adminBuildInfo" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-10-23 15:14 · 683ff0a</span>
+          <span class="admin-build-text">2026-10-23 15:15 · e628c3f</span>
         </div>
       </div>
     </aside>
@@ -49708,7 +49708,7 @@ async function renderLookupsTable() {
   { const note = $('lookupTableNote');
     if (note) {
       const NOTES = {
-        shipping_carrier: '배송 리스트의 택배사 고르기 목록입니다. 끄면 새로 고를 때만 안 보이고, 이미 저장된 송장의 택배사 이름은 그대로입니다. 목록에 없는 곳은 「기타」로 이름을 직접 적습니다.',
+        shipping_carrier: '배송 리스트의 택배사 고르기 목록입니다. 운영팀이 늘리고 줄입니다. 끄면 새로 고를 때만 안 보이고, 이미 저장된 줄은 그대로입니다(엑셀 내려받기에는 「기타」 + 이름).',
         cs_category: 'CS 건을 완료할 때 고르는 항목입니다. 끄면 새로 고를 때만 안 보이고, 이미 완료된 건의 항목은 그대로입니다. 「미분류(과거)」는 옛 문의를 옮겨 올 때만 쓰는 항목이라 바꾸거나 끌 수 없습니다.'
       };
       note.textContent = NOTES[_currentLookupKind] || '';
@@ -49743,6 +49743,8 @@ async function renderLookupsTable() {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
+  // 택배사 탭은 머리 제목에 건수(피그마 a05-14 「택배사 7개」)
+  if (title && _currentLookupKind === 'shipping_carrier') title.textContent = LOOKUP_KIND_LABEL_KO.shipping_carrier + ' ' + rows.length + '개';
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>`;
     return;
@@ -49781,7 +49783,7 @@ async function renderLookupsTable() {
       ${rtCell}
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        ${locked ? '' : `<button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>`}
+        ${locked ? '' : `<button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>${r.kind === 'shipping_carrier' ? '수정' : '편집'}</button>`}
         ${LOOKUP_KINDS_NO_DELETE.includes(r.kind) ? '' : `<button class="btn btn-ghost btn-xs" style="color:var(--red-d)" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>`}
       </td>`}
     </tr>`;
@@ -50170,7 +50172,7 @@ function openLookupEditModal(row) {
   if (_currentLookupKind === 'caution') { openCsetEditModal(row); return; }
   if (_currentLookupKind === 'ng_set') { openNgSetEditModal(row); return; }
   if (isLockedLookupRow(row)) { toast('「미분류(과거)」는 바꿀 수 없습니다','error'); return; }
-  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
+  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + (row.kind === 'shipping_carrier' ? ' 수정' : ' 편집');
   $('lookupEditId').value = row.id;
   $('lookupEditKind').value = row.kind;
   $('lookupNameKo').value = row.name_ko || '';
@@ -63870,7 +63872,7 @@ async function runShipDeliver() {
 // ── 전달·열람 기록(a05-11 — 최고 관리자만, D5·D26) ─────────────────
 const SHIP_LOG_ACTION_TEXT = {
   shipping_deliver:  '배송 리스트 전달',
-  shipping_auto_add: '새로 승인된 분 자동 추가',
+  shipping_auto_add: '새로 승인된 분 추가',
   shipping_view:     '배송 리스트 열람',
   shipping_excel:    '엑셀 내려받기',
 };
@@ -63886,7 +63888,7 @@ async function openShipLogModal() {
   const m = _shipEnsureModal('shipLogModal', '전달·열람 기록' + (camp && camp.title ? ' — ' + camp.title : ''), 640);
   const body = m.querySelector('.ship-modal-body');
   body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
-  m.querySelector('.ship-modal-foot').innerHTML = '<button type="button" class="btn btn-primary" onclick="closeModal(\'shipLogModal\')">닫기</button>';
+  m.querySelector('.ship-modal-foot').innerHTML = '<button type="button" class="btn btn-primary btn-sm" onclick="closeModal(\'shipLogModal\')">닫기</button>';
   openModal('shipLogModal');
   // 같은 캠페인의 결과물 열람 기록도 같은 표에 있다 — 종류마다 서버에서 걸러 받아(결과물 기록에 밀려 잘리지 않게) 합친 뒤 최근 50줄
   const parts = await Promise.all(Object.keys(SHIP_LOG_ACTION_TEXT).map(function (a) {
@@ -63901,7 +63903,10 @@ async function openShipLogModal() {
     return (l.actor_kind === 'brand' ? '브랜드 ' : '운영팀 ') + (l.actor_name || '');
   };
   const tr = rows.map(function (l) {
-    const what = SHIP_LOG_ACTION_TEXT[l.action] + (l.person_count ? ' (' + l.person_count + '명)' : '');
+    // 자동 추가는 「새로 승인된 N명 추가」(피그마 a05-11) — 나머지는 「무엇 (N명)」
+    const what = (l.action === 'shipping_auto_add' && l.person_count)
+      ? '새로 승인된 ' + l.person_count + '명 추가'
+      : SHIP_LOG_ACTION_TEXT[l.action] + (l.person_count ? ' (' + l.person_count + '명)' : '');
     const btn = l.person_count ? '<button type="button" class="btn btn-ghost btn-xs" onclick="toggleShipLogPersons(this, ' + jsStr(l.id) + ')">사람 보기</button>' : '';
     return '<tr><td style="white-space:nowrap">' + esc(formatDateTime(l.at)) + '</td><td>' + esc(who(l)) + '</td><td>' + esc(what) + '</td><td style="text-align:right">' + btn + '</td></tr>'
       + '<tr class="ship-log-persons" data-log="' + esc(l.id) + '" style="display:none"><td colspan="4" style="background:var(--surface-container-low, #F7F7F8);font-size:12px;color:var(--muted)"></td></tr>';
