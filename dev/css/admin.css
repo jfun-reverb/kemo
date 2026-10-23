@@ -240,6 +240,9 @@ input.admin-filter{padding-right:8px}
 .camp-ops-summary:empty{display:none;margin:0}
 .camp-ops-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r12);padding:14px 16px;min-width:0}
 .camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
+/* 모집현황 막대 이름표 끝 「· 외부 N명」 — 글자는 campExtFillCount(admin-camp-ext.js)가 「외부 N명」으로 채우고 구분점만 여기서 */
+#campOpsExtCount::before{content:'· '}
+#campOpsExtCount{margin-left:4px}
 .camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
 .camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
 .camp-ops-row .v{color:var(--ink);font-weight:600;word-break:break-word}

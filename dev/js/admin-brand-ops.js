@@ -204,14 +204,15 @@ function renderBrandOpsCards() {
   grid.innerHTML = list.map(renderBrandOpsCard).join('');
 }
 
-function brandOpsRateBar(label, rate, approved, total) {
+// afterHtml(선택) — 이름표 같은 줄 끝에 붙일 **이미 안전한** HTML(진행현황 「외부 N명」 — 부르는 쪽이 고정 문자열만 넘긴다)
+function brandOpsRateBar(label, rate, approved, total, afterHtml) {
   // rate 가 NULL(분모 0)이면 "—"
   var hasData = rate !== null && rate !== undefined;
   var pct = hasData ? Math.min(100, Math.max(0, Number(rate))) : 0;
   var valText = hasData ? (Number(rate).toFixed(0) + '%') : '—';
   var sub = (total !== undefined && total !== null) ? ('(' + (approved||0) + '/' + (total||0) + ')') : '';
   return '<div style="margin-top:6px">'
-    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px"><span>' + esc(label) + ' ' + sub + (afterHtml || '') + '</span><span style="font-weight:600;color:var(--ink)">' + valText + '</span></div>'
     + '<div style="height:6px;background:#eef0f3;border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (pct >= 50 ? 'var(--green)' : pct >= 30 ? '#f59e0b' : 'var(--red)') + '"></div></div>'
     + '</div>';
 }
