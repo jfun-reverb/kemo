@@ -19,7 +19,7 @@
 - 브랜드 화면은 일반 캠페인처럼 둔다. 기록용 표시를 내보내지 않는지 확인만 한다.
 
 **총 작업 조각:** 13개
-- 병렬 가능: kemo-cd(2~5) ∥ kemo-45(7·8) ∥ kemo-af(10·11)
+- 세션끼리 동시에 돈다: kemo-cd(2~5) ∥ kemo-45(7·8) ∥ kemo-af(10·11). 조각 표의 「병렬?」 칸은 같은 세션 안에서 조각끼리를 말한다
 - 순차 필수
   - 데이터베이스·서버 조각 1~5는 한 세션이 순서대로 한다(5는 서버 함수).
   - 조각 6은 핫스팟이라 먼저 짧게 병합한다.
@@ -118,7 +118,7 @@
 | S3 | 복제 | **원본이 기록용일 때만 고르는 창** — 「기록용으로 복제」·「일반 캠페인으로 복제」·「취소」. 일반 원본은 지금처럼 묻지 않는다 | 10 |
 | S4 | 오프라인 행사 조합 | **막는다** — 서버 검사 제약 + 저장 때 안내 | 1·10 |
 | S5 | 노출 토글 문구 | **기록용이면 「브랜드 페이지」 기준으로 바꾼다** | 10·11 |
-| S15 | 운영에 먼저 나가는 관리자 문구 | **브랜드 페이지·외부 결과 파일 문장은 `_brandAccountEnabled()`(개발서버)일 때만 붙인다.** 운영에서는 「인플루언서에게 보이지 않습니다」 쪽 문장만 보인다. 자리별 운영 문장은 조각 10·11 문구 표. 브랜드 페이지 출시 날 그 조건을 걷는다(2026-10-23 사용자) | 10·11 |
+| S15 | 운영에 먼저 나가는 관리자 문구 | **브랜드 페이지·외부 결과 파일 문장은 `_brandAccountEnabled()`(개발서버)일 때만 붙인다.** 운영에서는 「인플루언서에게 보이지 않습니다」 쪽 문장만 보인다. 자리별 운영 문장은 조각 10·11 문구 표. 예외: 등록 폼의 목적 설명(「다른 서비스로 진행한 캠페인의 결과를 붙이기 위한 캠페인」)은 기록용의 정의라 운영에도 둔다. 브랜드 페이지 출시 날 그 조건을 걷는다(2026-10-23 사용자) | 10·11 |
 | S16 | 일반 캠페인 편집 폼(체크 꺼진 채 잠김) 설명 | 「일반 캠페인입니다 — 등록한 뒤에는 기록용으로 바꿀 수 없습니다」 한 줄(kemo-af 제안, 기획 승인) | 10 |
 | S17 | 브랜드 카드 경고 줄의 「모집률 N%」 | 경고 판정용 모집률(기록용 제외)을 서버가 따로 내보내고 경고 줄만 그 값을 쓴다. 카드의 큰 모집률 숫자는 그대로(판정 근거와 표시가 어긋나지 않게 — kemo-cd 제안, 기획 승인) | 4·8 |
 
@@ -208,7 +208,7 @@
 | 5 | 홍보 메일 시험 발송 갈래 | `supabase/functions/notify-campaign-promo-digest/index.ts` | `testRecipient` 조회에 `.eq("is_record_only", false)` | 1 | ✗ | kemo-cd |
 | 6 | 공용 기반 | `dev/lib/shared.js`·`dev/lib/storage.js`(핫스팟) | `isRecordOnlyCampaign(camp)` · `recordOnlyBadgeHtml(camp)` · `ADMIN_LIST_COLUMNS` 에 `'is_record_only'` | 1(개발 데이터베이스) | ✗ 먼저 짧게 | kemo-45 |
 | 7 | 인플루언서 화면 숨김 | `dev/js/campaign.js`·`dev/js/application.js` | `visibleCamps` 에서 제외 · `openCampaign` 차단(미리보기는 통과) · 못 찾음 안내(S11) | 6 | ○ | kemo-45 |
-| 8 | 운영 현황 일정 뷰 + 브랜드 카드 경고 줄 | `dev/js/admin-brand-ops.js` | 꼬리표 「기록용」(`recordOnlyBadgeHtml(camp)`) · 빠른 필터 칩 `record_only` · `ganttCampaignAlert` 기록용이면 `null`(이중 안전망) · 경고 줄 모집률 `alert_recruit_rate ?? recruit_rate` | 6 | ○ | kemo-45 |
+| 8 | 운영 현황 일정 뷰 + 브랜드 카드 경고 줄 | `dev/js/admin-brand-ops.js` | 꼬리표 「기록용」(`recordOnlyBadgeHtml(camp)`) · 빠른 필터 칩 `record_only` · `ganttCampaignAlert` 기록용이면 `null`(이중 안전망) · 경고 줄 모집률 `alert_recruit_rate`(칸이 있으면 그 값 — null 포함, 칸이 없는 서버면 `recruit_rate`) | 6 | ○ | kemo-45 |
 | 9 | 브랜드 화면 확인 | (코드 없음) | 브랜드 응답에 기록용 칸이 없음을 확인 | 1 · 2 · 10 | ○ | kemo-45 |
 | 10 | 등록·편집 폼·확인 모달·복제 | `dev/admin/index.html`·`dev/js/admin.js`(핫스팟)·`dev/js/admin-core.js`·(확인만) `dev/js/admin-orient.js` | 체크 `#newCampRecordOnly`·`#editCampRecordOnly` · 확인 모달 · 복제 고르는 창 · `friendlyError` 둘 | 6 · 1 | ✗ kemo-af 단독 | kemo-af |
 | 11 | 목록 꼬리표·필터·노출 문구 | `dev/js/admin.js`·`dev/admin/index.html` | 목록에 `recordOnlyBadgeHtml(camp)` 붙이기 · `#campRecordOnlyFilter` · 노출 문구 | 10 | ✗ 10 뒤 | kemo-af |
@@ -243,7 +243,7 @@
 **검문소:** reverb-supabase-expert · reverb-reviewer · 다른 개발자에게 「326 재정의」를 알린다
 
 **롤백**
-- 운영 순서를 거꾸로 따라간다(생성 화면을 먼저 걷고 숨김을 나중에): 화면 10·11 → 6~8 → 5 → 4 → 3 → 2 → 이 조각. 롤백 시작 전에 기록용 캠페인이 0건인지(있으면 보관 삭제) 확인한다.
+- 운영 순서를 거꾸로 따라간다(생성 화면을 먼저 걷고 숨김을 나중에): 화면 10·11 → 6~8 → 5 → 4 → 3 → 2 → 이 조각. 롤백 시작 전에 기록용 캠페인이 **보관 삭제 포함 0건**인지 확인한다. 1건이라도 있으면 롤백을 멈추고 기획에 넘긴다(칸을 지우면 그 행이 일반 캠페인이 되어, 되살리는 순간 인플루언서에게 보인다).
 - 이 조각은 트리거·제약을 지우고 326 함수 블록을 다시 실행한 뒤, 맨 마지막에 칸을 지운다.
 
 ### 조각 2. 캠페인 조회 정책 (새 마이그레이션 B)
@@ -282,7 +282,7 @@
 ### 조각 4. 조치 경고 제외 (새 마이그레이션 D)
 
 - `get_campaign_action_alerts()` — 434 베이스. `target` CTE 에 `AND c.is_record_only = false` 를 넣는다.
-- `get_brand_ops_overview` — 259 베이스. **경고 플래그 재료만** 기록용을 뺀다(`d1`·`d3`·`soonest_dl`·플래그용 정원 합계).
+- `get_brand_ops_overview` — 259 베이스. **경고 플래그 재료만** 기록용을 뺀다(함수 안쪽 이름 `d1`·`d3`·`soonest_dl`·플래그용 정원 합계 — 응답 칸 이름으로는 `d1_count`·`d3_count`·`soonest_deadline`·새 칸 `alert_recruit_rate`).
   - 화면 숫자(`active_campaigns`·`slots_total`·`recruit_rate`)는 그대로 둔다.
   - 「표시 칸 / 플래그 재료」 구분을 머리 주석에 적는다.
 
@@ -330,10 +330,10 @@
 - 왼쪽 열 꼬리표 「기록용」은 조각 6의 `recordOnlyBadgeHtml(c)` 로 그린다.
 - `GANTT_QUICK_CHIPS` 에 `{code:'record_only', label:'기록용'}` 을 넣고, `ganttQuickMatch` 에 판정을 넣는다.
 - `ganttCampaignAlert` 맨 앞에 `if (isRecordOnlyCampaign(c)) return null;` 을 넣고 「서버가 이미 뺀다(434) — 이중 안전망」 주석을 단다. 순서 제약은 없다.
-- 브랜드 카드 경고 줄(admin-brand-ops.js:40-62)의 「모집률 N%」는 `alert_recruit_rate ?? recruit_rate` 를 쓴다(S17 — 조각 4 전에는 칸이 없어 기존 값). 카드의 큰 모집률 숫자는 그대로.
+- 브랜드 카드 경고 줄(admin-brand-ops.js:40-62)의 「모집률 N%」는 `alert_recruit_rate`(칸이 있으면 그 값 — null 포함, 칸이 없는 서버면 `recruit_rate`) 를 쓴다(S17 — 조각 4 전에는 칸이 없어 기존 값). 카드의 큰 모집률 숫자는 그대로.
 - 브랜드 뷰 미니카드에는 꼬리표·필터를 두지 않는다(S9).
 
-**완료 정의:** 꼬리표가 보인다 · 칩을 켜고 끄면 행이 맞게 걸러진다 · 경고 꼬리표가 없다 · `get_campaign_action_alerts` 결과와 같은 캠페인을 가리킨다 · (조각 4 뒤) 기록용 정원이 섞인 브랜드 카드의 경고 줄 모집률이 판정 근거와 같다.
+**완료 정의:** 꼬리표가 보인다 · 칩을 켜고 끄면 행이 맞게 걸러진다 · 경고 꼬리표가 없다 · (조각 4 뒤) `get_campaign_action_alerts` 결과와 같은 캠페인을 가리킨다 · (조각 4 뒤) 기록용 정원이 섞인 브랜드 카드의 경고 줄 모집률이 판정 근거와 같다.
 
 ### 조각 9. 브랜드 화면 확인 (코드 없음)
 
@@ -346,7 +346,7 @@
 
 ### 조각 10. 등록·편집 폼·확인 모달·복제 (kemo-af — 핫스팟 단독)
 
-**등록 폼:** 제목 줄 아래, 첫 폼 카드 위에 연보라 상자를 둔다.
+**등록 폼:** 노출 안내 한 줄(`newCampVisibilitySub`) 아래, 오프라인 행사 상자(`event-mode-box`) 위에 연보라 상자를 둔다(색은 관리자 토큰 `--accent-tint` 바탕 + `--accent` 테두리).
 - 체크 `#newCampRecordOnly` 「기록용 캠페인 (인플루언서 모집 없음)」
 - 설명(운영): 「다른 서비스(포인테일 등)로 진행한 캠페인의 결과를 붙이기 위한 캠페인입니다. 인플루언서 앱·응모·홍보 메일·인플루언서 일일 메일 어디에도 나오지 않습니다. 등록한 뒤에는 일반 캠페인으로 바꿀 수 없습니다.」
 - 개발서버(`_brandAccountEnabled()`)에서만 「등록한 뒤에는…」 앞에 「브랜드 페이지에는 일반 캠페인처럼 보입니다.」를 넣는다(S15).
@@ -465,7 +465,6 @@
 - **(kemo-45) `ADMIN_LIST_COLUMNS` 를 쓰는 곳은 캠페인 관리 목록뿐이다** — 일정 뷰와 인플루언서 앱은 `fetchCampaigns()`(전체 칸)라 조각 6의 storage.js 변경과 무관하다. 필요한 것은 조각 11뿐이다.
 - **(kemo-45) S11로 바뀌는 경로 셋** — 응모이력에서 보관 삭제 캠페인 카드(mypage.js:251) · 활동관리 뒤로가기(application.js:1795) · 초대 복귀(campaign.js:616·701). 모두 「공개되지 않았습니다」 안내 + 목록 이동이 된다(의도).
 - **(kemo-cd) 조각 5** — 시험 발송 조회는 초대 전용·보관 삭제도 지금 거르지 않는다. 이번에는 기록용만 더한다.
-- **(kemo-af) 등록 폼 배치** — 실제 폼은 제목 줄 노출 스위치 → 안내 한 줄(`newCampVisibilitySub`) → 오프라인 행사 상자(`event-mode-box`). 기록용 상자는 「안내 한 줄 아래, 오프라인 행사 상자 위」. 색은 관리자 토큰 `--accent-tint` 바탕 + `--accent` 테두리.
 
 ## 구현 결과
 (개발 세션이 조각마다 채운다)
